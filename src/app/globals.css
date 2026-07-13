@@ -17,7 +17,9 @@
   --danger-bg: #fef2f2;
   --text-main: #0f172a;
   --text-muted: #64748b;
-  --border-color: #e2e8f0;
+  --border-color: #cbd5e1;
+  --slate-250: #cbd5e1;
+  --slate-850: #f1f5f9;
 }
 
 /* Dark mode CSS overrides */
@@ -36,6 +38,8 @@
   --text-main: #f1f5f9;
   --text-muted: #94a3b8;
   --border-color: #1e293b;
+  --slate-250: #1e293b;
+  --slate-850: #131c2e;
 }
 
 @theme {
@@ -53,6 +57,8 @@
   --color-text-main: var(--text-main);
   --color-text-muted: var(--text-muted);
   --color-border-color: var(--border-color);
+  --color-slate-250: var(--slate-250);
+  --color-slate-850: var(--slate-850);
   
   --font-sans: 'Plus Jakarta Sans', sans-serif;
   --radius-xl: 18px;
@@ -169,4 +175,11 @@ input[type=number] {
 .timetable-grid {
   display: grid;
   grid-template-columns: 100px repeat(7, minmax(135px, 1fr));
+}
+
+.smooth-rounded {
+  overflow: hidden;
+  transform: translate3d(0, 0, 0);
+  -webkit-backface-visibility: hidden;
+  -webkit-transform: translate3d(0, 0, 0);
 }

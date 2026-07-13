@@ -10,7 +10,8 @@ import {
   Loader2, 
   AlertCircle,
   Briefcase,
-  Unlock
+  Unlock,
+  ShieldAlert
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
@@ -45,6 +46,7 @@ export default function ManageTeachersModal({
   const [editName, setEditName] = useState(selectedTeacher);
   const [editUsername, setEditUsername] = useState('');
   const [editPassword, setEditPassword] = useState('');
+  const [editRole, setEditRole] = useState<'admin' | 'teacher'>('teacher');
   
   // Add new teacher states
   const [showAddForm, setShowAddForm] = useState(false);
@@ -56,20 +58,14 @@ export default function ManageTeachersModal({
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Fetch teacher profiles from Supabase on open
+  // 1. Fetch teacher profiles ONCE when modal is opened
   useEffect(() => {
     if (!isOpen) return;
     
     const fetchProfiles = async () => {
       setLoading(true);
+      setError('');
       try {
-        const response = await fetch('/api/migrate', { // Use anonymous verify endpoint or profiles select
-          headers: {
-            'Authorization': `Bearer ${sessionToken}`
-          }
-        });
-        
-        // Querying public profiles directly on the client is safer and simpler!
         const { data, error: dbError } = await supabase
           .from('profiles')
           .select('username, teacher_name, role');
@@ -80,47 +76,51 @@ export default function ManageTeachersModal({
             profileMap[p.teacher_name] = p;
           });
           setTeacherProfiles(profileMap);
-          
-          // Pre-fill fields for selected teacher
-          const p = profileMap[selectedTeacher];
-          if (p) {
-            setEditName(p.teacher_name);
-            setEditUsername(p.username);
-          }
+        } else if (dbError) {
+          throw dbError;
         }
-      } catch (err) {
-        console.error('Failed to fetch profiles', err);
+      } catch (err: any) {
+        setError('Không thể tải hồ sơ tài khoản: ' + err.message);
       } finally {
         setLoading(false);
       }
     };
 
     fetchProfiles();
-  }, [isOpen, sessionToken, selectedTeacher]);
+  }, [isOpen]);
 
-  // Sync inputs when selected teacher changes
-  const handleSelectTeacher = (name: string) => {
-    setSelectedTeacher(name);
-    const p = teacherProfiles[name];
+  // 2. Sync inputs when selected teacher changes (No network calls, pure local state updates)
+  useEffect(() => {
+    const p = teacherProfiles[selectedTeacher];
     if (p) {
       setEditName(p.teacher_name);
       setEditUsername(p.username);
+      setEditRole((p.role as 'admin' | 'teacher') || 'teacher');
     } else {
-      setEditName(name);
+      setEditName(selectedTeacher);
       setEditUsername('');
+      setEditRole('teacher');
     }
     setEditPassword('');
     setError('');
     setSuccess('');
-  };
+  }, [selectedTeacher, teacherProfiles]);
 
   if (!isOpen) return null;
 
-  // 1. Save Teacher Updates (Name, Username, Password)
+  const handleSelectTeacher = (name: string) => {
+    setSelectedTeacher(name);
+  };
+
+  // 3. Save Teacher Updates (Name, Username, Password, Role)
   const handleSaveTeacher = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editName.trim()) {
       setError('Vui lòng nhập tên giáo viên.');
+      return;
+    }
+    if (!editUsername.trim()) {
+      setError('Vui lòng nhập tên đăng nhập.');
       return;
     }
 
@@ -138,8 +138,9 @@ export default function ManageTeachersModal({
         body: JSON.stringify({
           oldName: selectedTeacher,
           newName: editName.trim(),
-          newUsername: editUsername.trim() || undefined,
+          newUsername: editUsername.trim().toLowerCase(),
           newPassword: editPassword.trim() || undefined,
+          newRole: editRole,
         }),
       });
 
@@ -151,11 +152,11 @@ export default function ManageTeachersModal({
       setSuccess('Cập nhật thông tin tài khoản thành công!');
       setEditPassword('');
       
-      // Update local profiles list
+      // Update local profiles list cache
       const updatedProfile = {
-        username: editUsername.trim() || resData.newUsername,
+        username: editUsername.trim().toLowerCase(),
         teacher_name: editName.trim(),
-        role: teacherProfiles[selectedTeacher]?.role || 'teacher'
+        role: editRole
       };
       
       setTeacherProfiles(prev => {
@@ -167,7 +168,7 @@ export default function ManageTeachersModal({
 
       setSelectedTeacher(editName.trim());
       onTeacherUpdated(editName.trim());
-      setTimeout(() => setSuccess(''), 2000);
+      setTimeout(() => setSuccess(''), 2500);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -175,7 +176,7 @@ export default function ManageTeachersModal({
     }
   };
 
-  // 2. Add New Teacher Account
+  // 4. Add New Teacher Account
   const handleAddTeacher = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTeacherName.trim()) {
@@ -214,14 +215,28 @@ export default function ManageTeachersModal({
       }
 
       setSuccess(`Đã tạo giáo viên "${newTeacherName.trim()}" thành công!`);
+      
+      // Add profile mock to cache
+      const newUsername = resData.user?.username || newTeacherName.trim().toLowerCase().replace(/\s+/g, '');
+      const newProf = {
+        username: newUsername,
+        teacher_name: newTeacherName.trim(),
+        role: 'teacher'
+      };
+
+      setTeacherProfiles(prev => ({
+        ...prev,
+        [newTeacherName.trim()]: newProf
+      }));
+
       setNewTeacherName('');
       setNewTeacherPassword('123456');
       setShowAddForm(false);
       
-      // Refresh profiles list and select the new teacher
+      // Refresh list
       onTeacherUpdated(newTeacherName.trim());
       setSelectedTeacher(newTeacherName.trim());
-      setTimeout(() => setSuccess(''), 2000);
+      setTimeout(() => setSuccess(''), 2500);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -229,7 +244,7 @@ export default function ManageTeachersModal({
     }
   };
 
-  // 3. Delete Teacher Account
+  // 5. Delete Teacher Account
   const handleDeleteTeacher = async () => {
     if (teachers.length <= 1) {
       setError('Cần giữ lại ít nhất 1 giáo viên!');
@@ -264,11 +279,19 @@ export default function ManageTeachersModal({
       }
 
       setSuccess(`Đã xóa giáo viên "${selectedTeacher}" thành công.`);
+      
+      // Remove from cache
+      setTeacherProfiles(prev => {
+        const next = { ...prev };
+        delete next[selectedTeacher];
+        return next;
+      });
+
       const remaining = teachers.filter((t) => t !== selectedTeacher);
       const nextSelect = remaining[0] || '';
       setSelectedTeacher(nextSelect);
       onTeacherUpdated(nextSelect);
-      setTimeout(() => setSuccess(''), 2000);
+      setTimeout(() => setSuccess(''), 2500);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -288,7 +311,7 @@ export default function ManageTeachersModal({
           </h2>
           <button 
             onClick={onClose}
-            className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-850 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+            className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400 hover:text-slate-650 dark:hover:text-slate-200 transition-colors"
           >
             <X className="h-5 w-5" />
           </button>
@@ -296,18 +319,18 @@ export default function ManageTeachersModal({
 
         {/* Alerts and errors */}
         {error && (
-          <div className="mx-6 mt-4 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-xl text-red-600 dark:text-red-400 text-xs flex items-center gap-2">
+          <div className="mx-6 mt-4 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-xl text-red-650 dark:text-red-400 text-xs flex items-center gap-2">
             <AlertCircle className="h-4 w-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}
         {success && (
-          <div className="mx-6 mt-4 p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 rounded-xl text-emerald-600 dark:text-emerald-400 text-xs font-semibold">
+          <div className="mx-6 mt-4 p-3 bg-emerald-55 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 rounded-xl text-emerald-650 dark:text-emerald-400 text-xs font-bold">
             {success}
           </div>
         )}
 
-        {/* Modal Main Content Box - Two column layout on larger screens */}
+        {/* Modal Main Content Box */}
         <div className="flex-grow overflow-y-auto flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-slate-150 dark:divide-slate-800">
           
           {/* Left Column: Teachers List */}
@@ -322,7 +345,7 @@ export default function ManageTeachersModal({
                   setError('');
                   setSuccess('');
                 }}
-                className="px-2 py-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[10px] rounded-lg shadow-sm transition-all flex items-center gap-0.5 cursor-pointer uppercase tracking-wider"
+                className="px-2.5 py-1 bg-indigo-650 hover:bg-indigo-500 text-white font-bold text-[10px] rounded-lg shadow-sm transition-all flex items-center gap-0.5 cursor-pointer uppercase tracking-wider"
               >
                 <Plus className="h-3 w-3" />
                 Tạo Mới
@@ -341,7 +364,7 @@ export default function ManageTeachersModal({
                     className={`w-full text-left px-3.5 py-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
                       isActive
                         ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
-                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-850'
+                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
                     }`}
                   >
                     <span>{name}</span>
@@ -366,14 +389,14 @@ export default function ManageTeachersModal({
               /* Sub-View: Add New Teacher Account Form */
               <form onSubmit={handleAddTeacher} className="space-y-4 animate-fade-in text-left">
                 <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-2">
-                  <h3 className="font-extrabold text-sm text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <h3 className="font-extrabold text-sm text-indigo-650 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
                     <User className="h-4 w-4" />
                     Tạo Giáo Viên Mới
                   </h3>
                   <button
                     type="button"
                     onClick={() => setShowAddForm(false)}
-                    className="text-xs text-slate-400 hover:text-slate-650 hover:font-bold"
+                    className="text-xs text-slate-400 hover:text-slate-650 hover:font-bold cursor-pointer"
                   >
                     Hủy
                   </button>
@@ -422,8 +445,8 @@ export default function ManageTeachersModal({
                 </button>
               </form>
             ) : (
-              /* Sub-View: Selected Teacher details & password management card */
-              <form onSubmit={handleSaveTeacher} className="space-y-5 animate-fade-in text-left">
+              /* Sub-View: Selected Teacher details & credentials editor */
+              <form onSubmit={handleSaveTeacher} className="space-y-4 animate-fade-in text-left">
                 <div className="border-b border-slate-100 dark:border-slate-800 pb-2">
                   <h3 className="font-extrabold text-sm text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
                     <Briefcase className="h-4 w-4 text-indigo-500" />
@@ -431,21 +454,33 @@ export default function ManageTeachersModal({
                   </h3>
                 </div>
 
-                {/* Username Display Only */}
-                <div className="space-y-1">
-                  <span className="text-slate-400 dark:text-slate-500 text-[10px] font-extrabold uppercase tracking-wider block">
-                    Tên Đăng Nhập (Cố Định)
-                  </span>
-                  <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 dark:bg-slate-950 border border-slate-150 dark:border-slate-850 rounded-xl font-mono text-sm text-slate-600 dark:text-slate-400 font-bold select-all w-fit">
-                    <User className="h-4 w-4 text-slate-400 shrink-0" />
-                    <span>{editUsername || 'Đang tải...'}</span>
-                  </div>
+                {/* Edit Username (Login username) */}
+                <div className="space-y-1.5">
+                  <label htmlFor="editUsernameInput" className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider">
+                    Tên Đăng Nhập (Mã đăng nhập) *
+                  </label>
+                  <input
+                    id="editUsernameInput"
+                    type="text"
+                    required
+                    disabled={selectedTeacher === 'Admin' || selectedTeacher === 'admin'}
+                    value={editUsername}
+                    onChange={(e) => setEditUsername(e.target.value)}
+                    placeholder="VD: nguyenvana..."
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500 disabled:opacity-75 disabled:cursor-not-allowed font-semibold text-slate-700 dark:text-slate-300"
+                  />
+                  {(selectedTeacher === 'Admin' || selectedTeacher === 'admin') && (
+                    <div className="flex items-center gap-1.5 text-[9px] text-amber-600 dark:text-amber-450 font-bold uppercase tracking-wider">
+                      <ShieldAlert className="h-3 w-3" />
+                      Không thể sửa tên đăng nhập chính của hệ thống.
+                    </div>
+                  )}
                 </div>
 
-                {/* Edit Teacher Name */}
+                {/* Edit Teacher Display Name */}
                 <div className="space-y-1.5">
                   <label htmlFor="editNameInput" className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider">
-                    Họ & Tên Giáo Viên *
+                    Tên Hiển Thị (Họ & Tên) *
                   </label>
                   <input
                     id="editNameInput"
@@ -457,15 +492,32 @@ export default function ManageTeachersModal({
                   />
                 </div>
 
+                {/* Edit Role Select */}
+                <div className="space-y-1.5">
+                  <label htmlFor="editRoleSelect" className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider">
+                    Phân Quyền / Vai Trò *
+                  </label>
+                  <select
+                    id="editRoleSelect"
+                    value={editRole}
+                    disabled={selectedTeacher === 'Admin' || selectedTeacher === 'admin'}
+                    onChange={(e) => setEditRole(e.target.value as 'admin' | 'teacher')}
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500 disabled:opacity-75"
+                  >
+                    <option value="teacher">Giáo Viên (Normal Tutor)</option>
+                    <option value="admin">Quản Trị Viên (Admin)</option>
+                  </select>
+                </div>
+
                 {/* Reset Password */}
-                <div className="space-y-1.5 bg-indigo-50/20 dark:bg-indigo-950/10 border border-indigo-100/50 dark:border-indigo-900/30 rounded-2xl p-4 space-y-3.5">
+                <div className="space-y-1.5 bg-indigo-50/20 dark:bg-indigo-950/10 border border-indigo-100/50 dark:border-indigo-900/30 rounded-2xl p-4 space-y-3">
                   <div>
                     <h4 className="text-xs font-extrabold text-indigo-900 dark:text-indigo-300 uppercase tracking-wider flex items-center gap-1">
                       <Unlock className="h-3.5 w-3.5" />
                       Cấp lại mật khẩu
                     </h4>
                     <p className="text-[10px] text-slate-500 dark:text-slate-450 mt-0.5 leading-tight">
-                      Nhập vào ô dưới đây nếu bạn muốn đặt lại mật khẩu đăng nhập của giáo viên này:
+                      Nhập vào đây nếu muốn thay đổi mật khẩu đăng nhập của giáo viên này:
                     </p>
                   </div>
                   <div className="relative">
@@ -485,8 +537,8 @@ export default function ManageTeachersModal({
                   <button
                     type="button"
                     onClick={handleDeleteTeacher}
-                    disabled={loading || selectedTeacher === 'Admin' || selectedTeacher === activeTeacherName}
-                    className="px-3.5 py-2.5 text-red-650 dark:text-red-400 border border-red-205 dark:border-red-950 bg-red-50/40 dark:bg-red-950/10 hover:bg-red-100 dark:hover:bg-red-950/25 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all disabled:opacity-40 shrink-0 cursor-pointer"
+                    disabled={loading || selectedTeacher === 'Admin' || selectedTeacher === 'admin' || selectedTeacher === activeTeacherName}
+                    className="px-3.5 py-2.5 text-red-650 dark:text-red-400 border border-red-200 dark:border-red-950 bg-red-50/40 dark:bg-red-950/10 hover:bg-red-100 dark:hover:bg-red-950/25 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all disabled:opacity-40 shrink-0 cursor-pointer"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                     Xóa Tài Khoản
@@ -511,7 +563,7 @@ export default function ManageTeachersModal({
         <div className="px-6 py-4 bg-slate-50 dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800 flex justify-end shrink-0">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-slate-600 dark:text-slate-350 hover:bg-slate-100 dark:hover:bg-slate-850 rounded-xl text-sm font-semibold transition-all"
+            className="px-4 py-2 text-slate-600 dark:text-slate-350 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-sm font-semibold transition-all cursor-pointer"
           >
             Đóng
           </button>

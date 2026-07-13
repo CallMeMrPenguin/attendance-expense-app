@@ -16,10 +16,10 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
   if (timeSlots.length === 0) return null;
 
   return (
-    <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-2xl overflow-hidden border border-slate-250 dark:border-slate-800 shadow-sm min-w-[980px]">
+    <div className="w-full bg-slate-300 dark:bg-slate-800 rounded-2xl smooth-rounded border border-slate-250 dark:border-slate-800 shadow-sm min-w-[980px]">
       
       {/* Grid Header */}
-      <div className="grid grid-cols-[100px_repeat(7,_minmax(0,_1fr))] bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800">
+      <div className="grid grid-cols-[100px_repeat(7,_minmax(0,_1fr))] bg-slate-50 dark:bg-slate-950 border-b border-slate-250 dark:border-slate-800">
         <div className="py-3 px-2 flex items-center justify-center gap-1 text-xs font-extrabold uppercase text-slate-500 tracking-wider">
           <Clock className="h-3.5 w-3.5" />
           Giờ
@@ -40,7 +40,7 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
       </div>
 
       {/* Grid Rows */}
-      <div className="divide-y divide-slate-200 dark:divide-slate-800 bg-slate-100 dark:bg-slate-900">
+      <div className="divide-y divide-slate-250 dark:divide-slate-800 bg-slate-100 dark:bg-slate-900">
         {timeSlots.map((slot) => {
           // Find all sessions in this time slot on all days to draw colored stripes
           const slotSessionsAllDays = sessions.filter((s) => formatCleanTimeString(s.time) === slot);
@@ -89,7 +89,7 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
                 return (
                   <div
                     key={`${slot}-${day}`}
-                    className="p-1.5 border-r border-slate-200 dark:border-slate-800 last:border-r-0 flex flex-col gap-1.5 overflow-y-auto max-h-[120px]"
+                    className="p-1.5 border-r border-slate-250 dark:border-slate-800 last:border-r-0 flex flex-col gap-1.5 overflow-y-auto max-h-[120px]"
                   >
                     {Object.values(grouped).map((group) => {
                       const s = group[0];

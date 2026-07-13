@@ -359,23 +359,23 @@ export default function Dashboard() {
       <main className="max-w-7xl w-full mx-auto px-4 md:px-8 mt-6 flex-grow space-y-6">
         
         {/* Banner Header */}
-        <header className="bg-slate-900 dark:bg-slate-950/60 text-white rounded-2xl p-6 md:p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-lg border border-white/5 dark:border-white/5 relative overflow-hidden">
-          <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-[radial-gradient(circle_at_right,_var(--tw-gradient-stops))] from-indigo-500/10 to-transparent pointer-events-none"></div>
+        <header className="bg-white dark:bg-slate-950/60 text-slate-800 dark:text-white rounded-2xl p-6 md:p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-sm border border-slate-200 dark:border-white/5 relative overflow-hidden">
+          <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-[radial-gradient(circle_at_right,_var(--tw-gradient-stops))] from-indigo-500/5 dark:from-indigo-500/10 to-transparent pointer-events-none"></div>
           <div>
             <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">
-              Giáo Viên: <span className="bg-gradient-to-r from-indigo-300 to-cyan-300 bg-clip-text text-transparent">{activeTeacherName}</span>
+              Giáo Viên: <span className="text-indigo-600 dark:text-indigo-400 font-extrabold">{activeTeacherName}</span>
             </h1>
-            <p className="text-slate-450 dark:text-slate-400 text-xs md:text-sm mt-1 font-medium">
+            <p className="text-slate-500 dark:text-slate-400 text-xs md:text-sm mt-1 font-medium">
               Hệ thống quản lý thời khóa biểu, điểm số và tự động tính toán thu nhập hàng tháng.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3 shrink-0 z-10 w-full md:w-auto">
             {/* View toggler */}
-            <div className="bg-white/10 dark:bg-white/5 backdrop-blur-md border border-white/15 dark:border-white/10 p-1 rounded-xl flex gap-1">
+            <div className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 p-1 rounded-xl flex gap-1">
               <button
                 onClick={() => setCurrentView('month')}
                 className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  currentView === 'month' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-300 hover:text-white'
+                  currentView === 'month' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
                 }`}
               >
                 Lịch Tháng
@@ -383,7 +383,7 @@ export default function Dashboard() {
               <button
                 onClick={() => setCurrentView('week')}
                 className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  currentView === 'week' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-300 hover:text-white'
+                  currentView === 'week' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
                 }`}
               >
                 Lịch Tuần

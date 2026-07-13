@@ -50,10 +50,10 @@ export default function CalendarMonthView({
   };
 
   return (
-    <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-2xl overflow-hidden border border-slate-250 dark:border-slate-800 shadow-sm min-w-[980px]">
+    <div className="w-full bg-slate-300 dark:bg-slate-800 rounded-2xl smooth-rounded border border-slate-250 dark:border-slate-800 shadow-sm min-w-[980px]">
       
       {/* Weekday Headers */}
-      <div className="grid grid-cols-7 bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800">
+      <div className="grid grid-cols-7 bg-slate-50 dark:bg-slate-950 border-b border-slate-250 dark:border-slate-800">
         {DAYS.map((day, idx) => {
           const isWeekend = idx === 5 || idx === 6;
           return (

@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// 2. UPDATE TEACHER DETAILS (NAME, USERNAME, PASSWORD)
+// 2. UPDATE TEACHER DETAILS (NAME, USERNAME, PASSWORD, ROLE)
 export async function PUT(request: NextRequest) {
   try {
     const { error, adminClient } = await verifyAdmin(request);
@@ -105,7 +105,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error }, { status: 403 });
     }
 
-    const { oldName, newName, newUsername, newPassword } = await request.json();
+    const { oldName, newName, newUsername, newPassword, newRole } = await request.json();
     if (!oldName || !oldName.trim()) {
       return NextResponse.json({ error: 'Teacher identification name is required' }, { status: 400 });
     }
@@ -115,7 +115,7 @@ export async function PUT(request: NextRequest) {
     // 1. Find profile of the teacher
     const { data: profile, error: profileError } = await adminClient
       .from('profiles')
-      .select('id, username, teacher_name')
+      .select('id, username, teacher_name, role')
       .eq('teacher_name', trimmedOld)
       .single();
 
@@ -123,34 +123,21 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Không tìm thấy hồ sơ giáo viên!' }, { status: 404 });
     }
 
-    // 2. Update Password if provided
-    if (newPassword && newPassword.trim()) {
-      const { error: pwdError } = await adminClient.auth.admin.updateUserById(profile.id, {
-        password: newPassword.trim()
-      });
-      if (pwdError) {
-        return NextResponse.json({ error: `Lỗi đổi mật khẩu: ${pwdError.message}` }, { status: 400 });
-      }
-    }
-
     const trimmedNewName = newName?.trim();
     const trimmedNewUsername = newUsername?.trim().toLowerCase();
+    const activeUsername = trimmedNewUsername || (trimmedNewName ? generateUsername(trimmedNewName) : profile.username);
 
-    // 3. Update Name (and optionally username)
+    // 2. Update teachers table name if changed (this cascades automatically)
     if (trimmedNewName && trimmedNewName !== trimmedOld) {
-      // Check if new teacher name is already in use
-      if (trimmedNewName !== trimmedOld) {
-        const { data: existingTeacher } = await adminClient
-          .from('teachers')
-          .select('name')
-          .eq('name', trimmedNewName)
-          .maybeSingle();
-        if (existingTeacher) {
-          return NextResponse.json({ error: 'Tên giáo viên này đã tồn tại!' }, { status: 400 });
-        }
+      const { data: existingTeacher } = await adminClient
+        .from('teachers')
+        .select('name')
+        .eq('name', trimmedNewName)
+        .maybeSingle();
+      if (existingTeacher) {
+        return NextResponse.json({ error: 'Tên giáo viên này đã tồn tại!' }, { status: 400 });
       }
 
-      // Rename teacher (cascades automatically to public.profiles and public.sessions)
       const { error: renameError } = await adminClient
         .from('teachers')
         .update({ name: trimmedNewName })
@@ -159,25 +146,10 @@ export async function PUT(request: NextRequest) {
       if (renameError) {
         return NextResponse.json({ error: renameError.message }, { status: 400 });
       }
+    }
 
-      const activeUsername = trimmedNewUsername || generateUsername(trimmedNewName);
-      
-      // Update username in profiles
-      await adminClient
-        .from('profiles')
-        .update({ username: activeUsername })
-        .eq('id', profile.id);
-
-      // Update auth user metadata + email
-      await adminClient.auth.admin.updateUserById(profile.id, {
-        email: `${activeUsername}@giasupro.com`,
-        user_metadata: {
-          teacher_name: trimmedNewName,
-          username: activeUsername
-        }
-      });
-    } else if (trimmedNewUsername && trimmedNewUsername !== profile.username) {
-      // If only username is changed, verify it is unique
+    // 3. Verify custom username is unique if changed
+    if (trimmedNewUsername && trimmedNewUsername !== profile.username) {
       const { data: existingUser } = await adminClient
         .from('profiles')
         .select('id')
@@ -187,27 +159,65 @@ export async function PUT(request: NextRequest) {
       if (existingUser) {
         return NextResponse.json({ error: 'Tên đăng nhập đã tồn tại!' }, { status: 400 });
       }
+    }
 
-      // Update profiles
-      await adminClient
+    // 4. Update profiles table (username, role)
+    const profileUpdates: any = {};
+    if (activeUsername !== profile.username) {
+      profileUpdates.username = activeUsername;
+    }
+    if (newRole && (newRole === 'admin' || newRole === 'teacher') && newRole !== profile.role) {
+      if (profile.username === 'admin' && newRole !== 'admin') {
+        return NextResponse.json({ error: 'Không thể hạ quyền tài khoản admin hệ thống!' }, { status: 400 });
+      }
+      profileUpdates.role = newRole;
+    }
+
+    if (Object.keys(profileUpdates).length > 0) {
+      const { error: profError } = await adminClient
         .from('profiles')
-        .update({ username: trimmedNewUsername })
+        .update(profileUpdates)
         .eq('id', profile.id);
+      if (profError) {
+        return NextResponse.json({ error: profError.message }, { status: 400 });
+      }
+    }
 
-      // Update auth email
-      await adminClient.auth.admin.updateUserById(profile.id, {
-        email: `${trimmedNewUsername}@giasupro.com`,
-        user_metadata: {
-          teacher_name: profile.teacher_name,
-          username: trimmedNewUsername
-        }
-      });
+    // 5. Update auth user details (email, password, metadata)
+    const authUpdates: any = {};
+    if (newPassword && newPassword.trim()) {
+      authUpdates.password = newPassword.trim();
+    }
+    if (activeUsername !== profile.username) {
+      authUpdates.email = `${activeUsername}@giasupro.com`;
+    }
+
+    const userMetadata: any = {};
+    if (trimmedNewName && trimmedNewName !== trimmedOld) {
+      userMetadata.teacher_name = trimmedNewName;
+    }
+    if (activeUsername !== profile.username) {
+      userMetadata.username = activeUsername;
+    }
+    if (newRole && newRole !== profile.role) {
+      userMetadata.role = newRole;
+    }
+
+    if (Object.keys(userMetadata).length > 0) {
+      authUpdates.user_metadata = userMetadata;
+    }
+
+    if (Object.keys(authUpdates).length > 0) {
+      const { error: authUpdError } = await adminClient.auth.admin.updateUserById(profile.id, authUpdates);
+      if (authUpdError) {
+        return NextResponse.json({ error: `Lỗi cập nhật tài khoản: ${authUpdError.message}` }, { status: 400 });
+      }
     }
 
     return NextResponse.json({
       status: 'success',
       message: 'Cập nhật thông tin giáo viên thành công!',
-      newUsername: trimmedNewUsername || (trimmedNewName ? generateUsername(trimmedNewName) : profile.username)
+      newUsername: activeUsername
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
