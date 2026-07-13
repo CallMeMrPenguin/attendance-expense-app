@@ -82,13 +82,35 @@ export default function Dashboard() {
   }, []);
 
   const toggleTheme = () => {
-    const nextTheme = theme === 'light' ? 'dark' : 'light';
-    setTheme(nextTheme);
-    localStorage.setItem('theme', nextTheme);
-    if (nextTheme === 'dark') {
-      document.documentElement.classList.add('dark');
+    const shutter = document.getElementById('theme-shutter');
+    if (shutter) {
+      shutter.classList.add('animate');
+      
+      // Toggle theme state halfway through the shutter animation (250ms)
+      setTimeout(() => {
+        const nextTheme = theme === 'light' ? 'dark' : 'light';
+        setTheme(nextTheme);
+        localStorage.setItem('theme', nextTheme);
+        if (nextTheme === 'dark') {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      }, 250);
+
+      // Remove the class after the transition ends (500ms)
+      setTimeout(() => {
+        shutter.classList.remove('animate');
+      }, 500);
     } else {
-      document.documentElement.classList.remove('dark');
+      const nextTheme = theme === 'light' ? 'dark' : 'light';
+      setTheme(nextTheme);
+      localStorage.setItem('theme', nextTheme);
+      if (nextTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
     }
   };
 
@@ -444,6 +466,9 @@ export default function Dashboard() {
           </div>
         </section>
 
+        {/* Visual Section Divider */}
+        <hr className="border-t border-slate-250 dark:border-slate-800 my-2" />
+
         {/* Timetable Panel Area */}
         <section className="overflow-x-auto min-h-[360px] flex flex-col">
           {loading ? (
@@ -515,6 +540,9 @@ export default function Dashboard() {
         isOpen={passwordModalOpen}
         onClose={() => setPasswordModalOpen(false)}
       />
+
+      {/* Theme Transition sweeping Shutter overlay */}
+      <div id="theme-shutter" className="theme-shutter" />
 
     </div>
   );

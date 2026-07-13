@@ -250,8 +250,8 @@ export default function ManageTeachersModal({
       setError('Cần giữ lại ít nhất 1 giáo viên!');
       return;
     }
-    if (selectedTeacher === 'Admin' || selectedTeacher === activeTeacherName) {
-      setError('Không thể xóa giáo viên đang chọn hoặc tài khoản chính.');
+    if (selectedTeacher === 'Admin' || selectedTeacher === 'admin') {
+      setError('Không thể xóa tài khoản Admin hệ thống.');
       return;
     }
     const confirmed = confirm(
@@ -537,7 +537,7 @@ export default function ManageTeachersModal({
                   <button
                     type="button"
                     onClick={handleDeleteTeacher}
-                    disabled={loading || selectedTeacher === 'Admin' || selectedTeacher === 'admin' || selectedTeacher === activeTeacherName}
+                    disabled={loading || selectedTeacher === 'Admin' || selectedTeacher === 'admin'}
                     className="px-3.5 py-2.5 text-red-650 dark:text-red-400 border border-red-200 dark:border-red-950 bg-red-50/40 dark:bg-red-950/10 hover:bg-red-100 dark:hover:bg-red-950/25 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all disabled:opacity-40 shrink-0 cursor-pointer"
                   >
                     <Trash2 className="h-3.5 w-3.5" />

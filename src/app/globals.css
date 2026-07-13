@@ -16,10 +16,10 @@
   --danger: #ef4444;
   --danger-bg: #fef2f2;
   --text-main: #0f172a;
-  --text-muted: #64748b;
+  --text-muted: #475569;
   --border-color: #cbd5e1;
-  --slate-250: #cbd5e1;
-  --slate-850: #f1f5f9;
+  --slate-250: #b2becd; /* Crisp slate divider borders for light mode */
+  --slate-850: #f1f5f9; /* Soft background block for light mode */
 }
 
 /* Dark mode CSS overrides */
@@ -61,10 +61,12 @@
   --color-slate-850: var(--slate-850);
   
   --font-sans: 'Plus Jakarta Sans', sans-serif;
-  --radius-xl: 18px;
-  --radius-lg: 14px;
-  --radius-md: 10px;
-  --radius-sm: 6px;
+  
+  /* Modern square-rounded radius overrides (lower curve sizes) */
+  --radius-xl: 8px;   /* Modals, outer containers */
+  --radius-lg: 6px;   /* Header banner, cards */
+  --radius-md: 4px;   /* Buttons, inputs, dropdown selectors */
+  --radius-sm: 2px;   /* Checkboxes, small tags, badges */
 }
 
 body {
@@ -93,21 +95,12 @@ input[type=number] {
 ::-webkit-scrollbar-track {
   background: transparent;
 }
-.dark ::-webkit-scrollbar-track {
-  background: transparent;
-}
 ::-webkit-scrollbar-thumb {
   background: #cbd5e1;
   border-radius: 4px;
 }
 .dark ::-webkit-scrollbar-thumb {
   background: #334155;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
-}
-.dark ::-webkit-scrollbar-thumb:hover {
-  background: #475569;
 }
 
 /* Glowing background grid templates */
@@ -116,9 +109,9 @@ input[type=number] {
   background-image: 
     radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.04) 0px, transparent 50%), 
     radial-gradient(at 100% 0%, rgba(6, 182, 212, 0.04) 0px, transparent 50%),
-    linear-gradient(rgba(226, 232, 240, 0.35) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(226, 232, 240, 0.35) 1px, transparent 1px);
-  background-size: 100% 100%, 100% 100%, 20px 20px, 20px 20px;
+    linear-gradient(rgba(203, 213, 225, 0.4) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(203, 213, 225, 0.4) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 24px 24px, 24px 24px;
 }
 
 .grid-bg-dark {
@@ -128,42 +121,69 @@ input[type=number] {
     radial-gradient(at 100% 0%, rgba(6, 182, 212, 0.06) 0px, transparent 50%),
     linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-  background-size: 100% 100%, 100% 100%, 20px 20px, 20px 20px;
+  background-size: 100% 100%, 100% 100%, 24px 24px, 24px 24px;
+}
+
+/* Theme Sweep Transition Shutter Overlay */
+.theme-shutter {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: linear-gradient(to right, #4f46e5, #070c14);
+  z-index: 9999;
+  pointer-events: none;
+  transform: scaleX(0);
+  transform-origin: left;
+}
+
+.theme-shutter.animate {
+  animation: sweepLeftToRight 0.5s cubic-bezier(0.77, 0, 0.175, 1) forwards;
+}
+
+@keyframes sweepLeftToRight {
+  0% {
+    transform: scaleX(0);
+    transform-origin: left;
+  }
+  50% {
+    transform: scaleX(1);
+    transform-origin: left;
+  }
+  51% {
+    transform-origin: right;
+  }
+  100% {
+    transform: scaleX(0);
+    transform-origin: right;
+  }
 }
 
 /* Glassmorphism card templates */
 .glassmorphism {
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.75);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid var(--slate-250);
 }
 
 .dark .glassmorphism {
   background: rgba(15, 23, 42, 0.45);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.dark-glassmorphism {
-  background: rgba(15, 23, 42, 0.75);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .transition-all-ease {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: scale(0.97); }
-  to { opacity: 1; transform: scale(1); }
-}
-
 .animate-fade-in {
   animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 .calendar-grid {

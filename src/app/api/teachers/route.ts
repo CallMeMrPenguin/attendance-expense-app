@@ -117,17 +117,73 @@ export async function PUT(request: NextRequest) {
       .from('profiles')
       .select('id, username, teacher_name, role')
       .eq('teacher_name', trimmedOld)
-      .single();
-
-    if (profileError || !profile) {
-      return NextResponse.json({ error: 'Không tìm thấy hồ sơ giáo viên!' }, { status: 404 });
-    }
+      .maybeSingle();
 
     const trimmedNewName = newName?.trim();
     const trimmedNewUsername = newUsername?.trim().toLowerCase();
+
+    // 2. Handle orphan teacher (no profiles record exists yet, like 'Giáo Viên 1')
+    if (!profile) {
+      const { data: teacherRow } = await adminClient
+        .from('teachers')
+        .select('name')
+        .eq('name', trimmedOld)
+        .maybeSingle();
+
+      if (!teacherRow) {
+        return NextResponse.json({ error: 'Không tìm thấy giáo viên trong danh sách!' }, { status: 404 });
+      }
+
+      // Rename teacher row if changed
+      if (trimmedNewName && trimmedNewName !== trimmedOld) {
+        const { error: renameError } = await adminClient
+          .from('teachers')
+          .update({ name: trimmedNewName })
+          .eq('name', trimmedOld);
+
+        if (renameError) {
+          return NextResponse.json({ error: renameError.message }, { status: 400 });
+        }
+      }
+
+      // Lazy create login account if credentials were provided
+      if (trimmedNewUsername) {
+        const { data: existingUser } = await adminClient
+          .from('profiles')
+          .select('id')
+          .eq('username', trimmedNewUsername)
+          .maybeSingle();
+
+        if (existingUser) {
+          return NextResponse.json({ error: 'Tên đăng nhập đã tồn tại!' }, { status: 400 });
+        }
+
+        const { data: authData, error: createError } = await adminClient.auth.admin.createUser({
+          email: `${trimmedNewUsername}@giasupro.com`,
+          password: newPassword?.trim() || '123456',
+          email_confirm: true,
+          user_metadata: {
+            role: newRole || 'teacher',
+            teacher_name: trimmedNewName || trimmedOld,
+            username: trimmedNewUsername
+          }
+        });
+
+        if (createError) {
+          return NextResponse.json({ error: `Lỗi tạo tài khoản đăng nhập: ${createError.message}` }, { status: 400 });
+        }
+      }
+
+      return NextResponse.json({
+        status: 'success',
+        message: 'Cập nhật thông tin giáo viên thành công!',
+        newUsername: trimmedNewUsername || trimmedOld.toLowerCase().replace(/\s+/g, '')
+      });
+    }
+
     const activeUsername = trimmedNewUsername || (trimmedNewName ? generateUsername(trimmedNewName) : profile.username);
 
-    // 2. Update teachers table name if changed (this cascades automatically)
+    // 3. Update teachers table name if changed (this cascades automatically)
     if (trimmedNewName && trimmedNewName !== trimmedOld) {
       const { data: existingTeacher } = await adminClient
         .from('teachers')
@@ -148,7 +204,7 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    // 3. Verify custom username is unique if changed
+    // 4. Verify custom username is unique if changed
     if (trimmedNewUsername && trimmedNewUsername !== profile.username) {
       const { data: existingUser } = await adminClient
         .from('profiles')
@@ -161,7 +217,7 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    // 4. Update profiles table (username, role)
+    // 5. Update profiles table (username, role)
     const profileUpdates: any = {};
     if (activeUsername !== profile.username) {
       profileUpdates.username = activeUsername;
@@ -183,7 +239,7 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    // 5. Update auth user details (email, password, metadata)
+    // 6. Update auth user details (email, password, metadata)
     const authUpdates: any = {};
     if (newPassword && newPassword.trim()) {
       authUpdates.password = newPassword.trim();
