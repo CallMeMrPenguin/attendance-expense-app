@@ -1,4 +1,4 @@
-/*
+
  * ===================================================================
  * GOOGLE APPS SCRIPT WEB APP - THỜI KHÓA BIỂU GIA SƯ ĐA LỊCH & MÀU SẮC
  * File 1 trong Apps Script: Code.gs
