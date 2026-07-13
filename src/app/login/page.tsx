@@ -2,7 +2,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { GraduationCap, Lock, User, AlertCircle, Loader2 } from 'lucide-react';
+import { 
+  GraduationCap, 
+  Lock, 
+  User, 
+  AlertCircle, 
+  Loader2, 
+  Eye, 
+  EyeOff 
+} from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 export default function LoginPage() {
@@ -11,6 +19,10 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Password visibility and Remember Me states
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
   // If already logged in, redirect to home page
   useEffect(() => {
@@ -21,6 +33,15 @@ export default function LoginPage() {
       }
     };
     checkSession();
+
+    // Retrieve saved login credentials if checked previously
+    const savedUser = localStorage.getItem('remembered_username');
+    const savedPass = localStorage.getItem('remembered_password');
+    if (savedUser && savedPass) {
+      setUsername(savedUser);
+      setPassword(savedPass);
+      setRememberMe(true);
+    }
   }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -61,6 +82,15 @@ export default function LoginPage() {
         setError('Tài khoản này chưa được kích hoạt hồ sơ giáo viên.');
         setLoading(false);
         return;
+      }
+
+      // Save credentials if Remember Me is checked
+      if (rememberMe) {
+        localStorage.setItem('remembered_username', username.trim());
+        localStorage.setItem('remembered_password', password);
+      } else {
+        localStorage.removeItem('remembered_username');
+        localStorage.removeItem('remembered_password');
       }
 
       // Redirect to dashboard
@@ -109,7 +139,7 @@ export default function LoginPage() {
                 disabled={loading}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Nhập tên đăng nhập (VD: admin, gv1)..."
+                placeholder="Nhập tên đăng nhập (VD: admin)..."
                 className="w-full pl-11 pr-4 py-3 bg-slate-950/60 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all disabled:opacity-50 text-sm"
               />
             </div>
@@ -123,15 +153,36 @@ export default function LoginPage() {
               <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
               <input
                 id="password"
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 required
                 disabled={loading}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Nhập mật khẩu..."
-                className="w-full pl-11 pr-4 py-3 bg-slate-950/60 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all disabled:opacity-50 text-sm"
+                className="w-full pl-11 pr-11 py-3 bg-slate-950/60 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all disabled:opacity-50 text-sm"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 hover:bg-white/5 rounded-lg text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+                title={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+              >
+                {showPassword ? <EyeOff className="h-4.5 w-4.5" /> : <Eye className="h-4.5 w-4.5" />}
+              </button>
             </div>
+          </div>
+
+          {/* Remember me checkbox row */}
+          <div className="flex items-center justify-between py-1 select-none">
+            <label className="flex items-center gap-2 cursor-pointer text-slate-400 hover:text-slate-350 text-xs font-semibold">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="h-4 w-4 rounded border-white/10 bg-slate-950/60 text-indigo-500 focus:ring-indigo-500 cursor-pointer"
+              />
+              <span>Ghi nhớ đăng nhập</span>
+            </label>
           </div>
 
           <button

@@ -167,7 +167,7 @@ export default function ManageTeachersModal({
       });
 
       setSelectedTeacher(editName.trim());
-      onTeacherUpdated(editName.trim());
+      onTeacherUpdated(selectedTeacher === activeTeacherName ? editName.trim() : undefined);
       setTimeout(() => setSuccess(''), 2500);
     } catch (err: any) {
       setError(err.message);

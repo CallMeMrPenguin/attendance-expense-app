@@ -403,49 +403,49 @@ export default function Dashboard() {
 
         {/* Stats Grid Cards */}
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white/70 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-850 rounded-2xl p-4 flex justify-between items-center shadow-sm">
+          <div className="bg-white/70 dark:bg-slate-950/40 backdrop-blur-md border border-slate-200 dark:border-slate-850 rounded-2xl p-4 flex justify-between items-center shadow-sm hover:shadow-md hover:scale-[1.01] transition-all duration-300">
             <div className="text-left">
               <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500">Ca Dạy Trong Tháng</span>
               <div className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1">{totalSessions}</div>
             </div>
-            <div className="h-10 w-10 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 rounded-xl flex items-center justify-center">
+            <div className="h-10 w-10 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-650 dark:text-indigo-450 rounded-xl flex items-center justify-center">
               <CalendarIcon className="h-5 w-5" />
             </div>
           </div>
 
-          <div className="bg-white/70 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-850 rounded-2xl p-4 flex justify-between items-center shadow-sm">
+          <div className="bg-white/70 dark:bg-slate-950/40 backdrop-blur-md border border-slate-200 dark:border-slate-850 rounded-2xl p-4 flex justify-between items-center shadow-sm hover:shadow-md hover:scale-[1.01] transition-all duration-300">
             <div className="text-left">
               <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500">Ca Hoàn Thành</span>
               <div className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1">{completedSessions}</div>
             </div>
-            <div className="h-10 w-10 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 rounded-xl flex items-center justify-center">
+            <div className="h-10 w-10 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-650 dark:text-emerald-450 rounded-xl flex items-center justify-center">
               <CheckCircle2 className="h-5 w-5" />
             </div>
           </div>
 
-          <div className="bg-white/70 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-850 rounded-2xl p-4 flex justify-between items-center shadow-sm">
+          <div className="bg-white/70 dark:bg-slate-950/40 backdrop-blur-md border border-slate-200 dark:border-slate-850 rounded-2xl p-4 flex justify-between items-center shadow-sm hover:shadow-md hover:scale-[1.01] transition-all duration-300">
             <div className="text-left">
               <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500">Thu Nhập Thực Tế</span>
               <div className="text-xl font-extrabold text-slate-900 dark:text-white mt-1.5">{formatVND(earnedIncome)}</div>
             </div>
-            <div className="h-10 w-10 bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 rounded-xl flex items-center justify-center">
+            <div className="h-10 w-10 bg-amber-50 dark:bg-amber-950/30 text-amber-650 dark:text-amber-450 rounded-xl flex items-center justify-center">
               <DollarSign className="h-5 w-5" />
             </div>
           </div>
 
-          <div className="bg-white/70 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-850 rounded-2xl p-4 flex justify-between items-center shadow-sm">
+          <div className="bg-white/70 dark:bg-slate-950/40 backdrop-blur-md border border-slate-200 dark:border-slate-850 rounded-2xl p-4 flex justify-between items-center shadow-sm hover:shadow-md hover:scale-[1.01] transition-all duration-300">
             <div className="text-left">
               <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500">Dự Kiến Thu Nhập</span>
               <div className="text-xl font-extrabold text-slate-900 dark:text-white mt-1.5">{formatVND(projectedIncome)}</div>
             </div>
-            <div className="h-10 w-10 bg-cyan-50 dark:bg-cyan-950/30 text-cyan-600 dark:text-cyan-400 rounded-xl flex items-center justify-center">
+            <div className="h-10 w-10 bg-cyan-50 dark:bg-cyan-950/30 text-cyan-650 dark:text-cyan-455 rounded-xl flex items-center justify-center">
               <TrendingUp className="h-5 w-5" />
             </div>
           </div>
         </section>
 
         {/* Timetable Panel Area */}
-        <section className="bg-white/80 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-850 rounded-2xl shadow-sm overflow-x-auto min-h-[360px] flex flex-col">
+        <section className="overflow-x-auto min-h-[360px] flex flex-col">
           {loading ? (
             <div className="flex-grow flex flex-col items-center justify-center p-12 text-slate-400 gap-3">
               <RefreshCw className="h-8 w-8 text-indigo-500 animate-spin" />
