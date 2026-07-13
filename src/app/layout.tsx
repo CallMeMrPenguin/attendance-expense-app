@@ -25,7 +25,25 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="vi" className={`${plusJakartaSans.variable} font-sans h-full antialiased`}>
-      <body className="min-h-full bg-slate-50 text-slate-900 flex flex-col">
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var theme = localStorage.getItem('theme');
+                  if (theme === 'dark') {
+                    document.documentElement.classList.add('dark');
+                  } else {
+                    document.documentElement.classList.remove('dark');
+                  }
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
+      </head>
+      <body className="min-h-full flex flex-col transition-colors duration-300">
         {children}
       </body>
     </html>

@@ -72,7 +72,7 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-slate-900 via-indigo-950 to-slate-950 p-4">
+    <main className="min-h-screen flex items-center justify-center grid-bg-dark p-4">
       <div className="w-full max-w-md bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-8 animate-fade-in text-white">
         
         {/* Header/Logo */}

@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// 2. RENAME TEACHER
+// 2. UPDATE TEACHER DETAILS (NAME, USERNAME, PASSWORD)
 export async function PUT(request: NextRequest) {
   try {
     const { error, adminClient } = await verifyAdmin(request);
@@ -105,53 +105,109 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error }, { status: 403 });
     }
 
-    const { oldName, newName } = await request.json();
-    if (!oldName || !newName || !oldName.trim() || !newName.trim()) {
-      return NextResponse.json({ error: 'Old and new teacher names are required' }, { status: 400 });
+    const { oldName, newName, newUsername, newPassword } = await request.json();
+    if (!oldName || !oldName.trim()) {
+      return NextResponse.json({ error: 'Teacher identification name is required' }, { status: 400 });
     }
 
     const trimmedOld = oldName.trim();
-    const trimmedNew = newName.trim();
 
-    // 1. Update teachers table (this cascades ON UPDATE to public.profiles and public.sessions)
-    const { error: renameError } = await adminClient
-      .from('teachers')
-      .update({ name: trimmedNew })
-      .eq('name', trimmedOld);
-
-    if (renameError) {
-      return NextResponse.json({ error: renameError.message }, { status: 400 });
-    }
-
-    // 2. Query the updated profile to get the auth user ID and update metadata + username
-    const newUsername = generateUsername(trimmedNew);
+    // 1. Find profile of the teacher
     const { data: profile, error: profileError } = await adminClient
       .from('profiles')
-      .select('id')
-      .eq('teacher_name', trimmedNew)
+      .select('id, username, teacher_name')
+      .eq('teacher_name', trimmedOld)
       .single();
 
-    if (!profileError && profile) {
+    if (profileError || !profile) {
+      return NextResponse.json({ error: 'Không tìm thấy hồ sơ giáo viên!' }, { status: 404 });
+    }
+
+    // 2. Update Password if provided
+    if (newPassword && newPassword.trim()) {
+      const { error: pwdError } = await adminClient.auth.admin.updateUserById(profile.id, {
+        password: newPassword.trim()
+      });
+      if (pwdError) {
+        return NextResponse.json({ error: `Lỗi đổi mật khẩu: ${pwdError.message}` }, { status: 400 });
+      }
+    }
+
+    const trimmedNewName = newName?.trim();
+    const trimmedNewUsername = newUsername?.trim().toLowerCase();
+
+    // 3. Update Name (and optionally username)
+    if (trimmedNewName && trimmedNewName !== trimmedOld) {
+      // Check if new teacher name is already in use
+      if (trimmedNewName !== trimmedOld) {
+        const { data: existingTeacher } = await adminClient
+          .from('teachers')
+          .select('name')
+          .eq('name', trimmedNewName)
+          .maybeSingle();
+        if (existingTeacher) {
+          return NextResponse.json({ error: 'Tên giáo viên này đã tồn tại!' }, { status: 400 });
+        }
+      }
+
+      // Rename teacher (cascades automatically to public.profiles and public.sessions)
+      const { error: renameError } = await adminClient
+        .from('teachers')
+        .update({ name: trimmedNewName })
+        .eq('name', trimmedOld);
+
+      if (renameError) {
+        return NextResponse.json({ error: renameError.message }, { status: 400 });
+      }
+
+      const activeUsername = trimmedNewUsername || generateUsername(trimmedNewName);
+      
       // Update username in profiles
       await adminClient
         .from('profiles')
-        .update({ username: newUsername })
+        .update({ username: activeUsername })
         .eq('id', profile.id);
 
-      // Update auth user metadata
+      // Update auth user metadata + email
       await adminClient.auth.admin.updateUserById(profile.id, {
-        email: `${newUsername}@giasupro.com`, // Sync email too!
+        email: `${activeUsername}@giasupro.com`,
         user_metadata: {
-          teacher_name: trimmedNew,
-          username: newUsername
+          teacher_name: trimmedNewName,
+          username: activeUsername
+        }
+      });
+    } else if (trimmedNewUsername && trimmedNewUsername !== profile.username) {
+      // If only username is changed, verify it is unique
+      const { data: existingUser } = await adminClient
+        .from('profiles')
+        .select('id')
+        .eq('username', trimmedNewUsername)
+        .maybeSingle();
+
+      if (existingUser) {
+        return NextResponse.json({ error: 'Tên đăng nhập đã tồn tại!' }, { status: 400 });
+      }
+
+      // Update profiles
+      await adminClient
+        .from('profiles')
+        .update({ username: trimmedNewUsername })
+        .eq('id', profile.id);
+
+      // Update auth email
+      await adminClient.auth.admin.updateUserById(profile.id, {
+        email: `${trimmedNewUsername}@giasupro.com`,
+        user_metadata: {
+          teacher_name: profile.teacher_name,
+          username: trimmedNewUsername
         }
       });
     }
 
     return NextResponse.json({
       status: 'success',
-      message: `Teacher renamed from "${trimmedOld}" to "${trimmedNew}" successfully!`,
-      newUsername
+      message: 'Cập nhật thông tin giáo viên thành công!',
+      newUsername: trimmedNewUsername || (trimmedNewName ? generateUsername(trimmedNewName) : profile.username)
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

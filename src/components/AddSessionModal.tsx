@@ -206,7 +206,7 @@ export default function AddSessionModal({
 
             <div className="space-y-1.5">
               <label htmlFor="studentName" className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider">
-                Họ & Tên Học Sinh *
+                Tên học sinh *
               </label>
               <input
                 id="studentName"
@@ -222,7 +222,7 @@ export default function AddSessionModal({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label htmlFor="price" className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider">
-                  Học Phí/Buổi (VNĐ) *
+                  Học phí/buổi *
                 </label>
                 <input
                   id="price"
@@ -239,7 +239,7 @@ export default function AddSessionModal({
 
               <div className="space-y-1.5">
                 <label htmlFor="initialStatus" className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider">
-                  Trạng Thái Ban Đầu
+                  Trạng thái
                 </label>
                 <select
                   id="initialStatus"
@@ -257,10 +257,10 @@ export default function AddSessionModal({
             <div className="space-y-3">
               <div className="border-t border-slate-100 dark:border-slate-850 pt-4">
                 <label className="text-slate-900 dark:text-white font-bold text-sm block">
-                  Chọn Thứ Học & Thiết Lập Giờ Định Kỳ
+                  Lịch học định kỳ
                 </label>
                 <p className="text-slate-500 dark:text-slate-400 text-xs mt-0.5">
-                  Tích chọn các thứ trong tuần và nhập giờ bắt đầu học tương ứng:
+                  Chọn thứ và nhập giờ học tương ứng:
                 </p>
               </div>
 

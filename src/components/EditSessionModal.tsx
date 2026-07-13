@@ -1,5 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Trash2, Clock, AlertTriangle, Loader2, Calendar } from 'lucide-react';
+import { 
+  X, 
+  Save, 
+  Trash2, 
+  Clock, 
+  Loader2, 
+  ChevronDown, 
+  ChevronUp, 
+  BookOpen, 
+  CalendarDays,
+  FileText
+} from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import {
   DAYS,
@@ -57,7 +68,11 @@ export default function EditSessionModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Hydrate form fields when session changes
+  // Accordion collapsed states (default collapsed for a cleaner, compact visual UI)
+  const [siblingsCollapsed, setSiblingsCollapsed] = useState(true);
+  const [recurringCollapsed, setRecurringCollapsed] = useState(true);
+
+  // Hydrate fields
   useEffect(() => {
     if (!session) return;
 
@@ -71,7 +86,7 @@ export default function EditSessionModal({
     setTime(formatCleanTimeString(session.time));
     setDuration(session.duration || 1.5);
 
-    // Find sibling sessions for the same student, month, and teacher
+    // Find siblings
     const related = existingSessions.filter(
       (s) =>
         s.student_name === session.student_name &&
@@ -82,14 +97,14 @@ export default function EditSessionModal({
     setSiblings(
       related.map((s) => ({
         id: s.id,
-        checked: true, // Default checked for bulk edit/delete
+        checked: true,
         date: s.date,
         time: s.time,
         duration: s.duration,
       }))
     );
 
-    // Set recurring weekdays configs based on these siblings
+    // Set recurring weekdays configs
     const recurringMap: Record<string, RecurringDayConfig> = DAYS.reduce((acc, day) => {
       const match = related.find((s) => s.day_of_week === day);
       acc[day] = {
@@ -101,6 +116,10 @@ export default function EditSessionModal({
     }, {} as Record<string, RecurringDayConfig>);
 
     setRecurringConfigs(recurringMap);
+    
+    // Collapse by default when switching sessions
+    setSiblingsCollapsed(true);
+    setRecurringCollapsed(true);
   }, [session, existingSessions]);
 
   if (!isOpen || !session) return null;
@@ -116,15 +135,6 @@ export default function EditSessionModal({
       ...prev,
       [day]: { ...prev[day], checked },
     }));
-
-    // Auto sync single edit day fields if active day matches
-    if (day === dayOfWeek) {
-      if (!checked) {
-        // Checked off
-      } else {
-        // Checked on
-      }
-    }
   };
 
   const handleRecurringTimeChange = (day: string, timeVal: string) => {
@@ -149,7 +159,6 @@ export default function EditSessionModal({
     }
   };
 
-  // Sync manual edits of Day, Time, and Duration to the recurring configuration list
   const handleActiveDayTimeDurationChange = (
     newDay: string,
     newTime: string,
@@ -161,7 +170,6 @@ export default function EditSessionModal({
 
     setRecurringConfigs((prev) => {
       const updated = { ...prev };
-      // Turn on check for new day
       updated[newDay] = {
         checked: true,
         time: formatCleanTimeString(newTime),
@@ -171,8 +179,17 @@ export default function EditSessionModal({
     });
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSave = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!studentName.trim()) {
+      setError('Vui lòng nhập tên học sinh.');
+      return;
+    }
+    if (!price || Number(price) < 0) {
+      setError('Vui lòng nhập giá học phí.');
+      return;
+    }
+
     setLoading(true);
     setError('');
 
@@ -185,7 +202,6 @@ export default function EditSessionModal({
         throw new Error('Vui lòng chọn ít nhất 1 thứ trong lịch định kỳ!');
       }
 
-      // Find all old sibling sessions
       const oldSiblings = existingSessions.filter(
         (s) =>
           s.student_name === session.student_name &&
@@ -200,7 +216,6 @@ export default function EditSessionModal({
       selectedDays.forEach(({ day, time: dayTime, duration: dayDur }) => {
         const dates = getDatesForWeekday(session.month_year, day);
         dates.forEach((dStr) => {
-          // Check if sibling already exists on this date
           const existing = oldSiblings.find((item) => item.date === dStr);
           if (existing) {
             const updated = {
@@ -213,7 +228,6 @@ export default function EditSessionModal({
               color: newColor,
             };
 
-            // If this is the specific active session opened in the modal, apply specific fields
             if (existing.id === session.id) {
               updated.status = status;
               updated.grade = grade.trim();
@@ -223,7 +237,6 @@ export default function EditSessionModal({
 
             newSiblingSessions.push(updated);
           } else {
-            // Create a brand new session for added weekday
             newSiblingSessions.push({
               teacher_name: session.teacher_name,
               student_name: studentName.trim(),
@@ -273,7 +286,7 @@ export default function EditSessionModal({
         }
       }
 
-      // Remove all historical siblings that are no longer part of the new recurring weekdays config
+      // Remove untracked siblings
       const keepIds = newSiblingSessions.map((s) => s.id).filter(Boolean) as string[];
       const deleteIds = oldSiblingIds.filter((id) => !keepIds.includes(id));
 
@@ -282,15 +295,13 @@ export default function EditSessionModal({
           .from('sessions')
           .delete()
           .in('id', deleteIds);
-
         if (deleteError) throw new Error(deleteError.message);
       }
 
-      // Upsert the updated and new session configurations
+      // Upsert
       const { error: upsertError } = await supabase
         .from('sessions')
         .upsert(newSiblingSessions);
-
       if (upsertError) throw new Error(upsertError.message);
 
       onSave();
@@ -334,34 +345,72 @@ export default function EditSessionModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in">
+    <div className="fixed inset-0 bg-slate-900/60 dark:bg-slate-950/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in">
       <div className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden border border-slate-200 dark:border-slate-800 animate-fade-in flex flex-col max-h-[90vh]">
         
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950 shrink-0">
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-            Chỉnh Sửa Ca Dạy Cụ Thể
-          </h2>
-          <button 
-            onClick={onClose}
-            className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-850 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-          >
-            <X className="h-5 w-5" />
-          </button>
+        {/* Header - Static Sticky Top Actions Bar */}
+        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-950 shrink-0">
+          <div className="flex flex-col">
+            <h2 className="text-sm font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">
+              Chi Tiết Ca Dạy
+            </h2>
+            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase mt-0.5 tracking-wider">
+              {formatDateVN(session.date)}
+            </span>
+          </div>
+
+          {/* Action Buttons Fixed At The Top */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={loading}
+              onClick={handleDeleteSessions}
+              className="px-3 py-1.5 bg-red-50 hover:bg-red-100 dark:bg-red-950/20 dark:hover:bg-red-950/40 border border-red-200 dark:border-red-900/30 text-red-650 dark:text-red-400 font-bold text-xs rounded-xl flex items-center gap-1 transition-all disabled:opacity-50 cursor-pointer shadow-sm"
+              title="Xóa ca dạy"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Xóa</span>
+            </button>
+
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => handleSave()}
+              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white font-bold text-xs rounded-xl flex items-center gap-1 transition-all shadow-md cursor-pointer"
+            >
+              {loading ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Save className="h-3.5 w-3.5" />
+              )}
+              <span>Lưu</span>
+            </button>
+
+            <div className="border-l border-slate-200 dark:border-slate-800 h-6 mx-1"></div>
+
+            <button 
+              onClick={onClose}
+              disabled={loading}
+              className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-850 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
-        {/* Body */}
-        <form onSubmit={handleSave} className="flex-grow overflow-y-auto flex flex-col">
-          <div className="p-6 space-y-5 flex-grow">
-            {error && (
-              <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-xl text-red-600 dark:text-red-400 text-xs">
-                {error}
-              </div>
-            )}
+        {/* Scrollable Content Body */}
+        <div className="flex-grow overflow-y-auto p-6 space-y-5">
+          {error && (
+            <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-xl text-red-600 dark:text-red-400 text-xs">
+              {error}
+            </div>
+          )}
 
+          {/* Block 1: Basic Information */}
+          <div className="space-y-4">
             <div className="space-y-1.5">
-              <label htmlFor="editStudentName" className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider">
-                Họ & Tên Học Sinh *
+              <label htmlFor="editStudentName" className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
+                Tên học sinh *
               </label>
               <input
                 id="editStudentName"
@@ -375,8 +424,8 @@ export default function EditSessionModal({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label htmlFor="editDay" className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider">
-                  Thứ Trong Tuần *
+                <label htmlFor="editDay" className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
+                  Thứ trong tuần *
                 </label>
                 <select
                   id="editDay"
@@ -385,14 +434,14 @@ export default function EditSessionModal({
                   className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500"
                 >
                   {DAYS.map((d) => (
-                    <option key={d} value={d}>{d}</option>
+                    <option key={d} value={d} className="dark:bg-slate-950">{d}</option>
                   ))}
                 </select>
               </div>
 
               <div className="space-y-1.5">
-                <label htmlFor="editTime" className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider">
-                  Giờ Bắt Đầu *
+                <label htmlFor="editTime" className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
+                  Giờ học *
                 </label>
                 <input
                   id="editTime"
@@ -407,8 +456,8 @@ export default function EditSessionModal({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label htmlFor="editDuration" className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider">
-                  Số Giờ *
+                <label htmlFor="editDuration" className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
+                  Số giờ dạy *
                 </label>
                 <input
                   id="editDuration"
@@ -417,13 +466,13 @@ export default function EditSessionModal({
                   required
                   value={duration}
                   onChange={(e) => handleActiveDayTimeDurationChange(dayOfWeek, time, parseFloat(e.target.value) || 1.5)}
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm text-center focus:outline-none focus:border-indigo-500"
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label htmlFor="editPrice" className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider">
-                  Học Phí/Buổi (VNĐ) *
+                <label htmlFor="editPrice" className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
+                  Học phí/buổi *
                 </label>
                 <input
                   id="editPrice"
@@ -439,8 +488,8 @@ export default function EditSessionModal({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label htmlFor="editStatus" className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider">
-                  Trạng Thái Chấm Công *
+                <label htmlFor="editStatus" className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
+                  Trạng thái *
                 </label>
                 <select
                   id="editStatus"
@@ -455,8 +504,8 @@ export default function EditSessionModal({
               </div>
 
               <div className="space-y-1.5">
-                <label htmlFor="editGrade" className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider">
-                  Điểm Số (nếu có)
+                <label htmlFor="editGrade" className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
+                  Điểm số
                 </label>
                 <input
                   id="editGrade"
@@ -470,172 +519,154 @@ export default function EditSessionModal({
             </div>
 
             <div className="space-y-1.5">
-              <label htmlFor="editHomework" className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider">
-                Bài Tập Về Nhà (BTVN)
+              <label htmlFor="editHomework" className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
+                Bài tập về nhà
               </label>
               <input
                 id="editHomework"
                 type="text"
                 value={homework}
                 onChange={(e) => setHomework(e.target.value)}
-                placeholder="Nội dung BTVN..."
+                placeholder="Nội dung bài tập..."
                 className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label htmlFor="editNote" className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider">
-                Ghi Chú & Nhận Xét Bài Học
+              <label htmlFor="editNote" className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
+                Nhận xét & Ghi chú
               </label>
               <textarea
                 id="editNote"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                placeholder="Nhập ghi chú hoặc nhận xét thái độ học sinh..."
+                placeholder="Nhập ghi chú buổi học..."
                 className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm min-h-[80px] resize-y focus:outline-none focus:border-indigo-500"
               />
             </div>
-
-            {/* Sibling sessions section */}
-            <div className="space-y-2 border-t border-slate-100 dark:border-slate-850 pt-4">
-              <label className="text-slate-900 dark:text-white font-bold text-sm block">
-                Các buổi học liên quan trong tháng
-              </label>
-              <p className="text-slate-500 dark:text-slate-400 text-xs">
-                Tích chọn các buổi áp dụng thay đổi (Tên HS, học phí, số giờ, giờ bắt đầu) hoặc xóa hàng loạt:
-              </p>
-
-              <div className="max-h-[140px] overflow-y-auto border border-slate-200 dark:border-slate-800 rounded-xl p-3 space-y-1 bg-slate-50/50 dark:bg-slate-950/40">
-                {siblings.map((sib) => {
-                  const isCurrent = sib.id === session.id;
-                  return (
-                    <label
-                      key={sib.id}
-                      className={`flex items-center gap-2 cursor-pointer p-1.5 rounded-lg text-xs font-medium transition-all ${
-                        isCurrent
-                          ? 'bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200/55 dark:border-indigo-900/30'
-                          : 'hover:bg-slate-100 dark:hover:bg-slate-850'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={sib.checked}
-                        onChange={(e) => handleSiblingCheck(sib.id, e.target.checked)}
-                        className="h-3.5 w-3.5 rounded border-slate-350 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                      />
-                      <span className={isCurrent ? 'font-bold text-indigo-700 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-300'}>
-                        {formatDateVN(sib.date)} ({formatCleanTimeString(sib.time)} - {getEndTime(sib.time, sib.duration)})
-                        {isCurrent ? ' (Đang mở)' : ''}
-                      </span>
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Recurring configurations section */}
-            <div className="space-y-3 border-t border-slate-100 dark:border-slate-850 pt-4">
-              <label className="text-indigo-600 dark:text-indigo-400 font-bold text-sm block">
-                Cấu Hình Lịch Học Định Kỳ Hàng Tuần (Đổi Thứ, Giờ, Tăng Buổi)
-              </label>
-              <p className="text-slate-500 dark:text-slate-400 text-xs">
-                Thay đổi các thứ học và giờ học định kỳ trong tháng (sẽ tự động thêm/xóa/sửa các buổi):
-              </p>
-
-              <div className="space-y-2">
-                {DAYS.map((day) => {
-                  const config = recurringConfigs[day];
-                  if (!config) return null;
-                  return (
-                    <div
-                      key={day}
-                      className={`flex flex-wrap items-center gap-3 p-2.5 rounded-xl border transition-all ${
-                        config.checked
-                          ? 'bg-indigo-50/30 dark:bg-indigo-950/10 border-indigo-150 dark:border-indigo-950'
-                          : 'bg-slate-50/30 dark:bg-slate-950/20 border-slate-100 dark:border-slate-850'
-                      }`}
-                    >
-                      <label className="flex items-center gap-2 cursor-pointer font-bold text-xs min-w-[80px]">
-                        <input
-                          type="checkbox"
-                          checked={config.checked}
-                          onChange={(e) => handleRecurringCheck(day, e.target.checked)}
-                          className="h-3.5 w-3.5 rounded border-slate-350 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500"
-                        />
-                        <span className={config.checked ? 'text-indigo-900 dark:text-indigo-300' : 'text-slate-500 dark:text-slate-400'}>
-                          {day}
-                        </span>
-                      </label>
-
-                      <div className="flex items-center gap-2 flex-grow justify-end md:justify-start">
-                        <input
-                          type="time"
-                          value={config.time}
-                          disabled={!config.checked}
-                          onChange={(e) => handleRecurringTimeChange(day, e.target.value)}
-                          className="px-2 py-0.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold disabled:opacity-50 w-[100px]"
-                        />
-
-                        <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">Số giờ:</span>
-                        <input
-                          type="number"
-                          step="0.5"
-                          min="0.5"
-                          value={config.duration}
-                          disabled={!config.checked}
-                          onChange={(e) => handleRecurringDurationChange(day, parseFloat(e.target.value) || 1.5)}
-                          className="px-2 py-0.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold disabled:opacity-50 w-[60px] text-center"
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
           </div>
 
-          {/* Footer */}
-          <div className="px-6 py-4 bg-slate-50 dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center shrink-0">
+          {/* Block 2: Collapsible Sibling Sessions List */}
+          <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
             <button
               type="button"
-              disabled={loading}
-              onClick={handleDeleteSessions}
-              className="px-3.5 py-2 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-950 bg-red-50/50 dark:bg-red-950/10 hover:bg-red-100 dark:hover:bg-red-950/20 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer"
+              onClick={() => setSiblingsCollapsed(!siblingsCollapsed)}
+              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-850 flex justify-between items-center transition-colors select-none font-bold text-xs tracking-wider uppercase text-slate-700 dark:text-slate-300"
             >
-              <Trash2 className="h-4 w-4" />
-              Xóa Ca Dạy
+              <span className="flex items-center gap-1.5">
+                <FileText className="h-4 w-4 text-indigo-500" />
+                Buổi học trong tháng ({siblings.length})
+              </span>
+              {siblingsCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
             </button>
 
-            <div className="flex gap-2">
-              <button
-                type="button"
-                disabled={loading}
-                onClick={onClose}
-                className="px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-850 rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
-              >
-                Hủy
-              </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-600/50 text-white font-semibold rounded-xl transition-all shadow-md hover:shadow-emerald-500/10 flex items-center gap-1.5 text-sm cursor-pointer"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Đang Cập Nhật...
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4" />
-                    Lưu & Cập Nhật
-                  </>
-                )}
-              </button>
-            </div>
+            {!siblingsCollapsed && (
+              <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-850 space-y-2">
+                <p className="text-slate-450 dark:text-slate-500 text-[10px] leading-tight mb-2">
+                  Tích chọn để áp dụng thay đổi (Tên HS, học phí, số giờ, giờ học) hoặc xóa hàng loạt:
+                </p>
+                <div className="max-h-[150px] overflow-y-auto space-y-1.5 pr-1">
+                  {siblings.map((sib) => {
+                    const isCurrent = sib.id === session.id;
+                    return (
+                      <label
+                        key={sib.id}
+                        className={`flex items-center gap-2.5 cursor-pointer p-2 rounded-xl transition-all border ${
+                          isCurrent
+                            ? 'bg-indigo-50/40 dark:bg-indigo-950/25 border-indigo-150 dark:border-indigo-900/40'
+                            : 'bg-slate-50/40 dark:bg-slate-950/20 border-slate-200/50 dark:border-slate-850 hover:bg-slate-50 dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={sib.checked}
+                          onChange={(e) => handleSiblingCheck(sib.id, e.target.checked)}
+                          className="h-4 w-4 rounded border-slate-350 dark:border-slate-700 text-indigo-650 focus:ring-indigo-500 cursor-pointer"
+                        />
+                        <span className={`text-xs font-semibold ${isCurrent ? 'text-indigo-950 dark:text-indigo-300 font-bold' : 'text-slate-700 dark:text-slate-300'}`}>
+                          {formatDateVN(sib.date)} ({formatCleanTimeString(sib.time)} - {getEndTime(sib.time, sib.duration)})
+                          {isCurrent ? ' (Đang mở)' : ''}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
-        </form>
+
+          {/* Block 3: Collapsible Recurring Week Schedule */}
+          <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+            <button
+              type="button"
+              onClick={() => setRecurringCollapsed(!recurringCollapsed)}
+              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-850 flex justify-between items-center transition-colors select-none font-bold text-xs tracking-wider uppercase text-slate-700 dark:text-slate-300"
+            >
+              <span className="flex items-center gap-1.5">
+                <CalendarDays className="h-4 w-4 text-indigo-500" />
+                Lịch học định kỳ
+              </span>
+              {recurringCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+            </button>
+
+            {!recurringCollapsed && (
+              <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-850 space-y-3">
+                <p className="text-slate-450 dark:text-slate-500 text-[10px] leading-tight">
+                  Điều chỉnh lịch học định kỳ trong tuần để tự động tái tạo (thêm/xóa) các buổi dạy trong tháng:
+                </p>
+                <div className="space-y-2">
+                  {DAYS.map((day) => {
+                    const config = recurringConfigs[day];
+                    if (!config) return null;
+                    return (
+                      <div
+                        key={day}
+                        className={`flex flex-wrap items-center gap-3 p-2.5 rounded-xl border transition-all ${
+                          config.checked
+                            ? 'bg-indigo-50/40 dark:bg-indigo-950/20 border-indigo-200 dark:border-indigo-900/40'
+                            : 'bg-slate-50/40 dark:bg-slate-950/30 border-slate-200/50 dark:border-slate-850'
+                        }`}
+                      >
+                        <label className="flex items-center gap-2 cursor-pointer font-bold text-xs min-w-[80px]">
+                          <input
+                            type="checkbox"
+                            checked={config.checked}
+                            onChange={(e) => handleRecurringCheck(day, e.target.checked)}
+                            className="h-3.5 w-3.5 rounded border-slate-350 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500"
+                          />
+                          <span className={config.checked ? 'text-indigo-900 dark:text-indigo-300' : 'text-slate-550 dark:text-slate-450'}>
+                            {day}
+                          </span>
+                        </label>
+
+                        <div className="flex items-center gap-2 flex-grow justify-end md:justify-start">
+                          <input
+                            type="time"
+                            value={config.time}
+                            disabled={!config.checked}
+                            onChange={(e) => handleRecurringTimeChange(day, e.target.value)}
+                            className="px-2 py-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold disabled:opacity-50 w-[100px] text-slate-800 dark:text-slate-200"
+                          />
+
+                          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">Số giờ:</span>
+                          <input
+                            type="number"
+                            step="0.5"
+                            min="0.5"
+                            value={config.duration}
+                            disabled={!config.checked}
+                            onChange={(e) => handleRecurringDurationChange(day, parseFloat(e.target.value) || 1.5)}
+                            className="px-2 py-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold disabled:opacity-50 w-[60px] text-center text-slate-800 dark:text-slate-200"
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
 
       </div>
     </div>
