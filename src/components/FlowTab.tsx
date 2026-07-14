@@ -104,6 +104,8 @@ export const formatAbbreviatedVND = (value: number): string => {
   return isNegative ? `-${result}` : result;
 };
 
+import { useToast } from '@/context/ToastContext';
+
 export default function FlowTab({
   currentUser,
   manualTransactions,
@@ -117,6 +119,7 @@ export default function FlowTab({
   saveTransactions,
   toggleChartMonth
 }: FlowTabProps) {
+  const { showToast } = useToast();
 
   // Dynamic custom categories lists
   const [incomeCats, setIncomeCats] = React.useState<{name: string, icon: string}[]>([
@@ -288,12 +291,12 @@ export default function FlowTab({
     }
 
     setEditingCat(null);
-    alert('Đã cập nhật danh mục thành công!');
+    showToast('Đã cập nhật danh mục thành công!', 'success');
   };
 
   const handleSaveTxEdit = () => {
     if (!editingTx || !editingTx.desc.trim() || Number(editingTx.amount) <= 0) {
-      alert('Mô tả và số tiền không được để trống.');
+      showToast('Mô tả và số tiền không được để trống.', 'error');
       return;
     }
     if (saveTransactions) {
@@ -314,7 +317,7 @@ export default function FlowTab({
       });
       saveTransactions(currentUser.id, updated);
       setEditingTx(null);
-      alert('Đã sửa giao dịch thành công!');
+      showToast('Đã sửa giao dịch thành công!', 'success');
     }
   };
 
@@ -868,7 +871,7 @@ export default function FlowTab({
                         ) : (
                           <div className="flex items-center justify-center">
                             <button
-                              onClick={() => alert('Đây là giao dịch học phí tự động liên kết với Lịch Trình ca dạy. Vui lòng chỉnh sửa giá hoặc trạng thái ca dạy trong tab Lịch Trình để cập nhật giao dịch này.')}
+                              onClick={() => showToast('Giao dịch tự động liên kết với Lịch Trình. Vui lòng chỉnh sửa giá hoặc trạng thái ca dạy trong tab Lịch Trình để cập nhật.', 'info')}
                               className={`p-1 rounded-lg transition-all cursor-pointer ${
                                 isIncome 
                                   ? 'hover:bg-emerald-500/10 text-emerald-455 hover:text-emerald-300' 

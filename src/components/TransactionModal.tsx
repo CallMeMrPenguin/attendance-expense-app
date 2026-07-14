@@ -23,6 +23,8 @@ interface TransactionModalProps {
   saveSavingsHistory: (userId: string, data: any[]) => void;
 }
 
+import { useToast } from '@/context/ToastContext';
+
 export default function TransactionModal({
   isOpen,
   onClose,
@@ -37,6 +39,7 @@ export default function TransactionModal({
   saveAccumulationCurrent,
   saveSavingsHistory
 }: TransactionModalProps) {
+  const { showToast } = useToast();
   const [modalTxType, setModalTxType] = useState<'income' | 'expense' | 'saving'>('expense');
   const [modalDesc, setModalDesc] = useState('');
   const [modalAmount, setModalAmount] = useState('');
@@ -81,7 +84,7 @@ export default function TransactionModal({
     const amt = Number(modalAmount);
 
     if (!amt || amt <= 0) {
-      alert('Vui lòng nhập số tiền hợp lệ lớn hơn 0.');
+      showToast('Vui lòng nhập số tiền hợp lệ lớn hơn 0.', 'error');
       return;
     }
 
@@ -93,7 +96,7 @@ export default function TransactionModal({
         newVal += amt;
       } else {
         if (amt > currentVal) {
-          alert('Số dư quỹ hiện hành không đủ để thực hiện rút tiền.');
+          showToast('Số dư quỹ hiện hành không đủ để thực hiện rút tiền.', 'error');
           return;
         }
         newVal -= amt;
@@ -114,10 +117,10 @@ export default function TransactionModal({
         date: modalDate
       };
       saveSavingsHistory(userId, [newHist, ...savingsHistory]);
-      alert('Đã cập nhật giao dịch quỹ tiết kiệm thành công!');
+      showToast('Đã cập nhật giao dịch quỹ tiết kiệm thành công!', 'success');
     } else {
       if (!modalDesc.trim()) {
-        alert('Vui lòng điền mô tả giao dịch.');
+        showToast('Vui lòng điền mô tả giao dịch.', 'error');
         return;
       }
       const newTx = {
@@ -131,7 +134,7 @@ export default function TransactionModal({
         is_recurring: isRecurring
       };
       saveTransactions(userId, [newTx, ...manualTransactions]);
-      alert('Đã lưu giao dịch tài chính mới!');
+      showToast('Đã lưu giao dịch tài chính mới!', 'success');
     }
 
     onClose();

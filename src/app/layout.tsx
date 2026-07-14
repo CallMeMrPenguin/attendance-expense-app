@@ -18,6 +18,8 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
+import { ToastProvider } from '@/context/ToastContext';
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -40,7 +42,9 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full flex flex-col transition-colors duration-300">
-        {children}
+        <ToastProvider>
+          {children}
+        </ToastProvider>
       </body>
     </html>
   );

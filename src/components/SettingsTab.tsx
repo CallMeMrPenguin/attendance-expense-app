@@ -38,6 +38,8 @@ interface SettingsTabProps {
   handleLogout: () => Promise<void>;
 }
 
+import { useToast } from '@/context/ToastContext';
+
 export default function SettingsTab({
   currentUser,
   manualTransactions,
@@ -67,6 +69,7 @@ export default function SettingsTab({
   setPasswordModalOpen,
   handleLogout
 }: SettingsTabProps) {
+  const { showToast } = useToast();
 
   const getBackupJSON = () => {
     const data = {
@@ -110,9 +113,9 @@ export default function SettingsTab({
         saveBudgets(userId, parsed.budgets);
         setCategoryBudgets(parsed.budgets);
       }
-      alert('Khôi phục dữ liệu sao lưu thành công!');
+      showToast('Khôi phục dữ liệu sao lưu thành công!', 'success');
     } catch (err) {
-      alert('Cú pháp chuỗi khôi phục lỗi. Hãy kiểm tra lại định dạng JSON.');
+      showToast('Cú pháp chuỗi khôi phục lỗi. Hãy kiểm tra lại định dạng JSON.', 'error');
     }
   };
 
@@ -144,7 +147,7 @@ export default function SettingsTab({
         'Hóa đơn': 3000000,
         'Giải trí': 2000000
       });
-      alert('Đã xóa dữ liệu tài chính cục bộ.');
+      showToast('Đã xóa dữ liệu tài chính cục bộ.', 'info');
     }
   };
 
@@ -230,7 +233,7 @@ export default function SettingsTab({
                 onClick={(e) => {
                   (e.target as HTMLTextAreaElement).select();
                   document.execCommand('copy');
-                  alert('Đã copy chuỗi sao lưu vào bộ nhớ Clipboard!');
+                  showToast('Đã copy chuỗi sao lưu vào bộ nhớ Clipboard!', 'info');
                 }}
                 title="Click để chọn tất cả"
               />

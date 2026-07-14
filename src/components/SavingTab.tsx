@@ -18,6 +18,8 @@ interface SavingTabProps {
   saveSavingsHistory: (userId: string, data: any[]) => void;
 }
 
+import { useToast } from '@/context/ToastContext';
+
 export default function SavingTab({
   currentUser,
   emergencyCurrent,
@@ -31,6 +33,7 @@ export default function SavingTab({
   saveAccumulationTarget,
   saveSavingsHistory
 }: SavingTabProps) {
+  const { showToast } = useToast();
   const [emActionAmount, setEmActionAmount] = useState('');
   const [acActionAmount, setAcActionAmount] = useState('');
 
@@ -40,7 +43,7 @@ export default function SavingTab({
     const amt = Number(amountStr);
 
     if (!amt || amt <= 0) {
-      alert('Vui lòng nhập số tiền hợp lệ lớn hơn 0.');
+      showToast('Vui lòng nhập số tiền hợp lệ lớn hơn 0.', 'error');
       return;
     }
 
@@ -51,7 +54,7 @@ export default function SavingTab({
       newVal += amt;
     } else {
       if (amt > currentVal) {
-        alert('Số dư quỹ hiện tại không đủ để thực hiện rút tiền.');
+        showToast('Số dư quỹ hiện tại không đủ để thực hiện rút tiền.', 'error');
         return;
       }
       newVal -= amt;
@@ -73,7 +76,7 @@ export default function SavingTab({
       date: new Date().toISOString().split('T')[0]
     };
     saveSavingsHistory(userId, [newHist, ...savingsHistory]);
-    alert('Đã cập nhật quỹ tiết kiệm thành công!');
+    showToast('Đã cập nhật quỹ tiết kiệm thành công!', 'success');
   };
 
   const emPercent = Math.min(100, Math.round((emergencyCurrent / Math.max(1, emergencyTarget)) * 100));
