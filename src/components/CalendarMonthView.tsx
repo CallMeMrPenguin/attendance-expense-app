@@ -40,7 +40,7 @@ function hexToHSL(hex: string) {
 
 // Design helper to generate premium colored shades based on time, status and native hex color
 export function getPremiumVioletStyle(timeStr: string, status: string, hexColor: string = '#7b61ff') {
-  const isDarkMode = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+  const isDarkMode = true;
   
   // Convert HEX to HSL so we can adjust opacity, borders, and lighting systematically
   const { h: hue, s: initialSat, l: initialLight } = hexToHSL(hexColor);

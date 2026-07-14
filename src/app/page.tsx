@@ -15,8 +15,6 @@ import {
   AlertCircle,
   Calendar as CalendarIcon,
   RefreshCw,
-  Sun,
-  Moon,
   LayoutDashboard,
   Users,
   CalendarRange,
@@ -52,7 +50,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   
   // Theme state
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
 
   // Data states
   const [teachers, setTeachers] = useState<string[]>([]);
@@ -76,32 +74,11 @@ export default function Dashboard() {
   const [earnedIncome, setEarnedIncome] = useState(0);
   const [projectedIncome, setProjectedIncome] = useState(0);
 
-  // Sync theme selection with localStorage and HTML class list
+  // Always force dark mode (night mode)
   useEffect(() => {
-    const storedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
-    if (storedTheme) {
-      setTheme(storedTheme);
-      if (storedTheme === 'dark') {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-    } else {
-      localStorage.setItem('theme', 'light');
-      document.documentElement.classList.remove('dark');
-    }
+    localStorage.setItem('theme', 'dark');
+    document.documentElement.classList.add('dark');
   }, []);
-
-  const toggleTheme = () => {
-    const nextTheme = theme === 'light' ? 'dark' : 'light';
-    setTheme(nextTheme);
-    localStorage.setItem('theme', nextTheme);
-    if (nextTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  };
 
   // Authenticate and fetch session on load
   useEffect(() => {
@@ -248,9 +225,7 @@ export default function Dashboard() {
   const efficiencyRate = totalSessions > 0 ? Math.round((completedSessions / totalSessions) * 100) : 0;
 
   return (
-    <div className={`min-h-screen flex transition-colors duration-300 ${
-      theme === 'dark' ? 'grid-bg-dark text-slate-100' : 'grid-bg-light text-slate-800'
-    }`}>
+    <div className="min-h-screen flex transition-colors duration-300 grid-bg-dark text-slate-100">
       
       {/* 1. Left Sidebar Navigation */}
       <aside className="w-64 border-r border-slate-200/50 dark:border-white/5 bg-white/40 dark:bg-[#090b10]/40 backdrop-blur-md h-screen sticky top-0 hidden lg:flex flex-col justify-between p-6 shrink-0 select-none">
@@ -326,19 +301,6 @@ export default function Dashboard() {
 
             {/* Right toolbar controls */}
             <div className="flex items-center gap-3">
-
-              {/* Theme Toggle Button */}
-              <button
-                onClick={toggleTheme}
-                title={theme === 'dark' ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối'}
-                className="p-2 border border-slate-200/50 dark:border-white/5 hover:bg-slate-55 dark:hover:bg-slate-850 text-slate-500 dark:text-slate-400 transition-all rounded-lg cursor-pointer shadow-sm bg-white dark:bg-[#1a1e28]"
-              >
-                {theme === 'dark' ? (
-                  <Sun className="h-4 w-4 text-yellow-500" />
-                ) : (
-                  <Moon className="h-4 w-4 text-indigo-650" />
-                )}
-              </button>
 
               {/* Password change security key button */}
               <button
