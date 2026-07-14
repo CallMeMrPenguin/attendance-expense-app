@@ -139,11 +139,11 @@ export default function Dashboard() {
     fetchSession();
   }, [router]);
 
-  // Fetch teachers list (Admins only get full list, teachers just get themselves)
+  // Fetch teachers list (Admins only get full list, non-admins just get themselves)
   const fetchTeachers = useCallback(async () => {
     if (!currentUser) return;
 
-    if (currentUser.role === 'teacher') {
+    if (currentUser.role !== 'admin') {
       setTeachers([currentUser.teacherName]);
       setActiveTeacherName(currentUser.teacherName);
       return;
@@ -282,7 +282,7 @@ export default function Dashboard() {
               <select
                 id="teacherSelect"
                 value={activeTeacherName}
-                disabled={currentUser.role === 'teacher'}
+                disabled={currentUser.role !== 'admin'}
                 onChange={(e) => setActiveTeacherName(e.target.value)}
                 className="bg-transparent border-none outline-none font-bold text-slate-200 focus:ring-0 p-0 text-xs cursor-pointer"
               >
@@ -334,7 +334,7 @@ export default function Dashboard() {
                   {currentUser.teacherName}
                 </span>
                 <span className="text-[9px] font-black text-indigo-400/80 uppercase tracking-widest leading-none">
-                  {currentUser.role === 'admin' ? 'Quản trị viên' : 'Giáo viên'}
+                  {currentUser.role === 'admin' ? 'Admin' : 'User'}
                 </span>
               </div>
             </div>

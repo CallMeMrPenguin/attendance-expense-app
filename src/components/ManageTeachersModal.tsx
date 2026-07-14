@@ -51,7 +51,7 @@ export default function ManageTeachersModal({
   const [editUsername, setEditUsername] = useState('');
   const [editPassword, setEditPassword] = useState('');
   const [editConfirmPassword, setEditConfirmPassword] = useState('');
-  const [editRole, setEditRole] = useState<'admin' | 'teacher' | 'user'>('teacher');
+  const [editRole, setEditRole] = useState<'admin' | 'user'>('user');
   const [showEditPassword, setShowEditPassword] = useState(false);
   const [showEditConfirmPassword, setShowEditConfirmPassword] = useState(false);
   
@@ -59,7 +59,7 @@ export default function ManageTeachersModal({
   const [showAddForm, setShowAddForm] = useState(false);
   const [newTeacherName, setNewTeacherName] = useState('');
   const [newTeacherUsername, setNewTeacherUsername] = useState('');
-  const [newTeacherRole, setNewTeacherRole] = useState<'teacher' | 'user' | 'admin'>('teacher');
+  const [newTeacherRole, setNewTeacherRole] = useState<'admin' | 'user'>('user');
   const [newTeacherPassword, setNewTeacherPassword] = useState('123456');
   const [newTeacherConfirmPassword, setNewTeacherConfirmPassword] = useState('123456');
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -107,11 +107,11 @@ export default function ManageTeachersModal({
     if (p) {
       setEditName(p.teacher_name);
       setEditUsername(p.username);
-      setEditRole((p.role as 'admin' | 'teacher') || 'teacher');
+      setEditRole(p.role === 'admin' ? 'admin' : 'user');
     } else {
       setEditName(selectedTeacher);
       setEditUsername('');
-      setEditRole('teacher');
+      setEditRole('user');
     }
     setEditPassword('');
     setError('');
@@ -438,7 +438,7 @@ export default function ManageTeachersModal({
                           ? 'bg-rose-50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-900/30'
                           : 'bg-slate-50 dark:bg-slate-800 text-slate-500 border border-slate-100 dark:border-slate-700/50'
                     }`}>
-                      {profile?.role === 'admin' ? 'Admin' : 'Giáo Viên'}
+                      {profile?.role === 'admin' ? 'Admin' : 'User'}
                     </span>
                   </button>
                 );
@@ -454,7 +454,7 @@ export default function ManageTeachersModal({
                 <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-2">
                   <h3 className="font-extrabold text-sm text-indigo-650 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
                     <User className="h-4 w-4" />
-                    Tạo Giáo Viên Mới
+                    Tạo Tài Khoản Mới
                   </h3>
                   <button
                     type="button"
@@ -499,17 +499,16 @@ export default function ManageTeachersModal({
 
                 <div className="space-y-1.5">
                   <label htmlFor="newRoleSelect" className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider">
-                    Phân Quyền / Vai Trò *
+                    Phân Quyền / Role *
                   </label>
                   <select
                     id="newRoleSelect"
                     value={newTeacherRole}
-                    onChange={(e) => setNewTeacherRole(e.target.value as 'teacher' | 'user' | 'admin')}
+                    onChange={(e) => setNewTeacherRole(e.target.value as 'user' | 'admin')}
                     className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:outline-none focus:border-indigo-500"
                   >
-                    <option value="teacher">Giáo Viên (Tutor)</option>
-                    <option value="user">Người Dùng Thông Thường (User)</option>
-                    <option value="admin">Quản Trị Viên (Admin)</option>
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
                   </select>
                 </div>
 
@@ -623,18 +622,17 @@ export default function ManageTeachersModal({
                 {/* Edit Role Select */}
                 <div className="space-y-1.5">
                   <label htmlFor="editRoleSelect" className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider">
-                    Phân Quyền / Vai Trò *
+                    Phân Quyền / Role *
                   </label>
                   <select
                     id="editRoleSelect"
                     value={editRole}
                     disabled={selectedTeacher === currentAdminTeacherName || selectedTeacher === 'Admin' || selectedTeacher === 'admin'}
-                    onChange={(e) => setEditRole(e.target.value as 'admin' | 'teacher' | 'user')}
+                    onChange={(e) => setEditRole(e.target.value as 'admin' | 'user')}
                     className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:outline-none focus:border-indigo-500 disabled:opacity-75"
                   >
-                    <option value="teacher">Giáo Viên (Tutor)</option>
-                    <option value="user">Người Dùng Thông Thường (User)</option>
-                    <option value="admin">Quản Trị Viên (Admin)</option>
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
                   </select>
                 </div>
 
