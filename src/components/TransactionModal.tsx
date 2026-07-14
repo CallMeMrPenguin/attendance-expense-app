@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, ChevronDown, Calendar } from 'lucide-react';
 import { formatDateVN } from '@/lib/utils';
+import CustomDatePicker from './CustomDatePicker';
 
 const INCOME_CATEGORIES = ['Lương', 'Giáo dục', 'Đầu tư', 'Khác'];
 const EXPENSE_CATEGORIES = ['Ăn uống', 'Di chuyển', 'Shopping', 'Hóa đơn', 'Giải trí', 'Khác'];
@@ -41,7 +42,6 @@ export default function TransactionModal({
   const [modalAmount, setModalAmount] = useState('');
   const [modalCategory, setModalCategory] = useState('Ăn uống');
   const [modalDate, setModalDate] = useState('');
-  const dateInputRef = useRef<HTMLInputElement>(null);
   const [modalSavingFund, setModalSavingFund] = useState<'emergency' | 'accumulation'>('emergency');
   const [modalSavingAction, setModalSavingAction] = useState<'deposit' | 'withdraw'>('deposit');
   const [incomeCategories, setIncomeCategories] = useState<string[]>(['Lương', 'Giáo dục', 'Đầu tư', 'Khác']);
@@ -274,31 +274,10 @@ export default function TransactionModal({
 
             <div className="space-y-1.5">
               <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Ngày ghi nhận</label>
-              <div className="relative">
-                <input
-                  ref={dateInputRef}
-                  type="date"
-                  value={modalDate}
-                  onChange={(e) => setModalDate(e.target.value)}
-                  className="opacity-0 absolute pointer-events-none w-0 h-0"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    try {
-                      dateInputRef.current?.showPicker();
-                    } catch (err) {}
-                  }}
-                  className="w-full flex items-center justify-between bg-[#0d1018] border border-white/10 hover:border-indigo-500/40 text-white text-xs font-bold rounded-xl px-3.5 py-2.5 cursor-pointer transition-all block text-left"
-                >
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-indigo-400 shrink-0" />
-                    <span>{modalDate ? formatDateVN(modalDate) : 'Chọn ngày...'}</span>
-                  </div>
-                  <ChevronDown className="h-4 w-4 text-slate-400" />
-                </button>
-              </div>
+              <CustomDatePicker
+                value={modalDate}
+                onChange={setModalDate}
+              />
             </div>
           </div>
 

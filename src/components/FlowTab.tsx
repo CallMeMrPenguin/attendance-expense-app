@@ -32,6 +32,7 @@ import {
   X
 } from 'lucide-react';
 import { formatVND, Session, formatDateVN } from '@/lib/utils';
+import CustomDatePicker from './CustomDatePicker';
 
 const ICON_COMPONENTS: Record<string, React.ComponentType<any>> = {
   Briefcase, GraduationCap, TrendingUp, Coins, HelpCircle,
@@ -116,8 +117,6 @@ export default function FlowTab({
   saveTransactions,
   toggleChartMonth
 }: FlowTabProps) {
-
-  const editDateInputRef = React.useRef<HTMLInputElement>(null);
 
   // Dynamic custom categories lists
   const [incomeCats, setIncomeCats] = React.useState<{name: string, icon: string}[]>([
@@ -450,7 +449,7 @@ export default function FlowTab({
                 ? 'highlight-expense-row bg-rose-500/[0.035] hover:bg-rose-500/[0.07] transition-colors group'
                 : isAchieved
                   ? 'highlight-income-row bg-emerald-500/[0.035] hover:bg-emerald-500/[0.07] transition-colors group'
-                  : 'hover:bg-white/[0.02] transition-colors group';
+                  : 'hover:bg-[#1c2438] transition-colors group';
 
               return (
                 <tr key={cat} className={rowClass}>
@@ -463,7 +462,7 @@ export default function FlowTab({
                       }`}>
                         <CategoryIcon iconName={iconName} className="h-3.5 w-3.5" />
                       </span>
-                      <span className={`font-bold text-xs ${isIncome ? 'text-white' : 'text-red-500'}`}>{cat}</span>
+                      <span className={`font-bold text-xs ${isIncome ? 'text-emerald-400 text-glow-green' : 'text-red-500 text-glow-red'}`}>{cat}</span>
                     </div>
                   </td>
                   <td className="py-3 text-right text-slate-200">
@@ -1060,33 +1059,10 @@ export default function FlowTab({
 
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Ngày ghi nhận</label>
-                  <div className="relative">
-                    {/* Hidden input type=date */}
-                    <input
-                      ref={editDateInputRef}
-                      type="date"
-                      value={editingTx.date}
-                      onChange={(e) => setEditingTx(prev => prev ? { ...prev, date: e.target.value } : null)}
-                      className="opacity-0 absolute pointer-events-none w-0 h-0"
-                      required
-                    />
-                    {/* Custom Dropdown Button */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        try {
-                          editDateInputRef.current?.showPicker();
-                        } catch (err) {}
-                      }}
-                      className="w-full flex items-center justify-between bg-[#0d1018] border border-white/10 hover:border-indigo-500/40 text-white text-xs font-bold rounded-xl px-3.5 py-2.5 cursor-pointer transition-all block text-left"
-                    >
-                      <div className="flex items-center gap-2">
-                        <CalendarIcon className="h-4 w-4 text-indigo-400 shrink-0" />
-                        <span>{editingTx.date ? formatDateVN(editingTx.date) : 'Chọn ngày...'}</span>
-                      </div>
-                      <ChevronDown className="h-4 w-4 text-slate-400" />
-                    </button>
-                  </div>
+                  <CustomDatePicker
+                    value={editingTx.date}
+                    onChange={(dateStr) => setEditingTx(prev => prev ? { ...prev, date: dateStr } : null)}
+                  />
                 </div>
               </div>
 
