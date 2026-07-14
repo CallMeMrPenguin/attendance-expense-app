@@ -254,9 +254,16 @@ export default function EditSessionModal({
         if (deleteError) throw new Error(deleteError.message);
       }
 
-      const { error: upsertError } = await supabase
+      let { error: upsertError } = await supabase
         .from('sessions')
         .upsert(newSessions);
+
+      if (upsertError && (upsertError.message?.includes('schema cache') || upsertError.message?.includes('Could not find'))) {
+        const cleanSessions = newSessions.map(({ auto_check_in, auto_checkin, loai_hinh_lich, loai_hinh, ...rest }) => rest);
+        const retryRes = await supabase.from('sessions').upsert(cleanSessions);
+        upsertError = retryRes.error;
+      }
+
       if (upsertError) throw new Error(upsertError.message);
 
       onSave();

@@ -114,9 +114,15 @@ export default function AddSessionModal({
     setLoading(true);
     setError('');
     try {
-      const { error: insertError } = await supabase
+      let { error: insertError } = await supabase
         .from('sessions')
         .insert(candidatesToInsert);
+
+      if (insertError && (insertError.message?.includes('schema cache') || insertError.message?.includes('Could not find'))) {
+        const cleanCandidates = candidatesToInsert.map(({ auto_check_in, auto_checkin, loai_hinh_lich, loai_hinh, ...rest }) => rest);
+        const retryRes = await supabase.from('sessions').insert(cleanCandidates);
+        insertError = retryRes.error;
+      }
 
       if (insertError) {
         throw new Error(insertError.message);
