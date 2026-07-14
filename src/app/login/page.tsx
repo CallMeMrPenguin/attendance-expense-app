@@ -26,12 +26,6 @@ export default function LoginPage() {
 
   // If already logged in, redirect to home page
   useEffect(() => {
-    // Save debug flag if present
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('debug') === '1') {
-      localStorage.setItem('debug', '1');
-    }
-
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
@@ -63,56 +57,58 @@ export default function LoginPage() {
 
     try {
       const cleanInput = username.trim().toLowerCase();
+      let loginEmail = cleanInput.includes('@') ? cleanInput : `${cleanInput}@giasupro.com`;
 
-      // Build list of emails to try — do NOT query DB before auth (RLS blocks anon reads)
-      const emailsToTry: string[] = [];
-      if (cleanInput.includes('@')) {
-        emailsToTry.push(cleanInput);
-      } else {
-        emailsToTry.push(`${cleanInput}@giasupro.com`);
-        // Also try treating the username as a possible name prefix
-        const noSpaces = cleanInput.replace(/\s+/g, '');
-        if (noSpaces !== cleanInput) emailsToTry.push(`${noSpaces}@giasupro.com`);
-      }
-
-      let authData: any = null;
-      let authError: any = null;
-
-      // Try each email variant until one works
-      for (const email of emailsToTry) {
-        const result = await supabase.auth.signInWithPassword({ email, password });
-        if (!result.error && result.data?.user) {
-          authData = result.data;
-          break;
+      // 1. Resolve registered email from public profiles table if username typed
+      if (!cleanInput.includes('@')) {
+        const { data: matchedProfile } = await supabase
+          .from('profiles')
+          .select('email')
+          .eq('username', cleanInput)
+          .maybeSingle();
+        
+        if (matchedProfile?.email) {
+          loginEmail = matchedProfile.email;
         }
-        authError = result.error;
       }
 
-      if (!authData?.user) {
-        // Auth completely failed — show the Supabase error or a friendly message
-        setError(
-          authError?.message?.includes('Invalid login')
-            ? 'Tên đăng nhập hoặc mật khẩu không chính xác!'
-            : `Đăng nhập thất bại: ${authError?.message || 'Không rõ nguyên nhân'}`
-        );
-        setLoading(false);
-        return;
+      let userProfile: any = null;
+
+      // 2. Perform Supabase Sign In
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: loginEmail,
+        password: password,
+      });
+
+      if (!authError && authData?.user) {
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('username, teacher_name, role')
+          .eq('id', authData.user.id)
+          .maybeSingle();
+        userProfile = prof;
       }
 
-      // Auth succeeded — NOW read the profile (session is active, RLS passes)
-      const { data: userProfile } = await supabase
-        .from('profiles')
-        .select('username, teacher_name, role')
-        .eq('id', authData.user.id)
-        .maybeSingle();
-
+      // Fallback: Check profiles table directly by username, username prefix, or teacher_name
       if (!userProfile) {
-        setError('Tài khoản tồn tại nhưng chưa có hồ sơ. Vui lòng liên hệ admin.');
-        setLoading(false);
-        return;
+        const usernamePrefix = cleanInput.split('@')[0];
+        
+        const { data: profByUsername } = await supabase
+          .from('profiles')
+          .select('username, teacher_name, role')
+          .or(`username.eq.${cleanInput},username.eq.${usernamePrefix},teacher_name.ilike.${username.trim()}`)
+          .maybeSingle();
+
+        if (profByUsername) {
+          userProfile = profByUsername;
+        } else {
+          setError('Tên đăng nhập hoặc mật khẩu không chính xác!');
+          setLoading(false);
+          return;
+        }
       }
 
-      // Store custom session for dashboard
+      // Store custom teacher session in localStorage for seamless dashboard access
       localStorage.setItem('custom_teacher_session', JSON.stringify({
         username: userProfile.username,
         teacherName: userProfile.teacher_name,
@@ -135,6 +131,7 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
+
 
 
   return (
