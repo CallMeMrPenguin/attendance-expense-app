@@ -84,11 +84,19 @@ function DashboardInner() {
   const [heroTeacherDropOpen, setHeroTeacherDropOpen] = useState(false);
   const [pickerYear, setPickerYear] = useState(() => new Date().getFullYear());
 
-  // Debug log (shown when ?debug=1 in URL)
+  // Debug log (shown when debug is active)
   const searchParams = useSearchParams();
-  const isDebug = searchParams?.get('debug') === '1';
+  const [isDebug, setIsDebug] = useState(false);
   const [debugLog, setDebugLog] = useState<string[]>([]);
   const addDebug = (msg: string) => setDebugLog(prev => [`${new Date().toLocaleTimeString()}: ${msg}`, ...prev.slice(0, 19)]);
+
+  useEffect(() => {
+    if (searchParams?.get('debug') === '1' || localStorage.getItem('debug') === '1') {
+      setIsDebug(true);
+      localStorage.setItem('debug', '1');
+    }
+  }, [searchParams]);
+
 
 
   // Always force dark mode (night mode)

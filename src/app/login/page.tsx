@@ -26,6 +26,12 @@ export default function LoginPage() {
 
   // If already logged in, redirect to home page
   useEffect(() => {
+    // Save debug flag if present
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('debug') === '1') {
+      localStorage.setItem('debug', '1');
+    }
+
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
@@ -43,6 +49,7 @@ export default function LoginPage() {
       setRememberMe(true);
     }
   }, [router]);
+
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
