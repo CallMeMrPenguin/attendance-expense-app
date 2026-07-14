@@ -175,38 +175,29 @@ export default function Dashboard() {
       return;
     }
 
-    const { data, error } = await supabase
-      .from('teachers')
-      .select('name')
-      .neq('name', 'Giáo Viên 1')
-      .order('name', { ascending: true });
-
-    let list: string[] = [];
-    if (!error && data) {
-      list = data.map((t) => t.name).filter((n) => n !== 'Giáo Viên 1');
-    }
-
-    if (list.length === 0) {
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('teacher_name')
-        .order('teacher_name', { ascending: true });
-      if (profileData) {
-        list = [...new Set(profileData.map((p) => p.teacher_name).filter((n) => n && n !== 'Giáo Viên 1'))];
+    try {
+      const headers: HeadersInit = {};
+      if (currentUser.token && currentUser.token !== 'custom-token') {
+        headers['Authorization'] = `Bearer ${currentUser.token}`;
       }
-    }
 
-    if (list.length > 0) {
-      setTeachers(list);
-      setActiveTeacherName((prev) => {
-        const needsDefault =
-          !prev ||
-          prev === 'Giáo Viên 1' ||
-          !list.includes(prev);
-        return needsDefault ? list[0] : prev;
-      });
-    }
+      const res = await fetch('/api/data/teachers', { headers });
+      const json = await res.json();
+      const list: string[] = res.ok && json.teachers ? json.teachers : [];
 
+      if (list.length > 0) {
+        setTeachers(list);
+        setActiveTeacherName((prev) => {
+          const needsDefault =
+            !prev ||
+            prev === 'Giáo Viên 1' ||
+            !list.includes(prev);
+          return needsDefault ? list[0] : prev;
+        });
+      }
+    } catch (e) {
+      console.error('fetchTeachers error:', e);
+    }
   }, [currentUser]);
 
 
@@ -215,20 +206,30 @@ export default function Dashboard() {
   const fetchSessions = useCallback(async () => {
     if (!activeTeacherName || !selectedMonth) return;
     setLoading(true);
-    const { data, error } = await supabase
-      .from('sessions')
-      .select('*')
-      .eq('teacher_name', activeTeacherName)
-      .eq('month_year', selectedMonth);
-    if (!error && data) {
-      setSessions(data as Session[]);
-      calculateStats(data as Session[]);
-    } else {
+    try {
+      const headers: HeadersInit = {};
+      if (currentUser?.token && currentUser.token !== 'custom-token') {
+        headers['Authorization'] = `Bearer ${currentUser.token}`;
+      }
+
+      const params = new URLSearchParams({ teacher_name: activeTeacherName, month_year: selectedMonth });
+      const res = await fetch(`/api/sessions?${params}`, { headers });
+      const json = await res.json();
+
+      if (res.ok && json.data) {
+        setSessions(json.data as Session[]);
+        calculateStats(json.data as Session[]);
+      } else {
+        setSessions([]);
+        calculateStats([]);
+      }
+    } catch (e) {
+      console.error('fetchSessions error:', e);
       setSessions([]);
       calculateStats([]);
     }
     setLoading(false);
-  }, [activeTeacherName, selectedMonth]);
+  }, [currentUser, activeTeacherName, selectedMonth]);
 
 
 
