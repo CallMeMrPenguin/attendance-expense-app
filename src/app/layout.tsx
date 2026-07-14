@@ -9,8 +9,8 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: 'GiaSư Pro | Quản Lý Lịch Dạy & Chấm Công Gia Sư',
-  description: 'Hệ thống tự động chấm công, tính thu nhập và sắp xếp lịch học gia sư đa màu sắc cho giáo viên.',
+  title: 'Finance Dashboard | Quản Lý Lịch Dạy & Tài Chính',
+  description: 'Hệ thống quản lý tài chính cá nhân, dòng tiền, quỹ tiết kiệm tích lũy và chấm công lịch học.',
 };
 
 export const viewport: Viewport = {
