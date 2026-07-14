@@ -538,7 +538,28 @@ export default function Dashboard() {
                     setEditModalOpen(true);
                   }
                 }}
-              />
+            )}
+
+            {/* Calendar Legend Bar */}
+            {!loading && sessions.length > 0 && (
+              <div className="flex flex-wrap items-center justify-center gap-6 mt-6 select-none text-[10px] uppercase tracking-wider font-extrabold text-slate-400 dark:text-slate-500 border-t border-slate-100 dark:border-white/5 pt-4">
+                <div className="flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#059669] inline-block shadow-sm"></span>
+                  <span>Toán</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#7c3aed] inline-block shadow-sm"></span>
+                  <span>Tiếng Anh (Kid)</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#d97706] inline-block shadow-sm"></span>
+                  <span>Tiếng Anh (Teen)</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#475569] inline-block shadow-sm"></span>
+                  <span>Khác</span>
+                </div>
+              </div>
             )}
           </section>
 

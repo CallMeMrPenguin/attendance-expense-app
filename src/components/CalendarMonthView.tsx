@@ -7,49 +7,65 @@ interface CalendarMonthViewProps {
   onSessionClick: (id: string) => void;
 }
 
-// Design helper to generate single-color (violet) shades based on time, student name and status
-export function getPremiumVioletStyle(timeStr: string, status: string, studentName: string = '') {
+// Helper to convert hex to HSL colors for dynamic, themed lighting effects
+function hexToHSL(hex: string) {
+  // Remove '#' if present
+  hex = hex.replace(/^#/, '');
+
+  // Parse r, g, b
+  let r = parseInt(hex.substring(0, 2), 16) / 255;
+  let g = parseInt(hex.substring(2, 4), 16) / 255;
+  let b = parseInt(hex.substring(4, 6), 16) / 255;
+
+  let max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h = 0, s = 0, l = (max + min) / 2;
+
+  if (max !== min) {
+    let d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+      case g: h = (b - r) / d + 2; break;
+      case b: h = (r - g) / d + 4; break;
+    }
+    h /= 6;
+  }
+
+  return {
+    h: Math.round(h * 360),
+    s: Math.round(s * 100),
+    l: Math.round(l * 100)
+  };
+}
+
+// Design helper to generate premium colored shades based on time, status and native hex color
+export function getPremiumVioletStyle(timeStr: string, status: string, hexColor: string = '#7b61ff') {
   const isDarkMode = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
   
-  // Hash student name to get a consistent variation in hue and saturation
-  let hash = 0;
-  const nameToHash = studentName || 'class';
-  for (let i = 0; i < nameToHash.length; i++) {
-    hash = nameToHash.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  hash = Math.abs(hash);
-
-  // Accent color family: Purple/Violet (Hue ~250)
-  // Vary hue between 240 and 270 (30deg range)
-  const hue = 240 + (hash % 31);
+  // Convert HEX to HSL so we can adjust opacity, borders, and lighting systematically
+  const { h: hue, s: initialSat, l: initialLight } = hexToHSL(hexColor);
   
-  // Vary saturation between 60% and 85%
-  let sat = 60 + (hash % 26);
-  
-  // Vary lightness based on time of day
-  let hour = 8;
-  const match = timeStr.match(/^(\d+)/);
-  if (match) {
-    hour = parseInt(match[1]);
-  }
-
-  let baseLight = 60; // Afternoon/default
-  if (hour < 12) {
-    baseLight = 75; // Morning (Lighter)
-  } else if (hour >= 18) {
-    baseLight = 45; // Evening (Deeper)
-  }
-  let lightness = baseLight - 5 + (hash % 11);
+  let sat = initialSat;
+  let lightness = initialLight;
 
   // Status adjustments
   if (status === 'Đã dạy') {
-    // Completed: Muted Purple
-    sat = 25;
-    lightness = isDarkMode ? 45 : 70;
+    // Completed: Muted
+    sat = Math.max(15, Math.round(initialSat * 0.45));
+    lightness = isDarkMode ? 45 : 75;
   } else if (status === 'Hủy') {
     // Cancelled: Very muted/faded
-    sat = 15;
-    lightness = isDarkMode ? 35 : 85;
+    sat = Math.max(10, Math.round(initialSat * 0.25));
+    lightness = isDarkMode ? 35 : 88;
+  } else {
+    // Active class coloring: ensure clean visibility on light and dark mode
+    if (isDarkMode) {
+      sat = Math.min(85, Math.max(65, initialSat));
+      lightness = Math.min(75, Math.max(50, initialLight)); // keep text/borders bright
+    } else {
+      sat = Math.min(90, Math.max(60, initialSat));
+      lightness = Math.min(65, Math.max(45, initialLight)); // keep text dark enough
+    }
   }
 
   if (isDarkMode) {
@@ -57,8 +73,8 @@ export function getPremiumVioletStyle(timeStr: string, status: string, studentNa
     // Semi-transparent bg (10-18% opacity), accent color border, soft outer glow
     const alphaBg = status === 'Hủy' ? '0.04' : status === 'Đã dạy' ? '0.10' : '0.14';
     const bg = `hsla(${hue}, ${sat}%, ${lightness}%, ${alphaBg})`;
-    const border = `hsla(${hue}, ${sat}%, ${lightness + 10}%, 0.65)`;
-    const color = `hsla(${hue}, 85%, 85%, 0.95)`;
+    const border = `hsla(${hue}, ${sat}%, ${lightness}%, 0.65)`;
+    const color = `hsla(${hue}, 90%, 90%, 0.95)`;
     const shadow = status === 'Hủy' ? 'none' : `0 0 20px hsla(${hue}, ${sat}%, ${lightness}%, 0.15)`;
 
     return {
@@ -75,8 +91,8 @@ export function getPremiumVioletStyle(timeStr: string, status: string, studentNa
     // White card with light tinted bg, colored left border, tiny shadow/soft glow
     const bg = status === 'Hủy' ? 'rgba(250, 250, 251, 0.6)' : `hsla(${hue}, ${sat}%, 97%, 0.85)`;
     const border = 'rgba(0, 0, 0, 0.05)';
-    const borderLeft = `4px solid hsla(${hue}, ${sat}%, ${lightness - 15}%, 0.95)`;
-    const color = `hsla(${hue}, ${sat}%, ${lightness - 20}%, 1)`;
+    const borderLeft = `4px solid hsla(${hue}, ${sat}%, ${lightness}%, 0.95)`;
+    const color = `hsla(${hue}, ${sat}%, ${lightness - 10}%, 1)`;
     const shadow = status === 'Hủy' ? 'none' : `0 6px 20px hsla(${hue}, ${sat}%, 70%, 0.06)`;
 
     return {
@@ -203,7 +219,7 @@ export default function CalendarMonthView({
                 {daySessions.map((s) => {
                   const startTime = formatCleanTimeString(s.time);
                   const endTime = getEndTime(startTime, s.duration);
-                  const vStyle = getPremiumVioletStyle(s.time, s.status, s.student_name);
+                  const vStyle = getPremiumVioletStyle(s.time, s.status, s.color);
 
                   return (
                     <div
