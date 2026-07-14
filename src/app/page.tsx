@@ -198,16 +198,16 @@ export default function Dashboard() {
 
     if (list.length > 0) {
       setTeachers(list);
-      const needsDefault =
-        !activeTeacherName ||
-        activeTeacherName === 'Giáo Viên 1' ||
-        !list.includes(activeTeacherName);
-      if (needsDefault) {
-        setActiveTeacherName(list[0]);
-      }
+      setActiveTeacherName((prev) => {
+        const needsDefault =
+          !prev ||
+          prev === 'Giáo Viên 1' ||
+          !list.includes(prev);
+        return needsDefault ? list[0] : prev;
+      });
     }
 
-  }, [currentUser, activeTeacherName]);
+  }, [currentUser]);
 
 
 

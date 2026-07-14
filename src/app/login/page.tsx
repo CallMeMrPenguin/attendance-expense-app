@@ -57,55 +57,95 @@ export default function LoginPage() {
 
     try {
       const cleanInput = username.trim().toLowerCase();
-      let loginEmail = cleanInput.includes('@') ? cleanInput : `${cleanInput}@giasupro.com`;
+      let loginEmail = cleanInput;
 
-      // 1. Resolve registered email from public profiles table if username typed
+      // 1. Resolve registered email from public profiles table or RPC if username typed
       if (!cleanInput.includes('@')) {
-        const { data: matchedProfile } = await supabase
-          .from('profiles')
-          .select('email')
-          .eq('username', cleanInput)
-          .maybeSingle();
-        
-        if (matchedProfile?.email) {
-          loginEmail = matchedProfile.email;
+        let resolvedEmail = null;
+        try {
+          const { data, error: rpcError } = await supabase.rpc('resolve_username_email', { p_username: cleanInput });
+          if (!rpcError && data) {
+            resolvedEmail = data;
+          }
+        } catch (rpcErr) {
+          console.warn('RPC resolve_username_email failed:', rpcErr);
+        }
+
+        if (!resolvedEmail) {
+          // Fallback to direct profiles table lookup (works if RLS is relaxed/disabled)
+          try {
+            const { data: matchedProfile } = await supabase
+              .from('profiles')
+              .select('email')
+              .eq('username', cleanInput)
+              .maybeSingle();
+            
+            if (matchedProfile?.email) {
+              resolvedEmail = matchedProfile.email;
+            }
+          } catch (dbErr) {
+            console.warn('Direct profile lookup failed:', dbErr);
+          }
+        }
+
+        if (resolvedEmail) {
+          loginEmail = resolvedEmail;
+        } else {
+          // If all lookups failed, default to giasupro.com domain
+          loginEmail = `${cleanInput}@giasupro.com`;
         }
       }
 
-      let userProfile: any = null;
+      let authData: any = null;
+      let authError: any = null;
 
       // 2. Perform Supabase Sign In
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      const result = await supabase.auth.signInWithPassword({
         email: loginEmail,
         password: password,
       });
 
-      if (!authError && authData?.user) {
-        const { data: prof } = await supabase
-          .from('profiles')
-          .select('username, teacher_name, role')
-          .eq('id', authData.user.id)
-          .maybeSingle();
-        userProfile = prof;
+      if (!result.error && result.data?.user) {
+        authData = result.data;
+      } else {
+        authError = result.error;
+        // Fallback: If login failed and we used a resolved/assumed email ending in @giasupro.com, 
+        // try again with the common @gmail.com domain
+        if (!cleanInput.includes('@') && loginEmail.endsWith('@giasupro.com')) {
+          const secondResult = await supabase.auth.signInWithPassword({
+            email: `${cleanInput}@gmail.com`,
+            password: password,
+          });
+          if (!secondResult.error && secondResult.data?.user) {
+            authData = secondResult.data;
+            authError = null;
+          } else {
+            authError = secondResult.error;
+          }
+        }
       }
 
-      // Fallback: Check profiles table directly by username, username prefix, or teacher_name
-      if (!userProfile) {
-        const usernamePrefix = cleanInput.split('@')[0];
-        
-        const { data: profByUsername } = await supabase
-          .from('profiles')
-          .select('username, teacher_name, role')
-          .or(`username.eq.${cleanInput},username.eq.${usernamePrefix},teacher_name.ilike.${username.trim()}`)
-          .maybeSingle();
+      if (authError || !authData?.user) {
+        setError(
+          authError?.message?.includes('Invalid login')
+            ? 'Tên đăng nhập hoặc mật khẩu không chính xác!'
+            : `Đăng nhập thất bại: ${authError?.message || 'Không rõ nguyên nhân'}`
+        );
+        setLoading(false);
+        return;
+      }
 
-        if (profByUsername) {
-          userProfile = profByUsername;
-        } else {
-          setError('Tên đăng nhập hoặc mật khẩu không chính xác!');
-          setLoading(false);
-          return;
-        }
+      // 3. Auth succeeded - read the profile (session is active, RLS passes)
+      const { data: userProfile } = await supabase
+        .from('profiles')
+        .select('username, teacher_name, role')
+        .eq('id', authData.user.id)
+        .maybeSingle();
+
+      if (!userProfile) {
+        setError('Tài khoản tồn tại nhưng chưa có hồ sơ. Vui lòng liên hệ quản trị viên.');
+        setLoading(false);
+        return;
       }
 
       // Store custom teacher session in localStorage for seamless dashboard access

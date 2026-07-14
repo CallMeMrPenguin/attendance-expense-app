@@ -151,3 +151,15 @@ DELETE FROM public.teachers WHERE name = 'Giáo Viên 1';
 DELETE FROM public.profiles WHERE teacher_name = 'Giáo Viên 1';
 DELETE FROM public.sessions WHERE teacher_name = 'Giáo Viên 1';
 UPDATE public.profiles SET role = 'user' WHERE role = 'teacher';
+
+-- 12. Secure email resolution for anonymous users
+CREATE OR REPLACE FUNCTION public.resolve_username_email(p_username text)
+RETURNS text SECURITY DEFINER AS $$
+BEGIN
+  RETURN (
+    SELECT email FROM public.profiles
+    WHERE username = p_username OR email = p_username
+    LIMIT 1
+  );
+END;
+$$ LANGUAGE plpgsql;
