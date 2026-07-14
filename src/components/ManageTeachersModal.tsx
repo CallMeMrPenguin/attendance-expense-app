@@ -363,7 +363,7 @@ export default function ManageTeachersModal({
                     key={name}
                     type="button"
                     onClick={() => handleSelectTeacher(name)}
-                    className={`w-full text-left px-3.5 py-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
+                    className={`w-full text-left px-3.5 py-2.5 rounded-lg border text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
                       isActive
                         ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
                         : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
@@ -415,7 +415,7 @@ export default function ManageTeachersModal({
                     value={newTeacherName}
                     onChange={(e) => setNewTeacherName(e.target.value)}
                     placeholder="VD: Nguyễn Văn A..."
-                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500"
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:outline-none focus:border-indigo-500"
                   />
                 </div>
 
@@ -430,7 +430,7 @@ export default function ManageTeachersModal({
                     value={newTeacherPassword}
                     onChange={(e) => setNewTeacherPassword(e.target.value)}
                     placeholder="VD: 123456..."
-                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500"
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:outline-none focus:border-indigo-500"
                   />
                   <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
                     Tên đăng nhập sẽ được sinh tự động (không dấu, viết liền).
@@ -440,7 +440,7 @@ export default function ManageTeachersModal({
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer uppercase tracking-wider"
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-xs rounded-lg flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer uppercase tracking-wider"
                 >
                   {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   Tạo Tài Khoản
@@ -469,7 +469,7 @@ export default function ManageTeachersModal({
                     value={editUsername}
                     onChange={(e) => setEditUsername(e.target.value)}
                     placeholder="VD: nguyenvana..."
-                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500 disabled:opacity-75 disabled:cursor-not-allowed font-semibold text-slate-700 dark:text-slate-300"
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:outline-none focus:border-indigo-500 disabled:opacity-75 disabled:cursor-not-allowed font-semibold text-slate-700 dark:text-slate-300"
                   />
                   {(selectedTeacher === 'Admin' || selectedTeacher === 'admin') && (
                     <div className="flex items-center gap-1.5 text-[9px] text-amber-600 dark:text-amber-450 font-bold uppercase tracking-wider">
@@ -490,7 +490,7 @@ export default function ManageTeachersModal({
                     required
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500"
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:outline-none focus:border-indigo-500"
                   />
                 </div>
 
@@ -504,7 +504,7 @@ export default function ManageTeachersModal({
                     value={editRole}
                     disabled={selectedTeacher === currentAdminTeacherName || selectedTeacher === 'Admin' || selectedTeacher === 'admin'}
                     onChange={(e) => setEditRole(e.target.value as 'admin' | 'teacher')}
-                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500 disabled:opacity-75"
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:outline-none focus:border-indigo-500 disabled:opacity-75"
                   >
                     <option value="teacher">Giáo Viên (Normal Tutor)</option>
                     <option value="admin">Quản Trị Viên (Admin)</option>
@@ -512,7 +512,7 @@ export default function ManageTeachersModal({
                 </div>
 
                 {/* Reset Password */}
-                <div className="space-y-1.5 bg-indigo-50/20 dark:bg-indigo-950/10 border border-indigo-100/50 dark:border-indigo-900/30 rounded-2xl p-4 space-y-3">
+                <div className="space-y-1.5 bg-indigo-50/20 dark:bg-indigo-950/10 border border-indigo-100/50 dark:border-indigo-900/30 rounded-xl p-4 space-y-3">
                   <div>
                     <h4 className="text-xs font-extrabold text-indigo-900 dark:text-indigo-300 uppercase tracking-wider flex items-center gap-1">
                       <Unlock className="h-3.5 w-3.5" />
@@ -529,7 +529,7 @@ export default function ManageTeachersModal({
                       value={editPassword}
                       onChange={(e) => setEditPassword(e.target.value)}
                       placeholder="Mật khẩu mới (tối thiểu 6 ký tự)..."
-                      className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500"
+                      className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:outline-none focus:border-indigo-500"
                     />
                   </div>
                 </div>
@@ -540,7 +540,7 @@ export default function ManageTeachersModal({
                     type="button"
                     onClick={handleDeleteTeacher}
                     disabled={loading || selectedTeacher === currentAdminTeacherName || selectedTeacher === 'Admin' || selectedTeacher === 'admin'}
-                    className="px-3.5 py-2.5 text-red-650 dark:text-red-400 border border-red-200 dark:border-red-950 bg-red-50/40 dark:bg-red-950/10 hover:bg-red-100 dark:hover:bg-red-950/25 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all disabled:opacity-40 shrink-0 cursor-pointer"
+                    className="px-3.5 py-2.5 text-red-650 dark:text-red-400 border border-red-200 dark:border-red-950 bg-red-50/40 dark:bg-red-950/10 hover:bg-red-100 dark:hover:bg-red-950/25 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all disabled:opacity-40 shrink-0 cursor-pointer"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                     Xóa Tài Khoản
@@ -549,7 +549,7 @@ export default function ManageTeachersModal({
                   <button
                     type="submit"
                     disabled={loading}
-                    className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer"
+                    className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold text-xs rounded-lg flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer"
                   >
                     {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                     Cập Nhật Hồ Sơ
@@ -565,7 +565,7 @@ export default function ManageTeachersModal({
         <div className="px-6 py-4 bg-slate-50 dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800 flex justify-end shrink-0">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-slate-600 dark:text-slate-350 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-sm font-semibold transition-all cursor-pointer"
+            className="px-4 py-2 text-slate-600 dark:text-slate-350 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-sm font-semibold transition-all cursor-pointer"
           >
             Đóng
           </button>

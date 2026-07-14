@@ -14,6 +14,38 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
     new Set(sessions.map((s) => formatCleanTimeString(s.time)))
   ).sort();
 
+  // Find a date for each weekday from the sessions list
+  const getDayDateString = (dayName: string) => {
+    const sessionForDay = sessions.find(s => s.day_of_week === dayName);
+    if (sessionForDay && sessionForDay.date) {
+      const parts = sessionForDay.date.split('-'); // YYYY-MM-DD
+      if (parts.length === 3) {
+        return `${parts[2]}/${parts[1]}`;
+      }
+    }
+    
+    // Fallback: calculate using the active month
+    const firstSess = sessions[0];
+    let year = new Date().getFullYear();
+    let month = new Date().getMonth() + 1;
+    if (firstSess && firstSess.date) {
+      const parts = firstSess.date.split('-');
+      year = parseInt(parts[0]);
+      month = parseInt(parts[1]);
+    }
+    
+    const dayIndices: Record<string, number> = {
+      'Thứ 2': 1, 'Thứ 3': 2, 'Thứ 4': 3, 'Thứ 5': 4, 'Thứ 6': 5, 'Thứ 7': 6, 'Chủ nhật': 0
+    };
+    const targetDayIndex = dayIndices[dayName] !== undefined ? dayIndices[dayName] : 1;
+    
+    const firstDayOfMonth = new Date(year, month - 1, 1);
+    let offset = targetDayIndex - firstDayOfMonth.getDay();
+    if (offset < 0) offset += 7;
+    const date = new Date(year, month - 1, 1 + offset);
+    return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}`;
+  };
+
   if (timeSlots.length === 0) {
     return (
       <div className="text-center py-20 text-slate-400 select-none bg-white dark:bg-[#11131a]/85 border border-slate-200/50 dark:border-white/5 rounded-3xl p-8">
@@ -36,11 +68,12 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
           return (
             <div
               key={day}
-              className={`py-4 text-center text-[11px] font-extrabold uppercase tracking-widest ${
+              className={`py-3 text-center text-[11px] font-extrabold uppercase tracking-widest flex flex-col items-center justify-center gap-0.5 ${
                 isWeekend ? 'text-rose-500/80 bg-rose-500/2' : 'text-slate-400 dark:text-slate-500'
               }`}
             >
-              {day}
+              <span>{day}</span>
+              <span className="text-[9.5px] font-extrabold opacity-65 normal-case">{getDayDateString(day)}</span>
             </div>
           );
         })}
@@ -94,12 +127,13 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
                         <div
                           key={s.id}
                           onClick={() => onSessionClick(s.id)}
-                          className="flex rounded-xl cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all active:scale-[0.98] min-h-[58px] border event-float"
+                          className="flex rounded-lg cursor-pointer hover:-translate-y-0.5 hover:scale-[1.01] hover:shadow-md transition-all active:scale-[0.98] min-h-[58px] border border-solid event-float"
                           style={{
                             backgroundColor: vStyle.bg,
                             borderColor: vStyle.border,
-                            borderLeft: vStyle.borderLeft,
-                            boxShadow: vStyle.shadow
+                            boxShadow: vStyle.shadow,
+                            backdropFilter: 'blur(8px)',
+                            WebkitBackdropFilter: 'blur(8px)'
                           }}
                         >
                           {/* Time Column inside card */}

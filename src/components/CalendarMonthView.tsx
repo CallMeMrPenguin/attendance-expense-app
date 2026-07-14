@@ -87,21 +87,20 @@ export function getPremiumVioletStyle(timeStr: string, status: string, hexColor:
       shadow
     };
   } else {
-    // Light Mode Event Card styling spec:
-    // White card with light tinted bg, colored left border, tiny shadow/soft glow
-    const bg = status === 'Hủy' ? 'rgba(250, 250, 251, 0.6)' : `hsla(${hue}, ${sat}%, 97%, 0.85)`;
-    const border = 'rgba(0, 0, 0, 0.05)';
-    const borderLeft = `4px solid hsla(${hue}, ${sat}%, ${lightness}%, 0.95)`;
-    const color = `hsla(${hue}, ${sat}%, ${lightness - 10}%, 1)`;
-    const shadow = status === 'Hủy' ? 'none' : `0 6px 20px hsla(${hue}, ${sat}%, 70%, 0.06)`;
+    // Light Mode: Tinted colored background (8-12% opacity), solid colored border (25% opacity), dark text
+    const alphaBg = status === 'Hủy' ? '0.03' : status === 'Đã dạy' ? '0.05' : '0.08';
+    const bg = `hsla(${hue}, ${sat}%, ${lightness}%, ${alphaBg})`;
+    const border = `hsla(${hue}, ${sat}%, ${lightness}%, 0.25)`;
+    const color = `hsla(${hue}, ${sat}%, ${lightness - 20}%, 1)`; // Darker text for readability
+    const shadow = status === 'Hủy' ? 'none' : `0 2px 8px hsla(${hue}, ${sat}%, 70%, 0.04)`;
 
     return {
       bg,
       border,
-      borderLeft,
-      innerBorder: 'rgba(0, 0, 0, 0.04)',
+      borderLeft: undefined,
+      innerBorder: `hsla(${hue}, ${sat}%, ${lightness}%, 0.15)`,
       color,
-      titleColor: '#111827',
+      titleColor: `hsla(${hue}, ${sat}%, ${lightness - 28}%, 1)`,
       priceColor: color,
       shadow
     };
@@ -213,9 +212,9 @@ export default function CalendarMonthView({
                   {dayNum}
                 </span>
               </div>
-
+              
               {/* Day Session Cards */}
-              <div className="flex-grow flex flex-col gap-2 overflow-y-auto max-h-[120px] custom-scrollbar pr-0.5">
+              <div className="flex-grow flex flex-col gap-1.5">
                 {daySessions.map((s) => {
                   const startTime = formatCleanTimeString(s.time);
                   const endTime = getEndTime(startTime, s.duration);
@@ -225,40 +224,41 @@ export default function CalendarMonthView({
                     <div
                       key={s.id}
                       onClick={() => onSessionClick(s.id)}
-                      className="flex rounded-xl cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all active:scale-[0.98] min-h-[58px] border event-float"
+                      className="flex rounded-lg cursor-pointer hover:-translate-y-0.5 hover:scale-[1.01] hover:shadow-md transition-all active:scale-[0.98] min-h-[50px] border border-solid event-float"
                       style={{
                         backgroundColor: vStyle.bg,
                         borderColor: vStyle.border,
-                        borderLeft: vStyle.borderLeft,
-                        boxShadow: vStyle.shadow
+                        boxShadow: vStyle.shadow,
+                        backdropFilter: 'blur(8px)',
+                        WebkitBackdropFilter: 'blur(8px)'
                       }}
                     >
                       {/* Left Time Bar */}
                       <div
-                        className="flex flex-col justify-center items-center px-1.5 py-1 text-[9px] font-extrabold w-[48px] select-none text-center border-r"
+                        className="flex flex-col justify-center items-center px-1.5 py-1 text-[8.5px] font-extrabold w-[46px] select-none text-center border-r border-solid"
                         style={{ 
                           borderColor: vStyle.innerBorder,
                           color: vStyle.color
                         }}
                       >
                         <span className="leading-none">{startTime}</span>
-                        <span className="text-[7px] my-0.5 opacity-60">↓</span>
+                        <span className="text-[7px] my-0.5 opacity-50">↓</span>
                         <span className="leading-none">{endTime}</span>
                       </div>
 
-                      {/* Right Details */}
-                      <div className="flex-grow p-2 flex flex-col justify-between overflow-hidden">
+                       {/* Right Details (Student Name & Duration, No Price) */}
+                      <div className="flex-grow p-1.5 flex flex-col justify-center overflow-hidden">
                         <h4 
-                          className="text-[12px] font-bold truncate leading-tight text-left"
+                          className="text-[11.5px] font-extrabold truncate leading-tight text-left"
                           style={{ color: vStyle.titleColor }}
                         >
                           {s.student_name}
                         </h4>
                         <div 
-                          className="text-[10px] font-bold mt-1 select-none leading-none text-left"
-                          style={{ color: vStyle.priceColor }}
+                          className="text-[9.5px] font-extrabold mt-0.5 select-none leading-none text-left opacity-75"
+                          style={{ color: vStyle.color }}
                         >
-                          {formatVND(s.price)}
+                          {s.duration}h
                         </div>
                       </div>
                     </div>
