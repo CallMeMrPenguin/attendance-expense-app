@@ -9,6 +9,7 @@ import {
   Key, 
   Plus, 
   TrendingUp, 
+  TrendingDown,
   CheckCircle2, 
   DollarSign, 
   Coins,
@@ -57,6 +58,9 @@ interface UserProfile {
   token: string;
 }
 
+const INCOME_CATEGORIES = ['Lương', 'Giáo dục', 'Đầu tư', 'Khác'];
+const EXPENSE_CATEGORIES = ['Ăn uống', 'Di chuyển', 'Shopping', 'Hóa đơn', 'Giải trí', 'Khác'];
+
 export default function Dashboard() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -69,28 +73,37 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'flow' | 'saving' | 'schedule' | 'settings'>('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Financial data states
+  // Financial data states (removed mock dummy seed transactions)
   const [manualTransactions, setManualTransactions] = useState<any[]>([]);
-  const [emergencyCurrent, setEmergencyCurrent] = useState<number>(12000000);
+  const [emergencyCurrent, setEmergencyCurrent] = useState<number>(0);
   const [emergencyTarget, setEmergencyTarget] = useState<number>(30000000);
-  const [accumulationCurrent, setAccumulationCurrent] = useState<number>(45000000);
+  const [accumulationCurrent, setAccumulationCurrent] = useState<number>(0);
   const [accumulationTarget, setAccumulationTarget] = useState<number>(150000000);
   const [savingsHistory, setSavingsHistory] = useState<any[]>([]);
+  const [categoryBudgets, setCategoryBudgets] = useState<Record<string, number>>({});
 
-  // Form states for Transactions
-  const [txDesc, setTxDesc] = useState('');
-  const [txAmount, setTxAmount] = useState('');
-  const [txType, setTxType] = useState<'income' | 'expense'>('expense');
-  const [txCategory, setTxCategory] = useState('Ăn uống');
-  const [txDate, setTxDate] = useState(() => new Date().toISOString().split('T')[0]);
+  // Unified pop-up Transaction Modal toggle state
+  const [txModalOpen, setTxModalOpen] = useState(false);
+
+  // Unified modal input states
+  const [modalTxType, setModalTxType] = useState<'income' | 'expense' | 'saving'>('expense');
+  const [modalDesc, setModalDesc] = useState('');
+  const [modalAmount, setModalAmount] = useState('');
+  const [modalCategory, setModalCategory] = useState('Ăn uống');
+  const [modalDate, setModalDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [modalSavingFund, setModalSavingFund] = useState<'emergency' | 'accumulation'>('emergency');
+  const [modalSavingAction, setModalSavingAction] = useState<'deposit' | 'withdraw'>('deposit');
+
+  // Multi-month selector states
+  const [chartSelectedMonths, setChartSelectedMonths] = useState<string[]>([]);
+  const [chartYear, setChartYear] = useState(() => new Date().getFullYear());
+
+  // Search & Filter state for Transactions in Flow Tab
+  const [txSearch, setTxSearch] = useState('');
 
   // Form states for Savings
   const [emActionAmount, setEmActionAmount] = useState('');
   const [acActionAmount, setAcActionAmount] = useState('');
-
-  // Search & Filter state for Transactions
-  const [txFilter, setTxFilter] = useState<'all' | 'income' | 'expense'>('all');
-  const [txSearch, setTxSearch] = useState('');
 
   // Scheduler data states
   const [teachers, setTeachers] = useState<string[]>([]);
@@ -99,7 +112,7 @@ export default function Dashboard() {
   const [selectedMonth, setSelectedMonth] = useState('');
   const [currentView, setCurrentView] = useState<'month' | 'week'>('month');
 
-  // Modal open states
+  // Modal open states for Scheduler
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [teachersModalOpen, setTeachersModalOpen] = useState(false);
@@ -146,6 +159,7 @@ export default function Dashboard() {
       const now = new Date();
       const currMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
       setSelectedMonth(currMonth);
+      setChartSelectedMonths([currMonth]);
 
       const { data: { session } } = await supabase.auth.getSession();
       
@@ -189,15 +203,7 @@ export default function Dashboard() {
         console.error(e);
       }
     } else {
-      // Seed initial transactions for demonstrative purposes
-      const seedData = [
-        { id: 't1', desc: 'Thưởng KPI tháng trước', amount: 5000000, type: 'income', category: 'Lương', date: '2026-07-02' },
-        { id: 't2', desc: 'Mua sắm iPad Pro mới', amount: 18500000, type: 'expense', category: 'Shopping', date: '2026-07-04' },
-        { id: 't3', desc: 'Thuê nhà tháng 7', amount: 4500000, type: 'expense', category: 'Hóa đơn', date: '2026-07-05' },
-        { id: 't4', desc: 'Đi ăn tối cùng gia đình', amount: 1200000, type: 'expense', category: 'Ăn uống', date: '2026-07-08' }
-      ];
-      setManualTransactions(seedData);
-      localStorage.setItem(`finance_trans_${userId}`, JSON.stringify(seedData));
+      setManualTransactions([]);
     }
 
     // Load savings
@@ -208,13 +214,13 @@ export default function Dashboard() {
     const storedSavHist = localStorage.getItem(`finance_sav_hist_${userId}`);
 
     if (storedEmCurr) setEmergencyCurrent(Number(storedEmCurr));
-    else setEmergencyCurrent(12000000);
+    else setEmergencyCurrent(0);
 
     if (storedEmTar) setEmergencyTarget(Number(storedEmTar));
     else setEmergencyTarget(30000000);
 
     if (storedAcCurr) setAccumulationCurrent(Number(storedAcCurr));
-    else setAccumulationCurrent(45000000);
+    else setAccumulationCurrent(0);
 
     if (storedAcTar) setAccumulationTarget(Number(storedAcTar));
     else setAccumulationTarget(150000000);
@@ -226,14 +232,31 @@ export default function Dashboard() {
         console.error(e);
       }
     } else {
-      const seedHistory = [
-        { id: 'h1', fund: 'emergency', type: 'deposit', amount: 8000000, date: '2026-07-01' },
-        { id: 'h2', fund: 'accumulation', type: 'deposit', amount: 35000000, date: '2026-07-05' },
-        { id: 'h3', fund: 'emergency', type: 'deposit', amount: 4000000, date: '2026-07-10' },
-        { id: 'h4', fund: 'accumulation', type: 'deposit', amount: 10000000, date: '2026-07-12' }
-      ];
-      setSavingsHistory(seedHistory);
-      localStorage.setItem(`finance_sav_hist_${userId}`, JSON.stringify(seedHistory));
+      setSavingsHistory([]);
+    }
+
+    // Load category budgets
+    const storedBudgets = localStorage.getItem(`finance_budgets_${userId}`);
+    if (storedBudgets) {
+      try {
+        setCategoryBudgets(JSON.parse(storedBudgets));
+      } catch (e) {
+        console.error(e);
+      }
+    } else {
+      const defaultBudgets = {
+        'Lương': 15000000,
+        'Giáo dục': 10000000,
+        'Đầu tư': 5000000,
+        'Khác': 1000000,
+        'Ăn uống': 4000000,
+        'Di chuyển': 1500000,
+        'Shopping': 3000000,
+        'Hóa đơn': 3000000,
+        'Giải trí': 2000000
+      };
+      setCategoryBudgets(defaultBudgets);
+      localStorage.setItem(`finance_budgets_${userId}`, JSON.stringify(defaultBudgets));
     }
   }, [currentUser]);
 
@@ -266,6 +289,11 @@ export default function Dashboard() {
   const saveSavingsHistory = (userId: string, data: any[]) => {
     setSavingsHistory(data);
     localStorage.setItem(`finance_sav_hist_${userId}`, JSON.stringify(data));
+  };
+
+  const saveBudgets = (userId: string, budgets: Record<string, number>) => {
+    setCategoryBudgets(budgets);
+    localStorage.setItem(`finance_budgets_${userId}`, JSON.stringify(budgets));
   };
 
   // Fetch teachers list
@@ -343,6 +371,14 @@ export default function Dashboard() {
     }
   }, [activeTeacherName, selectedMonth, fetchSessions]);
 
+  const handleTeacherUpdated = (updatedActiveName?: string) => {
+    fetchTeachers();
+    if (updatedActiveName) {
+      setActiveTeacherName(updatedActiveName);
+    }
+    fetchSessions();
+  };
+
   const calculateStats = (items: Session[]) => {
     let total = items.length;
     let completed = 0;
@@ -365,21 +401,7 @@ export default function Dashboard() {
     setProjectedIncome(projected);
   };
 
-  const handleLogout = async () => {
-    localStorage.removeItem('custom_teacher_session');
-    await supabase.auth.signOut();
-    router.push('/login');
-  };
-
-  const handleTeacherUpdated = (updatedActiveName?: string) => {
-    fetchTeachers();
-    if (updatedActiveName) {
-      setActiveTeacherName(updatedActiveName);
-    }
-    fetchSessions();
-  };
-
-  // Finance metrics integration calculations
+  // Finance calculations
   const getSupabaseIncome = useCallback(() => {
     let earned = 0;
     sessions.forEach(s => {
@@ -403,16 +425,138 @@ export default function Dashboard() {
       .reduce((sum, t) => sum + t.amount, 0);
   }, [manualTransactions]);
 
-  const getCombinedTransactions = useCallback(() => {
-    const manual = manualTransactions.map(t => ({
-      id: t.id,
-      desc: t.desc,
-      amount: Number(t.amount) || 0,
-      type: t.type,
-      category: t.category,
-      date: t.date,
-      isManual: true
-    }));
+  // Filtered values by selected months
+  const getSelectedMonthsIncome = useCallback(() => {
+    const sbEarned = sessions
+      .filter(s => s.status === 'Đã dạy' && chartSelectedMonths.includes(s.month_year))
+      .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+      
+    const manualInc = manualTransactions
+      .filter(t => t.type === 'income' && chartSelectedMonths.includes(t.date.substring(0, 7)))
+      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+      
+    return sbEarned + manualInc;
+  }, [sessions, manualTransactions, chartSelectedMonths]);
+
+  const getSelectedMonthsExpense = useCallback(() => {
+    return manualTransactions
+      .filter(t => t.type === 'expense' && chartSelectedMonths.includes(t.date.substring(0, 7)))
+      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+  }, [manualTransactions, chartSelectedMonths]);
+
+  // Weekly calculations for single-month line view
+  const getWeeklyIncome = useCallback((monthStr: string, startDay: number, endDay: number) => {
+    const sbEarned = sessions
+      .filter(s => {
+        if (s.month_year !== monthStr || s.status !== 'Đã dạy') return false;
+        const d = Number(s.date.split('-')[2]) || 1;
+        return d >= startDay && d <= endDay;
+      })
+      .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+      
+    const manualInc = manualTransactions
+      .filter(t => {
+        if (t.type !== 'income' || !t.date.startsWith(monthStr)) return false;
+        const d = Number(t.date.split('-')[2]) || 1;
+        return d >= startDay && d <= endDay;
+      })
+      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+      
+    return sbEarned + manualInc;
+  }, [sessions, manualTransactions]);
+
+  const getWeeklyExpense = useCallback((monthStr: string, startDay: number, endDay: number) => {
+    return manualTransactions
+      .filter(t => {
+        if (t.type !== 'expense' || !t.date.startsWith(monthStr)) return false;
+        const d = Number(t.date.split('-')[2]) || 1;
+        return d >= startDay && d <= endDay;
+      })
+      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+  }, [manualTransactions]);
+
+  const getMonthlyIncome = useCallback((monthStr: string) => {
+    const sbEarned = sessions
+      .filter(s => s.month_year === monthStr && s.status === 'Đã dạy')
+      .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+      
+    const manualInc = manualTransactions
+      .filter(t => t.type === 'income' && t.date.startsWith(monthStr))
+      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+      
+    return sbEarned + manualInc;
+  }, [sessions, manualTransactions]);
+
+  const getMonthlyExpense = useCallback((monthStr: string) => {
+    return manualTransactions
+      .filter(t => t.type === 'expense' && t.date.startsWith(monthStr))
+      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+  }, [manualTransactions]);
+
+  // Actual total per category for selected months
+  const getActualCategoryAmount = useCallback((cat: string) => {
+    const isExp = ['Ăn uống', 'Di chuyển', 'Shopping', 'Hóa đơn', 'Giải trí', 'Khác'].includes(cat);
+    if (isExp) {
+      return manualTransactions
+        .filter(t => t.type === 'expense' && t.category === cat && chartSelectedMonths.includes(t.date.substring(0, 7)))
+        .reduce((sum, t) => sum + t.amount, 0);
+    } else {
+      const manualInc = manualTransactions
+        .filter(t => t.type === 'income' && t.category === cat && chartSelectedMonths.includes(t.date.substring(0, 7)))
+        .reduce((sum, t) => sum + t.amount, 0);
+      
+      let sbInc = 0;
+      if (cat === 'Giáo dục') {
+        sbInc = sessions
+          .filter(s => s.status === 'Đã dạy' && chartSelectedMonths.includes(s.month_year))
+          .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+      }
+      return manualInc + sbInc;
+    }
+  }, [manualTransactions, sessions, chartSelectedMonths]);
+
+  // Toggle multi-select months
+  const toggleChartMonth = (mStr: string) => {
+    setChartSelectedMonths(prev => {
+      if (prev.includes(mStr)) {
+        if (prev.length === 1) return prev; // Do not empty
+        return prev.filter(m => m !== mStr);
+      } else {
+        return [...prev, mStr];
+      }
+    });
+  };
+
+  // Budget prompt handler
+  const handleEditBudgetPrompt = (cat: string) => {
+    if (!currentUser) return;
+    const currentBudgetVal = categoryBudgets[cat] || 0;
+    const input = prompt(`Nhập hạn mức ngân sách hàng tháng mới cho danh mục "${cat}":`, String(currentBudgetVal));
+    if (input === null) return;
+    const num = Number(input);
+    if (isNaN(num) || num < 0) {
+      alert('Vui lòng nhập số tiền hợp lệ.');
+      return;
+    }
+    const updated = {
+      ...categoryBudgets,
+      [cat]: num
+    };
+    saveBudgets(currentUser.id, updated);
+  };
+
+  // Transaction Lists for Flow Tab (Separated & Sorted)
+  const getIncomeTransactions = useCallback(() => {
+    const manual = manualTransactions
+      .filter(t => t.type === 'income')
+      .map(t => ({
+        id: t.id,
+        desc: t.desc,
+        amount: Number(t.amount) || 0,
+        category: t.category,
+        date: t.date,
+        isManual: true
+      }));
 
     const auto = sessions
       .filter(s => s.status === 'Đã dạy')
@@ -420,35 +564,102 @@ export default function Dashboard() {
         id: `session-${s.id}`,
         desc: `Thu nhập ca dạy: ${s.student_name}`,
         amount: Number(s.price) || 0,
-        type: 'income',
         category: 'Giáo dục',
         date: s.date,
         isManual: false
       }));
 
-    return [...manual, ...auto].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [manualTransactions, sessions]);
+    return [...manual, ...auto]
+      .filter(t => chartSelectedMonths.includes(t.date.substring(0, 7)))
+      .sort((a, b) => b.date.localeCompare(a.date));
+  }, [manualTransactions, sessions, chartSelectedMonths]);
 
-  // Upcoming classes selector (filtered from future schedule dates)
-  const getUpcomingSessions = () => {
-    const nowStr = new Date().toISOString().split('T')[0];
-    return sessions
-      .filter(s => {
-        if (s.status === 'Hủy') return false;
-        return s.date >= nowStr || s.status === 'Chưa dạy';
-      })
-      .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
-      .slice(0, 3);
+  const getExpenseTransactions = useCallback(() => {
+    return manualTransactions
+      .filter(t => t.type === 'expense' && chartSelectedMonths.includes(t.date.substring(0, 7)))
+      .map(t => ({
+        id: t.id,
+        desc: t.desc,
+        amount: Number(t.amount) || 0,
+        category: t.category,
+        date: t.date,
+        isManual: true
+      }))
+      .sort((a, b) => b.date.localeCompare(a.date));
+  }, [manualTransactions, chartSelectedMonths]);
+
+  // Unified Save logic for Pop-up Modal
+  const handleSaveModalTx = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser) return;
+    const userId = currentUser.id;
+    const amt = Number(modalAmount);
+
+    if (!amt || amt <= 0) {
+      alert('Vui lòng nhập số tiền hợp lệ lớn hơn 0.');
+      return;
+    }
+
+    if (modalTxType === 'saving') {
+      let currentVal = modalSavingFund === 'emergency' ? emergencyCurrent : accumulationCurrent;
+      let newVal = currentVal;
+      
+      if (modalSavingAction === 'deposit') {
+        newVal += amt;
+      } else {
+        if (amt > currentVal) {
+          alert('Số dư quỹ hiện hành không đủ để thực hiện rút tiền.');
+          return;
+        }
+        newVal -= amt;
+      }
+
+      if (modalSavingFund === 'emergency') {
+        saveEmergencyCurrent(userId, newVal);
+      } else {
+        saveAccumulationCurrent(userId, newVal);
+      }
+
+      // Add to savings history logs
+      const newHist = {
+        id: `sh-${Date.now()}`,
+        fund: modalSavingFund,
+        type: modalSavingAction,
+        amount: amt,
+        date: modalDate
+      };
+      saveSavingsHistory(userId, [newHist, ...savingsHistory]);
+      alert('Đã cập nhật giao dịch quỹ tiết kiệm thành công!');
+    } else {
+      if (!modalDesc.trim()) {
+        alert('Vui lòng điền mô tả giao dịch.');
+        return;
+      }
+      const newTx = {
+        id: `tx-${Date.now()}`,
+        desc: modalDesc.trim(),
+        amount: amt,
+        type: modalTxType,
+        category: modalCategory,
+        date: modalDate
+      };
+      saveTransactions(userId, [newTx, ...manualTransactions]);
+      alert('Đã lưu giao dịch tài chính mới!');
+    }
+
+    // Clear inputs and close window
+    setModalDesc('');
+    setModalAmount('');
+    setTxModalOpen(false);
   };
 
-  // Savings deposits / withdrawals handler
   const handleSavingAction = (fund: 'emergency' | 'accumulation', action: 'deposit' | 'withdraw') => {
     if (!currentUser) return;
     const userId = currentUser.id;
     const amountStr = fund === 'emergency' ? emActionAmount : acActionAmount;
-    const amountVal = Number(amountStr);
-    
-    if (!amountVal || amountVal <= 0) {
+    const amt = Number(amountStr);
+
+    if (!amt || amt <= 0) {
       alert('Vui lòng nhập số tiền hợp lệ lớn hơn 0.');
       return;
     }
@@ -457,13 +668,13 @@ export default function Dashboard() {
     let newVal = currentVal;
     
     if (action === 'deposit') {
-      newVal += amountVal;
+      newVal += amt;
     } else {
-      if (amountVal > currentVal) {
-        alert('Số dư quỹ tiết kiệm hiện tại không đủ để thực hiện rút tiền.');
+      if (amt > currentVal) {
+        alert('Số dư quỹ hiện tại không đủ để thực hiện rút tiền.');
         return;
       }
-      newVal -= amountVal;
+      newVal -= amt;
     }
 
     if (fund === 'emergency') {
@@ -474,30 +685,70 @@ export default function Dashboard() {
       setAcActionAmount('');
     }
 
-    // Add log item to savings history
-    const newHistItem = {
+    const newHist = {
       id: `sh-${Date.now()}`,
       fund,
       type: action,
-      amount: amountVal,
+      amount: amt,
       date: new Date().toISOString().split('T')[0]
     };
-    
-    const updatedHist = [newHistItem, ...savingsHistory];
-    saveSavingsHistory(userId, updatedHist);
+    saveSavingsHistory(userId, [newHist, ...savingsHistory]);
+    alert('Đã cập nhật quỹ tiết kiệm thành công!');
   };
 
-  if (!currentUser || !selectedMonth) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#090b10] gap-4">
-        <div className="h-10 w-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-        <span className="text-slate-400 font-semibold text-sm">Đang tải cấu hình hệ thống...</span>
-      </div>
-    );
-  }
+  const handleDeleteManualTx = (id: string) => {
+    if (!currentUser) return;
+    const userId = currentUser.id;
+    if (confirm('Bạn có chắc chắn muốn xóa giao dịch này?')) {
+      const updated = manualTransactions.filter(t => t.id !== id);
+      saveTransactions(userId, updated);
+    }
+  };
 
-  // SUB-RENDER: Sidebar Content
+  const handleOpenTxModal = (type: 'income' | 'expense' | 'saving') => {
+    setModalTxType(type);
+    setModalCategory(type === 'income' ? 'Lương' : 'Ăn uống');
+    setModalDesc('');
+    setModalAmount('');
+    setTxModalOpen(true);
+  };
+
+  // Helper for line chart drawing
+  const getLineData = () => {
+    if (chartSelectedMonths.length === 0) return [];
+    
+    if (chartSelectedMonths.length === 1) {
+      const targetMonth = chartSelectedMonths[0];
+      return [
+        { label: 'Tuần 1', income: getWeeklyIncome(targetMonth, 1, 7), expense: getWeeklyExpense(targetMonth, 1, 7) },
+        { label: 'Tuần 2', income: getWeeklyIncome(targetMonth, 8, 14), expense: getWeeklyExpense(targetMonth, 8, 14) },
+        { label: 'Tuần 3', income: getWeeklyIncome(targetMonth, 15, 21), expense: getWeeklyExpense(targetMonth, 15, 21) },
+        { label: 'Tuần 4', income: getWeeklyIncome(targetMonth, 22, 31), expense: getWeeklyExpense(targetMonth, 22, 31) }
+      ];
+    }
+
+    // Sort chronologically
+    const sorted = [...chartSelectedMonths].sort((a, b) => a.localeCompare(b));
+    return sorted.map(m => {
+      const [y, mn] = m.split('-');
+      return {
+        label: `Th.${Number(mn)}/${y.substring(2)}`,
+        income: getMonthlyIncome(m),
+        expense: getMonthlyExpense(m),
+        rawMonth: m
+      };
+    });
+  };
+
+  const handleLogout = async () => {
+    localStorage.removeItem('custom_teacher_session');
+    await supabase.auth.signOut();
+    router.push('/login');
+  };
+
+  // SUB-RENDER: Sidebar navigation
   const renderSidebarContent = (isMobile = false) => {
+    if (!currentUser) return null;
     const tabs = [
       { id: 'dashboard', label: 'Tổng quan', icon: LayoutDashboard },
       { id: 'flow', label: 'Dòng chảy', icon: Activity },
@@ -509,7 +760,7 @@ export default function Dashboard() {
     return (
       <div className="flex flex-col h-full select-none text-left">
         {/* Brand */}
-        <div className="flex items-center gap-3 px-2 py-4 mb-8 border-b border-white/5">
+        <div className="flex items-center gap-3 px-2 py-4 mb-4 border-b border-white/5">
           <div className="h-10 w-10 bg-indigo-500/15 border border-indigo-500/30 rounded-xl flex items-center justify-center text-indigo-400 shadow-[0_0_15px_rgba(92,54,245,0.25)] shrink-0">
             <Wallet className="h-5.5 w-5.5" />
           </div>
@@ -518,6 +769,15 @@ export default function Dashboard() {
             <span className="font-extrabold text-[9px] tracking-widest text-indigo-400 uppercase">Dashboard</span>
           </div>
         </div>
+
+        {/* Global Pop-up input button in sidebar */}
+        <button
+          onClick={() => handleOpenTxModal('expense')}
+          className="mb-6 w-full flex items-center justify-center gap-2 py-3 bg-[#5c36f5] hover:bg-[#7351f7] text-white font-extrabold text-xs rounded-xl shadow-[0_4px_12px_rgba(92,54,245,0.3)] hover:scale-[1.01] transition-all cursor-pointer border border-white/10 select-none shrink-0"
+        >
+          <Plus className="h-4 w-4" />
+          <span>Thêm giao dịch</span>
+        </button>
 
         {/* Navigation list */}
         <nav className="flex flex-col gap-2 flex-1">
@@ -544,7 +804,7 @@ export default function Dashboard() {
           })}
         </nav>
 
-        {/* User profile card & logout */}
+        {/* Profile info footer */}
         <div className="border-t border-white/5 pt-4 flex flex-col gap-3">
           <div className="flex items-center gap-2.5 px-2">
             <div className="h-8.5 w-8.5 bg-indigo-500/20 border border-indigo-500/40 rounded-xl flex items-center justify-center text-indigo-300 font-black text-xs shadow-sm shrink-0">
@@ -562,7 +822,7 @@ export default function Dashboard() {
           
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all cursor-pointer text-left"
+            className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-rose-450 hover:bg-rose-500/10 rounded-xl transition-all cursor-pointer text-left"
           >
             <LogOut className="h-4.5 w-4.5 text-rose-450 shrink-0" />
             <span>Đăng xuất</span>
@@ -574,55 +834,133 @@ export default function Dashboard() {
 
   // SUB-RENDER: Dashboard Tab
   const renderDashboard = () => {
-    const upcoming = getUpcomingSessions();
-    const supabaseIncome = getSupabaseIncome();
-    const manualIncome = manualTransactions
-      .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + t.amount, 0);
-    
-    const totalIncome = manualIncome + supabaseIncome;
-    const totalExpense = getTotalExpense();
-    const walletCash = totalIncome - totalExpense;
+    if (!currentUser) return null;
+    const income = getSelectedMonthsIncome();
+    const expense = getSelectedMonthsExpense();
+    const net = income - expense;
+
+    // Net worth cumulative calculation
+    const totalIncomeAll = getTotalIncome();
+    const totalExpenseAll = getTotalExpense();
+    const walletCash = totalIncomeAll - totalExpenseAll;
     const savings = emergencyCurrent + accumulationCurrent;
     const netWorth = walletCash + savings;
 
-    // Last 6 months SVG chart rendering values
-    const chartData = [
-      { label: 'Th.2', income: 15000000, expense: 11000000 },
-      { label: 'Th.3', income: 18000000, expense: 12500000 },
-      { label: 'Th.4', income: 22000000, expense: 16000000 },
-      { label: 'Th.5', income: 19500000, expense: 14000000 },
-      { label: 'Th.6', income: 24000000, expense: 17500000 },
-      { label: 'Th.7', income: totalIncome, expense: totalExpense },
-    ];
+    // Curvy path calculations
+    const lineData = getLineData();
+    const maxVal = Math.max(1000000, ...lineData.flatMap(d => [d.income, d.expense]));
+    const N = lineData.length;
 
-    const maxVal = Math.max(25000000, ...chartData.flatMap(d => [d.income, d.expense]));
-    const emPercent = Math.min(100, Math.round((emergencyCurrent / Math.max(1, emergencyTarget)) * 100));
-    const acPercent = Math.min(100, Math.round((accumulationCurrent / Math.max(1, accumulationTarget)) * 100));
+    const incomePts = lineData.map((d, idx) => {
+      const x = N > 1 ? 85 + idx * (500 / (N - 1)) : 85;
+      const y = 150 - (d.income / maxVal) * 120;
+      return { x, y };
+    });
+
+    const expensePts = lineData.map((d, idx) => {
+      const x = N > 1 ? 85 + idx * (500 / (N - 1)) : 85;
+      const y = 150 - (d.expense / maxVal) * 120;
+      return { x, y };
+    });
+
+    const getCurvyPath = (pts: { x: number, y: number }[]) => {
+      if (pts.length === 0) return '';
+      let d = `M ${pts[0].x} ${pts[0].y}`;
+      for (let i = 0; i < pts.length - 1; i++) {
+        const p0 = pts[i];
+        const p1 = pts[i + 1];
+        const dx = p1.x - p0.x;
+        d += ` C ${p0.x + dx / 2} ${p0.y}, ${p0.x + dx / 2} ${p1.y}, ${p1.x} ${p1.y}`;
+      }
+      return d;
+    };
+
+    const getAreaPath = (pts: { x: number, y: number }[]) => {
+      const linePath = getCurvyPath(pts);
+      if (!linePath) return '';
+      return `${linePath} L ${pts[pts.length - 1].x} 150 L ${pts[0].x} 150 Z`;
+    };
+
+    // Donut Chart Expense Circle segment variables
+    const categoriesList = ['Ăn uống', 'Di chuyển', 'Shopping', 'Hóa đơn', 'Giải trí', 'Khác'];
+    const expenseTotals = categoriesList.map(cat => ({
+      name: cat,
+      value: getActualCategoryAmount(cat)
+    }));
+
+    const totalSelectedExp = getSelectedMonthsExpense();
+    const C = 314.16; // 2 * pi * r (r=50)
+    let accumulatedDash = 0;
+
+    const colorsMap: Record<string, string> = {
+      'Ăn uống': '#f59e0b',
+      'Di chuyển': '#3b82f6',
+      'Shopping': '#ec4899',
+      'Hóa đơn': '#a855f7',
+      'Giải trí': '#f43f5e',
+      'Khác': '#64748b'
+    };
+
+    const slices = expenseTotals
+      .filter(e => e.value > 0)
+      .map(e => {
+        const pct = (e.value / totalSelectedExp) * 100;
+        const len = (e.value / totalSelectedExp) * C;
+        const offset = accumulatedDash;
+        accumulatedDash += len;
+        return {
+          name: e.name,
+          value: e.value,
+          pct: Math.round(pct),
+          color: colorsMap[e.name] || '#64748b',
+          dashArray: `${len} ${C}`,
+          dashOffset: -offset
+        };
+      });
+
+    // Budget vs Actual tracker variables
+    const M = chartSelectedMonths.length;
+    const totalExpBudget = Object.keys(categoryBudgets)
+      .filter(c => ['Ăn uống', 'Di chuyển', 'Shopping', 'Hóa đơn', 'Giải trí', 'Khác'].includes(c))
+      .reduce((sum, c) => sum + (categoryBudgets[c] || 0), 0) * M;
+
+    const budgetPercent = totalExpBudget > 0 ? Math.min(100, Math.round((expense / totalExpBudget) * 100)) : 0;
+    const isOverBudget = expense > totalExpBudget;
 
     return (
       <div className="space-y-6 animate-mac-dropdown">
-        {/* Welcome Hero */}
-        <div className="flex flex-col gap-1 text-left relative z-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-extrabold tracking-wider uppercase w-fit mb-1 shadow-sm">
-            <Sparkles className="h-3.5 w-3.5" />
-            <span>Tổng quan tài sản</span>
+        
+        {/* Welcome Section */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 text-left relative z-10">
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-extrabold tracking-wider uppercase shadow-sm">
+              <Sparkles className="h-3.5 w-3.5" />
+              <span>Tổng quan tài chính</span>
+            </div>
+            <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
+              Xin chào, <span className="bg-gradient-to-r from-white via-indigo-150 to-purple-400 bg-clip-text text-transparent">{currentUser.teacherName}</span>
+            </h1>
+            <p className="text-slate-400 text-xs sm:text-sm font-semibold pt-0.5">
+              Quản lý hạn mức chi tiêu, danh mục tích lũy và thu nhập giảng dạy.
+            </p>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-[1.1]">
-            Xin chào, <span className="bg-gradient-to-r from-white via-indigo-150 to-purple-400 bg-clip-text text-transparent">{currentUser.teacherName}</span>
-          </h1>
-          <p className="text-slate-400 text-xs sm:text-sm font-semibold pt-0.5">
-            Quản lý tài chính, quỹ dự phòng, tích lũy tiết kiệm và lịch học gia sư trong một giao diện duy nhất.
-          </p>
+
+          <button
+            onClick={() => handleOpenTxModal('expense')}
+            className="flex items-center gap-2 px-4.5 py-2.5 bg-[#5c36f5] hover:bg-[#7351f7] text-white font-extrabold text-[11px] uppercase tracking-wider rounded-xl shadow-[0_4px_12px_rgba(92,54,245,0.35)] hover:scale-[1.02] transition-all cursor-pointer border border-white/20 select-none shrink-0"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Thêm giao dịch mới</span>
+          </button>
         </div>
 
-        {/* KPI metrics */}
+        {/* 4 Cards (Net Worth, Thu nhập, Chi tiêu, Net) */}
         <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 md:gap-5 text-left">
-          {/* Net Worth */}
+          {/* Card 1: Cumulative Net Worth */}
           <div className="kpi-editorial-card p-6 flex flex-col justify-between min-h-[140px]">
             <div className="flex justify-between items-center gap-2">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400 truncate">Tổng tài sản</span>
-              <div className="p-2 rounded-xl bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 shadow-[0_0_12px_rgba(123,97,255,0.25)] shrink-0">
+              <div className="p-2 rounded-xl bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 shadow-sm shrink-0">
                 <Wallet className="h-4 w-4" />
               </div>
             </div>
@@ -638,106 +976,146 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Available wallet */}
+          {/* Card 2: Selected month(s) Incomes */}
           <div className="kpi-editorial-card p-6 flex flex-col justify-between min-h-[140px]">
             <div className="flex justify-between items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 truncate">Tiền mặt trong ví</span>
-              <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.25)] shrink-0">
-                <Coins className="h-4 w-4" />
-              </div>
-            </div>
-            <div className="mt-3">
-              <span className={`text-lg sm:text-2xl font-black tracking-tight leading-none block truncate ${walletCash >= 0 ? 'text-white' : 'text-rose-400'}`} title={formatVND(walletCash)}>
-                {formatVND(walletCash)}
-              </span>
-            </div>
-            <div className="mt-2 flex">
-              <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${walletCash >= 0 ? 'text-emerald-400 bg-emerald-500/15' : 'text-rose-400 bg-rose-500/15'}`}>
-                Doanh thu - Chi tiêu
-              </span>
-            </div>
-          </div>
-
-          {/* Actual Earned Income */}
-          <div className="kpi-editorial-card p-6 flex flex-col justify-between min-h-[140px]">
-            <div className="flex justify-between items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 truncate">Tổng thu tháng này</span>
-              <div className="p-2 rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.25)] shrink-0">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 truncate">Thu nhập</span>
+              <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-sm shrink-0">
                 <TrendingUp className="h-4 w-4" />
               </div>
             </div>
             <div className="mt-3">
-              <span className="text-lg sm:text-2xl font-black text-white tracking-tight leading-none block truncate" title={formatVND(totalIncome)}>
-                {formatVND(totalIncome)}
+              <span className="text-lg sm:text-2xl font-black text-white tracking-tight leading-none block truncate" title={formatVND(income)}>
+                {formatVND(income)}
               </span>
             </div>
             <div className="mt-2 flex">
-              <span className="text-[10px] font-extrabold text-amber-300 bg-amber-500/15 px-2 py-0.5 rounded-md">
-                Đã dạy + Giao dịch
+              <span className="text-[10px] font-extrabold text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded-md">
+                Tháng đã chọn
               </span>
             </div>
           </div>
 
-          {/* Total Savings */}
+          {/* Card 3: Selected month(s) Expenses */}
           <div className="kpi-editorial-card p-6 flex flex-col justify-between min-h-[140px]">
             <div className="flex justify-between items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 truncate">Tổng tiết kiệm</span>
-              <div className="p-2 rounded-xl bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 shadow-[0_0_12px_rgba(6,182,212,0.25)] shrink-0">
-                <PiggyBank className="h-4 w-4" />
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 truncate">Chi tiêu</span>
+              <div className="p-2 rounded-xl bg-rose-500/15 text-rose-455 border border-rose-500/30 shadow-sm shrink-0">
+                <TrendingDown className="h-4 w-4" />
               </div>
             </div>
             <div className="mt-3">
-              <span className="text-lg sm:text-2xl font-black text-white tracking-tight leading-none block truncate" title={formatVND(savings)}>
-                {formatVND(savings)}
+              <span className="text-lg sm:text-2xl font-black text-white tracking-tight leading-none block truncate" title={formatVND(expense)}>
+                {formatVND(expense)}
               </span>
             </div>
             <div className="mt-2 flex">
-              <span className="text-[10px] font-extrabold text-cyan-300 bg-cyan-500/15 px-2 py-0.5 rounded-md">
-                Dự phòng + Tích lũy
+              <span className="text-[10px] font-extrabold text-rose-400 bg-rose-500/15 px-2 py-0.5 rounded-md">
+                Tháng đã chọn
+              </span>
+            </div>
+          </div>
+
+          {/* Card 4: Net income-expense */}
+          <div className="kpi-editorial-card p-6 flex flex-col justify-between min-h-[140px]">
+            <div className="flex justify-between items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 truncate">Net (Thu - Chi)</span>
+              <div className="p-2 rounded-xl bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 shadow-sm shrink-0">
+                <Activity className="h-4 w-4" />
+              </div>
+            </div>
+            <div className="mt-3">
+              <span className={`text-lg sm:text-2xl font-black tracking-tight leading-none block truncate ${net >= 0 ? 'text-white' : 'text-rose-455'}`} title={formatVND(net)}>
+                {formatVND(net)}
+              </span>
+            </div>
+            <div className="mt-2 flex">
+              <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${net >= 0 ? 'text-cyan-400 bg-cyan-500/15' : 'text-rose-400 bg-rose-500/15'}`}>
+                Thặng dư ròng
               </span>
             </div>
           </div>
         </div>
 
-        {/* Main Grid: Chart / Savings & Upcoming */}
+        {/* Multi-Month Selector filter */}
+        <div className="calendar-container-depth p-4 bg-[#141824] text-left">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mb-4 select-none">
+            <div className="flex items-center gap-2">
+              <CalendarIcon className="h-4 w-4 text-indigo-400" />
+              <span className="text-xs font-black uppercase text-white tracking-wider">Bộ lọc xem biểu đồ (Chọn nhiều tháng)</span>
+            </div>
+
+            {/* Year selector switch */}
+            <div className="flex items-center gap-2 border border-white/10 rounded-xl p-1 bg-[#0d1018]">
+              <button onClick={() => setChartYear(y=>y-1)} className="p-1 rounded-lg hover:bg-white/[0.05] text-slate-400 hover:text-white transition-colors cursor-pointer"><ChevronLeft className="h-3 w-3"/></button>
+              <span className="text-xs font-extrabold px-1 text-white">{chartYear}</span>
+              <button onClick={() => setChartYear(y=>y+1)} className="p-1 rounded-lg hover:bg-white/[0.05] text-slate-400 hover:text-white transition-colors cursor-pointer"><ChevronRight className="h-3 w-3"/></button>
+            </div>
+          </div>
+
+          {/* 12 months buttons grid */}
+          <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-12 gap-1.5">
+            {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => {
+              const mStr = `${chartYear}-${String(m).padStart(2, '0')}`;
+              const isSelected = chartSelectedMonths.includes(mStr);
+              return (
+                <button
+                  key={m}
+                  onClick={() => toggleChartMonth(mStr)}
+                  className={`py-2 rounded-xl text-[10px] font-black tracking-wider transition-all cursor-pointer ${
+                    isSelected
+                      ? 'bg-indigo-500 text-white shadow-[0_0_12px_rgba(92,54,245,0.45)] border border-indigo-500/20'
+                      : 'bg-[#0d1018] text-slate-450 hover:bg-white/[0.05] hover:text-white border border-white/5'
+                  }`}
+                >
+                  T.{m}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Main analytical displays */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-          {/* Chart + Recent Transactions */}
-          <div className="xl:col-span-2 space-y-6">
-            
-            {/* Chart */}
-            <div className="calendar-container-depth p-5 text-left bg-[#141824]">
-              <div className="flex items-center justify-between mb-5 select-none">
-                <div className="flex items-center gap-2">
-                  <div className="h-2.5 w-2.5 rounded-full bg-indigo-500 shadow-[0_0_10px_rgba(92,54,245,0.7)]"></div>
-                  <h3 className="text-xs font-black text-white uppercase tracking-wider">Lịch Sử Thu Nhập & Chi Tiêu (6 tháng qua)</h3>
+          {/* Curvy line graph display */}
+          <div className="xl:col-span-2 calendar-container-depth p-5 text-left bg-[#141824] flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-5 select-none">
+              <div className="flex items-center gap-2">
+                <div className="h-2.5 w-2.5 rounded-full bg-indigo-500 shadow-[0_0_10px_rgba(92,54,245,0.7)]"></div>
+                <h3 className="text-xs font-black text-white uppercase tracking-wider">Xu hướng thu nhập & chi tiêu</h3>
+              </div>
+              <div className="flex items-center gap-3.5 text-[10px] font-extrabold">
+                <div className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 bg-emerald-500 rounded-sm"></span>
+                  <span className="text-slate-450">Thu nhập</span>
                 </div>
-                <div className="flex items-center gap-3.5 text-[10px] font-extrabold">
-                  <div className="flex items-center gap-1.5">
-                    <span className="h-2 w-2 bg-emerald-500 rounded-sm"></span>
-                    <span className="text-slate-450">Thu nhập</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="h-2 w-2 bg-rose-500 rounded-sm"></span>
-                    <span className="text-slate-450">Chi tiêu</span>
-                  </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 bg-rose-500 rounded-sm"></span>
+                  <span className="text-slate-450">Chi tiêu</span>
                 </div>
               </div>
+            </div>
 
-              {/* Responsive SVG Column chart */}
-              <div className="w-full overflow-x-auto scrollbar-thin">
-                <svg className="w-full min-w-[520px] h-[200px]" viewBox="0 0 600 200">
+            {/* SVG Curvy Line chart */}
+            <div className="w-full overflow-x-auto scrollbar-thin">
+              {chartSelectedMonths.length === 0 ? (
+                <div className="h-[200px] flex items-center justify-center text-xs text-slate-500 font-bold">
+                  Vui lòng chọn ít nhất một tháng từ bộ lọc ở trên.
+                </div>
+              ) : (
+                <svg className="w-full min-w-[500px] h-[200px]" viewBox="0 0 600 200">
                   <defs>
-                    <linearGradient id="incomeGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#10b981" stopOpacity="0.85" />
-                      <stop offset="100%" stopColor="#059669" stopOpacity="0.15" />
+                    <linearGradient id="incomeAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#10b981" stopOpacity="0.18" />
+                      <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
                     </linearGradient>
-                    <linearGradient id="expenseGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#ef4444" stopOpacity="0.85" />
-                      <stop offset="100%" stopColor="#dc2626" stopOpacity="0.15" />
+                    <linearGradient id="expenseAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#ef4444" stopOpacity="0.18" />
+                      <stop offset="100%" stopColor="#ef4444" stopOpacity="0.0" />
                     </linearGradient>
                   </defs>
 
-                  {/* Horizontal Gridlines */}
+                  {/* Horizontal dotted lines */}
                   {[25, 65, 105, 145].map((y, idx) => (
                     <line
                       key={idx}
@@ -750,7 +1128,7 @@ export default function Dashboard() {
                     />
                   ))}
 
-                  {/* Y-axis Label text */}
+                  {/* Y-axis values */}
                   {[maxVal, maxVal * 0.66, maxVal * 0.33, 0].map((val, idx) => {
                     const yPoints = [25, 65, 105, 145];
                     return (
@@ -768,197 +1146,197 @@ export default function Dashboard() {
                     );
                   })}
 
-                  {/* Column Rendering */}
-                  {chartData.map((d, idx) => {
-                    const slotWidth = (600 - 80) / 6;
-                    const centerPoint = 80 + idx * slotWidth + slotWidth / 2;
-                    
-                    const incHeight = (d.income / maxVal) * 120;
-                    const expHeight = (d.expense / maxVal) * 120;
-                    
-                    const incY = 145 - incHeight;
-                    const expY = 145 - expHeight;
+                  {/* Curvy line paths */}
+                  {incomePts.length > 0 && (
+                    <>
+                      {/* Income area fill */}
+                      <path d={getAreaPath(incomePts)} fill="url(#incomeAreaGrad)" className="pointer-events-none" />
+                      {/* Expense area fill */}
+                      <path d={getAreaPath(expensePts)} fill="url(#expenseAreaGrad)" className="pointer-events-none" />
 
+                      {/* Income line */}
+                      <path
+                        d={getCurvyPath(incomePts)}
+                        fill="none"
+                        stroke="#10b981"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        className="drop-shadow-[0_0_6px_rgba(16,185,129,0.3)]"
+                      />
+
+                      {/* Expense line */}
+                      <path
+                        d={getCurvyPath(expensePts)}
+                        fill="none"
+                        stroke="#ef4444"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        className="drop-shadow-[0_0_6px_rgba(239,68,68,0.3)]"
+                      />
+
+                      {/* Points circles highlight */}
+                      {incomePts.map((pt, idx) => (
+                        <g key={idx} className="group/dot">
+                          <circle
+                            cx={pt.x}
+                            cy={pt.y}
+                            r="4"
+                            fill="#10b981"
+                            stroke="#141824"
+                            strokeWidth="1.5"
+                            className="transition-all duration-200 hover:scale-150 cursor-pointer"
+                          />
+                          <circle
+                            cx={expensePts[idx].x}
+                            cy={expensePts[idx].y}
+                            r="4"
+                            fill="#ef4444"
+                            stroke="#141824"
+                            strokeWidth="1.5"
+                            className="transition-all duration-200 hover:scale-150 cursor-pointer"
+                          />
+                        </g>
+                      ))}
+                    </>
+                  )}
+
+                  {/* Labels */}
+                  {lineData.map((d, idx) => {
+                    const x = N > 1 ? 85 + idx * (500 / (N - 1)) : 85;
                     return (
-                      <g key={idx} className="group">
-                        {/* Income Column */}
-                        <rect
-                          x={centerPoint - 13}
-                          y={incY}
-                          width="11"
-                          height={Math.max(1, incHeight)}
-                          fill="url(#incomeGrad)"
-                          stroke="#10b981"
-                          strokeWidth="1"
-                          rx="3"
-                          className="transition-all duration-300 hover:opacity-100 opacity-90 cursor-pointer"
-                        >
-                          <title>{`Thu nhập ${d.label}: ${formatVND(d.income)}`}</title>
-                        </rect>
-                        
-                        {/* Expense Column */}
-                        <rect
-                          x={centerPoint + 2}
-                          y={expY}
-                          width="11"
-                          height={Math.max(1, expHeight)}
-                          fill="url(#expenseGrad)"
-                          stroke="#ef4444"
-                          strokeWidth="1"
-                          rx="3"
-                          className="transition-all duration-300 hover:opacity-100 opacity-90 cursor-pointer"
-                        >
-                          <title>{`Chi tiêu ${d.label}: ${formatVND(d.expense)}`}</title>
-                        </rect>
-
-                        {/* Month text label */}
-                        <text
-                          x={centerPoint}
-                          y="168"
-                          fill="#94a3b8"
-                          fontSize="9.5"
-                          fontWeight="800"
-                          textAnchor="middle"
-                        >
-                          {d.label}
-                        </text>
-                      </g>
+                      <text
+                        key={idx}
+                        x={x}
+                        y="168"
+                        fill="#94a3b8"
+                        fontSize="9"
+                        fontWeight="800"
+                        textAnchor="middle"
+                      >
+                        {d.label}
+                      </text>
                     );
                   })}
 
-                  {/* Baseline grid line */}
                   <line x1="65" y1="145" x2="575" y2="145" stroke="rgba(255, 255, 255, 0.08)" strokeWidth="1" />
                 </svg>
-              </div>
-            </div>
-
-            {/* Recent log */}
-            <div className="calendar-container-depth p-5 text-left bg-[#141824]">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <div className="h-2.5 w-2.5 rounded-full bg-indigo-500 shadow-[0_0_10px_rgba(92,54,245,0.7)]"></div>
-                  <h3 className="text-xs font-black text-white uppercase tracking-wider">Hoạt động dòng tiền gần đây</h3>
-                </div>
-                <button onClick={() => setActiveTab('flow')} className="text-[10px] font-black text-indigo-400 hover:text-indigo-300 hover:underline">
-                  Xem tất cả
-                </button>
-              </div>
-
-              {getCombinedTransactions().slice(0, 4).length === 0 ? (
-                <p className="text-xs text-slate-500 py-6 text-center font-bold">Chưa có phát sinh giao dịch nào.</p>
-              ) : (
-                <div className="divide-y divide-white/5">
-                  {getCombinedTransactions().slice(0, 4).map((t: any) => {
-                    const isInc = t.type === 'income';
-                    return (
-                      <div key={t.id} className="py-3 flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className={`p-2 rounded-xl shrink-0 ${isInc ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}`}>
-                            {isInc ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-xs font-bold text-white truncate leading-snug">{t.desc}</p>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              <span className="text-[9px] font-black text-slate-500 uppercase">{t.date}</span>
-                              <span className="h-1 w-1 bg-white/10 rounded-full"></span>
-                              <span className="text-[9px] font-extrabold text-slate-400">{t.category}</span>
-                            </div>
-                          </div>
-                        </div>
-                        <span className={`text-xs font-black shrink-0 ${isInc ? 'text-emerald-400' : 'text-rose-400'}`}>
-                          {isInc ? '+' : '-'}{formatVND(t.amount)}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
               )}
             </div>
           </div>
 
-          {/* Right Side: Goals progress and Next classes */}
+          {/* Right side: Category Donut & Budget vs Actual progress */}
           <div className="space-y-6 text-left">
             
-            {/* Savings Goals progress */}
+            {/* Donut chart for expense distribution */}
+            <div className="calendar-container-depth p-5 bg-[#141824] space-y-4">
+              <div className="flex items-center gap-2 border-b border-white/5 pb-2">
+                <div className="h-2.5 w-2.5 rounded-full bg-indigo-500 shadow-[0_0_10px_rgba(92,54,245,0.7)]"></div>
+                <h3 className="text-xs font-black text-white uppercase tracking-wider">Phân bổ chi tiêu</h3>
+              </div>
+
+              {totalSelectedExp === 0 ? (
+                <div className="py-8 text-center text-xs text-slate-500 font-bold">
+                  Không có chi tiêu phát sinh trong tháng đã chọn.
+                </div>
+              ) : (
+                <div className="flex flex-col sm:flex-row items-center gap-4">
+                  {/* SVG Donut */}
+                  <div className="relative shrink-0 w-28 h-28">
+                    <svg className="w-full h-full transform -rotate-90" viewBox="0 0 120 120">
+                      {/* Base circle background */}
+                      <circle cx="60" cy="60" r="50" fill="transparent" stroke="rgba(255,255,255,0.03)" strokeWidth="12" />
+                      
+                      {slices.map((s, idx) => (
+                        <circle
+                          key={idx}
+                          cx="60"
+                          cy="60"
+                          r="50"
+                          fill="transparent"
+                          stroke={s.color}
+                          strokeWidth="12"
+                          strokeDasharray={s.dashArray}
+                          strokeDashoffset={s.dashOffset}
+                          strokeLinecap={slices.length > 1 ? 'butt' : 'round'}
+                          className="transition-all duration-300"
+                        />
+                      ))}
+                    </svg>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <span className="text-[9px] font-extrabold text-slate-450 uppercase leading-none">Chi tiêu</span>
+                      <span className="text-xs font-black text-white leading-none mt-1 truncate max-w-[80px]" title={formatVND(totalSelectedExp)}>
+                        {totalSelectedExp >= 1000000 ? `${(totalSelectedExp / 1000000).toFixed(1)}M` : formatVND(totalSelectedExp)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Legend list */}
+                  <div className="flex-1 space-y-1.5 w-full">
+                    {slices.slice(0, 4).map((s, idx) => (
+                      <div key={idx} className="flex items-center justify-between text-[10px] font-bold">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="h-2 w-2 rounded-sm shrink-0" style={{ backgroundColor: s.color }} />
+                          <span className="text-slate-350 truncate">{s.name}</span>
+                        </div>
+                        <span className="text-white font-black shrink-0">{s.pct}%</span>
+                      </div>
+                    ))}
+                    {slices.length > 4 && (
+                      <div className="text-[9px] font-black text-slate-500 text-right">
+                        + {slices.length - 4} danh mục khác
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Budget vs Actual progress overview */}
+            <div className="calendar-container-depth p-5 bg-[#141824] space-y-4">
+              <div className="flex items-center gap-2 border-b border-white/5 pb-2">
+                <div className="h-2.5 w-2.5 rounded-full bg-indigo-500 shadow-[0_0_10px_rgba(92,54,245,0.7)]"></div>
+                <h3 className="text-xs font-black text-white uppercase tracking-wider">Hạn mức ngân sách tổng hợp</h3>
+              </div>
+
+              <div className="bg-[#181d2e] border border-white/5 rounded-2xl p-4 space-y-2">
+                <div className="flex justify-between text-xs font-bold items-center">
+                  <span className="text-slate-350">Tổng ngân sách chi</span>
+                  <span className={isOverBudget ? 'text-rose-455 font-black animate-pulse' : 'text-emerald-400'}>
+                    {budgetPercent}% {isOverBudget && '(Vượt hạn mức!)'}
+                  </span>
+                </div>
+                <div className="h-2 bg-[#101420] rounded-full overflow-hidden">
+                  <div
+                    className={`h-full transition-all duration-300 ${isOverBudget ? 'bg-gradient-to-r from-red-500 to-rose-500' : 'bg-gradient-to-r from-indigo-500 to-cyan-500'}`}
+                    style={{ width: `${budgetPercent}%` }}
+                  ></div>
+                </div>
+                <div className="flex justify-between text-[10px] font-extrabold text-slate-550">
+                  <span>Đã chi: {formatVND(expense)}</span>
+                  <span>Ngân sách: {formatVND(totalExpBudget)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Savings Widget */}
             <div className="calendar-container-depth p-5 space-y-4 bg-[#141824]">
               <div className="flex items-center gap-2 border-b border-white/5 pb-2">
                 <div className="h-2.5 w-2.5 rounded-full bg-indigo-500 shadow-[0_0_10px_rgba(92,54,245,0.7)]"></div>
                 <h3 className="text-xs font-black text-white uppercase tracking-wider">Tiến độ tích lũy tiết kiệm</h3>
               </div>
-
-              {/* Emergency */}
-              <div className="bg-[#181d2e] border border-white/5 rounded-2xl p-4 space-y-2">
-                <div className="flex justify-between text-xs font-bold">
-                  <span className="text-slate-350">Quỹ Dự Phòng</span>
-                  <span className="text-indigo-400">{emPercent}%</span>
+              <div className="grid grid-cols-2 gap-3 text-[10px] font-extrabold text-slate-550">
+                <div className="bg-[#181d2e] border border-white/5 p-3.5 rounded-2xl space-y-1">
+                  <span className="text-slate-450 block truncate">Quỹ Dự Phòng</span>
+                  <span className="text-sm font-black text-white block truncate">{formatVND(emergencyCurrent)}</span>
                 </div>
-                <div className="h-2 bg-[#101420] rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 shadow-[0_0_8px_rgba(92,54,245,0.5)] transition-all duration-300"
-                    style={{ width: `${emPercent}%` }}
-                  ></div>
-                </div>
-                <div className="flex justify-between text-[10px] font-extrabold text-slate-500">
-                  <span>Đã tích lũy: {formatVND(emergencyCurrent)}</span>
-                  <span>Mục tiêu: {formatVND(emergencyTarget)}</span>
+                <div className="bg-[#181d2e] border border-white/5 p-3.5 rounded-2xl space-y-1">
+                  <span className="text-slate-450 block truncate">Quỹ Tích Lũy</span>
+                  <span className="text-sm font-black text-white block truncate">{formatVND(accumulationCurrent)}</span>
                 </div>
               </div>
-
-              {/* Accumulation */}
-              <div className="bg-[#181d2e] border border-white/5 rounded-2xl p-4 space-y-2">
-                <div className="flex justify-between text-xs font-bold">
-                  <span className="text-slate-350">Quỹ Tích Lũy</span>
-                  <span className="text-cyan-400">{acPercent}%</span>
-                </div>
-                <div className="h-2 bg-[#101420] rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-cyan-500 to-emerald-500 shadow-[0_0_8px_rgba(6,182,212,0.5)] transition-all duration-300"
-                    style={{ width: `${acPercent}%` }}
-                  ></div>
-                </div>
-                <div className="flex justify-between text-[10px] font-extrabold text-slate-500">
-                  <span>Đã tích lũy: {formatVND(accumulationCurrent)}</span>
-                  <span>Mục tiêu: {formatVND(accumulationTarget)}</span>
-                </div>
-              </div>
-
-              <button onClick={() => setActiveTab('saving')} className="w-full py-2.5 bg-indigo-500/10 hover:bg-indigo-500/25 border border-indigo-500/35 text-indigo-350 font-extrabold text-[10px] uppercase tracking-wider rounded-xl transition-all cursor-pointer text-center block">
-                Nạp / Rút Quỹ Tiết Kiệm
+              <button onClick={() => setActiveTab('saving')} className="w-full py-2 bg-[#0d1018] hover:bg-white/[0.04] border border-white/10 text-indigo-350 font-black text-[10px] uppercase rounded-xl transition-all cursor-pointer text-center">
+                Xem chi tiết tiết kiệm
               </button>
-            </div>
-
-            {/* Upcoming Shifts list */}
-            <div className="calendar-container-depth p-5 bg-[#141824]">
-              <div className="flex items-center justify-between mb-4 border-b border-white/5 pb-2">
-                <div className="flex items-center gap-2">
-                  <div className="h-2.5 w-2.5 rounded-full bg-indigo-500 shadow-[0_0_10px_rgba(92,54,245,0.7)]"></div>
-                  <h3 className="text-xs font-black text-white uppercase tracking-wider">Lịch giảng dạy sắp tới</h3>
-                </div>
-                <button onClick={() => setActiveTab('schedule')} className="text-[10px] font-black text-indigo-400 hover:text-indigo-300 hover:underline">
-                  Xem lịch học
-                </button>
-              </div>
-
-              {upcoming.length === 0 ? (
-                <p className="text-xs text-slate-500 py-6 text-center font-bold">Chưa có lịch dạy học nào.</p>
-              ) : (
-                <div className="space-y-3.5">
-                  {upcoming.map((s) => (
-                    <div key={s.id} className="bg-[#181d2e] border border-white/5 rounded-2xl p-3.5 flex items-center justify-between hover:border-indigo-500/25 transition-all">
-                      <div className="space-y-1">
-                        <p className="text-xs font-black text-white">{s.student_name}</p>
-                        <div className="flex flex-col text-[10px] text-slate-400 font-extrabold space-y-0.5">
-                          <span>{s.date} ({s.day_of_week})</span>
-                          <span>{s.time} - Thời lượng: {s.duration}h</span>
-                        </div>
-                      </div>
-                      <span className="text-[10px] font-black px-2.5 py-1 rounded-lg bg-indigo-500/15 text-indigo-300 border border-indigo-500/20">
-                        {formatVND(s.price)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
 
           </div>
@@ -967,303 +1345,201 @@ export default function Dashboard() {
     );
   };
 
-  // SUB-RENDER: Cash Flow Tab
+  // SUB-RENDER: Cash Flow Tab (Flow layout split)
   const renderFlow = () => {
-    const supabaseIncome = getSupabaseIncome();
-    const manualIncome = manualTransactions
-      .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + t.amount, 0);
-    const totalIncome = manualIncome + supabaseIncome;
-    const totalExpense = getTotalExpense();
-    const savingsRate = totalIncome > 0 ? Math.max(0, Math.round(((totalIncome - totalExpense) / totalIncome) * 100)) : 0;
+    if (!currentUser) return null;
+    const incomes = getIncomeTransactions();
+    const expenses = getExpenseTransactions();
 
-    const combined = getCombinedTransactions();
-    const filtered = combined.filter((t: any) => {
-      if (txFilter === 'income' && t.type !== 'income') return false;
-      if (txFilter === 'expense' && t.type !== 'expense') return false;
-      
-      if (txSearch) {
-        const q = txSearch.toLowerCase();
-        return (
-          t.desc.toLowerCase().includes(q) ||
-          t.category.toLowerCase().includes(q) ||
-          t.date.includes(q)
-        );
-      }
-      return true;
-    });
-
-    const categories = txType === 'income' 
-      ? ['Lương', 'Đầu tư', 'Khác'] 
-      : ['Ăn uống', 'Di chuyển', 'Shopping', 'Hóa đơn', 'Giải trí', 'Khác'];
-
-    const handleAddTx = (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!currentUser) return;
-      const userId = currentUser.id;
-
-      if (!txDesc.trim() || !txAmount || Number(txAmount) <= 0) {
-        alert('Vui lòng điền mô tả và số tiền hợp lệ lớn hơn 0.');
-        return;
-      }
-
-      const newTx = {
-        id: `tx-${Date.now()}`,
-        desc: txDesc.trim(),
-        amount: Number(txAmount),
-        type: txType,
-        category: txCategory,
-        date: txDate
-      };
-
-      const updated = [newTx, ...manualTransactions];
-      saveTransactions(userId, updated);
-      
-      setTxDesc('');
-      setTxAmount('');
-    };
-
-    const handleDeleteTx = (id: string) => {
-      if (!currentUser) return;
-      const userId = currentUser.id;
-      if (confirm('Bạn có chắc chắn muốn xóa giao dịch thủ công này?')) {
-        const updated = manualTransactions.filter(t => t.id !== id);
-        saveTransactions(userId, updated);
-      }
-    };
+    // Actual categoric budgets compared
+    const incomeCats = ['Lương', 'Giáo dục', 'Đầu tư', 'Khác'];
+    const expenseCats = ['Ăn uống', 'Di chuyển', 'Shopping', 'Hóa đơn', 'Giải trí', 'Khác'];
 
     return (
       <div className="space-y-6 animate-mac-dropdown text-left">
-        {/* Title */}
-        <div className="flex flex-col gap-1">
-          <h2 className="text-2xl font-black text-white tracking-tight">Dòng Chảy Tài Chính</h2>
-          <p className="text-slate-400 text-xs font-semibold">Theo dõi chi tiết các khoản phát sinh thu nhập và chi tiêu của bạn.</p>
-        </div>
-
-        {/* Summary metric blocks */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-[#141824] border border-white/5 rounded-2xl p-4 flex items-center gap-4">
-            <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20">
-              <ArrowUpRight className="h-5 w-5" />
-            </div>
-            <div>
-              <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Tổng thu tháng này</span>
-              <p className="text-base sm:text-lg font-black text-white">{formatVND(totalIncome)}</p>
-            </div>
+        {/* Header Title */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="flex flex-col">
+            <h2 className="text-2xl font-black text-white tracking-tight">Sổ Nhật Ký Dòng Chảy</h2>
+            <p className="text-slate-400 text-xs font-semibold">Liệt kê tất cả các khoản chi tiêu và nguồn thu nhập thực tế trong bộ lọc tháng.</p>
           </div>
-
-          <div className="bg-[#141824] border border-white/5 rounded-2xl p-4 flex items-center gap-4">
-            <div className="p-3 bg-rose-500/10 text-rose-400 rounded-xl border border-rose-500/20">
-              <ArrowDownRight className="h-5 w-5" />
-            </div>
-            <div>
-              <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Tổng chi tháng này</span>
-              <p className="text-base sm:text-lg font-black text-white">{formatVND(totalExpense)}</p>
-            </div>
-          </div>
-
-          <div className="bg-[#141824] border border-white/5 rounded-2xl p-4 flex items-center gap-4">
-            <div className="p-3 bg-indigo-500/10 text-indigo-400 rounded-xl border border-indigo-500/20">
-              <TrendingUp className="h-5 w-5" />
-            </div>
-            <div>
-              <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Tỷ suất tiết kiệm</span>
-              <p className="text-base sm:text-lg font-black text-white">{savingsRate}%</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Data list and form grid */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           
-          {/* Transaction History list */}
-          <div className="xl:col-span-2 calendar-container-depth p-5 space-y-4 bg-[#141824]">
-            
-            {/* Header filters */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-b border-white/5 pb-4">
-              <div className="flex bg-[#0d1018] p-1 rounded-xl border border-white/10 w-full sm:w-auto">
-                {(['all', 'income', 'expense'] as const).map((type) => (
-                  <button
-                    key={type}
-                    onClick={() => setTxFilter(type)}
-                    className={`flex-1 sm:flex-initial px-4 py-1.5 text-[10px] font-black rounded-lg transition-all cursor-pointer ${
-                      txFilter === type
-                        ? 'bg-indigo-500 text-white shadow-md'
-                        : 'text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    {type === 'all' ? 'TẤT CẢ' : type === 'income' ? 'THU NHẬP' : 'CHI TIÊU'}
-                  </button>
-                ))}
-              </div>
+          <button
+            onClick={() => handleOpenTxModal('expense')}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white font-extrabold text-xs rounded-xl shadow-md cursor-pointer transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Thêm giao dịch mới</span>
+          </button>
+        </div>
 
-              {/* Search text input */}
-              <div className="relative w-full sm:w-60">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Tìm kiếm giao dịch..."
-                  value={txSearch}
-                  onChange={(e) => setTxSearch(e.target.value)}
-                  className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl pl-9 pr-4 py-2 focus:outline-none focus:border-indigo-500 transition-colors"
-                />
-              </div>
+        {/* Categories Budget tracker block */}
+        <div className="calendar-container-depth p-5 bg-[#141824] space-y-4">
+          <div className="flex items-center justify-between border-b border-white/5 pb-2">
+            <div className="flex items-center gap-2">
+              <div className="h-2.5 w-2.5 rounded-full bg-indigo-500 shadow-[0_0_10px_rgba(92,54,245,0.7)]"></div>
+              <h3 className="text-xs font-black text-white uppercase tracking-wider">Hạn mức ngân sách & thực tế theo danh mục (Hàng tháng)</h3>
             </div>
-
-            {/* List scroll panel */}
-            <div className="space-y-2.5 max-h-[500px] overflow-y-auto pr-1 scrollbar-thin">
-              {filtered.length === 0 ? (
-                <p className="text-xs text-slate-500 py-12 text-center font-bold">Không tìm thấy giao dịch nào tương hợp.</p>
-              ) : (
-                filtered.map((t: any) => {
-                  const isInc = t.type === 'income';
-                  return (
-                    <div key={t.id} className="p-3 bg-[#181d2e]/40 border border-white/5 hover:border-white/10 rounded-2xl flex items-center justify-between gap-4 transition-all">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className={`p-2 rounded-xl shrink-0 ${isInc ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-455 border border-rose-500/20'}`}>
-                          {isInc ? <ArrowUpRight className="h-4.5 w-4.5" /> : <ArrowDownRight className="h-4.5 w-4.5" />}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-xs font-black text-white truncate leading-snug">{t.desc}</p>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-[9px] font-black text-slate-500 uppercase">{t.date}</span>
-                            <span className="h-1 w-1 bg-white/10 rounded-full"></span>
-                            <span className="text-[9px] font-extrabold text-slate-400 bg-white/[0.04] px-1.5 py-0.5 rounded-md border border-white/5">
-                              {t.category}
-                            </span>
-                            {!t.isManual && (
-                              <span className="text-[8px] font-black text-indigo-400 bg-indigo-500/10 border border-indigo-500/25 px-1.5 py-0.5 rounded-md shrink-0">
-                                Tự động đồng bộ
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className={`text-xs font-black ${isInc ? 'text-emerald-400' : 'text-rose-455'}`}>
-                          {isInc ? '+' : '-'}{formatVND(t.amount)}
-                        </span>
-                        {t.isManual && (
-                          <button
-                            onClick={() => handleDeleteTx(t.id)}
-                            title="Xóa giao dịch"
-                            className="p-1.5 hover:bg-rose-500/10 text-slate-500 hover:text-rose-400 rounded-lg transition-colors cursor-pointer"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
+            <span className="text-[9px] text-slate-500 font-extrabold block">Double-click hoặc click icon cây bút để tùy chỉnh hạn mức.</span>
           </div>
 
-          {/* Add Form panel */}
-          <div className="calendar-container-depth p-5 space-y-4 h-fit bg-[#141824]">
-            <div className="flex items-center gap-2 border-b border-white/5 pb-3">
-              <Plus className="h-4.5 w-4.5 text-indigo-400" />
-              <h3 className="text-xs font-black text-white uppercase tracking-wider">Thêm giao dịch thủ công</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {[...incomeCats, ...expenseCats].map(cat => {
+              const actual = getActualCategoryAmount(cat);
+              const budgetVal = categoryBudgets[cat] || 0;
+              const pct = budgetVal > 0 ? Math.min(100, Math.round((actual / budgetVal) * 100)) : 0;
+              const isExpense = expenseCats.includes(cat);
+              const isOver = isExpense && actual > budgetVal;
+
+              return (
+                <div key={cat} className="bg-[#181d2e]/60 border border-white/5 rounded-2xl p-4 space-y-2 relative group">
+                  <div className="flex items-center justify-between text-xs font-bold">
+                    <span className="text-slate-350">{cat}</span>
+                    <button
+                      onClick={() => handleEditBudgetPrompt(cat)}
+                      className="p-1 hover:bg-white/[0.05] rounded text-slate-400 hover:text-indigo-400 transition-colors"
+                      title="Sửa hạn mức"
+                    >
+                      <Settings className="h-3 w-3" />
+                    </button>
+                  </div>
+
+                  <div className="flex justify-between text-[11px] font-black text-white">
+                    <span>{formatVND(actual)}</span>
+                    <span className="text-slate-500">Hạn mức: {formatVND(budgetVal)}</span>
+                  </div>
+
+                  {/* Progress bar line */}
+                  <div className="h-1.5 bg-[#101420] rounded-full overflow-hidden">
+                    <div
+                      className={`h-full transition-all duration-300 ${
+                        isExpense 
+                          ? (isOver ? 'bg-rose-500 shadow-[0_0_6px_rgba(239,68,68,0.5)]' : 'bg-indigo-500') 
+                          : 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]'
+                      }`}
+                      style={{ width: `${pct}%` }}
+                    ></div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[9px] font-extrabold text-slate-500">
+                    <span>{isExpense ? 'Đã chi tiêu' : 'Đã thu nhập'}</span>
+                    <span className={isOver ? 'text-rose-455' : ''}>{pct}% {isOver && '(Vượt ngân sách!)'}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Separated lists stacked/side-by-side */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          
+          {/* Income block */}
+          <div className="calendar-container-depth p-5 bg-[#141824] space-y-4">
+            <div className="flex items-center gap-2 border-b border-white/5 pb-2.5">
+              <div className="p-1.5 bg-emerald-500/10 text-emerald-450 border border-emerald-500/25 rounded-lg">
+                <ArrowUpRight className="h-4 w-4" />
+              </div>
+              <h3 className="text-xs font-black text-white uppercase tracking-wider">Danh Sách Thu Nhập</h3>
             </div>
 
-            <form onSubmit={handleAddTx} className="space-y-4">
-              {/* Type Switch */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Loại hình</label>
-                <div className="flex bg-[#0d1018] p-1 rounded-xl border border-white/10">
-                  <button
-                    type="button"
-                    onClick={() => { setTxType('expense'); setTxCategory('Ăn uống'); }}
-                    className={`flex-1 py-2 text-[10px] font-black rounded-lg transition-all cursor-pointer ${
-                      txType === 'expense'
-                        ? 'bg-rose-500 text-white shadow-md'
-                        : 'text-slate-450 hover:text-slate-200'
-                    }`}
-                  >
-                    CHI TIÊU
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setTxType('income'); setTxCategory('Lương'); }}
-                    className={`flex-1 py-2 text-[10px] font-black rounded-lg transition-all cursor-pointer ${
-                      txType === 'income'
-                        ? 'bg-emerald-500 text-white shadow-md'
-                        : 'text-slate-450 hover:text-slate-200'
-                    }`}
-                  >
-                    THU NHẬP
-                  </button>
-                </div>
-              </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-[11px] font-bold text-slate-350">
+                <thead>
+                  <tr className="border-b border-white/5 text-[9px] font-black uppercase text-slate-500 tracking-wider">
+                    <th className="py-2.5 text-left font-black">Tên thu nhập</th>
+                    <th className="py-2.5 text-left font-black">Loại hình</th>
+                    <th className="py-2.5 text-right font-black">Số tiền</th>
+                    <th className="py-2.5 text-center font-black w-10"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {incomes.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-10 text-center text-slate-500 font-bold">Chưa ghi nhận nguồn thu nào.</td>
+                    </tr>
+                  ) : (
+                    incomes.map((t) => (
+                      <tr key={t.id} className="hover:bg-white/[0.02] transition-colors group">
+                        <td className="py-3 text-left">
+                          <p className="text-white font-bold">{t.desc}</p>
+                          <span className="text-[8.5px] font-extrabold text-slate-550 block mt-0.5">{t.date}</span>
+                        </td>
+                        <td className="py-3 text-left">
+                          <span className="px-1.5 py-0.5 bg-[#0d1018] rounded text-[9px] border border-white/5">{t.category}</span>
+                        </td>
+                        <td className="py-3 text-right text-emerald-400 font-black">+{formatVND(t.amount)}</td>
+                        <td className="py-3 text-center">
+                          {t.isManual && (
+                            <button
+                              onClick={() => handleDeleteManualTx(t.id)}
+                              className="p-1 hover:bg-rose-500/10 text-slate-500 hover:text-rose-455 rounded-lg transition-all cursor-pointer opacity-0 group-hover:opacity-100"
+                              title="Xóa giao dịch"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-              {/* Description */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Mô tả giao dịch</label>
-                <input
-                  type="text"
-                  placeholder="VD: Mua thực phẩm, Tiền lương..."
-                  value={txDesc}
-                  onChange={(e) => setTxDesc(e.target.value)}
-                  className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 transition-colors"
-                  required
-                />
+          {/* Expense block */}
+          <div className="calendar-container-depth p-5 bg-[#141824] space-y-4">
+            <div className="flex items-center gap-2 border-b border-white/5 pb-2.5">
+              <div className="p-1.5 bg-rose-500/10 text-rose-450 border border-rose-500/25 rounded-lg">
+                <ArrowDownRight className="h-4 w-4" />
               </div>
+              <h3 className="text-xs font-black text-white uppercase tracking-wider">Danh Sách Chi Tiêu</h3>
+            </div>
 
-              {/* Amount */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Số tiền (VND)</label>
-                <input
-                  type="number"
-                  placeholder="VD: 250000"
-                  value={txAmount}
-                  onChange={(e) => setTxAmount(e.target.value)}
-                  className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 transition-colors"
-                  required
-                />
-              </div>
-
-              {/* Category selector */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Danh mục danh mục</label>
-                <div className="relative">
-                  <select
-                    value={txCategory}
-                    onChange={(e) => setTxCategory(e.target.value)}
-                    className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 cursor-pointer block"
-                  >
-                    {categories.map((c) => (
-                      <option key={c} value={c} className="bg-[#0d1018] text-white">
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-                </div>
-              </div>
-
-              {/* Datepicker */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Ngày giao dịch</label>
-                <input
-                  type="date"
-                  value={txDate}
-                  onChange={(e) => setTxDate(e.target.value)}
-                  className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 transition-colors cursor-pointer"
-                  required
-                />
-              </div>
-
-              {/* Save trigger button */}
-              <button
-                type="submit"
-                className="w-full py-3 bg-[#5c36f5] hover:bg-[#7351f7] text-white font-extrabold text-xs rounded-xl shadow-[0_4px_12px_rgba(92,54,245,0.3)] transition-all hover:scale-[1.02] cursor-pointer"
-              >
-                Ghi Nhận Giao Dịch
-              </button>
-            </form>
+            <div className="overflow-x-auto">
+              <table className="w-full text-[11px] font-bold text-slate-350">
+                <thead>
+                  <tr className="border-b border-white/5 text-[9px] font-black uppercase text-slate-500 tracking-wider">
+                    <th className="py-2.5 text-left font-black">Tên chi tiêu</th>
+                    <th className="py-2.5 text-left font-black">Loại hình</th>
+                    <th className="py-2.5 text-right font-black">Số tiền</th>
+                    <th className="py-2.5 text-center font-black w-10"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {expenses.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-10 text-center text-slate-500 font-bold">Chưa phát sinh giao dịch chi tiêu.</td>
+                    </tr>
+                  ) : (
+                    expenses.map((t) => (
+                      <tr key={t.id} className="hover:bg-white/[0.02] transition-colors group">
+                        <td className="py-3 text-left">
+                          <p className="text-white font-bold">{t.desc}</p>
+                          <span className="text-[8.5px] font-extrabold text-slate-550 block mt-0.5">{t.date}</span>
+                        </td>
+                        <td className="py-3 text-left">
+                          <span className="px-1.5 py-0.5 bg-[#0d1018] rounded text-[9px] border border-white/5">{t.category}</span>
+                        </td>
+                        <td className="py-3 text-right text-rose-455 font-black">-{formatVND(t.amount)}</td>
+                        <td className="py-3 text-center">
+                          {t.isManual && (
+                            <button
+                              onClick={() => handleDeleteManualTx(t.id)}
+                              className="p-1 hover:bg-rose-500/10 text-slate-500 hover:text-rose-455 rounded-lg transition-all cursor-pointer opacity-0 group-hover:opacity-100"
+                              title="Xóa giao dịch"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
 
         </div>
@@ -1273,6 +1549,7 @@ export default function Dashboard() {
 
   // SUB-RENDER: Savings Tab
   const renderSaving = () => {
+    if (!currentUser) return null;
     const emPercent = Math.min(100, Math.round((emergencyCurrent / Math.max(1, emergencyTarget)) * 100));
     const acPercent = Math.min(100, Math.round((accumulationCurrent / Math.max(1, accumulationTarget)) * 100));
 
@@ -1280,8 +1557,8 @@ export default function Dashboard() {
       <div className="space-y-6 animate-mac-dropdown text-left">
         {/* Title */}
         <div className="flex flex-col gap-1">
-          <h2 className="text-2xl font-black text-white tracking-tight">Quỹ Tiết Kiệm Tích Lũy</h2>
-          <p className="text-slate-400 text-xs font-semibold">Tách biệt dòng tiền tích lũy dài hạn và quỹ dự phòng rủi ro biến cố.</p>
+          <h2 className="text-2xl font-black text-white tracking-tight">Kế Hoạch Tiết Kiệm</h2>
+          <p className="text-slate-400 text-xs font-semibold">Bảo vệ nguồn tài sản dự trữ và tích lũy thông minh dài hạn.</p>
         </div>
 
         {/* Dual Card panel */}
@@ -1296,7 +1573,7 @@ export default function Dashboard() {
                   </div>
                   <div>
                     <h3 className="text-sm font-black text-white uppercase tracking-wider">Quỹ Dự Phòng</h3>
-                    <p className="text-[10px] text-slate-450 font-medium leading-none mt-0.5">Dành cho tình huống khẩn cấp (ốm đau, sự cố đột xuất).</p>
+                    <p className="text-[10px] text-slate-450 font-medium leading-none mt-0.5">Dành cho tình huống khẩn cấp bất ngờ.</p>
                   </div>
                 </div>
                 <span className="text-[10px] font-black px-2 py-0.5 bg-indigo-500/15 text-indigo-300 border border-indigo-500/20 rounded-md">
@@ -1304,9 +1581,8 @@ export default function Dashboard() {
                 </span>
               </div>
 
-              {/* Balances */}
               <div className="space-y-1">
-                <span className="text-[9px] font-extrabold text-slate-550 uppercase">Số dư hiện hữu</span>
+                <span className="text-[9px] font-extrabold text-slate-550 uppercase">Số dư hiện tại</span>
                 <p className="text-2xl font-black text-white leading-none">{formatVND(emergencyCurrent)}</p>
               </div>
 
@@ -1375,7 +1651,7 @@ export default function Dashboard() {
                   </div>
                   <div>
                     <h3 className="text-sm font-black text-white uppercase tracking-wider">Quỹ Tích Lũy</h3>
-                    <p className="text-[10px] text-slate-450 font-medium leading-none mt-0.5">Dành cho mục tiêu lớn dài hạn (mua xe, nhà, học tập, đầu tư).</p>
+                    <p className="text-[10px] text-slate-455 font-medium leading-none mt-0.5">Dành cho mục tiêu lớn đầu tư dài hạn.</p>
                   </div>
                 </div>
                 <span className="text-[10px] font-black px-2 py-0.5 bg-cyan-500/15 text-cyan-300 border border-cyan-500/20 rounded-md">
@@ -1383,9 +1659,8 @@ export default function Dashboard() {
                 </span>
               </div>
 
-              {/* Balances */}
               <div className="space-y-1">
-                <span className="text-[9px] font-extrabold text-slate-550 uppercase">Số dư hiện hữu</span>
+                <span className="text-[9px] font-extrabold text-slate-550 uppercase">Số dư hiện tại</span>
                 <p className="text-2xl font-black text-white leading-none">{formatVND(accumulationCurrent)}</p>
               </div>
 
@@ -1461,17 +1736,17 @@ export default function Dashboard() {
                 return (
                   <div key={h.id} className="p-3.5 bg-[#181d2e]/45 border border-white/5 rounded-2xl flex items-center justify-between gap-4 transition-all">
                     <div className="flex items-center gap-3">
-                      <div className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase border shrink-0 ${isDep ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'}`}>
+                      <div className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase border shrink-0 ${isDep ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-450 border-rose-500/20'}`}>
                         {isDep ? 'Nạp quỹ' : 'Rút quỹ'}
                       </div>
                       <div>
                         <p className="text-xs font-bold text-white leading-snug">
-                          {h.fund === 'emergency' ? 'Quỹ Dự Phòng Khẩn Cấp' : 'Quỹ Tích Lũy Dài Hạn'}
+                          {h.fund === 'emergency' ? 'Quỹ Dự Phòng' : 'Quỹ Tích Lũy'}
                         </p>
                         <span className="text-[9px] font-black text-slate-500 uppercase">{h.date}</span>
                       </div>
                     </div>
-                    <span className={`text-xs font-black shrink-0 ${isDep ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    <span className={`text-xs font-black shrink-0 ${isDep ? 'text-emerald-400' : 'text-rose-450'}`}>
                       {isDep ? '+' : '-'}{formatVND(h.amount)}
                     </span>
                   </div>
@@ -1486,6 +1761,7 @@ export default function Dashboard() {
 
   // SUB-RENDER: Schedule View (rebranding scheduler)
   const renderSchedule = () => {
+    if (!currentUser) return null;
     return (
       <div className="space-y-6 animate-mac-dropdown">
         
@@ -1575,7 +1851,7 @@ export default function Dashboard() {
             <div className="mt-2 flex">
               {totalSessions > 0 && (
                 <span className="text-[10px] font-black text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded-md">
-                  ↑ {Math.round((completedSessions / totalSessions) * 105) / 1.05}%
+                  ↑ {Math.round((completedSessions / totalSessions) * 100)}%
                 </span>
               )}
             </div>
@@ -1687,7 +1963,7 @@ export default function Dashboard() {
                 <button
                   onClick={() => setCurrentView('month')}
                   className={`relative z-10 px-4 py-1.5 text-[10px] font-black rounded-[10px] transition-colors duration-300 ${
-                    currentView === 'month' ? 'text-white' : 'text-slate-555 hover:text-slate-300'
+                    currentView === 'month' ? 'text-white' : 'text-slate-500 hover:text-slate-300'
                   }`}
                 >
                   LỊCH THÁNG
@@ -1695,7 +1971,7 @@ export default function Dashboard() {
                 <button
                   onClick={() => setCurrentView('week')}
                   className={`relative z-10 px-4 py-1.5 text-[10px] font-black rounded-[10px] transition-colors duration-300 ${
-                    currentView === 'week' ? 'text-white' : 'text-slate-555 hover:text-slate-300'
+                    currentView === 'week' ? 'text-white' : 'text-slate-500 hover:text-slate-300'
                   }`}
                 >
                   LỊCH TUẦN
@@ -1771,12 +2047,14 @@ export default function Dashboard() {
 
   // SUB-RENDER: Settings Tab
   const renderSettings = () => {
+    if (!currentUser) return null;
     const getBackupJSON = () => {
       const data = {
         transactions: manualTransactions,
         emergency: { current: emergencyCurrent, target: emergencyTarget },
         accumulation: { current: accumulationCurrent, target: accumulationTarget },
-        history: savingsHistory
+        history: savingsHistory,
+        budgets: categoryBudgets
       };
       return JSON.stringify(data, null, 2);
     };
@@ -1799,6 +2077,7 @@ export default function Dashboard() {
           saveAccumulationTarget(userId, parsed.accumulation.target);
         }
         if (parsed.history) saveSavingsHistory(userId, parsed.history);
+        if (parsed.budgets) saveBudgets(userId, parsed.budgets);
         alert('Khôi phục dữ liệu sao lưu thành công!');
       } catch (err) {
         alert('Cú pháp chuỗi khôi phục lỗi. Hãy kiểm tra lại định dạng JSON.');
@@ -1815,6 +2094,7 @@ export default function Dashboard() {
         localStorage.removeItem(`finance_ac_curr_${userId}`);
         localStorage.removeItem(`finance_ac_tar_${userId}`);
         localStorage.removeItem(`finance_sav_hist_${userId}`);
+        localStorage.removeItem(`finance_budgets_${userId}`);
 
         setManualTransactions([]);
         setEmergencyCurrent(0);
@@ -1822,6 +2102,17 @@ export default function Dashboard() {
         setAccumulationCurrent(0);
         setAccumulationTarget(150000000);
         setSavingsHistory([]);
+        setCategoryBudgets({
+          'Lương': 15000000,
+          'Giáo dục': 10000000,
+          'Đầu tư': 5000000,
+          'Khác': 1000000,
+          'Ăn uống': 4000000,
+          'Di chuyển': 1500000,
+          'Shopping': 3000000,
+          'Hóa đơn': 3000000,
+          'Giải trí': 2000000
+        });
         alert('Đã xóa dữ liệu tài chính cục bộ.');
       }
     };
@@ -1860,13 +2151,13 @@ export default function Dashboard() {
             <div className="flex gap-3 pt-2">
               <button
                 onClick={() => setPasswordModalOpen(true)}
-                className="flex-1 py-2.5 bg-indigo-500/10 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-350 font-extrabold text-[10px] uppercase tracking-wider rounded-xl transition-all cursor-pointer text-center"
+                className="flex-1 py-2.5 bg-indigo-500/10 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-355 font-extrabold text-[10px] uppercase tracking-wider rounded-xl transition-all cursor-pointer text-center"
               >
                 Đổi mật khẩu
               </button>
               <button
                 onClick={handleLogout}
-                className="flex-1 py-2.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25 text-rose-400 font-extrabold text-[10px] uppercase tracking-wider rounded-xl transition-all cursor-pointer text-center"
+                className="flex-1 py-2.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25 text-rose-450 font-extrabold text-[10px] uppercase tracking-wider rounded-xl transition-all cursor-pointer text-center"
               >
                 Đăng xuất
               </button>
@@ -1880,7 +2171,7 @@ export default function Dashboard() {
               <h3 className="text-xs font-black text-white uppercase tracking-wider">Quản lý vùng nhớ</h3>
             </div>
             <p className="text-[11px] text-slate-400 font-medium leading-relaxed">
-              Thực hiện xóa toàn bộ dữ liệu tài chính (giao dịch thủ công và số dư các quỹ tích lũy tiết kiệm) được ghi nhớ trong trình duyệt. Thông tin về lịch dạy trên Supabase sẽ không bị ảnh hưởng.
+              Thực hiện xóa toàn bộ dữ liệu tài chính (giao dịch thủ công và số dư các quỹ tiết kiệm hiện có) được ghi nhớ trong trình duyệt. Thông tin về lịch dạy trên Supabase sẽ không bị ảnh hưởng.
             </p>
             <button
               onClick={handleResetData}
@@ -1938,10 +2229,19 @@ export default function Dashboard() {
     );
   };
 
+  if (!currentUser || !selectedMonth) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#090b10] gap-4">
+        <div className="h-10 w-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+        <span className="text-slate-400 font-semibold text-sm">Đang tải cấu hình hệ thống...</span>
+      </div>
+    );
+  }
+
   // MAIN LAYOUT RETURN
   return (
     <div className="min-h-screen transition-colors duration-300 ambient-bg-dark text-slate-100 relative overflow-hidden select-none flex">
-      {/* Signature Vignette Overlay */}
+      {/* Vignette Overlay */}
       <div className="vignette-overlay" />
 
       {/* Sidebar - Desktop view */}
@@ -1949,7 +2249,7 @@ export default function Dashboard() {
         {renderSidebarContent(false)}
       </aside>
 
-      {/* Mobile Drawer and main grid flow */}
+      {/* Mobile grid flow */}
       <div className="flex-1 flex flex-col min-w-0">
         
         {/* macOS Floating Toolbar */}
@@ -2108,6 +2408,183 @@ export default function Dashboard() {
         isOpen={passwordModalOpen}
         onClose={() => setPasswordModalOpen(false)}
       />
+
+      {/* UNIFIED POP-UP TRANSACTION MODAL */}
+      {txModalOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          {/* Backdrop blur */}
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-md animate-mac-backdrop"
+            onClick={() => setTxModalOpen(false)}
+          />
+
+          {/* Modal box */}
+          <div className="bg-[#0e111a] border border-white/10 w-full max-w-md rounded-2xl overflow-hidden shadow-2xl relative z-10 animate-mac-modal flex flex-col p-6 text-left">
+            <div className="flex items-center justify-between border-b border-white/5 pb-3.5 mb-4">
+              <div className="flex items-center gap-2">
+                <Wallet className="h-5 w-5 text-indigo-400" />
+                <h3 className="text-sm font-black text-white uppercase tracking-wider">
+                  {modalTxType === 'income' ? 'Thêm Khoản Thu Nhập' : modalTxType === 'expense' ? 'Thêm Khoản Chi Tiêu' : 'Cập Nhật Quỹ Tiết Kiệm'}
+                </h3>
+              </div>
+              <button
+                onClick={() => setTxModalOpen(false)}
+                className="p-1.5 hover:bg-white/[0.05] rounded-lg text-slate-400 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="h-4.5 w-4.5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveModalTx} className="space-y-4 text-left">
+              {/* Type Switcher */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Loại giao dịch</label>
+                <div className="flex bg-[#0d1018] p-1 rounded-xl border border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => { setModalTxType('expense'); setModalCategory('Ăn uống'); }}
+                    className={`flex-1 py-2 text-[10px] font-black rounded-lg transition-all cursor-pointer ${
+                      modalTxType === 'expense'
+                        ? 'bg-rose-500 text-white shadow-md'
+                        : 'text-slate-450 hover:text-slate-200'
+                    }`}
+                  >
+                    CHI TIÊU
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setModalTxType('income'); setModalCategory('Lương'); }}
+                    className={`flex-1 py-2 text-[10px] font-black rounded-lg transition-all cursor-pointer ${
+                      modalTxType === 'income'
+                        ? 'bg-emerald-500 text-white shadow-md'
+                        : 'text-slate-455 hover:text-slate-200'
+                    }`}
+                  >
+                    THU NHẬP
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setModalTxType('saving'); }}
+                    className={`flex-1 py-2 text-[10px] font-black rounded-lg transition-all cursor-pointer ${
+                      modalTxType === 'saving'
+                        ? 'bg-indigo-500 text-white shadow-md'
+                        : 'text-slate-455 hover:text-slate-200'
+                    }`}
+                  >
+                    TIẾT KIỆM
+                  </button>
+                </div>
+              </div>
+
+              {/* Conditional Inputs */}
+              {modalTxType === 'saving' ? (
+                <>
+                  {/* Saving target selection */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Chọn quỹ</label>
+                      <div className="relative">
+                        <select
+                          value={modalSavingFund}
+                          onChange={(e) => setModalSavingFund(e.target.value as any)}
+                          className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 cursor-pointer block"
+                        >
+                          <option value="emergency">Quỹ Dự Phòng</option>
+                          <option value="accumulation">Quỹ Tích Lũy</option>
+                        </select>
+                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Hành động</label>
+                      <div className="relative">
+                        <select
+                          value={modalSavingAction}
+                          onChange={(e) => setModalSavingAction(e.target.value as any)}
+                          className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 cursor-pointer block"
+                        >
+                          <option value="deposit">Nạp tiền (+)</option>
+                          <option value="withdraw">Rút tiền (-)</option>
+                        </select>
+                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Description */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Mô tả giao dịch</label>
+                    <input
+                      type="text"
+                      placeholder="VD: Đi siêu thị Big C, Thưởng lương..."
+                      value={modalDesc}
+                      onChange={(e) => setModalDesc(e.target.value)}
+                      className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 transition-colors"
+                      required
+                    />
+                  </div>
+
+                  {/* Category Selection */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Danh mục</label>
+                    <div className="relative">
+                      <select
+                        value={modalCategory}
+                        onChange={(e) => setModalCategory(e.target.value)}
+                        className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 cursor-pointer block"
+                      >
+                        {(modalTxType === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES).map((c) => (
+                          <option key={c} value={c} className="bg-[#0d1018] text-white">
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Amount & Date (Shared fields) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Số tiền (VND)</label>
+                  <input
+                    type="number"
+                    placeholder="VD: 500000"
+                    value={modalAmount}
+                    onChange={(e) => setModalAmount(e.target.value)}
+                    className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 transition-colors"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Ngày ghi nhận</label>
+                  <input
+                    type="date"
+                    value={modalDate}
+                    onChange={(e) => setModalDate(e.target.value)}
+                    className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Submit */}
+              <button
+                type="submit"
+                className="w-full py-3 bg-[#5c36f5] hover:bg-[#7351f7] text-white font-extrabold text-xs rounded-xl shadow-[0_4px_12px_rgba(92,54,245,0.3)] transition-all hover:scale-[1.02] cursor-pointer mt-4"
+              >
+                Lưu Giao Dịch
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
