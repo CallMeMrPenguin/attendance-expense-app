@@ -84,6 +84,39 @@ export default function Dashboard() {
     document.documentElement.classList.add('dark');
   }, []);
 
+  // Auto-reload client when a new deployment is built on Vercel
+  useEffect(() => {
+    let currentVersion: string | null = null;
+
+    const checkVersion = async () => {
+      try {
+        const res = await fetch('/api/version', { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.version && data.version !== 'local') {
+          if (currentVersion === null) {
+            currentVersion = data.version;
+          } else if (currentVersion !== data.version) {
+            console.log('New deployment detected! Auto reloading...');
+            window.location.reload();
+          }
+        }
+      } catch (e) {
+        // Ignore network check errors
+      }
+    };
+
+    checkVersion();
+    const interval = setInterval(checkVersion, 25000);
+    const onFocus = () => checkVersion();
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, []);
+
   // Close all custom dropdowns on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
