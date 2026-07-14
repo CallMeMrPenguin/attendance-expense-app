@@ -11,7 +11,9 @@ import {
   AlertCircle,
   Briefcase,
   Unlock,
-  ShieldAlert
+  ShieldAlert,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
@@ -48,12 +50,20 @@ export default function ManageTeachersModal({
   const [editName, setEditName] = useState(selectedTeacher);
   const [editUsername, setEditUsername] = useState('');
   const [editPassword, setEditPassword] = useState('');
-  const [editRole, setEditRole] = useState<'admin' | 'teacher'>('teacher');
+  const [editConfirmPassword, setEditConfirmPassword] = useState('');
+  const [editRole, setEditRole] = useState<'admin' | 'teacher' | 'user'>('teacher');
+  const [showEditPassword, setShowEditPassword] = useState(false);
+  const [showEditConfirmPassword, setShowEditConfirmPassword] = useState(false);
   
   // Add new teacher states
   const [showAddForm, setShowAddForm] = useState(false);
   const [newTeacherName, setNewTeacherName] = useState('');
+  const [newTeacherUsername, setNewTeacherUsername] = useState('');
+  const [newTeacherRole, setNewTeacherRole] = useState<'teacher' | 'user' | 'admin'>('teacher');
   const [newTeacherPassword, setNewTeacherPassword] = useState('123456');
+  const [newTeacherConfirmPassword, setNewTeacherConfirmPassword] = useState('123456');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showNewConfirmPassword, setShowNewConfirmPassword] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -125,6 +135,14 @@ export default function ManageTeachersModal({
       setError('Vui lòng nhập tên đăng nhập.');
       return;
     }
+    if (editPassword && editPassword.length < 6) {
+      setError('Mật khẩu mới phải từ 6 ký tự trở lên.');
+      return;
+    }
+    if (editPassword && editPassword !== editConfirmPassword) {
+      setError('Mật khẩu mới và xác nhận mật khẩu không trùng khớp!');
+      return;
+    }
 
     setLoading(true);
     setError('');
@@ -153,6 +171,7 @@ export default function ManageTeachersModal({
 
       setSuccess('Cập nhật thông tin tài khoản thành công!');
       setEditPassword('');
+      setEditConfirmPassword('');
       
       // Update local profiles list cache
       const updatedProfile = {
@@ -163,7 +182,7 @@ export default function ManageTeachersModal({
       
       setTeacherProfiles(prev => {
         const next = { ...prev };
-        delete next[selectedTeacher]; // remove old key
+        delete next[selectedTeacher];
         next[editName.trim()] = updatedProfile;
         return next;
       });
@@ -182,7 +201,7 @@ export default function ManageTeachersModal({
   const handleAddTeacher = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTeacherName.trim()) {
-      setError('Vui lòng nhập tên giáo viên.');
+      setError('Vui lòng nhập tên tài khoản.');
       return;
     }
     if (teachers.includes(newTeacherName.trim())) {
@@ -190,7 +209,11 @@ export default function ManageTeachersModal({
       return;
     }
     if (newTeacherPassword.length < 6) {
-      setError('Mật khẩu mặc định phải từ 6 ký tự trở lên.');
+      setError('Mật khẩu phải từ 6 ký tự trở lên.');
+      return;
+    }
+    if (newTeacherPassword !== newTeacherConfirmPassword) {
+      setError('Mật khẩu và xác nhận mật khẩu không trùng khớp!');
       return;
     }
 
@@ -207,6 +230,8 @@ export default function ManageTeachersModal({
         },
         body: JSON.stringify({
           name: newTeacherName.trim(),
+          username: newTeacherUsername.trim() || undefined,
+          role: newTeacherRole,
           password: newTeacherPassword.trim(),
         }),
       });
@@ -216,14 +241,13 @@ export default function ManageTeachersModal({
         throw new Error(resData.error || 'Tạo tài khoản thất bại.');
       }
 
-      setSuccess(`Đã tạo giáo viên "${newTeacherName.trim()}" thành công!`);
+      setSuccess(`Đã tạo tài khoản "${newTeacherName.trim()}" thành công!`);
       
-      // Add profile mock to cache
-      const newUsername = resData.user?.username || newTeacherName.trim().toLowerCase().replace(/\s+/g, '');
+      const createdUsername = resData.user?.username || newTeacherUsername.trim() || newTeacherName.trim().toLowerCase().replace(/\s+/g, '');
       const newProf = {
-        username: newUsername,
+        username: createdUsername,
         teacher_name: newTeacherName.trim(),
-        role: 'teacher'
+        role: newTeacherRole
       };
 
       setTeacherProfiles(prev => ({
@@ -232,10 +256,11 @@ export default function ManageTeachersModal({
       }));
 
       setNewTeacherName('');
+      setNewTeacherUsername('');
       setNewTeacherPassword('123456');
+      setNewTeacherConfirmPassword('123456');
       setShowAddForm(false);
       
-      // Refresh teacher list in page.tsx and re-fetch local modal profiles
       onTeacherUpdated(newTeacherName.trim());
       setSelectedTeacher(newTeacherName.trim());
       await fetchProfiles();
@@ -442,7 +467,7 @@ export default function ManageTeachersModal({
 
                 <div className="space-y-1.5">
                   <label htmlFor="newNameInput" className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider">
-                    Tên giáo viên *
+                    Tên hiển thị (Họ & Tên) *
                   </label>
                   <input
                     id="newNameInput"
@@ -450,27 +475,92 @@ export default function ManageTeachersModal({
                     required
                     value={newTeacherName}
                     onChange={(e) => setNewTeacherName(e.target.value)}
-                    placeholder="VD: Nguyễn Văn A..."
+                    placeholder="VD: Nguyễn Văn A hoặc Phạm Thị Thu Trang..."
                     className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:outline-none focus:border-indigo-500"
                   />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label htmlFor="newUsernameInput" className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider">
+                    Tên Đăng Nhập / Email (Tùy chọn)
+                  </label>
+                  <input
+                    id="newUsernameInput"
+                    type="text"
+                    value={newTeacherUsername}
+                    onChange={(e) => setNewTeacherUsername(e.target.value)}
+                    placeholder="VD: phamthithutrang@gmail.com hoặc trang123..."
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:outline-none focus:border-indigo-500"
+                  />
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
+                    Để trống nếu muốn hệ thống tự sinh tên đăng nhập từ Họ & Tên.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label htmlFor="newRoleSelect" className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider">
+                    Phân Quyền / Vai Trò *
+                  </label>
+                  <select
+                    id="newRoleSelect"
+                    value={newTeacherRole}
+                    onChange={(e) => setNewTeacherRole(e.target.value as 'teacher' | 'user' | 'admin')}
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="teacher">Giáo Viên (Tutor)</option>
+                    <option value="user">Người Dùng Thông Thường (User)</option>
+                    <option value="admin">Quản Trị Viên (Admin)</option>
+                  </select>
                 </div>
 
                 <div className="space-y-1.5">
                   <label htmlFor="newPasswordInput" className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider">
                     Mật khẩu đăng nhập *
                   </label>
-                  <input
-                    id="newPasswordInput"
-                    type="password"
-                    required
-                    value={newTeacherPassword}
-                    onChange={(e) => setNewTeacherPassword(e.target.value)}
-                    placeholder="VD: 123456..."
-                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:outline-none focus:border-indigo-500"
-                  />
-                  <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
-                    Tên đăng nhập sẽ được sinh tự động (không dấu, viết liền).
-                  </p>
+                  <div className="relative">
+                    <input
+                      id="newPasswordInput"
+                      type={showNewPassword ? 'text' : 'password'}
+                      required
+                      value={newTeacherPassword}
+                      onChange={(e) => setNewTeacherPassword(e.target.value)}
+                      placeholder="VD: 123456..."
+                      className="w-full pl-4 pr-10 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:outline-none focus:border-indigo-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 cursor-pointer"
+                      title={showNewPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                    >
+                      {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label htmlFor="newConfirmPasswordInput" className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider">
+                    Xác nhận mật khẩu *
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="newConfirmPasswordInput"
+                      type={showNewConfirmPassword ? 'text' : 'password'}
+                      required
+                      value={newTeacherConfirmPassword}
+                      onChange={(e) => setNewTeacherConfirmPassword(e.target.value)}
+                      placeholder="Nhập lại mật khẩu..."
+                      className="w-full pl-4 pr-10 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:outline-none focus:border-indigo-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewConfirmPassword(!showNewConfirmPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 cursor-pointer"
+                      title={showNewConfirmPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                    >
+                      {showNewConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </div>
 
                 <button
@@ -495,7 +585,7 @@ export default function ManageTeachersModal({
                 {/* Edit Username (Login username) */}
                 <div className="space-y-1.5">
                   <label htmlFor="editUsernameInput" className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider">
-                    Tên Đăng Nhập (Mã đăng nhập) *
+                    Tên Đăng Nhập / Email *
                   </label>
                   <input
                     id="editUsernameInput"
@@ -504,7 +594,7 @@ export default function ManageTeachersModal({
                     disabled={selectedTeacher === 'Admin' || selectedTeacher === 'admin'}
                     value={editUsername}
                     onChange={(e) => setEditUsername(e.target.value)}
-                    placeholder="VD: nguyenvana..."
+                    placeholder="VD: phamthithutrang@gmail.com hoặc nguyenvana..."
                     className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:outline-none focus:border-indigo-500 disabled:opacity-75 disabled:cursor-not-allowed font-semibold text-slate-700 dark:text-slate-300"
                   />
                   {(selectedTeacher === 'Admin' || selectedTeacher === 'admin') && (
@@ -539,34 +629,67 @@ export default function ManageTeachersModal({
                     id="editRoleSelect"
                     value={editRole}
                     disabled={selectedTeacher === currentAdminTeacherName || selectedTeacher === 'Admin' || selectedTeacher === 'admin'}
-                    onChange={(e) => setEditRole(e.target.value as 'admin' | 'teacher')}
+                    onChange={(e) => setEditRole(e.target.value as 'admin' | 'teacher' | 'user')}
                     className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:outline-none focus:border-indigo-500 disabled:opacity-75"
                   >
-                    <option value="teacher">Giáo Viên (Normal Tutor)</option>
+                    <option value="teacher">Giáo Viên (Tutor)</option>
+                    <option value="user">Người Dùng Thông Thường (User)</option>
                     <option value="admin">Quản Trị Viên (Admin)</option>
                   </select>
                 </div>
 
                 {/* Reset Password */}
-                <div className="space-y-1.5 bg-indigo-50/20 dark:bg-indigo-950/10 border border-indigo-100/50 dark:border-indigo-900/30 rounded-xl p-4 space-y-3">
+                <div className="space-y-3 bg-indigo-50/20 dark:bg-indigo-950/10 border border-indigo-100/50 dark:border-indigo-900/30 rounded-xl p-4">
                   <div>
                     <h4 className="text-xs font-extrabold text-indigo-900 dark:text-indigo-300 uppercase tracking-wider flex items-center gap-1">
                       <Unlock className="h-3.5 w-3.5" />
-                      Cấp lại mật khẩu
+                      Cấp lại / Thay đổi mật khẩu
                     </h4>
                     <p className="text-[10px] text-slate-500 dark:text-slate-450 mt-0.5 leading-tight">
-                      Nhập vào đây nếu muốn thay đổi mật khẩu đăng nhập của giáo viên này:
+                      Để trống nếu không muốn thay đổi mật khẩu của tài khoản này:
                     </p>
                   </div>
-                  <div className="relative">
-                    <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                    <input
-                      type="password"
-                      value={editPassword}
-                      onChange={(e) => setEditPassword(e.target.value)}
-                      placeholder="Mật khẩu mới (tối thiểu 6 ký tự)..."
-                      className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:outline-none focus:border-indigo-500"
-                    />
+                  
+                  <div className="space-y-2">
+                    <div className="relative">
+                      <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <input
+                        type={showEditPassword ? 'text' : 'password'}
+                        value={editPassword}
+                        onChange={(e) => setEditPassword(e.target.value)}
+                        placeholder="Mật khẩu mới (tối thiểu 6 ký tự)..."
+                        className="w-full pl-10 pr-10 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:outline-none focus:border-indigo-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowEditPassword(!showEditPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 cursor-pointer"
+                        title={showEditPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                      >
+                        {showEditPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+
+                    {editPassword.length > 0 && (
+                      <div className="relative animate-fade-in">
+                        <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <input
+                          type={showEditConfirmPassword ? 'text' : 'password'}
+                          value={editConfirmPassword}
+                          onChange={(e) => setEditConfirmPassword(e.target.value)}
+                          placeholder="Xác nhận mật khẩu mới..."
+                          className="w-full pl-10 pr-10 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:outline-none focus:border-indigo-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowEditConfirmPassword(!showEditConfirmPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 cursor-pointer"
+                          title={showEditConfirmPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                        >
+                          {showEditConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
 

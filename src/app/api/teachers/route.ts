@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error }, { status: error === 'No authorization header' ? 401 : 403 });
     }
 
-    const { name, role = 'teacher', password = '123456' } = await request.json();
+    const { name, username: customUsername, role = 'teacher', password = '123456' } = await request.json();
     if (!name || !name.trim()) {
       return NextResponse.json({ error: 'Tên giáo viên không được để trống' }, { status: 400 });
     }
@@ -66,8 +66,10 @@ export async function POST(request: NextRequest) {
     }
 
     const trimmedName = name.trim();
-    const username = generateUsername(trimmedName);
-    const mockEmail = `${username}@giasupro.com`;
+    const finalUsername = customUsername && customUsername.trim() 
+      ? customUsername.trim().toLowerCase() 
+      : generateUsername(trimmedName);
+    const mockEmail = finalUsername.includes('@') ? finalUsername : `${finalUsername}@giasupro.com`;
 
     // Ensure record exists in teachers table
     await userClient
@@ -86,7 +88,7 @@ export async function POST(request: NextRequest) {
         user_metadata: {
           role: role,
           teacher_name: trimmedName,
-          username: username
+          username: finalUsername
         }
       });
       
@@ -113,7 +115,7 @@ export async function POST(request: NextRequest) {
           data: {
             role: role,
             teacher_name: trimmedName,
-            username: username
+            username: finalUsername
           }
         }
       });
@@ -131,7 +133,7 @@ export async function POST(request: NextRequest) {
       .from('profiles')
       .upsert({
         id: userId,
-        username: username,
+        username: finalUsername,
         teacher_name: trimmedName,
         role: role
       }, { onConflict: 'username' });
@@ -141,7 +143,7 @@ export async function POST(request: NextRequest) {
       message: `Tài khoản giáo viên "${trimmedName}" đã được tạo thành công!`,
       user: {
         id: userId,
-        username: username,
+        username: finalUsername,
         teacherName: trimmedName,
         role: role
       }

@@ -105,7 +105,7 @@ DECLARE
   u_role text;
   u_name text;
 BEGIN
-  t_name := COALESCE(new.raw_user_meta_data->>'teacher_name', 'Giáo Viên 1');
+  t_name := COALESCE(new.raw_user_meta_data->>'teacher_name', split_part(new.email, '@', 1));
   u_role := COALESCE(new.raw_user_meta_data->>'role', 'teacher');
   u_name := COALESCE(new.raw_user_meta_data->>'username', split_part(new.email, '@', 1));
   

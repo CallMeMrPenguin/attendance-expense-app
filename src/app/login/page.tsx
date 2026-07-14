@@ -75,12 +75,14 @@ export default function LoginPage() {
         userProfile = prof;
       }
 
-      // Fallback: Check profiles table directly by username if auth error occurred or profile not matched by ID
+      // Fallback: Check profiles table directly by username, username prefix, or teacher_name
       if (!userProfile) {
+        const usernamePrefix = cleanInput.split('@')[0];
+        
         const { data: profByUsername } = await supabase
           .from('profiles')
           .select('username, teacher_name, role')
-          .eq('username', cleanInput)
+          .or(`username.eq.${cleanInput},username.eq.${usernamePrefix},teacher_name.ilike.${username.trim()}`)
           .maybeSingle();
 
         if (profByUsername) {
