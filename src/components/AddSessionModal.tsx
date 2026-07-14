@@ -43,6 +43,9 @@ export default function AddSessionModal({
       return acc;
     }, {} as Record<string, DayConfig>)
   );
+  const [warningMsg, setWarningMsg] = useState('');
+  const [showWarningModal, setShowWarningModal] = useState(false);
+  const [pendingCandidates, setPendingCandidates] = useState<any[]>([]);
 
   if (!isOpen) return null;
 
@@ -67,96 +70,23 @@ export default function AddSessionModal({
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!studentName.trim()) {
-      setError('Vui lòng nhập tên học sinh.');
-      return;
-    }
-    if (!price || Number(price) < 0) {
-      setError('Vui lòng nhập giá học phí hợp lệ.');
-      return;
-    }
-
-    const checkedDays = Object.entries(dayConfigs).filter(([_, config]) => config.checked);
-    if (checkedDays.length === 0) {
-      setError('Vui lòng chọn ít nhất 1 thứ trong tuần!');
-      return;
-    }
-
+  const executeInsert = async (candidatesToInsert: any[]) => {
     setLoading(true);
     setError('');
-
     try {
-      const candidates: Partial<Session>[] = [];
-      const sessionColor = getStudentColor(studentName.trim());
-
-      checkedDays.forEach(([day, config]) => {
-        const dates = getDatesForWeekday(selectedMonth, day);
-        dates.forEach((dStr) => {
-          candidates.push({
-            teacher_name: activeTeacherName,
-            student_name: studentName.trim(),
-            day_of_week: day,
-            time: formatCleanTimeString(config.time),
-            duration: Number(config.duration),
-            price: Number(price),
-            status: status,
-            grade: '',
-            homework: '',
-            note: '',
-            month_year: selectedMonth,
-            color: sessionColor,
-            date: dStr,
-          });
-        });
-      });
-
-      // Check for overlaps/conflicts with existing database records
-      const overlaps = checkOverlaps(candidates, existingSessions);
-      if (overlaps.length > 0) {
-        let msg = '';
-        const strictOverlaps = overlaps.filter((o) => o.type === 'overlap');
-        const gapWarnings = overlaps.filter((o) => o.type === 'gap');
-
-        if (strictOverlaps.length > 0) {
-          msg += 'Cảnh báo trùng lịch dạy (overlap) của giáo viên:\n';
-          strictOverlaps.forEach((o) => {
-            msg += `- Học sinh ${o.newS.student_name} (${o.newS.time}) trùng với ${o.extS.student_name} (${o.extS.time} - ${getEndTime(o.extS.time, o.extS.duration)}) vào ${formatDateVN(o.extS.date)}\n`;
-          });
-          msg += '\n';
-        }
-
-        if (gapWarnings.length > 0) {
-          msg += 'Cảnh báo ca dạy liền nhau hoặc cách nhau dưới 15 phút:\n';
-          gapWarnings.forEach((o) => {
-            msg += `- Học sinh ${o.newS.student_name} (${o.newS.time}) cách dưới 15 phút với ${o.extS.student_name} (${o.extS.time} - ${getEndTime(o.extS.time, o.extS.duration)}) vào ${formatDateVN(o.extS.date)}\n`;
-          });
-          msg += '\n';
-        }
-
-        msg += 'Bạn có muốn tiếp tục lưu không?';
-        if (!confirm(msg)) {
-          setLoading(false);
-          return;
-        }
-      }
-
-      // Insert into Supabase
       const { error: insertError } = await supabase
         .from('sessions')
-        .insert(candidates);
+        .insert(candidatesToInsert);
 
       if (insertError) {
         throw new Error(insertError.message);
       }
 
-      // Success
       setStudentName('');
       setPrice('');
       setStatus('Chưa dạy');
+      setShowWarningModal(false);
       
-      // Reset day configurations
       setDayConfigs(
         DAYS.reduce((acc, day) => {
           acc[day] = {
@@ -177,11 +107,119 @@ export default function AddSessionModal({
     }
   };
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!studentName.trim()) {
+      setError('Vui lòng nhập tên học sinh.');
+      return;
+    }
+    if (!price || Number(price) <= 0) {
+      setError('Vui lòng nhập giá học phí hợp lệ.');
+      return;
+    }
+
+    const selectedDays = Object.entries(dayConfigs).filter(([_, config]) => config.checked);
+    if (selectedDays.length === 0) {
+      setError('Vui lòng chọn ít nhất 1 thứ trong tuần!');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const sessionColor = getStudentColor(studentName.trim());
+      const candidates: any[] = [];
+
+      selectedDays.forEach(([day, config]) => {
+        const dates = getDatesForWeekday(selectedMonth, day);
+        dates.forEach((dStr) => {
+          candidates.push({
+            teacher_name: activeTeacherName,
+            student_name: studentName.trim(),
+            day_of_week: day,
+            time: formatCleanTimeString(config.time),
+            duration: Number(config.duration),
+            price: Number(price),
+            status: status,
+            grade: '',
+            homework: '',
+            note: '',
+            month_year: selectedMonth,
+            color: sessionColor,
+            date: dStr,
+          });
+        });
+      });
+
+      const overlaps = checkOverlaps(candidates, existingSessions);
+      if (overlaps.length > 0) {
+        let msg = '';
+        const strictOverlaps = overlaps.filter((o) => o.type === 'overlap');
+        const gapWarnings = overlaps.filter((o) => o.type === 'gap');
+
+        if (strictOverlaps.length > 0) {
+          msg += 'Cảnh báo trùng lịch dạy của giáo viên:\n';
+          strictOverlaps.forEach((o) => {
+            msg += `- ${o.newS.student_name} (${o.newS.time}) trùng với ${o.extS.student_name} (${o.extS.time} - ${getEndTime(o.extS.time, o.extS.duration)}) vào ${formatDateVN(o.extS.date)}\n`;
+          });
+        }
+
+        if (gapWarnings.length > 0) {
+          msg += '\nCảnh báo ca dạy cách nhau dưới 15 phút:\n';
+          gapWarnings.forEach((o) => {
+            msg += `- ${o.newS.student_name} (${o.newS.time}) gần ca ${o.extS.student_name} (${o.extS.time}) vào ${formatDateVN(o.extS.date)}\n`;
+          });
+        }
+
+        setPendingCandidates(candidates);
+        setWarningMsg(msg);
+        setShowWarningModal(true);
+        setLoading(false);
+        return;
+      }
+
+      await executeInsert(candidates);
+    } catch (err: any) {
+      setError(err.message || 'Lỗi khi tạo lịch dạy.');
+      setLoading(false);
+    }
+  };
+
   return (
     <div 
-      className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[100] flex items-center justify-center p-4 overflow-hidden pointer-events-auto select-none"
+      className="fixed inset-0 bg-[#070911]/90 z-[100] flex items-center justify-center p-4 overflow-hidden pointer-events-auto select-none"
       onClick={(e) => e.stopPropagation()}
     >
+      {/* Overlap Warning Custom Modal */}
+      {showWarningModal && (
+        <div className="fixed inset-0 bg-black/80 z-[120] flex items-center justify-center p-4">
+          <div className="bg-[#121624] border border-amber-500/40 rounded-2xl p-6 max-w-lg w-full shadow-2xl flex flex-col gap-4 text-left">
+            <div className="flex items-center gap-2 text-amber-400 font-black text-base">
+              <AlertTriangle className="h-5 w-5 shrink-0" />
+              <span>Phát Hiện Trùng / Gần Lịch Dạy</span>
+            </div>
+            <pre className="text-xs text-slate-300 bg-slate-900/80 p-3.5 rounded-xl whitespace-pre-wrap font-sans leading-relaxed max-h-[220px] overflow-y-auto border border-white/5">
+              {warningMsg}
+            </pre>
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                onClick={() => setShowWarningModal(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl cursor-pointer"
+              >
+                Hủy Bỏ
+              </button>
+              <button
+                onClick={() => executeInsert(pendingCandidates)}
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black rounded-xl shadow-[0_0_15px_rgba(245,158,11,0.4)] cursor-pointer"
+              >
+                Vẫn Lưu Ca Dạy
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div 
         className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col max-h-[90vh] pointer-events-auto"
         onClick={(e) => e.stopPropagation()}

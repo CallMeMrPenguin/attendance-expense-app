@@ -152,13 +152,14 @@ export default function Dashboard() {
     const { data, error } = await supabase
       .from('teachers')
       .select('name')
+      .neq('name', 'Giáo Viên 1')
       .order('name', { ascending: true });
 
     if (!error && data) {
-      const list = data.map((t) => t.name);
+      const list = data.map((t) => t.name).filter((name) => name !== 'Giáo Viên 1');
       setTeachers(list);
       
-      if (list.length > 0 && !activeTeacherName) {
+      if (list.length > 0 && (!activeTeacherName || activeTeacherName === 'Giáo Viên 1')) {
         setActiveTeacherName(list[0]);
       }
     }

@@ -60,7 +60,7 @@ export default function ChangePasswordModal({ isOpen, onClose }: ChangePasswordM
 
   return (
     <div 
-      className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[100] flex items-center justify-center p-4 overflow-hidden pointer-events-auto select-none"
+      className="fixed inset-0 bg-[#070911]/90 z-[100] flex items-center justify-center p-4 overflow-hidden pointer-events-auto select-none"
       onClick={(e) => e.stopPropagation()}
     >
       <div 
