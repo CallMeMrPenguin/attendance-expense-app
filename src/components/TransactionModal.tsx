@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, ChevronDown } from 'lucide-react';
+import { X, ChevronDown, Calendar } from 'lucide-react';
 
 const INCOME_CATEGORIES = ['Lương', 'Giáo dục', 'Đầu tư', 'Khác'];
 const EXPENSE_CATEGORIES = ['Ăn uống', 'Di chuyển', 'Shopping', 'Hóa đơn', 'Giải trí', 'Khác'];
@@ -275,13 +275,16 @@ export default function TransactionModal({
 
             <div className="space-y-1.5">
               <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Ngày ghi nhận</label>
-              <input
-                type="date"
-                value={modalDate}
-                onChange={(e) => setModalDate(e.target.value)}
-                className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 cursor-pointer"
-                required
-              />
+              <div className="relative">
+                <input
+                  type="date"
+                  value={modalDate}
+                  onChange={(e) => setModalDate(e.target.value)}
+                  className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl pl-3.5 pr-10 py-2.5 focus:outline-none focus:border-indigo-500 cursor-pointer block"
+                  required
+                />
+                <Calendar className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-white pointer-events-none" />
+              </div>
             </div>
           </div>
 

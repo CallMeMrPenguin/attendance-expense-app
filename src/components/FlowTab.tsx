@@ -404,14 +404,14 @@ export default function FlowTab({
 
     return (
       <div className="overflow-x-auto">
-        <table className="w-full text-[11px] font-bold text-slate-350">
+        <table className="w-full table-fixed text-[11px] font-bold text-slate-350 min-w-[550px]">
           <thead>
-            <tr className="border-b border-white/5 text-[9px] font-black uppercase text-slate-500 tracking-wider">
-              <th className="py-2.5 text-left pl-5">Danh mục</th>
-              <th className="py-2.5 text-right">Thực tế</th>
-              <th className="py-2.5 text-right">{isIncome ? 'Mục tiêu' : 'Hạn mức'}</th>
-              <th className="py-2.5 text-center w-32">Tiến độ</th>
-              <th className="py-2.5 text-center w-16">Thao tác</th>
+            <tr className="border-b border-white/5 text-[11px] font-black uppercase text-slate-500 tracking-wider">
+              <th className="py-2.5 text-left pl-5 w-[30%]">Danh mục</th>
+              <th className="py-2.5 text-right w-[20%]">Thực tế</th>
+              <th className="py-2.5 text-right w-[20%]">{isIncome ? 'Mục tiêu' : 'Hạn mức'}</th>
+              <th className="py-2.5 text-center w-[20%] px-4">Tiến độ</th>
+              <th className="py-2.5 text-center w-[10%]">Thao tác</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5">
@@ -422,12 +422,18 @@ export default function FlowTab({
               const budgetVal = categoryBudgets[cat] || 0;
               const rawPct = budgetVal > 0 ? Math.round((actual / budgetVal) * 100) : 0;
               const pct = Math.min(100, rawPct);
-              const isAchieved = isIncome && budgetVal > 0 && actual >= budgetVal;
+              const isAchieved = isIncome && budgetVal > 0 && rawPct > 100;
               const isOver = !isIncome && actual > budgetVal;
 
               let barColorClass = '';
               if (isIncome) {
-                barColorClass = 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.7)]';
+                if (rawPct <= 40) {
+                  barColorClass = 'bg-rose-500 shadow-[0_0_10px_rgba(239,68,68,0.7)]';
+                } else if (rawPct <= 90) {
+                  barColorClass = 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.7)]';
+                } else {
+                  barColorClass = 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.7)]';
+                }
               } else {
                 if (rawPct <= 40) {
                   barColorClass = 'bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.7)]';
@@ -459,10 +465,10 @@ export default function FlowTab({
                     </div>
                   </td>
                   <td className="py-3 text-right text-slate-200">
-                    {formatAbbreviatedVND(actual)}
+                    {formatVND(actual)}
                   </td>
                   <td className="py-3 text-right text-slate-400">
-                    {formatAbbreviatedVND(budgetVal)}
+                    {formatVND(budgetVal)}
                   </td>
                   <td className="py-3 text-center px-4">
                     <div className="space-y-1">
@@ -474,7 +480,9 @@ export default function FlowTab({
                       </div>
                       <div className="flex justify-between text-[8px] font-extrabold text-slate-400">
                         <span>{pct}%</span>
-                        {isOver && <span className="text-rose-500 font-black uppercase">Vượt!</span>}
+                        {rawPct > 100 && (
+                          <span className={`${isIncome ? 'text-emerald-400' : 'text-rose-500'} font-black uppercase`}>Vượt!</span>
+                        )}
                       </div>
                     </div>
                   </td>
@@ -507,7 +515,7 @@ export default function FlowTab({
       {/* Header Title */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex flex-col">
-          <h2 className="text-2xl font-black text-white tracking-tight">Sổ Nhật Ký Dòng Tiền</h2>
+          <h2 className="text-2xl font-black text-white text-glow-white tracking-tight">Sổ Nhật Ký Dòng Tiền</h2>
           <p className="text-slate-400 text-xs font-semibold">Liệt kê tất cả các khoản chi tiêu và nguồn thu nhập thực tế trong bộ lọc tháng.</p>
         </div>
         
@@ -656,8 +664,10 @@ export default function FlowTab({
         <div className="calendar-container-depth p-5 bg-[#141824] space-y-4">
           <div className="flex flex-col items-center justify-center border-b border-white/5 pb-3">
             <div className="flex items-center justify-center gap-2">
-              <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.7)]"></div>
-              <h3 className="text-[15px] font-black text-white uppercase tracking-wider">Loại thu nhập</h3>
+              <div className="p-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-lg shadow-[0_0_8px_rgba(16,185,129,0.35)] shrink-0">
+                <TrendingUp className="h-4 w-4" />
+              </div>
+              <h3 className="text-[15px] font-black text-emerald-400 text-glow-green uppercase tracking-wider">Loại thu nhập</h3>
             </div>
           </div>
           {renderCategoryTable('income')}
@@ -667,8 +677,10 @@ export default function FlowTab({
         <div className="calendar-container-depth p-5 bg-[#141824] space-y-4">
           <div className="flex flex-col items-center justify-center border-b border-white/5 pb-3">
             <div className="flex items-center justify-center gap-2">
-              <div className="h-2.5 w-2.5 rounded-full bg-rose-500 shadow-[0_0_10px_rgba(239,68,68,0.7)]"></div>
-              <h3 className="text-[15px] font-black text-white uppercase tracking-wider">Loại chi tiêu</h3>
+              <div className="p-1 bg-rose-500/10 text-rose-455 border border-rose-500/30 rounded-lg shadow-[0_0_8px_rgba(239,68,68,0.35)] shrink-0">
+                <TrendingDown className="h-4 w-4" />
+              </div>
+              <h3 className="text-[15px] font-black text-rose-455 text-glow-red uppercase tracking-wider">Loại chi tiêu</h3>
             </div>
           </div>
           {renderCategoryTable('expense')}
@@ -683,14 +695,14 @@ export default function FlowTab({
             <div className="p-1.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 rounded-lg shadow-[0_0_10px_rgba(99,102,241,0.55)]">
               <DollarSign className="h-4 w-4" />
             </div>
-            <h3 className="text-[15px] font-black text-white uppercase tracking-wider">Giao dịch</h3>
+            <h3 className="text-[15px] font-black text-indigo-400 text-glow-blue uppercase tracking-wider">Giao dịch</h3>
           </div>
         </div>
 
         <div className="overflow-x-auto overflow-y-visible">
           <table className="w-full table-fixed text-[13px] font-bold text-slate-350">
             <thead>
-              <tr className="border-b border-white/5 text-[9px] font-black uppercase text-slate-500 tracking-wider">
+              <tr className="border-b border-white/5 text-[11px] font-black uppercase text-slate-500 tracking-wider">
                 <th className="py-2.5 text-center font-black w-[10%] relative pl-5" data-filter-type>
                   <span className="inline-flex items-center gap-1.5 justify-center">
                     <span>Loại</span>
@@ -1046,13 +1058,16 @@ export default function FlowTab({
 
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Ngày ghi nhận</label>
-                  <input
-                    type="date"
-                    value={editingTx.date}
-                    onChange={(e) => setEditingTx(prev => prev ? { ...prev, date: e.target.value } : null)}
-                    className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 cursor-pointer"
-                    required
-                  />
+                  <div className="relative">
+                    <input
+                      type="date"
+                      value={editingTx.date}
+                      onChange={(e) => setEditingTx(prev => prev ? { ...prev, date: e.target.value } : null)}
+                      className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl pl-3.5 pr-10 py-2.5 focus:outline-none focus:border-indigo-500 cursor-pointer block"
+                      required
+                    />
+                    <CalendarIcon className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-white pointer-events-none" />
+                  </div>
                 </div>
               </div>
 
