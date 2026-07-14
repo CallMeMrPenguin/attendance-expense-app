@@ -538,6 +538,7 @@ export default function Dashboard() {
                     setEditModalOpen(true);
                   }
                 }}
+              />
             )}
 
             {/* Calendar Legend Bar */}
