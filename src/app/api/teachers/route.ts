@@ -57,18 +57,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error }, { status: error === 'No authorization header' ? 401 : 403 });
     }
 
-    const { name, role = 'teacher', password = '123' } = await request.json();
+    const { name, role = 'teacher', password = '123456' } = await request.json();
     if (!name || !name.trim()) {
-      return NextResponse.json({ error: 'Teacher name is required' }, { status: 400 });
+      return NextResponse.json({ error: 'Tên giáo viên không được để trống' }, { status: 400 });
+    }
+    if (password && password.length < 6) {
+      return NextResponse.json({ error: 'Mật khẩu phải từ 6 ký tự trở lên' }, { status: 400 });
     }
 
     const trimmedName = name.trim();
     const username = generateUsername(trimmedName);
     const mockEmail = `${username}@giasupro.com`;
 
-    // 1. Try to create user in Supabase auth (requires service role key)
+    // 1. Try to create user via adminClient (requires service role key)
     let authCreated = false;
     let authData: any = null;
+
     try {
       const { data, error: createError } = await adminClient.auth.admin.createUser({
         email: mockEmail,
@@ -84,40 +88,46 @@ export async function POST(request: NextRequest) {
       if (!createError && data?.user) {
         authCreated = true;
         authData = data;
-      } else {
-        console.warn('Auth user creation failed via adminClient, attempting database-only fallback:', createError?.message);
       }
     } catch (authErr: any) {
-      console.warn('Auth user creation threw exception, attempting database-only fallback:', authErr.message);
+      console.warn('Auth admin createUser skipped:', authErr.message);
     }
 
-    // 2. Database-only fallback if auth user creation was skipped or failed
+    // 2. Fallback to client-side auth.signUp using anon key (works without service role key!)
     if (!authCreated) {
-      const { error: dbError } = await userClient
-        .from('teachers')
-        .insert({ name: trimmedName });
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+      const anonClient = createClient(supabaseUrl, supabaseAnonKey, {
+        auth: { autoRefreshToken: false, persistSession: false }
+      });
 
-      if (dbError) {
-        return NextResponse.json({ error: `Lỗi thêm giáo viên: ${dbError.message}` }, { status: 400 });
-      }
-
-      return NextResponse.json({
-        status: 'success',
-        message: `Đã thêm giáo viên "${trimmedName}" vào danh sách học tập (database-only fallback)!`,
-        user: {
-          id: '00000000-0000-0000-0000-000000000000', // Mock id for non-login record
-          username: username,
-          teacherName: trimmedName,
-          role: role
+      const { data: signUpData, error: signUpError } = await anonClient.auth.signUp({
+        email: mockEmail,
+        password: password,
+        options: {
+          data: {
+            role: role,
+            teacher_name: trimmedName,
+            username: username
+          }
         }
       });
+
+      if (!signUpError && signUpData?.user) {
+        authCreated = true;
+        authData = signUpData;
+      } else if (signUpError) {
+        return NextResponse.json({ 
+          error: `Không thể tạo tài khoản đăng nhập: ${signUpError.message}` 
+        }, { status: 400 });
+      }
     }
 
     return NextResponse.json({
       status: 'success',
-      message: `Teacher "${trimmedName}" created successfully!`,
+      message: `Tài khoản giáo viên "${trimmedName}" đã được tạo thành công!`,
       user: {
-        id: authData.user.id,
+        id: authData?.user?.id,
         username: username,
         teacherName: trimmedName,
         role: role
@@ -189,7 +199,6 @@ export async function PUT(request: NextRequest) {
           return NextResponse.json({ error: 'Tên đăng nhập đã tồn tại!' }, { status: 400 });
         }
 
-        // Attempt to create auth user if service role key is available
         let authCreated = false;
         try {
           const { data: authData, error: createError } = await adminClient.auth.admin.createUser({
@@ -205,27 +214,35 @@ export async function PUT(request: NextRequest) {
 
           if (!createError && authData?.user) {
             authCreated = true;
-          } else {
-            console.warn('Auth user creation skipped or failed:', createError?.message);
           }
         } catch (authCreateErr: any) {
-          console.warn('Auth creation throw exception, falling back to db profile insertion:', authCreateErr.message);
+          // Admin create skipped
         }
 
-        // If auth creation skipped/failed, insert direct profile record so username is saved
+        // Fallback to client-side auth.signUp using anon key
         if (!authCreated) {
-          const mockId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : '00000000-0000-0000-0000-' + Date.now().toString(16).padStart(12, '0');
-          const { error: profInsError } = await userClient
-            .from('profiles')
-            .insert({
-              id: mockId,
-              username: trimmedNewUsername,
-              teacher_name: trimmedNewName || trimmedOld,
-              role: newRole || 'teacher'
-            });
+          const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+          const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+          const anonClient = createClient(supabaseUrl, supabaseAnonKey, {
+            auth: { autoRefreshToken: false, persistSession: false }
+          });
 
-          if (profInsError) {
-            console.warn('Direct profile insert warning:', profInsError.message);
+          const { data: signUpData, error: signUpError } = await anonClient.auth.signUp({
+            email: `${trimmedNewUsername}@giasupro.com`,
+            password: newPassword?.trim() || '123456',
+            options: {
+              data: {
+                role: newRole || 'teacher',
+                teacher_name: trimmedNewName || trimmedOld,
+                username: trimmedNewUsername
+              }
+            }
+          });
+
+          if (!signUpError && signUpData?.user) {
+            authCreated = true;
+          } else if (signUpError) {
+            return NextResponse.json({ error: `Không thể tạo tài khoản đăng nhập: ${signUpError.message}` }, { status: 400 });
           }
         }
       }

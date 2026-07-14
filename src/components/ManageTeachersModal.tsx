@@ -53,7 +53,7 @@ export default function ManageTeachersModal({
   // Add new teacher states
   const [showAddForm, setShowAddForm] = useState(false);
   const [newTeacherName, setNewTeacherName] = useState('');
-  const [newTeacherPassword, setNewTeacherPassword] = useState('123');
+  const [newTeacherPassword, setNewTeacherPassword] = useState('123456');
 
   // Loading & Alert states
   const [loading, setLoading] = useState(false);
