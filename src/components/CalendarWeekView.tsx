@@ -98,12 +98,10 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
             return (
               <div
                 key={day}
-                className={`py-3.5 text-center text-[11px] font-extrabold uppercase tracking-widest flex flex-col items-center justify-center gap-0.5 border-r border-[#28334e] last:border-r-0 transition-all ${
+                className={`py-3.5 text-center text-[11px] font-extrabold uppercase tracking-widest flex flex-col items-center justify-center gap-0.5 last:border-r-0 transition-all ${
                   cellIsToday 
-                    ? 'bg-[#1a2032] shadow-[inset_0_0_0_2px_#5c36f5,0_0_12px_rgba(92,54,245,0.4)] z-10 text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.9)] font-black' 
-                    : isWeekend 
-                      ? 'text-rose-450 bg-rose-500/[0.01]' 
-                      : 'text-slate-300'
+                    ? 'bg-[#1a2032] border-x-2 border-t-2 border-x-[#5c36f5] border-t-[#5c36f5] z-10 text-white font-black' 
+                    : `border-r border-[#28334e] ${isWeekend ? 'text-rose-450 bg-rose-500/[0.01]' : 'text-slate-350'}`
                 }`}
               >
                 <span>{day}</span>
@@ -121,7 +119,8 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
         <div className="min-w-[1000px] relative bg-[#101420]">
           {/* Grid Rows - Divider color #28334e */}
           <div className="divide-y divide-[#28334e] bg-[#151b2a]">
-            {timeSlots.map((slot) => {
+            {timeSlots.map((slot, slotIdx) => {
+              const isLastSlot = slotIdx === timeSlots.length - 1;
               return (
                 <div
                   key={slot}
@@ -151,10 +150,10 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
                     return (
                       <div
                         key={`${slot}-${day}`}
-                        className={`p-2.5 border-r border-[#28334e] last:border-r-0 flex flex-col gap-2 overflow-y-auto max-h-[150px] custom-scrollbar transition-colors ${
+                        className={`p-2.5 flex flex-col gap-2 overflow-y-auto max-h-[150px] custom-scrollbar transition-colors ${
                           cellIsToday 
-                            ? 'bg-[#1f2042]/50 border-x border-[#5c36f5]/40 shadow-[inset_0_0_20px_rgba(92,54,245,0.18)]' 
-                            : 'bg-[#151b2a] hover:bg-[#1c2438]'
+                            ? `bg-[#1f2042]/30 border-x-2 border-x-[#5c36f5] z-10 ${isLastSlot ? 'border-b-2 border-b-[#5c36f5]' : ''}` 
+                            : 'bg-[#151b2a] hover:bg-[#1c2438] border-r border-[#28334e] last:border-r-0'
                         }`}
                       >
                         {Object.values(grouped).map((group) => {
