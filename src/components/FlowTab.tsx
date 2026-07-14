@@ -409,8 +409,8 @@ export default function FlowTab({
           <thead>
             <tr className="border-b border-white/5 text-[11px] font-black uppercase text-slate-500 tracking-wider">
               <th className="py-2.5 text-left pl-5 w-[20%]">Danh mục</th>
-              <th className="py-2.5 text-right w-[20%]">Thực tế</th>
-              <th className="py-2.5 text-right w-[20%]">{isIncome ? 'Mục tiêu' : 'Hạn mức'}</th>
+              <th className="py-2.5 text-left w-[20%]">Thực tế</th>
+              <th className="py-2.5 text-left w-[20%]">{isIncome ? 'Mục tiêu' : 'Hạn mức'}</th>
               <th className="py-2.5 text-center w-[20%] px-4">Tiến độ</th>
               <th className="py-2.5 text-center w-[20%]">Thao tác</th>
             </tr>
@@ -465,10 +465,10 @@ export default function FlowTab({
                       <span className={`font-bold text-xs ${isIncome ? 'text-emerald-400 text-glow-green' : 'text-red-500 text-glow-red'}`}>{cat}</span>
                     </div>
                   </td>
-                  <td className="py-3 text-right text-slate-200">
+                  <td className="py-3 text-left text-slate-200">
                     {formatVND(actual)}
                   </td>
-                  <td className="py-3 text-right text-slate-400">
+                  <td className="py-3 text-left text-slate-400">
                     {formatVND(budgetVal)}
                   </td>
                   <td className="py-3 text-center px-4">
@@ -704,31 +704,7 @@ export default function FlowTab({
           <table className="w-full table-fixed text-[13px] font-bold text-slate-350">
             <thead>
               <tr className="border-b border-white/5 text-[11px] font-black uppercase text-slate-500 tracking-wider">
-                <th className="py-2.5 text-center font-black w-[20%] relative pl-5" data-filter-type>
-                  <span className="inline-flex items-center gap-1.5 justify-center">
-                    <span>Loại</span>
-                    <Filter 
-                      className={`h-3 w-3 cursor-pointer transition-colors ${filterType !== 'all' ? 'text-indigo-400' : 'text-slate-500 hover:text-slate-350'}`}
-                      onClick={() => setTypeFilterOpen(o => !o)}
-                    />
-                  </span>
-                  {typeFilterOpen && (
-                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1.5 z-40 bg-[#0d1018]/95 border border-white/10 rounded-[14px] p-1.5 shadow-2xl text-left font-normal normal-case w-24 animate-mac-dropdown origin-top">
-                      {(['all', 'income', 'expense'] as const).map(option => (
-                        <button
-                          key={option}
-                          onClick={() => { setFilterType(option); setTypeFilterOpen(false); setCurrentPage(1); }}
-                          className={`w-full text-left px-2 py-1 text-[9px] font-bold rounded-lg ${
-                            filterType === option ? 'bg-indigo-500/25 text-indigo-300 border border-indigo-500/20 shadow-sm' : 'text-slate-400 hover:bg-white/5'
-                          }`}
-                        >
-                          {option === 'all' ? 'Tất cả' : option === 'income' ? 'Thu nhập' : 'Chi tiêu'}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </th>
-                <th className="py-2.5 text-left font-black w-[20%]">
+                <th className="py-2.5 text-left font-black w-[35%]">
                   <span className="inline-flex items-center gap-1.5">
                     <span>Chi tiết giao dịch</span>
                     <input
@@ -740,7 +716,7 @@ export default function FlowTab({
                     />
                   </span>
                 </th>
-                <th className="py-2.5 text-left font-black w-[20%] relative" data-filter-cat>
+                <th className="py-2.5 text-left font-black w-[25%] relative" data-filter-cat>
                   <span className="inline-flex items-center gap-1.5">
                     <span>Danh mục</span>
                     <Filter 
@@ -779,7 +755,7 @@ export default function FlowTab({
             <tbody className="divide-y divide-white/5">
               {paginatedTransactions.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-10 text-center text-slate-500 font-bold">Chưa ghi nhận giao dịch nào.</td>
+                  <td colSpan={4} className="py-10 text-center text-slate-500 font-bold">Chưa ghi nhận giao dịch nào.</td>
                 </tr>
               ) : (
                 paginatedTransactions.map((t) => {
@@ -791,16 +767,7 @@ export default function FlowTab({
 
                   return (
                     <tr key={t.id} className={rowClass}>
-                      <td className="py-3 text-center pl-5">
-                        <span className={`inline-flex p-1.5 rounded-lg border ${
-                          isIncome 
-                            ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/35 shadow-[0_0_8px_rgba(16,185,129,0.35)]' 
-                            : 'bg-rose-500/15 text-rose-500 border-rose-500/35 shadow-[0_0_8px_rgba(239,68,68,0.35)]'
-                        }`}>
-                          <DollarSign className="h-3.5 w-3.5" />
-                        </span>
-                      </td>
-                      <td className="py-3 text-left">
+                      <td className="py-3 text-left pl-5">
                         <p className={isIncome ? 'text-emerald-300 font-bold' : 'text-rose-300 font-bold'}>{t.desc}</p>
                         <span className={`text-[8.5px] font-extrabold block mt-0.5 ${isIncome ? 'text-emerald-500/60' : 'text-rose-500/60'}`}>{t.date}</span>
                       </td>

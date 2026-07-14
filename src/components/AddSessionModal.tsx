@@ -47,6 +47,7 @@ export default function AddSessionModal({
   const [color, setColor] = useState('#7c3aed');
   const [isColorCustomized, setIsColorCustomized] = useState(false);
   const [loaiHinh, setLoaiHinh] = useState<'co_dinh' | 'tam_thoi'>('co_dinh');
+  const [autoCheckIn, setAutoCheckIn] = useState(true);
   const colorInputRef = React.useRef<HTMLInputElement>(null);
 
   // Initial weekday configurations (default to Mon enabled, others disabled)
@@ -127,6 +128,7 @@ export default function AddSessionModal({
       setColor('#7c3aed');
       setIsColorCustomized(false);
       setLoaiHinh('co_dinh');
+      setAutoCheckIn(true);
       setShowWarningModal(false);
       
       setDayConfigs(
@@ -198,6 +200,10 @@ export default function AddSessionModal({
             month_year: selectedMonth,
             color: sessionColor,
             date: dStr,
+            auto_check_in: autoCheckIn,
+            auto_checkin: autoCheckIn,
+            loai_hinh_lich: loaiHinh,
+            loai_hinh: loaiHinh,
           });
         });
       });
@@ -388,9 +394,9 @@ export default function AddSessionModal({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label htmlFor="price" className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider">
+                <label htmlFor="price" className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider">
                   Học phí/buổi *
                 </label>
                 <input
@@ -402,39 +408,56 @@ export default function AddSessionModal({
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
                   placeholder="250000"
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                  className="w-full px-4 py-2.5 bg-[#0d1018] border border-white/10 text-white rounded-xl text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label htmlFor="initialStatus" className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider">
+                <label htmlFor="initialStatus" className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider">
                   Trạng thái
                 </label>
                 <select
                   id="initialStatus"
                   value={status}
                   onChange={(e) => setStatus(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                  className="w-full px-4 py-2.5 bg-[#0d1018] border border-white/10 text-white rounded-xl text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                 >
-                  <option value="Chưa dạy">Chưa dạy</option>
-                  <option value="Đã dạy">Đã dạy</option>
-                  <option value="Hủy">Đã hủy / nghỉ</option>
+                  <option value="Chưa dạy" className="bg-[#0d1018] text-white">Chưa dạy</option>
+                  <option value="Đã dạy" className="bg-[#0d1018] text-white">Đã dạy</option>
+                  <option value="Hủy" className="bg-[#0d1018] text-white">Đã hủy / nghỉ</option>
                 </select>
               </div>
+            </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label htmlFor="loaiHinh" className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider">
+                <label htmlFor="loaiHinh" className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider">
                   Loại hình lịch
                 </label>
                 <select
                   id="loaiHinh"
                   value={loaiHinh}
                   onChange={(e) => setLoaiHinh(e.target.value as any)}
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                  className="w-full px-4 py-2.5 bg-[#0d1018] border border-white/10 text-white rounded-xl text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                 >
-                  <option value="co_dinh">Cố định</option>
-                  <option value="tam_thoi">Tạm thời (chỉ 1 tuần)</option>
+                  <option value="co_dinh" className="bg-[#0d1018] text-white">Cố định</option>
+                  <option value="tam_thoi" className="bg-[#0d1018] text-white">Tạm thời (chỉ 1 tuần)</option>
                 </select>
+              </div>
+
+              <div className="space-y-1.5 flex flex-col justify-end pb-0.5">
+                <div className="flex items-center gap-2.5 h-10 px-4 bg-[#0d1018] border border-white/10 rounded-xl">
+                  <input
+                    id="autoCheckIn"
+                    type="checkbox"
+                    checked={autoCheckIn}
+                    onChange={(e) => setAutoCheckIn(e.target.checked)}
+                    className="w-4 h-4 rounded text-indigo-650 bg-[#0d1018] border-white/10 focus:ring-indigo-500 focus:ring-offset-0 cursor-pointer"
+                  />
+                  <label htmlFor="autoCheckIn" className="text-slate-350 text-xs font-bold uppercase tracking-wider cursor-pointer select-none">
+                    Tự động điểm danh
+                  </label>
+                </div>
               </div>
             </div>
 

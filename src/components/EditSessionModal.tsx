@@ -80,6 +80,8 @@ export default function EditSessionModal({
   const [dayOfWeek, setDayOfWeek] = useState('Thứ 2');
   const [time, setTime] = useState('18:00');
   const [duration, setDuration] = useState(1.5);
+  const [loaiHinh, setLoaiHinh] = useState<'tam_thoi' | 'co_dinh'>('co_dinh');
+  const [autoCheckin, setAutoCheckin] = useState(false);
   
   const [siblings, setSiblings] = useState<SiblingCheck[]>([]);
   const [recurringConfigs, setRecurringConfigs] = useState<Record<string, RecurringDayConfig>>({});
@@ -111,6 +113,8 @@ export default function EditSessionModal({
     setDayOfWeek(session.day_of_week || 'Thứ 2');
     setTime(formatCleanTimeString(session.time));
     setDuration(session.duration || 1.5);
+    setLoaiHinh((session.loai_hinh || session.loai_hinh_lich) === 'tam_thoi' ? 'tam_thoi' : 'co_dinh');
+    setAutoCheckin(session.auto_checkin ?? session.auto_check_in ?? false);
     
     const studentColor = session.color || getStudentColor(session.student_name);
     setColor(studentColor);
@@ -326,6 +330,10 @@ export default function EditSessionModal({
                 homework: homework,
                 note: note,
                 color: sessionColor,
+                loai_hinh: loaiHinh,
+                loai_hinh_lich: loaiHinh,
+                auto_checkin: autoCheckin,
+                auto_check_in: autoCheckin,
               });
             } else if (isChecked) {
               // Sibling session is checked: update general fields, preserve status, grade, note
@@ -341,6 +349,10 @@ export default function EditSessionModal({
                 homework: matchOld.homework, // preserve original
                 note: matchOld.note,     // preserve original
                 color: sessionColor,
+                loai_hinh: loaiHinh,
+                loai_hinh_lich: loaiHinh,
+                auto_checkin: autoCheckin,
+                auto_check_in: autoCheckin,
               });
             } else {
               // Sibling session not checked: keep completely unmodified
@@ -364,6 +376,10 @@ export default function EditSessionModal({
               month_year: session.month_year,
               color: sessionColor,
               date: dStr,
+              loai_hinh: loaiHinh,
+              loai_hinh_lich: loaiHinh,
+              auto_checkin: autoCheckin,
+              auto_check_in: autoCheckin,
             });
           }
         });
@@ -614,6 +630,61 @@ export default function EditSessionModal({
               >
                 Nghỉ
               </button>
+            </div>
+
+            {/* Additional settings row: Loại hình & Tự động điểm danh */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+              {/* Loại hình */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  Loại hình
+                </label>
+                <div className="flex bg-slate-100 dark:bg-[#0d1018] p-1 rounded-xl border border-slate-200 dark:border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => setLoaiHinh('tam_thoi')}
+                    className={`flex-1 py-1.5 text-[11px] font-bold rounded-lg transition-all ${
+                      loaiHinh === 'tam_thoi'
+                        ? 'bg-amber-500 text-white shadow-sm'
+                        : 'text-slate-500 dark:text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Tạm thời
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLoaiHinh('co_dinh')}
+                    className={`flex-1 py-1.5 text-[11px] font-bold rounded-lg transition-all ${
+                      loaiHinh === 'co_dinh'
+                        ? 'bg-indigo-500 text-white shadow-sm'
+                        : 'text-slate-500 dark:text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Cố định
+                  </button>
+                </div>
+              </div>
+
+              {/* Tự động điểm danh */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  Tự động điểm danh
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setAutoCheckin(prev => !prev)}
+                  className={`w-full flex items-center justify-between px-3 py-1.5 rounded-xl border transition-all text-xs font-bold ${
+                    autoCheckin
+                      ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400'
+                      : 'bg-slate-100 dark:bg-[#0d1018] border-slate-200 dark:border-white/10 text-slate-400'
+                  }`}
+                >
+                  <span>{autoCheckin ? 'Bật tự động' : 'Tắt (Thủ công)'}</span>
+                  <div className={`w-8 h-4.5 rounded-full transition-colors relative ${autoCheckin ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700'}`}>
+                    <div className={`w-3.5 h-3.5 bg-white rounded-full absolute top-0.5 transition-transform ${autoCheckin ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                  </div>
+                </button>
+              </div>
             </div>
           </div>
 

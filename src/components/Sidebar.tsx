@@ -94,24 +94,26 @@ export default function Sidebar({
       </div>
 
       {/* Global Pop-up input button in sidebar */}
-      <button
-        onClick={() => handleOpenTxModal('expense')}
-        className={`mb-6 flex items-center justify-center bg-[#5c36f5] hover:bg-[#7351f7] text-white font-extrabold rounded-xl shadow-[0_4px_12px_rgba(92,54,245,0.3)] hover:shadow-[0_0_15px_rgba(92,54,245,0.5)] hover:scale-[1.01] transition-all cursor-pointer border border-white/10 select-none shrink-0 ${
-          collapsed ? 'w-10 h-10 p-0 mx-auto' : 'w-full py-3 text-xs gap-2'
-        }`}
-        title="Thêm giao dịch"
-      >
-        <Plus className="h-4.5 w-4.5" />
-        <span className={`transition-all duration-300 ease-in-out overflow-hidden whitespace-nowrap ${
-          collapsed ? 'w-0 opacity-0 max-w-0' : 'w-auto opacity-100 max-w-40'
-        }`}>
-          Thêm giao dịch
-        </span>
-      </button>
+      {currentUser.role === 'admin' && (
+        <button
+          onClick={() => handleOpenTxModal('expense')}
+          className={`mb-6 flex items-center justify-center bg-[#5c36f5] hover:bg-[#7351f7] text-white font-extrabold rounded-xl shadow-[0_4px_12px_rgba(92,54,245,0.3)] hover:shadow-[0_0_15px_rgba(92,54,245,0.5)] hover:scale-[1.01] transition-all cursor-pointer border border-white/10 select-none shrink-0 ${
+            collapsed ? 'w-10 h-10 p-0 mx-auto' : 'w-full py-3 text-xs gap-2'
+          }`}
+          title="Thêm giao dịch"
+        >
+          <Plus className="h-4.5 w-4.5" />
+          <span className={`transition-all duration-300 ease-in-out overflow-hidden whitespace-nowrap ${
+            collapsed ? 'w-0 opacity-0 max-w-0' : 'w-auto opacity-100 max-w-40'
+          }`}>
+            Thêm giao dịch
+          </span>
+        </button>
+      )}
 
       {/* Navigation list */}
       <nav className="flex flex-col gap-2 flex-1">
-        {tabs.map((tab) => {
+        {(currentUser.role === 'admin' ? tabs : tabs.filter(t => t.id === 'schedule')).map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           return (

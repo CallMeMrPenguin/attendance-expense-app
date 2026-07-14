@@ -17,6 +17,10 @@ export interface Session {
   date: string;
   created_at?: string;
   updated_at?: string;
+  auto_check_in?: boolean;
+  auto_checkin?: boolean;
+  loai_hinh_lich?: 'co_dinh' | 'tam_thoi';
+  loai_hinh?: 'co_dinh' | 'tam_thoi';
 }
 
 // Convert "18:00" to minutes (1080)

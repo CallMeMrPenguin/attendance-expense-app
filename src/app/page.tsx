@@ -58,6 +58,7 @@ export default function Dashboard() {
   const [teachers, setTeachers] = useState<string[]>([]);
   const [activeTeacherName, setActiveTeacherName] = useState('');
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [allSessions, setAllSessions] = useState<Session[]>([]);
   const [selectedMonth, setSelectedMonth] = useState('');
   const [currentView, setCurrentView] = useState<'month' | 'week'>('month');
 
@@ -121,6 +122,9 @@ export default function Dashboard() {
             token: session.access_token,
           });
           setActiveTeacherName(profile.teacher_name);
+          if (profile.role !== 'admin') {
+            setActiveTab('schedule');
+          }
           return;
         }
       }
@@ -283,22 +287,46 @@ export default function Dashboard() {
 
   // Fetch session schedule data
   const fetchSessions = useCallback(async () => {
-    if (!activeTeacherName || !selectedMonth) return;
+    if (!selectedMonth) return;
     setLoading(true);
-    const { data, error } = await supabase
-      .from('sessions')
-      .select('*')
-      .eq('teacher_name', activeTeacherName)
-      .eq('month_year', selectedMonth);
-    if (!error && data) {
-      setSessions(data as Session[]);
-      calculateStats(data as Session[]);
+
+    // 1. Fetch sessions for the active teacher in selectedMonth (for scheduler)
+    if (activeTeacherName) {
+      const { data, error } = await supabase
+        .from('sessions')
+        .select('*')
+        .eq('teacher_name', activeTeacherName)
+        .eq('month_year', selectedMonth);
+      if (!error && data) {
+        setSessions(data as Session[]);
+        calculateStats(data as Session[]);
+      } else {
+        setSessions([]);
+        calculateStats([]);
+      }
     } else {
       setSessions([]);
       calculateStats([]);
     }
+
+    // 2. Fetch all sessions for all teachers in chartSelectedMonths (for admin cash flow)
+    if (currentUser?.role === 'admin') {
+      const monthsToFetch = chartSelectedMonths.length > 0 ? chartSelectedMonths : [selectedMonth];
+      const { data, error } = await supabase
+        .from('sessions')
+        .select('*')
+        .in('month_year', monthsToFetch);
+      if (!error && data) {
+        setAllSessions(data as Session[]);
+      } else {
+        setAllSessions([]);
+      }
+    } else {
+      setAllSessions([]);
+    }
+
     setLoading(false);
-  }, [activeTeacherName, selectedMonth]);
+  }, [activeTeacherName, selectedMonth, chartSelectedMonths, currentUser]);
 
   // Sync teachers and sessions when user or parameters change
   useEffect(() => {
@@ -308,10 +336,17 @@ export default function Dashboard() {
   }, [currentUser, fetchTeachers]);
 
   useEffect(() => {
-    if (activeTeacherName && selectedMonth) {
+    if (selectedMonth) {
       fetchSessions();
     }
-  }, [activeTeacherName, selectedMonth, fetchSessions]);
+  }, [selectedMonth, chartSelectedMonths, fetchSessions]);
+
+  // Guard tab view permissions for non-admin roles
+  useEffect(() => {
+    if (currentUser && currentUser.role !== 'admin' && activeTab !== 'schedule') {
+      setActiveTab('schedule');
+    }
+  }, [currentUser, activeTab]);
 
   const handleTeacherUpdated = (updatedActiveName?: string) => {
     fetchTeachers();
@@ -346,13 +381,14 @@ export default function Dashboard() {
   // Finance calculations
   const getSupabaseIncome = useCallback(() => {
     let earned = 0;
-    sessions.forEach(s => {
+    const targetSessions = currentUser?.role === 'admin' ? allSessions : sessions;
+    targetSessions.forEach(s => {
       if (s.status === 'Đã dạy') {
         earned += Number(s.price) || 0;
       }
     });
     return earned;
-  }, [sessions]);
+  }, [sessions, allSessions, currentUser]);
 
   const getTotalIncome = useCallback(() => {
     const manualInc = manualTransactions
@@ -369,7 +405,8 @@ export default function Dashboard() {
 
   // Filtered values by selected months
   const getSelectedMonthsIncome = useCallback(() => {
-    const sbEarned = sessions
+    const targetSessions = currentUser?.role === 'admin' ? allSessions : sessions;
+    const sbEarned = targetSessions
       .filter(s => s.status === 'Đã dạy' && chartSelectedMonths.includes(s.month_year))
       .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
       
@@ -378,7 +415,7 @@ export default function Dashboard() {
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
       
     return sbEarned + manualInc;
-  }, [sessions, manualTransactions, chartSelectedMonths]);
+  }, [sessions, allSessions, manualTransactions, chartSelectedMonths, currentUser]);
 
   const getSelectedMonthsExpense = useCallback(() => {
     return manualTransactions
@@ -388,7 +425,8 @@ export default function Dashboard() {
 
   // Weekly calculations for single-month line view
   const getWeeklyIncome = useCallback((monthStr: string, startDay: number, endDay: number) => {
-    const sbEarned = sessions
+    const targetSessions = currentUser?.role === 'admin' ? allSessions : sessions;
+    const sbEarned = targetSessions
       .filter(s => {
         if (s.month_year !== monthStr || s.status !== 'Đã dạy') return false;
         const d = Number(s.date.split('-')[2]) || 1;
@@ -405,7 +443,7 @@ export default function Dashboard() {
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
       
     return sbEarned + manualInc;
-  }, [sessions, manualTransactions]);
+  }, [sessions, allSessions, manualTransactions, currentUser]);
 
   const getWeeklyExpense = useCallback((monthStr: string, startDay: number, endDay: number) => {
     return manualTransactions
@@ -418,7 +456,8 @@ export default function Dashboard() {
   }, [manualTransactions]);
 
   const getMonthlyIncome = useCallback((monthStr: string) => {
-    const sbEarned = sessions
+    const targetSessions = currentUser?.role === 'admin' ? allSessions : sessions;
+    const sbEarned = targetSessions
       .filter(s => s.month_year === monthStr && s.status === 'Đã dạy')
       .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
       
@@ -427,7 +466,7 @@ export default function Dashboard() {
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
       
     return sbEarned + manualInc;
-  }, [sessions, manualTransactions]);
+  }, [sessions, allSessions, manualTransactions, currentUser]);
 
   const getMonthlyExpense = useCallback((monthStr: string) => {
     return manualTransactions
@@ -449,13 +488,14 @@ export default function Dashboard() {
       
       let sbInc = 0;
       if (cat === 'Giáo dục') {
-        sbInc = sessions
+        const targetSessions = currentUser?.role === 'admin' ? allSessions : sessions;
+        sbInc = targetSessions
           .filter(s => s.status === 'Đã dạy' && chartSelectedMonths.includes(s.month_year))
           .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
       }
       return manualInc + sbInc;
     }
-  }, [manualTransactions, sessions, chartSelectedMonths]);
+  }, [manualTransactions, sessions, allSessions, chartSelectedMonths, currentUser]);
 
   // Toggle multi-select months
   const toggleChartMonth = (mStr: string) => {
@@ -554,7 +594,7 @@ export default function Dashboard() {
             <DashboardTab
               currentUser={currentUser}
               manualTransactions={manualTransactions}
-              sessions={sessions}
+              sessions={currentUser.role === 'admin' ? allSessions : sessions}
               emergencyCurrent={emergencyCurrent}
               accumulationCurrent={accumulationCurrent}
               categoryBudgets={categoryBudgets}
@@ -580,7 +620,7 @@ export default function Dashboard() {
             <FlowTab
               currentUser={currentUser}
               manualTransactions={manualTransactions}
-              sessions={sessions}
+              sessions={currentUser.role === 'admin' ? allSessions : sessions}
               categoryBudgets={categoryBudgets}
               chartSelectedMonths={chartSelectedMonths}
               getActualCategoryAmount={getActualCategoryAmount}
