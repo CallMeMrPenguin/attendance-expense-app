@@ -44,6 +44,7 @@ export default function TransactionModal({
   const [modalDate, setModalDate] = useState('');
   const [modalSavingFund, setModalSavingFund] = useState<'emergency' | 'accumulation'>('emergency');
   const [modalSavingAction, setModalSavingAction] = useState<'deposit' | 'withdraw'>('deposit');
+  const [isRecurring, setIsRecurring] = useState(false);
   const [incomeCategories, setIncomeCategories] = useState<string[]>(['Lương', 'Giáo dục', 'Đầu tư', 'Khác']);
   const [expenseCategories, setExpenseCategories] = useState<string[]>(['Ăn uống', 'Di chuyển', 'Shopping', 'Hóa đơn', 'Giải trí', 'Khác']);
 
@@ -68,6 +69,7 @@ export default function TransactionModal({
       setModalDate(new Date().toISOString().split('T')[0]);
       setModalSavingFund('emergency');
       setModalSavingAction('deposit');
+      setIsRecurring(false);
     }
   }, [isOpen, defaultType, currentUser]);
 
@@ -124,7 +126,9 @@ export default function TransactionModal({
         amount: amt,
         type: modalTxType,
         category: modalCategory,
-        date: modalDate
+        date: modalDate,
+        isRecurring: isRecurring,
+        is_recurring: isRecurring
       };
       saveTransactions(userId, [newTx, ...manualTransactions]);
       alert('Đã lưu giao dịch tài chính mới!');
@@ -282,7 +286,7 @@ export default function TransactionModal({
           </div>
 
           {/* Row 3: Category dropdown (hidden for saving) */}
-          <div className={modalTxType !== 'saving' ? 'block' : 'hidden'}>
+          <div className={modalTxType !== 'saving' ? 'block space-y-3' : 'hidden'}>
             <div className="space-y-1.5">
               <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Danh mục</label>
               <div className="relative">
@@ -299,6 +303,27 @@ export default function TransactionModal({
                 </select>
                 <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
               </div>
+            </div>
+
+            {/* Recurring toggle box */}
+            <div 
+              onClick={() => setIsRecurring(!isRecurring)} 
+              className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${
+                isRecurring 
+                  ? 'bg-indigo-500/15 border-indigo-500/40 text-white shadow-sm' 
+                  : 'bg-[#0d1018] border-white/10 text-slate-400 hover:border-white/20'
+              }`}
+            >
+              <div className="flex flex-col text-left">
+                <span className="text-xs font-extrabold text-white">Giao dịch Cố định (Hằng tháng)</span>
+                <span className="text-[9.5px] text-slate-400">Tự động cộng/trừ số tiền này cho các tháng tiếp theo</span>
+              </div>
+              <input 
+                type="checkbox" 
+                checked={isRecurring} 
+                onChange={(e) => setIsRecurring(e.target.checked)} 
+                className="h-4 w-4 accent-indigo-500 cursor-pointer shrink-0" 
+              />
             </div>
           </div>
 

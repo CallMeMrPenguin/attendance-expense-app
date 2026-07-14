@@ -530,7 +530,7 @@ export default function EditSessionModal({
         <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-950 shrink-0">
           <div className="flex flex-col">
             <h2 className="text-sm font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">
-              Chi Tiết Ca Dạy
+              Chi Tiết Lịch Trình / Chấm Công
             </h2>
             <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase mt-0.5 tracking-wider">
               {formatDateVN(session.date)}
@@ -544,7 +544,7 @@ export default function EditSessionModal({
               disabled={loading}
               onClick={handleDeleteSessions}
               className="px-3 py-1.5 bg-red-50 hover:bg-red-100 dark:bg-red-950/20 dark:hover:bg-red-950/40 border border-red-200 dark:border-red-900/30 text-red-650 dark:text-red-400 font-bold text-xs rounded-xl flex items-center gap-1 transition-all disabled:opacity-50 cursor-pointer shadow-sm"
-              title="Xóa ca dạy"
+              title="Xóa lịch trình"
             >
               <Trash2 className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Xóa</span>
@@ -587,7 +587,7 @@ export default function EditSessionModal({
           {/* Block 0: Status Function Buttons (chua day-da hoc-nghi) */}
           <div className="space-y-1.5 pb-2 border-b border-slate-100 dark:border-slate-800">
             <label className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider block">
-              Trạng thái ca dạy *
+              Trạng thái công việc *
             </label>
             <div className="relative flex bg-slate-100 dark:bg-[#0d1018] border border-slate-200 dark:border-white/10 p-1 rounded-xl w-full">
               {/* Sliding pill background */}
@@ -617,7 +617,7 @@ export default function EditSessionModal({
                   status === 'Chưa dạy' ? 'text-white' : 'text-slate-550 dark:text-slate-455 hover:text-slate-800 dark:hover:text-slate-200'
                 }`}
               >
-                Chưa dạy
+                Chưa thực hiện
               </button>
               <button
                 type="button"
@@ -626,7 +626,7 @@ export default function EditSessionModal({
                   status === 'Đã dạy' ? 'text-white' : 'text-slate-550 dark:text-slate-455 hover:text-slate-800 dark:hover:text-slate-200'
                 }`}
               >
-                Đã học
+                Đã hoàn thành
               </button>
               <button
                 type="button"
@@ -635,7 +635,7 @@ export default function EditSessionModal({
                   status === 'Hủy' ? 'text-white' : 'text-slate-550 dark:text-slate-455 hover:text-slate-800 dark:hover:text-slate-200'
                 }`}
               >
-                Nghỉ
+                Hủy / Nghỉ
               </button>
             </div>
 

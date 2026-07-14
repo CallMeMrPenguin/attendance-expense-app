@@ -176,11 +176,13 @@ export default function FlowTab({
     type: 'income' | 'expense';
     category: string;
     date: string;
+    isRecurring: boolean;
   } | null>(null);
 
   // Filter & Pagination states for Giao dịch section
   const [filterType, setFilterType] = React.useState<'all' | 'income' | 'expense'>('all');
   const [filterCategory, setFilterCategory] = React.useState<string>('all');
+  const [filterRecurring, setFilterRecurring] = React.useState<'all' | 'co_dinh' | 'tam_thoi'>('all');
   const [searchQuery, setSearchQuery] = React.useState<string>('');
   const [currentPage, setCurrentPage] = React.useState<number>(1);
   const itemsPerPage = 10;
@@ -188,6 +190,17 @@ export default function FlowTab({
   // Filter Popover Menu toggles
   const [typeFilterOpen, setTypeFilterOpen] = React.useState(false);
   const [catFilterOpen, setCatFilterOpen] = React.useState(false);
+
+  // Helper for matching transactions against selected months (supports fixed/recurring transactions)
+  const isTxInSelectedMonths = React.useCallback((t: any, months: string[]) => {
+    const txMonth = (t.date || '').substring(0, 7);
+    if (!txMonth) return false;
+    const isFixed = !!(t.isRecurring || t.is_recurring);
+    if (isFixed) {
+      return months.some(m => m >= txMonth);
+    }
+    return months.includes(txMonth);
+  }, []);
 
   // Close menus on outside click
   React.useEffect(() => {
@@ -211,11 +224,11 @@ export default function FlowTab({
   const getCategoryActual = (catName: string, isExpense: boolean) => {
     if (isExpense) {
       return manualTransactions
-        .filter(t => t.type === 'expense' && t.category === catName && chartSelectedMonths.includes(t.date.substring(0, 7)))
+        .filter(t => t.type === 'expense' && t.category === catName && isTxInSelectedMonths(t, chartSelectedMonths))
         .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
     } else {
       const manualInc = manualTransactions
-        .filter(t => t.type === 'income' && t.category === catName && chartSelectedMonths.includes(t.date.substring(0, 7)))
+        .filter(t => t.type === 'income' && t.category === catName && isTxInSelectedMonths(t, chartSelectedMonths))
         .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
       
       let autoInc = 0;
@@ -292,7 +305,9 @@ export default function FlowTab({
             amount: Number(editingTx.amount),
             type: editingTx.type,
             category: editingTx.category,
-            date: editingTx.date
+            date: editingTx.date,
+            isRecurring: editingTx.isRecurring,
+            is_recurring: editingTx.isRecurring
           };
         }
         return tx;
@@ -306,42 +321,43 @@ export default function FlowTab({
   // Sync compute local transactions lists
   const getIncomeTransactions = () => {
     const manual = manualTransactions
-      .filter(t => t.type === 'income')
+      .filter(t => t.type === 'income' && isTxInSelectedMonths(t, chartSelectedMonths))
       .map(t => ({
         id: t.id,
         desc: t.desc,
         amount: Number(t.amount) || 0,
         category: t.category,
         date: t.date,
-        isManual: true
+        isManual: true,
+        isRecurring: !!(t.isRecurring || t.is_recurring)
       }));
 
     const auto = sessions
-      .filter(s => s.status === 'Đã dạy')
+      .filter(s => s.status === 'Đã dạy' && chartSelectedMonths.includes(s.month_year))
       .map(s => ({
         id: `session-${s.id}`,
-        desc: `Thu nhập ca dạy: ${s.student_name}`,
+        desc: `Thu nhập chấm công: ${s.student_name}`,
         amount: Number(s.price) || 0,
         category: 'Giáo dục',
         date: s.date,
-        isManual: false
+        isManual: false,
+        isRecurring: false
       }));
 
-    return [...manual, ...auto]
-      .filter(t => chartSelectedMonths.includes(t.date.substring(0, 7)))
-      .sort((a, b) => b.date.localeCompare(a.date));
+    return [...manual, ...auto].sort((a, b) => b.date.localeCompare(a.date));
   };
 
   const getExpenseTransactions = () => {
     return manualTransactions
-      .filter(t => t.type === 'expense' && chartSelectedMonths.includes(t.date.substring(0, 7)))
+      .filter(t => t.type === 'expense' && isTxInSelectedMonths(t, chartSelectedMonths))
       .map(t => ({
         id: t.id,
         desc: t.desc,
         amount: Number(t.amount) || 0,
         category: t.category,
         date: t.date,
-        isManual: true
+        isManual: true,
+        isRecurring: !!(t.isRecurring || t.is_recurring)
       }));
   };
 
@@ -354,7 +370,9 @@ export default function FlowTab({
     const matchesType = filterType === 'all' || t.type === filterType;
     const matchesCategory = filterCategory === 'all' || t.category === filterCategory;
     const matchesSearch = t.desc.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesType && matchesCategory && matchesSearch;
+    const matchesRec = filterRecurring === 'all' || 
+      (filterRecurring === 'co_dinh' ? t.isRecurring : !t.isRecurring);
+    return matchesType && matchesCategory && matchesSearch && matchesRec;
   });
 
   const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage) || 1;
@@ -378,14 +396,14 @@ export default function FlowTab({
   const prevMonths = chartSelectedMonths.map(getPreviousMonthStr).filter(Boolean);
 
   const prevIncome = manualTransactions
-    .filter(t => t.type === 'income' && prevMonths.includes(t.date.substring(0, 7)))
+    .filter(t => t.type === 'income' && isTxInSelectedMonths(t, prevMonths))
     .reduce((sum, t) => sum + (Number(t.amount) || 0), 0) +
     sessions
       .filter(s => s.status === 'Đã dạy' && prevMonths.includes(s.month_year))
       .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
 
   const prevExpense = manualTransactions
-    .filter(t => t.type === 'expense' && prevMonths.includes(t.date.substring(0, 7)))
+    .filter(t => t.type === 'expense' && isTxInSelectedMonths(t, prevMonths))
     .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
 
   const prevNet = prevIncome - prevExpense;
@@ -691,12 +709,30 @@ export default function FlowTab({
 
       {/* Unified Transaction List with search, filtering and pagination */}
       <div className="calendar-container-depth p-5 bg-[#141824] space-y-4">
-        <div className="flex flex-col items-center justify-center border-b border-white/5 pb-3">
-          <div className="flex items-center justify-center gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-white/5 pb-3">
+          <div className="flex items-center gap-2">
             <div className="p-1.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 rounded-lg shadow-[0_0_10px_rgba(99,102,241,0.55)]">
               <DollarSign className="h-4 w-4" />
             </div>
             <h3 className="text-[15px] font-black text-indigo-400 text-glow-blue uppercase tracking-wider">Giao dịch</h3>
+          </div>
+
+          {/* Filter pill toggle: Tất cả / Cố định / Tạm thời */}
+          <div className="flex bg-[#0d1018] p-1 rounded-xl border border-white/10 text-xs shrink-0 font-bold">
+            {(['all', 'co_dinh', 'tam_thoi'] as const).map(fVal => (
+              <button
+                key={fVal}
+                type="button"
+                onClick={() => { setFilterRecurring(fVal); setCurrentPage(1); }}
+                className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
+                  filterRecurring === fVal
+                    ? 'bg-indigo-500 text-white shadow-sm font-black'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                {fVal === 'all' ? 'Tất cả' : fVal === 'co_dinh' ? 'Cố định' : 'Tạm thời'}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -768,7 +804,14 @@ export default function FlowTab({
                   return (
                     <tr key={t.id} className={rowClass}>
                       <td className="py-3 text-left pl-5">
-                        <p className={isIncome ? 'text-emerald-300 font-bold' : 'text-rose-300 font-bold'}>{t.desc}</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className={isIncome ? 'text-emerald-300 font-bold' : 'text-rose-300 font-bold'}>{t.desc}</p>
+                          {t.isRecurring ? (
+                            <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Cố định</span>
+                          ) : (
+                            <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-slate-500/10 text-slate-400 border border-slate-500/20">Tạm thời</span>
+                          )}
+                        </div>
                         <span className={`text-[8.5px] font-extrabold block mt-0.5 ${isIncome ? 'text-emerald-500/60' : 'text-rose-500/60'}`}>{t.date}</span>
                       </td>
                       <td className="py-3 text-left">
@@ -798,7 +841,8 @@ export default function FlowTab({
                                 amount: t.amount,
                                 type: t.type,
                                 category: t.category,
-                                date: t.date
+                                date: t.date,
+                                isRecurring: !!t.isRecurring
                               })}
                               className={`p-1 rounded-lg transition-all cursor-pointer ${
                                 isIncome 
@@ -1050,6 +1094,27 @@ export default function FlowTab({
                   </select>
                   <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
                 </div>
+              </div>
+
+              {/* Recurring toggle */}
+              <div 
+                onClick={() => setEditingTx(prev => prev ? { ...prev, isRecurring: !prev.isRecurring } : null)}
+                className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${
+                  editingTx.isRecurring 
+                    ? 'bg-indigo-500/15 border-indigo-500/40 text-white shadow-sm' 
+                    : 'bg-[#0d1018] border-white/10 text-slate-400 hover:border-white/20'
+                }`}
+              >
+                <div className="flex flex-col text-left">
+                  <span className="text-xs font-extrabold text-white">Giao dịch Cố định (Hằng tháng)</span>
+                  <span className="text-[9.5px] text-slate-400">Tự động cộng/trừ số tiền này cho các tháng tiếp theo</span>
+                </div>
+                <input 
+                  type="checkbox" 
+                  checked={editingTx.isRecurring} 
+                  onChange={(e) => setEditingTx(prev => prev ? { ...prev, isRecurring: e.target.checked } : null)} 
+                  className="h-4 w-4 accent-indigo-500 cursor-pointer shrink-0" 
+                />
               </div>
 
               {/* Actions */}

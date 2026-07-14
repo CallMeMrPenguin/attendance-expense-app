@@ -312,7 +312,7 @@ export default function AddSessionModal({
 
             <div className="space-y-1.5">
               <label htmlFor="studentName" className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider">
-                Tên học sinh *
+                Tên công việc / Đối tác *
               </label>
               <input
                 id="studentName"
@@ -403,7 +403,7 @@ export default function AddSessionModal({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label htmlFor="price" className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider">
-                  Học phí/buổi *
+                  Số tiền / Tiền công (đ) *
                 </label>
                 <input
                   id="price"
@@ -428,8 +428,8 @@ export default function AddSessionModal({
                   onChange={(e) => setStatus(e.target.value)}
                   className="w-full px-4 py-2.5 bg-[#0d1018] border border-white/10 text-white rounded-xl text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                 >
-                  <option value="Chưa dạy" className="bg-[#0d1018] text-white">Chưa dạy</option>
-                  <option value="Đã dạy" className="bg-[#0d1018] text-white">Đã dạy</option>
+                  <option value="Chưa dạy" className="bg-[#0d1018] text-white">Chưa thực hiện</option>
+                  <option value="Đã dạy" className="bg-[#0d1018] text-white">Đã hoàn thành</option>
                   <option value="Hủy" className="bg-[#0d1018] text-white">Đã hủy / nghỉ</option>
                 </select>
               </div>

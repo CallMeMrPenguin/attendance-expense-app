@@ -70,17 +70,17 @@ export default function ScheduleTab({
         <div className="space-y-1 max-w-2xl relative z-10">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-extrabold tracking-wider uppercase mb-1 shadow-sm">
             <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(123,97,255,1)]"></span>
-            <span>Tổng quan giảng dạy</span>
+            <span>Tổng quan lịch trình</span>
           </div>
 
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-none">
-            Lịch Trình Giảng Dạy & Chấm Công
+            Lịch Trình & Chấm Công
           </h1>
 
           <p className="text-slate-400 text-xs sm:text-sm font-semibold tracking-wide pt-0.5">
             {totalSessions > 0 
-              ? `Tháng này bạn có ${totalSessions} ca dạy với tổng doanh thu dự kiến ${formatVND(projectedIncome)}.`
-              : 'Hiện tại chưa có lịch ca dạy nào được tạo cho tháng này.'
+              ? `Tháng này bạn có ${totalSessions} lịch làm việc với tổng chi phí/doanh thu dự kiến ${formatVND(projectedIncome)}.`
+              : 'Hiện tại chưa có lịch trình nào được tạo cho tháng này.'
             }
           </p>
         </div>
@@ -118,7 +118,7 @@ export default function ScheduleTab({
         {/* KPI 1 */}
         <div className="kpi-editorial-card p-6 flex flex-col justify-between min-h-[140px]">
           <div className="flex justify-between items-center gap-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400 truncate">Ca dạy trong tháng</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400 truncate">Lịch trình trong tháng</span>
             <div className="p-2 rounded-xl bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 shadow-[0_0_12px_rgba(123,97,255,0.3)] shrink-0">
               <CalendarIcon className="h-4 w-4" />
             </div>
@@ -130,7 +130,7 @@ export default function ScheduleTab({
           </div>
           <div className="mt-2 flex">
             <span className="text-[10px] font-extrabold text-indigo-300 bg-indigo-500/15 px-2 py-0.5 rounded-md">
-              Tổng ca dạy
+              Tổng số buổi / Công việc
             </span>
           </div>
         </div>
@@ -138,7 +138,7 @@ export default function ScheduleTab({
         {/* KPI 2 */}
         <div className="kpi-editorial-card p-6 flex flex-col justify-between min-h-[140px]">
           <div className="flex justify-between items-center gap-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400 truncate">Ca hoàn thành</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400 truncate">Đã hoàn thành</span>
             <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.3)] shrink-0">
               <CheckCircle2 className="h-4 w-4" />
             </div>
@@ -160,7 +160,7 @@ export default function ScheduleTab({
         {/* KPI 3 */}
         <div className="kpi-editorial-card p-6 flex flex-col justify-between min-h-[140px]">
           <div className="flex justify-between items-center gap-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400 truncate">Thu nhập thực tế</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400 truncate">Giá trị thực tế</span>
             <div className="p-2 rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.3)] shrink-0">
               <Coins className="h-4 w-4" />
             </div>
@@ -172,7 +172,7 @@ export default function ScheduleTab({
           </div>
           <div className="mt-2 flex">
             <span className="text-[10px] font-extrabold text-amber-300 bg-amber-500/15 px-2 py-0.5 rounded-md">
-              Đã giảng dạy
+              Đã chấm công
             </span>
           </div>
         </div>
@@ -180,7 +180,7 @@ export default function ScheduleTab({
         {/* KPI 4 */}
         <div className="kpi-editorial-card p-6 flex flex-col justify-between min-h-[140px]">
           <div className="flex justify-between items-center gap-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400 truncate">Thu nhập dự kiến</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400 truncate">Giá trị dự kiến</span>
             <div className="p-2 rounded-xl bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 shadow-[0_0_12px_rgba(6,182,212,0.3)] shrink-0">
               <TrendingUp className="h-4 w-4" />
             </div>
@@ -192,7 +192,7 @@ export default function ScheduleTab({
           </div>
           <div className="mt-2 flex">
             <span className="text-[10px] font-extrabold text-cyan-300 bg-cyan-500/15 px-2 py-0.5 rounded-md">
-              Thu nhập tối đa
+              Tổng giá trị dự kiến
             </span>
           </div>
         </div>
@@ -204,7 +204,7 @@ export default function ScheduleTab({
           <div className="flex items-center gap-3">
             <div className="h-2.5 w-2.5 rounded-full bg-[#5c36f5] shadow-[0_0_10px_rgba(92,54,245,1)]"></div>
             <h3 className="text-sm font-black text-white uppercase tracking-wider">
-              Lịch biểu giảng dạy học sinh
+              Bảng Lịch Trình & Chấm Công
             </h3>
           </div>
           
@@ -215,7 +215,7 @@ export default function ScheduleTab({
               className="flex items-center justify-center gap-2 px-4 py-1.5 bg-[#5c36f5] hover:bg-[#7351f7] text-white font-extrabold text-[11px] rounded-xl shadow-[0_4px_12px_rgba(92,54,245,0.35)] hover:scale-[1.02] transition-all cursor-pointer border border-white/20 select-none"
             >
               <Plus className="h-3.5 w-3.5" />
-              <span>Thêm Ca Dạy Nhanh</span>
+              <span>Thêm Lịch Trình / Chấm Công</span>
             </button>
 
             {/* Month Selector dropdown */}
