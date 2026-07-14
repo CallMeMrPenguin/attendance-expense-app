@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, ChevronDown, Calendar } from 'lucide-react';
+import { formatDateVN } from '@/lib/utils';
 
 const INCOME_CATEGORIES = ['Lương', 'Giáo dục', 'Đầu tư', 'Khác'];
 const EXPENSE_CATEGORIES = ['Ăn uống', 'Di chuyển', 'Shopping', 'Hóa đơn', 'Giải trí', 'Khác'];
@@ -133,9 +134,9 @@ export default function TransactionModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-[#090b10]/80 backdrop-blur-sm z-[999] flex items-center justify-center p-4 animate-fade-in text-slate-100">
+    <div className="fixed inset-0 bg-[#070911]/90 z-[999] flex items-center justify-center p-4 overflow-hidden pointer-events-auto animate-mac-backdrop text-slate-100">
       <div 
-        className="bg-[#0f1320] border border-white/10 rounded-2xl w-full max-w-md p-6 relative shadow-2xl animate-mac-dropdown"
+        className="bg-[#0f1320] border border-white/10 rounded-2xl w-full max-w-md p-6 relative shadow-2xl animate-mac-modal"
         onClick={(e) => e.stopPropagation()}
       >
         <button 
@@ -208,57 +209,54 @@ export default function TransactionModal({
         </div>
 
         <form onSubmit={handleSaveModalTx} className="space-y-4 text-left">
-          {modalTxType === 'saving' ? (
-            <>
-              {/* Saving Fund Selection */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Quỹ tiết kiệm</label>
-                  <div className="relative">
-                    <select
-                      value={modalSavingFund}
-                      onChange={(e) => setModalSavingFund(e.target.value as any)}
-                      className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 cursor-pointer block"
-                    >
-                      <option value="emergency" className="bg-[#0d1018] text-white">Quỹ dự phòng</option>
-                      <option value="accumulation" className="bg-[#0d1018] text-white">Quỹ tích lũy</option>
-                    </select>
-                    <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-                  </div>
-                </div>
+          {/* Row 1: Description Input (for income/expense) OR Saving Fund selection (for saving) */}
+          <div className={modalTxType === 'saving' ? 'hidden' : 'block'}>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Mô tả giao dịch</label>
+              <input
+                type="text"
+                placeholder="Ví dụ: Ăn trưa, Nhận lương tháng..."
+                value={modalDesc}
+                onChange={(e) => setModalDesc(e.target.value)}
+                className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500"
+                required={modalTxType !== 'saving'}
+              />
+            </div>
+          </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Hành động</label>
-                  <div className="relative">
-                    <select
-                      value={modalSavingAction}
-                      onChange={(e) => setModalSavingAction(e.target.value as any)}
-                      className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 cursor-pointer block"
-                    >
-                      <option value="deposit" className="bg-[#0d1018] text-white">Nạp tiền (Gửi vào)</option>
-                      <option value="withdraw" className="bg-[#0d1018] text-white">Rút tiền</option>
-                    </select>
-                    <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-                  </div>
+          <div className={modalTxType === 'saving' ? 'block' : 'hidden'}>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Quỹ tiết kiệm</label>
+                <div className="relative">
+                  <select
+                    value={modalSavingFund}
+                    onChange={(e) => setModalSavingFund(e.target.value as any)}
+                    className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 cursor-pointer block"
+                  >
+                    <option value="emergency" className="bg-[#0d1018] text-white">Quỹ dự phòng</option>
+                    <option value="accumulation" className="bg-[#0d1018] text-white">Quỹ tích lũy</option>
+                  </select>
+                  <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
                 </div>
               </div>
-            </>
-          ) : (
-            <>
-              {/* Description Input */}
+
               <div className="space-y-1.5">
-                <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Mô tả giao dịch</label>
-                <input
-                  type="text"
-                  placeholder="Ví dụ: Ăn trưa, Nhận lương tháng..."
-                  value={modalDesc}
-                  onChange={(e) => setModalDesc(e.target.value)}
-                  className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500"
-                  required
-                />
+                <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Hành động</label>
+                <div className="relative">
+                  <select
+                    value={modalSavingAction}
+                    onChange={(e) => setModalSavingAction(e.target.value as any)}
+                    className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 cursor-pointer block"
+                  >
+                    <option value="deposit" className="bg-[#0d1018] text-white">Nạp tiền (Gửi vào)</option>
+                    <option value="withdraw" className="bg-[#0d1018] text-white">Rút tiền</option>
+                  </select>
+                  <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                </div>
               </div>
-            </>
-          )}
+            </div>
+          </div>
 
           {/* Amount & Date Grid */}
           <div className="grid grid-cols-2 gap-4">
@@ -282,48 +280,48 @@ export default function TransactionModal({
                   type="date"
                   value={modalDate}
                   onChange={(e) => setModalDate(e.target.value)}
-                  onClick={(e) => {
-                    try {
-                      e.currentTarget.showPicker();
-                    } catch (err) {}
-                  }}
-                  className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl pl-3.5 pr-10 py-2.5 focus:outline-none focus:border-indigo-500 cursor-pointer block"
+                  className="opacity-0 absolute pointer-events-none w-0 h-0"
                   required
                 />
-                <Calendar 
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-white cursor-pointer" 
+                <button
+                  type="button"
                   onClick={() => {
                     try {
                       dateInputRef.current?.showPicker();
                     } catch (err) {}
                   }}
-                />
+                  className="w-full flex items-center justify-between bg-[#0d1018] border border-white/10 hover:border-indigo-500/40 text-white text-xs font-bold rounded-xl px-3.5 py-2.5 cursor-pointer transition-all block text-left"
+                >
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-indigo-400 shrink-0" />
+                    <span>{modalDate ? formatDateVN(modalDate) : 'Chọn ngày...'}</span>
+                  </div>
+                  <ChevronDown className="h-4 w-4 text-slate-400" />
+                </button>
               </div>
             </div>
           </div>
 
-          {modalTxType !== 'saving' && (
-            <>
-              {/* Category Selection */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Danh mục</label>
-                <div className="relative">
-                  <select
-                    value={modalCategory}
-                    onChange={(e) => setModalCategory(e.target.value)}
-                    className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 cursor-pointer block"
-                  >
-                    {(modalTxType === 'income' ? incomeCategories : expenseCategories).map((c) => (
-                      <option key={c} value={c} className="bg-[#0d1018] text-white">
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-                </div>
+          {/* Row 3: Category dropdown (hidden for saving) */}
+          <div className={modalTxType !== 'saving' ? 'block' : 'hidden'}>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Danh mục</label>
+              <div className="relative">
+                <select
+                  value={modalCategory}
+                  onChange={(e) => setModalCategory(e.target.value)}
+                  className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 cursor-pointer block"
+                >
+                  {(modalTxType === 'income' ? incomeCategories : expenseCategories).map((c) => (
+                    <option key={c} value={c} className="bg-[#0d1018] text-white">
+                      {c}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
               </div>
-            </>
-          )}
+            </div>
+          </div>
 
           {/* Submit */}
           <button

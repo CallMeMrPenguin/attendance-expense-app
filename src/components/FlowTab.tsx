@@ -31,7 +31,7 @@ import {
   Filter,
   X
 } from 'lucide-react';
-import { formatVND, Session } from '@/lib/utils';
+import { formatVND, Session, formatDateVN } from '@/lib/utils';
 
 const ICON_COMPONENTS: Record<string, React.ComponentType<any>> = {
   Briefcase, GraduationCap, TrendingUp, Coins, HelpCircle,
@@ -459,11 +459,11 @@ export default function FlowTab({
                       <span className={`inline-flex p-1.5 rounded-lg border transition-all duration-300 ${
                         isIncome 
                           ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.45)]' 
-                          : 'bg-rose-500/10 text-rose-455 border-rose-500/30 shadow-[0_0_10px_rgba(239,68,68,0.45)]'
+                          : 'bg-red-500/10 text-red-500 border-red-500/30 shadow-[0_0_10px_rgba(239,68,68,0.45)]'
                       }`}>
                         <CategoryIcon iconName={iconName} className="h-3.5 w-3.5" />
                       </span>
-                      <span className={`font-bold text-xs ${isIncome ? 'text-white' : 'text-rose-455'}`}>{cat}</span>
+                      <span className={`font-bold text-xs ${isIncome ? 'text-white' : 'text-red-500'}`}>{cat}</span>
                     </div>
                   </td>
                   <td className="py-3 text-right text-slate-200">
@@ -679,10 +679,10 @@ export default function FlowTab({
         <div className="calendar-container-depth p-5 bg-[#141824] space-y-4">
           <div className="flex flex-col items-center justify-center border-b border-white/5 pb-3">
             <div className="flex items-center justify-center gap-2">
-              <div className="p-1 bg-rose-500/10 text-rose-455 border border-rose-500/30 rounded-lg shadow-[0_0_8px_rgba(239,68,68,0.35)] shrink-0">
+              <div className="p-1 bg-red-500/10 text-red-500 border border-red-500/30 rounded-lg shadow-[0_0_8px_rgba(239,68,68,0.35)] shrink-0">
                 <TrendingDown className="h-4 w-4" />
               </div>
-              <h3 className="text-[15px] font-black text-rose-455 text-glow-red uppercase tracking-wider">Loại chi tiêu</h3>
+              <h3 className="text-[15px] font-black text-red-500 text-glow-red uppercase tracking-wider">Loại chi tiêu</h3>
             </div>
           </div>
           {renderCategoryTable('expense')}
@@ -788,7 +788,7 @@ export default function FlowTab({
                   const catIcon = getCategoryIconName(t.category, t.type);
                   const rowClass = isIncome 
                     ? 'highlight-income-row bg-emerald-500/[0.025] hover:bg-emerald-500/[0.055] text-emerald-450 transition-colors group' 
-                    : 'highlight-expense-row bg-rose-500/[0.025] hover:bg-rose-500/[0.055] text-rose-455 transition-colors group';
+                    : 'highlight-expense-row bg-rose-500/[0.025] hover:bg-rose-500/[0.055] text-red-400 transition-colors group';
 
                   return (
                     <tr key={t.id} className={rowClass}>
@@ -837,7 +837,7 @@ export default function FlowTab({
                               className={`p-1 rounded-lg transition-all cursor-pointer ${
                                 isIncome 
                                   ? 'hover:bg-emerald-500/10 text-emerald-450 hover:text-emerald-300' 
-                                  : 'hover:bg-rose-500/10 text-rose-455 hover:text-rose-350'
+                                  : 'hover:bg-red-500/10 text-red-500 hover:text-red-300'
                               }`}
                               title="Sửa giao dịch"
                             >
@@ -848,7 +848,7 @@ export default function FlowTab({
                               className={`p-1 rounded-lg transition-all cursor-pointer ${
                                 isIncome 
                                   ? 'hover:bg-emerald-500/10 text-emerald-450 hover:text-emerald-300' 
-                                  : 'hover:bg-rose-500/10 text-rose-455 hover:text-rose-350'
+                                  : 'hover:bg-red-500/10 text-red-500 hover:text-red-300'
                               }`}
                               title="Xóa giao dịch"
                             >
@@ -862,7 +862,7 @@ export default function FlowTab({
                               className={`p-1 rounded-lg transition-all cursor-pointer ${
                                 isIncome 
                                   ? 'hover:bg-emerald-500/10 text-emerald-455 hover:text-emerald-300' 
-                                  : 'hover:bg-rose-500/10 text-rose-455 hover:text-rose-350'
+                                  : 'hover:bg-red-500/10 text-red-500 hover:text-red-300'
                               }`}
                               title="Thông tin giao dịch tự động"
                             >
@@ -1061,27 +1061,31 @@ export default function FlowTab({
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Ngày ghi nhận</label>
                   <div className="relative">
+                    {/* Hidden input type=date */}
                     <input
                       ref={editDateInputRef}
                       type="date"
                       value={editingTx.date}
                       onChange={(e) => setEditingTx(prev => prev ? { ...prev, date: e.target.value } : null)}
-                      onClick={(e) => {
-                        try {
-                          e.currentTarget.showPicker();
-                        } catch (err) {}
-                      }}
-                      className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl pl-3.5 pr-10 py-2.5 focus:outline-none focus:border-indigo-500 cursor-pointer block"
+                      className="opacity-0 absolute pointer-events-none w-0 h-0"
                       required
                     />
-                    <CalendarIcon 
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-white cursor-pointer" 
+                    {/* Custom Dropdown Button */}
+                    <button
+                      type="button"
                       onClick={() => {
                         try {
                           editDateInputRef.current?.showPicker();
                         } catch (err) {}
                       }}
-                    />
+                      className="w-full flex items-center justify-between bg-[#0d1018] border border-white/10 hover:border-indigo-500/40 text-white text-xs font-bold rounded-xl px-3.5 py-2.5 cursor-pointer transition-all block text-left"
+                    >
+                      <div className="flex items-center gap-2">
+                        <CalendarIcon className="h-4 w-4 text-indigo-400 shrink-0" />
+                        <span>{editingTx.date ? formatDateVN(editingTx.date) : 'Chọn ngày...'}</span>
+                      </div>
+                      <ChevronDown className="h-4 w-4 text-slate-400" />
+                    </button>
                   </div>
                 </div>
               </div>

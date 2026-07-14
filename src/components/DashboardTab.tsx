@@ -259,7 +259,7 @@ export default function DashboardTab({
         <div className="kpi-editorial-card p-6 flex flex-col justify-between min-h-[140px]">
           <div className="flex justify-between items-center gap-2">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-400 truncate">Chi tiêu</span>
-            <div className="p-2 rounded-xl bg-rose-500/15 text-rose-455 border border-rose-500/30 shadow-sm shrink-0">
+            <div className="p-2 rounded-xl bg-rose-500/15 text-red-500 border border-rose-500/30 shadow-sm shrink-0">
               <TrendingDown className="h-4 w-4" />
             </div>
           </div>
@@ -284,7 +284,7 @@ export default function DashboardTab({
             </div>
           </div>
           <div className="mt-3">
-            <span className={`text-lg sm:text-2xl font-black tracking-tight leading-none block truncate ${net >= 0 ? 'text-white' : 'text-rose-455'}`} title={formatVND(net)}>
+            <span className={`text-lg sm:text-2xl font-black tracking-tight leading-none block truncate ${net >= 0 ? 'text-white' : 'text-red-500'}`} title={formatVND(net)}>
               {formatVND(net)}
             </span>
           </div>
@@ -560,7 +560,7 @@ export default function DashboardTab({
             <div className="bg-[#181d2e] border border-white/5 rounded-2xl p-4 space-y-2">
               <div className="flex justify-between text-xs font-bold items-center">
                 <span className="text-slate-350">Tổng ngân sách chi</span>
-                <span className={isOverBudget ? 'text-rose-455 font-black animate-pulse' : 'text-emerald-400'}>
+                <span className={isOverBudget ? 'text-red-500 font-black animate-pulse' : 'text-emerald-400'}>
                   {budgetPercent}% {isOverBudget && '(Vượt hạn mức!)'}
                 </span>
               </div>

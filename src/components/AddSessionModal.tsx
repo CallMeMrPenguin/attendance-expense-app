@@ -46,6 +46,7 @@ export default function AddSessionModal({
   const [error, setError] = useState('');
   const [color, setColor] = useState('#7c3aed');
   const [isColorCustomized, setIsColorCustomized] = useState(false);
+  const [loaiHinh, setLoaiHinh] = useState<'co_dinh' | 'tam_thoi'>('co_dinh');
   const colorInputRef = React.useRef<HTMLInputElement>(null);
 
   // Initial weekday configurations (default to Mon enabled, others disabled)
@@ -125,6 +126,7 @@ export default function AddSessionModal({
       setStatus('Chưa dạy');
       setColor('#7c3aed');
       setIsColorCustomized(false);
+      setLoaiHinh('co_dinh');
       setShowWarningModal(false);
       
       setDayConfigs(
@@ -176,7 +178,11 @@ export default function AddSessionModal({
       const candidates: any[] = [];
 
       selectedDays.forEach(([day, config]) => {
-        const dates = getDatesForWeekday(selectedMonth, day);
+        let dates = getDatesForWeekday(selectedMonth, day);
+        if (loaiHinh === 'tam_thoi' && dates.length > 0) {
+          dates.sort((a, b) => a.localeCompare(b));
+          dates = [dates[0]];
+        }
         dates.forEach((dStr) => {
           candidates.push({
             teacher_name: activeTeacherName,
@@ -382,7 +388,7 @@ export default function AddSessionModal({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-1.5">
                 <label htmlFor="price" className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider">
                   Học phí/buổi *
@@ -413,6 +419,21 @@ export default function AddSessionModal({
                   <option value="Chưa dạy">Chưa dạy</option>
                   <option value="Đã dạy">Đã dạy</option>
                   <option value="Hủy">Đã hủy / nghỉ</option>
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="loaiHinh" className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider">
+                  Loại hình lịch
+                </label>
+                <select
+                  id="loaiHinh"
+                  value={loaiHinh}
+                  onChange={(e) => setLoaiHinh(e.target.value as any)}
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                >
+                  <option value="co_dinh">Cố định</option>
+                  <option value="tam_thoi">Tạm thời (chỉ 1 tuần)</option>
                 </select>
               </div>
             </div>
