@@ -422,6 +422,7 @@ export default function FlowTab({
               const budgetVal = categoryBudgets[cat] || 0;
               const rawPct = budgetVal > 0 ? Math.round((actual / budgetVal) * 100) : 0;
               const pct = Math.min(100, rawPct);
+              const isAchieved = isIncome && budgetVal > 0 && actual >= budgetVal;
               const isOver = !isIncome && actual > budgetVal;
 
               let barColorClass = '';
@@ -438,8 +439,10 @@ export default function FlowTab({
               }
 
               const rowClass = isOver 
-                ? 'bg-rose-500/[0.045] hover:bg-rose-500/[0.08] transition-colors group border-l-2 border-rose-500'
-                : 'hover:bg-white/[0.02] transition-colors group';
+                ? 'highlight-expense-row bg-rose-500/[0.035] hover:bg-rose-500/[0.07] transition-colors group'
+                : isAchieved
+                  ? 'highlight-income-row bg-emerald-500/[0.035] hover:bg-emerald-500/[0.07] transition-colors group'
+                  : 'hover:bg-white/[0.02] transition-colors group';
 
               return (
                 <tr key={cat} className={rowClass}>
@@ -572,7 +575,7 @@ export default function FlowTab({
 
           <button
             onClick={() => handleOpenTxModal('expense')}
-            className="flex items-center gap-2 px-4 py-1.5 bg-[#5c36f5] hover:bg-[#7351f7] text-white font-extrabold text-[11px] rounded-xl shadow-md cursor-pointer transition-all hover:scale-[1.01]"
+            className="flex items-center gap-2 px-4 py-1.5 bg-[#5c36f5] hover:bg-[#7351f7] text-white font-extrabold text-[11px] rounded-xl cursor-pointer transition-all hover:scale-[1.02] shadow-[0_0_12px_rgba(92,54,245,0.45)] hover:shadow-[0_0_18px_rgba(92,54,245,0.65)]"
           >
             <Plus className="h-3.5 w-3.5" />
             <span>Thêm Giao Dịch</span>
@@ -770,8 +773,8 @@ export default function FlowTab({
                   const isIncome = t.type === 'income';
                   const catIcon = getCategoryIconName(t.category, t.type);
                   const rowClass = isIncome 
-                    ? 'bg-emerald-500/[0.025] hover:bg-emerald-500/[0.055] text-emerald-450 transition-colors group' 
-                    : 'bg-rose-500/[0.025] hover:bg-rose-500/[0.055] text-rose-455 transition-colors group';
+                    ? 'highlight-income-row bg-emerald-500/[0.025] hover:bg-emerald-500/[0.055] text-emerald-450 transition-colors group' 
+                    : 'highlight-expense-row bg-rose-500/[0.025] hover:bg-rose-500/[0.055] text-rose-455 transition-colors group';
 
                   return (
                     <tr key={t.id} className={rowClass}>

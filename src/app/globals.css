@@ -196,11 +196,15 @@ select {
   background-clip: padding-box, border-box !important;
   background-origin: padding-box, border-box !important;
   background-image: 
-    linear-gradient(#141824, #141824), 
+    linear-gradient(rgba(20, 24, 36, 0.72), rgba(20, 24, 36, 0.72)), 
     linear-gradient(135deg, rgba(16, 185, 129, 0.85) 0%, rgba(5, 150, 105, 0.55) 100%) !important;
   border-radius: 22px;
-  overflow: hidden;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35), 0 0 22px rgba(16, 185, 129, 0.35);
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  box-shadow: 
+    inset 0 0 20px rgba(16, 185, 129, 0.20),
+    0 12px 30px rgba(0, 0, 0, 0.35), 
+    0 0 22px rgba(16, 185, 129, 0.25) !important;
 }
 
 /* Red KPI Card */
@@ -210,11 +214,15 @@ select {
   background-clip: padding-box, border-box !important;
   background-origin: padding-box, border-box !important;
   background-image: 
-    linear-gradient(#141824, #141824), 
+    linear-gradient(rgba(20, 24, 36, 0.72), rgba(20, 24, 36, 0.72)), 
     linear-gradient(135deg, rgba(239, 68, 68, 0.85) 0%, rgba(185, 28, 28, 0.55) 100%) !important;
   border-radius: 22px;
-  overflow: hidden;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35), 0 0 22px rgba(239, 68, 68, 0.35);
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  box-shadow: 
+    inset 0 0 20px rgba(239, 68, 68, 0.20),
+    0 12px 30px rgba(0, 0, 0, 0.35), 
+    0 0 22px rgba(239, 68, 68, 0.25) !important;
 }
 
 /* Blue KPI Card */
@@ -224,11 +232,15 @@ select {
   background-clip: padding-box, border-box !important;
   background-origin: padding-box, border-box !important;
   background-image: 
-    linear-gradient(#141824, #141824), 
+    linear-gradient(rgba(20, 24, 36, 0.72), rgba(20, 24, 36, 0.72)), 
     linear-gradient(135deg, rgba(59, 130, 246, 0.85) 0%, rgba(29, 78, 216, 0.55) 100%) !important;
   border-radius: 22px;
-  overflow: hidden;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35), 0 0 22px rgba(59, 130, 246, 0.35);
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  box-shadow: 
+    inset 0 0 20px rgba(59, 130, 246, 0.20),
+    0 12px 30px rgba(0, 0, 0, 0.35), 
+    0 0 22px rgba(59, 130, 246, 0.25) !important;
 }
 
 /* Sidebar Glass Glow (Inward soft glow & glassmorphism blur) */
@@ -339,18 +351,46 @@ select {
 }
 
 /* Highlighted Row Inward Border Glow for Table Rows */
-.overbudget-row td {
-  border-top: 1px solid rgba(239, 68, 68, 0.25) !important;
-  border-bottom: 1px solid rgba(239, 68, 68, 0.25) !important;
-  box-shadow: inset 0 0 12px rgba(239, 68, 68, 0.06) !important;
+.highlight-income-row td {
+  border-top: 1px solid rgba(16, 185, 129, 0.25) !important;
+  border-bottom: 1px solid rgba(16, 185, 129, 0.25) !important;
+  box-shadow: inset 0 0 16px rgba(16, 185, 129, 0.12) !important;
   transition: all 200ms ease;
 }
-.overbudget-row td:first-child {
-  border-left: 3px solid rgba(239, 68, 68, 0.8) !important;
-  box-shadow: inset 8px 0 12px -6px rgba(239, 68, 68, 0.25), inset 0 0 12px rgba(239, 68, 68, 0.06) !important;
+.highlight-income-row td:first-child {
+  border-left: 2px solid rgba(16, 185, 129, 0.75) !important;
+  box-shadow: inset 6px 0 10px -4px rgba(16, 185, 129, 0.25), inset 0 0 16px rgba(16, 185, 129, 0.12) !important;
 }
-.overbudget-row td:last-child {
+.highlight-income-row td:last-child {
+  border-right: 1px solid rgba(16, 185, 129, 0.25) !important;
+}
+
+.highlight-expense-row td {
+  border-top: 1px solid rgba(239, 68, 68, 0.25) !important;
+  border-bottom: 1px solid rgba(239, 68, 68, 0.25) !important;
+  box-shadow: inset 0 0 16px rgba(239, 68, 68, 0.12) !important;
+  transition: all 200ms ease;
+}
+.highlight-expense-row td:first-child {
+  border-left: 2px solid rgba(239, 68, 68, 0.75) !important;
+  box-shadow: inset 6px 0 10px -4px rgba(239, 68, 68, 0.25), inset 0 0 16px rgba(239, 68, 68, 0.12) !important;
+}
+.highlight-expense-row td:last-child {
   border-right: 1px solid rgba(239, 68, 68, 0.25) !important;
+}
+
+/* Custom dark date picker input & calendar icon */
+input[type="date"] {
+  color-scheme: dark !important;
+}
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(1) !important;
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 150ms ease;
+}
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
 }
 
 
