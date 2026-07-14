@@ -407,7 +407,7 @@ export default function FlowTab({
         <table className="w-full text-[11px] font-bold text-slate-350">
           <thead>
             <tr className="border-b border-white/5 text-[9px] font-black uppercase text-slate-500 tracking-wider">
-              <th className="py-2.5 text-left">Danh mục</th>
+              <th className="py-2.5 text-left pl-5">Danh mục</th>
               <th className="py-2.5 text-right">Thực tế</th>
               <th className="py-2.5 text-right">{isIncome ? 'Mục tiêu' : 'Hạn mức'}</th>
               <th className="py-2.5 text-center w-32">Tiến độ</th>
@@ -420,12 +420,30 @@ export default function FlowTab({
               const iconName = catItem.icon;
               const actual = getCategoryActual(cat, !isIncome);
               const budgetVal = categoryBudgets[cat] || 0;
-              const pct = budgetVal > 0 ? Math.min(100, Math.round((actual / budgetVal) * 100)) : 0;
+              const rawPct = budgetVal > 0 ? Math.round((actual / budgetVal) * 100) : 0;
+              const pct = Math.min(100, rawPct);
               const isOver = !isIncome && actual > budgetVal;
 
+              let barColorClass = '';
+              if (isIncome) {
+                barColorClass = 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.7)]';
+              } else {
+                if (rawPct <= 40) {
+                  barColorClass = 'bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.7)]';
+                } else if (rawPct <= 90) {
+                  barColorClass = 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.7)]';
+                } else {
+                  barColorClass = 'bg-rose-500 shadow-[0_0_10px_rgba(239,68,68,0.7)]';
+                }
+              }
+
+              const rowClass = isOver 
+                ? 'bg-rose-500/[0.045] hover:bg-rose-500/[0.08] transition-colors group border-l-2 border-rose-500'
+                : 'hover:bg-white/[0.02] transition-colors group';
+
               return (
-                <tr key={cat} className="hover:bg-white/[0.02] transition-colors group">
-                  <td className="py-3 text-left">
+                <tr key={cat} className={rowClass}>
+                  <td className="py-3 text-left pl-5">
                     <div className="flex items-center gap-3">
                       <span className={`inline-flex p-1.5 rounded-lg border transition-all duration-300 ${
                         isIncome 
@@ -447,11 +465,7 @@ export default function FlowTab({
                     <div className="space-y-1">
                       <div className="h-1.5 bg-[#101420] rounded-full w-full relative">
                         <div
-                          className={`h-full rounded-full transition-all duration-300 ${
-                            isIncome 
-                              ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.7)]' 
-                              : (isOver ? 'bg-rose-500 shadow-[0_0_10px_rgba(239,68,68,0.7)]' : 'bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.7)]')
-                          }`}
+                          className={`h-full rounded-full transition-all duration-300 ${barColorClass}`}
                           style={{ width: `${pct}%` }}
                         ></div>
                       </div>
@@ -640,7 +654,7 @@ export default function FlowTab({
           <div className="flex items-center justify-between border-b border-white/5 pb-2">
             <div className="flex items-center gap-2">
               <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.7)]"></div>
-              <h3 className="text-xs font-black text-white uppercase tracking-wider">Loại thu nhập</h3>
+              <h3 className="text-[15px] font-black text-white uppercase tracking-wider">Loại thu nhập</h3>
             </div>
           </div>
           {renderCategoryTable('income')}
@@ -651,7 +665,7 @@ export default function FlowTab({
           <div className="flex items-center justify-between border-b border-white/5 pb-2">
             <div className="flex items-center gap-2">
               <div className="h-2.5 w-2.5 rounded-full bg-rose-500 shadow-[0_0_10px_rgba(239,68,68,0.7)]"></div>
-              <h3 className="text-xs font-black text-white uppercase tracking-wider">Loại chi tiêu</h3>
+              <h3 className="text-[15px] font-black text-white uppercase tracking-wider">Loại chi tiêu</h3>
             </div>
           </div>
           {renderCategoryTable('expense')}
@@ -666,7 +680,7 @@ export default function FlowTab({
             <div className="p-1.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 rounded-lg shadow-[0_0_10px_rgba(99,102,241,0.55)]">
               <DollarSign className="h-4 w-4" />
             </div>
-            <h3 className="text-xs font-black text-white uppercase tracking-wider">Giao dịch</h3>
+            <h3 className="text-[15px] font-black text-white uppercase tracking-wider">Giao dịch</h3>
           </div>
         </div>
 
@@ -674,7 +688,7 @@ export default function FlowTab({
           <table className="w-full table-fixed text-[13px] font-bold text-slate-350">
             <thead>
               <tr className="border-b border-white/5 text-[9px] font-black uppercase text-slate-500 tracking-wider">
-                <th className="py-2.5 text-center font-black w-[10%] relative" data-filter-type>
+                <th className="py-2.5 text-center font-black w-[10%] relative pl-5" data-filter-type>
                   <span className="inline-flex items-center gap-1.5 justify-center">
                     <span>Loại</span>
                     <Filter 
@@ -761,7 +775,7 @@ export default function FlowTab({
 
                   return (
                     <tr key={t.id} className={rowClass}>
-                      <td className="py-3 text-center">
+                      <td className="py-3 text-center pl-5">
                         <span className={`inline-flex p-1.5 rounded-lg border ${
                           isIncome 
                             ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/35 shadow-[0_0_8px_rgba(16,185,129,0.35)]' 

@@ -504,7 +504,7 @@ export default function Dashboard() {
     <div className="min-h-screen transition-colors duration-300 ambient-bg-dark text-slate-100 relative overflow-hidden select-none flex">
 
       {/* Sidebar - Desktop view - Floating square with rounded corners */}
-      <aside className={`hidden lg:flex flex-col bg-[#0a0d16]/90 border border-white/5 backdrop-blur-md fixed left-4 top-4 bottom-4 z-50 p-5 rounded-2xl transition-all duration-300 ease-in-out ${sidebarCollapsed ? 'w-[80px]' : 'w-[260px]'}`}>
+      <aside className={`hidden lg:flex flex-col sidebar-glass-glow fixed left-4 top-4 bottom-4 z-50 p-5 rounded-2xl transition-all duration-300 ease-in-out ${sidebarCollapsed ? 'w-[80px]' : 'w-[260px]'}`}>
         <Sidebar
           activeTab={activeTab}
           setActiveTab={setActiveTab}
