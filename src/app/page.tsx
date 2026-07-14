@@ -198,16 +198,15 @@ export default function Dashboard() {
 
     if (list.length > 0) {
       setTeachers(list);
-      const adminOwnName = currentUser?.teacherName;
       const needsDefault =
         !activeTeacherName ||
         activeTeacherName === 'Giáo Viên 1' ||
-        !list.includes(activeTeacherName) ||
-        (activeTeacherName === adminOwnName && list.length > 1 && list[0] !== adminOwnName);
+        !list.includes(activeTeacherName);
       if (needsDefault) {
-        setActiveTeacherName(list.find((n) => n !== adminOwnName) || list[0]);
+        setActiveTeacherName(list[0]);
       }
     }
+
   }, [currentUser, activeTeacherName]);
 
 
