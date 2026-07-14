@@ -406,7 +406,7 @@ export default function Dashboard() {
         </section>
 
         {/* 4. Editorial Dominating KPI Cards */}
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-14 text-left">
+        <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5 mb-14 text-left">
           
           {/* KPI 1 */}
           <div className="kpi-editorial-card p-6 flex flex-col justify-between min-h-[140px] relative">
@@ -418,7 +418,7 @@ export default function Dashboard() {
             <div className="absolute top-6 right-6 p-2.5 rounded-xl bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 shadow-[0_0_16px_rgba(123,97,255,0.45)] shrink-0">
               <CalendarIcon className="h-4.5 w-4.5" />
             </div>
-            <div className="mt-4 flex items-center justify-between">
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-1.5">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Ca dạy trong tháng</span>
               <span className="text-[10px] font-extrabold text-indigo-300 bg-indigo-500/15 px-2 py-0.5 rounded-md">
                 Tổng ca
@@ -436,7 +436,7 @@ export default function Dashboard() {
             <div className="absolute top-6 right-6 p-2.5 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-[0_0_16px_rgba(16,185,129,0.45)] shrink-0">
               <CheckCircle2 className="h-4.5 w-4.5" />
             </div>
-            <div className="mt-4 flex items-center justify-between">
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-1.5">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Ca hoàn thành</span>
               {totalSessions > 0 && (
                 <span className="text-[10px] font-black text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded-md">
@@ -456,7 +456,7 @@ export default function Dashboard() {
             <div className="absolute top-6 right-6 p-2.5 rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-[0_0_16px_rgba(245,158,11,0.45)] shrink-0">
               <Coins className="h-4.5 w-4.5" />
             </div>
-            <div className="mt-4 flex items-center justify-between">
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-1.5">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Thu nhập thực tế</span>
               <span className="text-[10px] font-extrabold text-amber-300 bg-amber-500/15 px-2 py-0.5 rounded-md">
                 Đã dạy
@@ -474,7 +474,7 @@ export default function Dashboard() {
             <div className="absolute top-6 right-6 p-2.5 rounded-xl bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 shadow-[0_0_16px_rgba(6,182,212,0.45)] shrink-0">
               <TrendingUp className="h-4.5 w-4.5" />
             </div>
-            <div className="mt-4 flex items-center justify-between">
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-1.5">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Dự kiến thu nhập</span>
               <span className="text-[10px] font-extrabold text-cyan-300 bg-cyan-500/15 px-2 py-0.5 rounded-md">
                 Tối đa

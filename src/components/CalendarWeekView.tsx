@@ -1,6 +1,6 @@
 import React from 'react';
 import { Clock } from 'lucide-react';
-import { DAYS, getEndTime, formatCleanTimeString, formatVND, Session } from '@/lib/utils';
+import { DAYS, getEndTime, formatCleanTimeString, formatVND, getStudentColor, Session } from '@/lib/utils';
 import { getPremiumVioletStyle } from './CalendarMonthView';
 
 interface CalendarWeekViewProps {
@@ -160,7 +160,7 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
                           const s = group[0];
                           const startTime = formatCleanTimeString(s.time);
                           const endTime = getEndTime(startTime, s.duration);
-                          const vStyle = getPremiumVioletStyle(s.time, s.status, s.color);
+                          const vStyle = getPremiumVioletStyle(s.time, s.status, getStudentColor(s.student_name));
 
                           return (
                             <div

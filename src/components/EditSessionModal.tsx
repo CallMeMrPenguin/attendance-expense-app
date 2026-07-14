@@ -262,20 +262,48 @@ export default function EditSessionModal({
         dates.forEach((dStr) => {
           const matchOld = oldSiblings.find((s) => s.date === dStr);
           if (matchOld) {
-            newSiblingSessions.push({
-              ...matchOld,
-              student_name: studentName.trim(),
-              day_of_week: day,
-              time: time,
-              duration: Number(duration),
-              price: Number(price),
-              status: status,
-              grade: grade,
-              homework: homework,
-              note: note,
-              color: sessionColor,
-            });
+            const isCurrent = matchOld.id === session.id;
+            const sibConfig = siblings.find((sib) => sib.id === matchOld.id);
+            const isChecked = sibConfig ? sibConfig.checked : false;
+
+            if (isCurrent) {
+              // Current edited session: update everything
+              newSiblingSessions.push({
+                ...matchOld,
+                student_name: studentName.trim(),
+                day_of_week: day,
+                time: time,
+                duration: Number(duration),
+                price: Number(price),
+                status: status,
+                grade: grade,
+                homework: homework,
+                note: note,
+                color: sessionColor,
+              });
+            } else if (isChecked) {
+              // Sibling session is checked: update general fields, preserve status, grade, note
+              newSiblingSessions.push({
+                ...matchOld,
+                student_name: studentName.trim(),
+                day_of_week: day,
+                time: time,
+                duration: Number(duration),
+                price: Number(price),
+                status: matchOld.status, // preserve original
+                grade: matchOld.grade,   // preserve original
+                homework: matchOld.homework, // preserve original
+                note: matchOld.note,     // preserve original
+                color: sessionColor,
+              });
+            } else {
+              // Sibling session not checked: keep completely unmodified
+              newSiblingSessions.push({
+                ...matchOld,
+              });
+            }
           } else {
+            // New sibling session created by recurring config: default status to 'Chưa dạy'
             newSiblingSessions.push({
               teacher_name: session.teacher_name,
               student_name: studentName.trim(),
@@ -283,10 +311,10 @@ export default function EditSessionModal({
               time: time,
               duration: Number(duration),
               price: Number(price),
-              status: status,
-              grade: grade,
-              homework: homework,
-              note: note,
+              status: 'Chưa dạy',
+              grade: '',
+              homework: '',
+              note: '',
               month_year: session.month_year,
               color: sessionColor,
               date: dStr,

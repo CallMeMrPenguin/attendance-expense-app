@@ -1,5 +1,5 @@
 import React from 'react';
-import { DAYS, getEndTime, formatCleanTimeString, formatVND, Session } from '@/lib/utils';
+import { DAYS, getEndTime, formatCleanTimeString, formatVND, getStudentColor, Session } from '@/lib/utils';
 
 interface CalendarMonthViewProps {
   selectedMonth: string; // "YYYY-MM"
@@ -45,8 +45,18 @@ function hexToHSL(hex: string) {
 
 // Design helper to generate premium colored shades based on time, status and native hex color
 export function getPremiumVioletStyle(timeStr: string, status: string, hexColor: string = '#7b61ff') {
-  const isDarkMode = true;
-  
+  if (status === 'Hủy') {
+    return {
+      bg: 'rgba(148, 163, 184, 0.12)', // Visible light gray background
+      border: 'rgba(148, 163, 184, 0.3)', // Visible light gray border
+      innerBorder: 'rgba(148, 163, 184, 0.15)',
+      color: '#94a3b8', // Slate-400 text color for time and metadata
+      titleColor: '#cbd5e1', // Slate-300 text color for student name
+      priceColor: '#94a3b8',
+      shadow: 'none'
+    };
+  }
+
   const { h: hue, s: initialSat, l: initialLight } = hexToHSL(hexColor);
   
   let sat = initialSat;
@@ -55,25 +65,20 @@ export function getPremiumVioletStyle(timeStr: string, status: string, hexColor:
   if (status === 'Đã dạy') {
     sat = Math.max(25, Math.round(initialSat * 0.55));
     lightness = 52;
-  } else if (status === 'Hủy') {
-    sat = Math.max(10, Math.round(initialSat * 0.25));
-    lightness = 38;
   } else {
     sat = Math.min(90, Math.max(70, initialSat));
     lightness = Math.min(80, Math.max(55, initialLight));
   }
 
-  const alphaBg = status === 'Hủy' ? '0.05' : status === 'Đã dạy' ? '0.14' : '0.22';
+  const alphaBg = status === 'Đã dạy' ? '0.14' : '0.22';
   const bg = `hsla(${hue}, ${sat}%, ${lightness}%, ${alphaBg})`;
-  const border = `hsla(${hue}, ${sat}%, ${lightness}%, ${status === 'Hủy' ? '0.35' : '0.85'})`;
+  const border = `hsla(${hue}, ${sat}%, ${lightness}%, 0.85)`;
   const color = `hsla(${hue}, 95%, 92%, 0.98)`;
   
   // High-intensity noticeable vibrant glow shadow effect matching day indicator glow
-  const shadow = status === 'Hủy' 
-    ? 'none' 
-    : status === 'Đã dạy'
-      ? `0 0 16px hsla(${hue}, ${sat}%, ${lightness}%, 0.40), 0 0 4px hsla(${hue}, ${sat}%, ${lightness}%, 0.80)`
-      : `0 0 20px hsla(${hue}, ${sat}%, ${lightness}%, 0.65), 0 0 8px hsla(${hue}, ${sat}%, ${lightness}%, 0.90), 0 4px 14px rgba(0, 0, 0, 0.4)`;
+  const shadow = status === 'Đã dạy'
+    ? `0 0 16px hsla(${hue}, ${sat}%, ${lightness}%, 0.40), 0 0 4px hsla(${hue}, ${sat}%, ${lightness}%, 0.80)`
+    : `0 0 20px hsla(${hue}, ${sat}%, ${lightness}%, 0.65), 0 0 8px hsla(${hue}, ${sat}%, ${lightness}%, 0.90), 0 4px 14px rgba(0, 0, 0, 0.4)`;
 
   return {
     bg,
@@ -216,7 +221,7 @@ export default function CalendarMonthView({
                     {daySessions.map((s) => {
                       const startTime = formatCleanTimeString(s.time);
                       const endTime = getEndTime(startTime, s.duration);
-                      const vStyle = getPremiumVioletStyle(s.time, s.status, s.color);
+                      const vStyle = getPremiumVioletStyle(s.time, s.status, getStudentColor(s.student_name));
 
                       return (
                         <div

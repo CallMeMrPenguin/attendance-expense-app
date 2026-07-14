@@ -128,7 +128,7 @@ export function checkOverlaps(
   return overlaps;
 }
 
-// Generate color by student name deterministically
+// Generate color by student name deterministically (using FNV-1a for high distribution to avoid color collisions)
 export function getStudentColor(studentName: string): string {
   if (!studentName) return '#7c3aed';
   const palette = [
@@ -143,10 +143,13 @@ export function getStudentColor(studentName: string): string {
     '#a78bfa', // Lavender
     '#fb7185', // Rose Red
   ];
-  let hash = 0;
+  
+  let hash = 2166136261;
   for (let i = 0; i < studentName.length; i++) {
-    hash = studentName.charCodeAt(i) + ((hash << 5) - hash);
+    hash ^= studentName.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
   }
+  
   const index = Math.abs(hash) % palette.length;
   return palette[index];
 }
