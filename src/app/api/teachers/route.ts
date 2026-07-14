@@ -283,7 +283,7 @@ export async function PUT(request: NextRequest) {
 // 3. DELETE TEACHER
 export async function DELETE(request: NextRequest) {
   try {
-    const { error, adminClient } = await verifyAdmin(request);
+    const { error, adminClient, user } = await verifyAdmin(request);
     if (error || !adminClient) {
       return NextResponse.json({ error }, { status: 403 });
     }
@@ -300,10 +300,10 @@ export async function DELETE(request: NextRequest) {
       .from('profiles')
       .select('id')
       .eq('teacher_name', trimmedName)
-      .single();
+      .maybeSingle();
 
     if (profileError || !profile) {
-      // If no profile, just delete from teachers table directly
+      // If no profile exists, delete from teachers table directly
       const { error: deleteError } = await adminClient
         .from('teachers')
         .delete()
@@ -313,6 +313,11 @@ export async function DELETE(request: NextRequest) {
         return NextResponse.json({ error: deleteError.message }, { status: 400 });
       }
     } else {
+      // Safety check: Prevent admin from deleting their own account
+      if (profile.id === user.id) {
+        return NextResponse.json({ error: 'Không thể tự xóa tài khoản của chính mình!' }, { status: 400 });
+      }
+
       // 2. Delete auth user (this will cascade delete profile via foreign key,
       // and delete sessions since teacher is removed)
       const { error: deleteAuthError } = await adminClient.auth.admin.deleteUser(profile.id);
