@@ -117,6 +117,8 @@ export default function FlowTab({
   toggleChartMonth
 }: FlowTabProps) {
 
+  const editDateInputRef = React.useRef<HTMLInputElement>(null);
+
   // Dynamic custom categories lists
   const [incomeCats, setIncomeCats] = React.useState<{name: string, icon: string}[]>([
     { name: 'Lương', icon: 'Briefcase' },
@@ -407,11 +409,11 @@ export default function FlowTab({
         <table className="w-full table-fixed text-[11px] font-bold text-slate-350 min-w-[550px]">
           <thead>
             <tr className="border-b border-white/5 text-[11px] font-black uppercase text-slate-500 tracking-wider">
-              <th className="py-2.5 text-left pl-5 w-[30%]">Danh mục</th>
+              <th className="py-2.5 text-left pl-5 w-[20%]">Danh mục</th>
               <th className="py-2.5 text-right w-[20%]">Thực tế</th>
               <th className="py-2.5 text-right w-[20%]">{isIncome ? 'Mục tiêu' : 'Hạn mức'}</th>
               <th className="py-2.5 text-center w-[20%] px-4">Tiến độ</th>
-              <th className="py-2.5 text-center w-[10%]">Thao tác</th>
+              <th className="py-2.5 text-center w-[20%]">Thao tác</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5">
@@ -422,8 +424,8 @@ export default function FlowTab({
               const budgetVal = categoryBudgets[cat] || 0;
               const rawPct = budgetVal > 0 ? Math.round((actual / budgetVal) * 100) : 0;
               const pct = Math.min(100, rawPct);
-              const isAchieved = isIncome && budgetVal > 0 && rawPct > 100;
-              const isOver = !isIncome && actual > budgetVal;
+              const isAchieved = isIncome && budgetVal > 0 && rawPct >= 100;
+              const isOver = !isIncome && budgetVal > 0 && rawPct >= 100;
 
               let barColorClass = '';
               if (isIncome) {
@@ -457,11 +459,11 @@ export default function FlowTab({
                       <span className={`inline-flex p-1.5 rounded-lg border transition-all duration-300 ${
                         isIncome 
                           ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.45)]' 
-                          : 'bg-[#ec4899]/10 text-rose-400 border-[#ec4899]/30 shadow-[0_0_10px_rgba(236,72,153,0.45)]'
+                          : 'bg-rose-500/10 text-rose-455 border-rose-500/30 shadow-[0_0_10px_rgba(239,68,68,0.45)]'
                       }`}>
                         <CategoryIcon iconName={iconName} className="h-3.5 w-3.5" />
                       </span>
-                      <span className="font-bold text-white text-xs">{cat}</span>
+                      <span className={`font-bold text-xs ${isIncome ? 'text-white' : 'text-rose-455'}`}>{cat}</span>
                     </div>
                   </td>
                   <td className="py-3 text-right text-slate-200">
@@ -703,7 +705,7 @@ export default function FlowTab({
           <table className="w-full table-fixed text-[13px] font-bold text-slate-350">
             <thead>
               <tr className="border-b border-white/5 text-[11px] font-black uppercase text-slate-500 tracking-wider">
-                <th className="py-2.5 text-center font-black w-[10%] relative pl-5" data-filter-type>
+                <th className="py-2.5 text-center font-black w-[20%] relative pl-5" data-filter-type>
                   <span className="inline-flex items-center gap-1.5 justify-center">
                     <span>Loại</span>
                     <Filter 
@@ -727,7 +729,7 @@ export default function FlowTab({
                     </div>
                   )}
                 </th>
-                <th className="py-2.5 text-left font-black w-[35%]">
+                <th className="py-2.5 text-left font-black w-[20%]">
                   <span className="inline-flex items-center gap-1.5">
                     <span>Chi tiết giao dịch</span>
                     <input
@@ -739,7 +741,7 @@ export default function FlowTab({
                     />
                   </span>
                 </th>
-                <th className="py-2.5 text-left font-black w-[25%] relative" data-filter-cat>
+                <th className="py-2.5 text-left font-black w-[20%] relative" data-filter-cat>
                   <span className="inline-flex items-center gap-1.5">
                     <span>Danh mục</span>
                     <Filter 
@@ -772,7 +774,7 @@ export default function FlowTab({
                   )}
                 </th>
                 <th className="py-2.5 text-right font-black w-[20%]">Số tiền</th>
-                <th className="py-2.5 text-center font-black w-[10%]">Thao tác</th>
+                <th className="py-2.5 text-center font-black w-[20%]">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -1060,13 +1062,26 @@ export default function FlowTab({
                   <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Ngày ghi nhận</label>
                   <div className="relative">
                     <input
+                      ref={editDateInputRef}
                       type="date"
                       value={editingTx.date}
                       onChange={(e) => setEditingTx(prev => prev ? { ...prev, date: e.target.value } : null)}
+                      onClick={(e) => {
+                        try {
+                          e.currentTarget.showPicker();
+                        } catch (err) {}
+                      }}
                       className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl pl-3.5 pr-10 py-2.5 focus:outline-none focus:border-indigo-500 cursor-pointer block"
                       required
                     />
-                    <CalendarIcon className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-white pointer-events-none" />
+                    <CalendarIcon 
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-white cursor-pointer" 
+                      onClick={() => {
+                        try {
+                          editDateInputRef.current?.showPicker();
+                        } catch (err) {}
+                      }}
+                    />
                   </div>
                 </div>
               </div>

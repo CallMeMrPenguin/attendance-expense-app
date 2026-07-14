@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, ChevronDown, Calendar } from 'lucide-react';
 
 const INCOME_CATEGORIES = ['Lương', 'Giáo dục', 'Đầu tư', 'Khác'];
@@ -40,6 +40,7 @@ export default function TransactionModal({
   const [modalAmount, setModalAmount] = useState('');
   const [modalCategory, setModalCategory] = useState('Ăn uống');
   const [modalDate, setModalDate] = useState('');
+  const dateInputRef = useRef<HTMLInputElement>(null);
   const [modalSavingFund, setModalSavingFund] = useState<'emergency' | 'accumulation'>('emergency');
   const [modalSavingAction, setModalSavingAction] = useState<'deposit' | 'withdraw'>('deposit');
   const [incomeCategories, setIncomeCategories] = useState<string[]>(['Lương', 'Giáo dục', 'Đầu tư', 'Khác']);
@@ -150,7 +151,7 @@ export default function TransactionModal({
         <div className="relative flex bg-[#090b10] border border-white/5 p-1 rounded-xl w-full mb-5">
           {/* Sliding pill background */}
           <div
-            className={`absolute top-1 bottom-1 rounded-[10px] transition-all duration-200 ease-out pointer-events-none ${
+            className={`absolute top-1 bottom-1 rounded-[10px] transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] pointer-events-none ${
               modalTxType === 'expense'
                 ? 'bg-rose-500 shadow-[0_0_14px_rgba(239,68,68,0.4)]'
                 : modalTxType === 'income'
@@ -277,13 +278,26 @@ export default function TransactionModal({
               <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Ngày ghi nhận</label>
               <div className="relative">
                 <input
+                  ref={dateInputRef}
                   type="date"
                   value={modalDate}
                   onChange={(e) => setModalDate(e.target.value)}
+                  onClick={(e) => {
+                    try {
+                      e.currentTarget.showPicker();
+                    } catch (err) {}
+                  }}
                   className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl pl-3.5 pr-10 py-2.5 focus:outline-none focus:border-indigo-500 cursor-pointer block"
                   required
                 />
-                <Calendar className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-white pointer-events-none" />
+                <Calendar 
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-white cursor-pointer" 
+                  onClick={() => {
+                    try {
+                      dateInputRef.current?.showPicker();
+                    } catch (err) {}
+                  }}
+                />
               </div>
             </div>
           </div>
