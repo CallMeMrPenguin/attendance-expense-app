@@ -48,32 +48,32 @@ export function getPremiumVioletStyle(timeStr: string, status: string, hexColor:
   let lightness = initialLight;
 
   if (status === 'Đã dạy') {
-    sat = Math.max(20, Math.round(initialSat * 0.5));
-    lightness = 50;
+    sat = Math.max(25, Math.round(initialSat * 0.55));
+    lightness = 52;
   } else if (status === 'Hủy') {
     sat = Math.max(10, Math.round(initialSat * 0.25));
     lightness = 38;
   } else {
-    sat = Math.min(85, Math.max(65, initialSat));
-    lightness = Math.min(75, Math.max(55, initialLight));
+    sat = Math.min(90, Math.max(70, initialSat));
+    lightness = Math.min(80, Math.max(55, initialLight));
   }
 
-  const alphaBg = status === 'Hủy' ? '0.04' : status === 'Đã dạy' ? '0.12' : '0.18';
+  const alphaBg = status === 'Hủy' ? '0.05' : status === 'Đã dạy' ? '0.14' : '0.22';
   const bg = `hsla(${hue}, ${sat}%, ${lightness}%, ${alphaBg})`;
-  const border = `hsla(${hue}, ${sat}%, ${lightness}%, ${status === 'Hủy' ? '0.25' : '0.70'})`;
-  const color = `hsla(${hue}, 90%, 92%, 0.95)`;
+  const border = `hsla(${hue}, ${sat}%, ${lightness}%, ${status === 'Hủy' ? '0.35' : '0.85'})`;
+  const color = `hsla(${hue}, 95%, 92%, 0.98)`;
   
-  // High-visibility vibrant glow shadow effect
+  // High-intensity noticeable vibrant glow shadow effect matching day indicator glow
   const shadow = status === 'Hủy' 
     ? 'none' 
     : status === 'Đã dạy'
-      ? `0 0 14px hsla(${hue}, ${sat}%, ${lightness}%, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.15)`
-      : `0 0 22px hsla(${hue}, ${sat}%, ${lightness}%, 0.38), 0 4px 14px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.25)`;
+      ? `0 0 16px hsla(${hue}, ${sat}%, ${lightness}%, 0.40), 0 0 4px hsla(${hue}, ${sat}%, ${lightness}%, 0.80)`
+      : `0 0 20px hsla(${hue}, ${sat}%, ${lightness}%, 0.65), 0 0 8px hsla(${hue}, ${sat}%, ${lightness}%, 0.90), 0 4px 14px rgba(0, 0, 0, 0.4)`;
 
   return {
     bg,
     border,
-    innerBorder: `hsla(${hue}, ${sat}%, ${lightness}%, 0.35)`,
+    innerBorder: `hsla(${hue}, ${sat}%, ${lightness}%, 0.45)`,
     color,
     titleColor: '#FFFFFF',
     priceColor: color,
@@ -224,7 +224,7 @@ export default function CalendarMonthView({
                         <span className="leading-none">{endTime}</span>
                       </div>
 
-                       {/* Right Details */}
+                       {/* Right Details: Displays ONLY student name & status */}
                       <div className="flex-grow p-2 flex flex-col justify-center overflow-hidden">
                         <h4 
                           className="text-[12px] font-black truncate leading-tight text-left tracking-tight text-white"
@@ -235,7 +235,7 @@ export default function CalendarMonthView({
                           className="text-[9.5px] font-bold mt-0.5 select-none leading-none text-left opacity-90"
                           style={{ color: vStyle.color }}
                         >
-                          {s.duration} ca • {s.status}
+                          {s.status}
                         </div>
                       </div>
                     </div>
@@ -249,5 +249,6 @@ export default function CalendarMonthView({
     </div>
   );
 }
+
 
 

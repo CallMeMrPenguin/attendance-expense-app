@@ -368,7 +368,7 @@ export default function Dashboard() {
               <span className="text-4xl lg:text-5xl font-black text-white tracking-tight leading-none">
                 {totalSessions}
               </span>
-              <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+              <div className="p-2.5 rounded-xl bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 shadow-[0_0_16px_rgba(123,97,255,0.45)] shrink-0">
                 <CalendarIcon className="h-4.5 w-4.5" />
               </div>
             </div>
@@ -386,7 +386,7 @@ export default function Dashboard() {
               <span className="text-4xl lg:text-5xl font-black text-white tracking-tight leading-none">
                 {completedSessions}
               </span>
-              <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <div className="p-2.5 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-[0_0_16px_rgba(16,185,129,0.45)] shrink-0">
                 <CheckCircle2 className="h-4.5 w-4.5" />
               </div>
             </div>
@@ -406,7 +406,7 @@ export default function Dashboard() {
               <span className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-none">
                 {formatVND(earnedIncome)}
               </span>
-              <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0">
+              <div className="p-2.5 rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-[0_0_16px_rgba(245,158,11,0.45)] shrink-0">
                 <Coins className="h-4.5 w-4.5" />
               </div>
             </div>
@@ -424,7 +424,7 @@ export default function Dashboard() {
               <span className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-none">
                 {formatVND(projectedIncome)}
               </span>
-              <div className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shrink-0">
+              <div className="p-2.5 rounded-xl bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 shadow-[0_0_16px_rgba(6,182,212,0.45)] shrink-0">
                 <TrendingUp className="h-4.5 w-4.5" />
               </div>
             </div>
@@ -435,6 +435,7 @@ export default function Dashboard() {
               </span>
             </div>
           </div>
+
 
         </section>
 
