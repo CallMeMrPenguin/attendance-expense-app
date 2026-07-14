@@ -9,8 +9,13 @@ interface CalendarMonthViewProps {
 
 // Helper to convert hex to HSL colors for dynamic, themed lighting effects
 function hexToHSL(hex: string) {
+  // Guard against null/undefined/empty values
+  if (!hex || typeof hex !== 'string') {
+    hex = '#7b61ff';
+  }
   // Remove '#' if present
   hex = hex.replace(/^#/, '');
+
 
   // Parse r, g, b
   let r = parseInt(hex.substring(0, 2), 16) / 255;

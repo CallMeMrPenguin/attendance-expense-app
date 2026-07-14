@@ -73,6 +73,13 @@ export default function EditSessionModal({
   const [siblingsCollapsed, setSiblingsCollapsed] = useState(true);
   const [recurringCollapsed, setRecurringCollapsed] = useState(true);
 
+  // Overlap / delete confirm modal states — must be declared here (before any conditional return)
+  const [warningMsg, setWarningMsg] = useState('');
+  const [showOverlapModal, setShowOverlapModal] = useState(false);
+  const [pendingSiblingSessions, setPendingSiblingSessions] = useState<any[]>([]);
+  const [pendingOldSiblingIds, setPendingOldSiblingIds] = useState<string[]>([]);
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+
   // Hydrate fields
   useEffect(() => {
     if (!session) return;
@@ -180,11 +187,7 @@ export default function EditSessionModal({
     });
   };
 
-  const [warningMsg, setWarningMsg] = useState('');
-  const [showOverlapModal, setShowOverlapModal] = useState(false);
-  const [pendingSiblingSessions, setPendingSiblingSessions] = useState<any[]>([]);
-  const [pendingOldSiblingIds, setPendingOldSiblingIds] = useState<string[]>([]);
-  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+
 
   const executeUpsertSessions = async (newSessions: any[], oldIds: string[]) => {
     setLoading(true);
