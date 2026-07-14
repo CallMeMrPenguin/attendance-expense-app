@@ -170,9 +170,7 @@ export default function CalendarMonthView({
               className={`min-h-[160px] p-3 transition-all flex flex-col gap-2 relative ${
                 cellIsToday 
                   ? 'bg-[#1f2042] ring-2 ring-[#7b61ff] z-10 shadow-[inset_0_0_20px_rgba(123,97,255,0.25)]' 
-                  : cell.isWeekend 
-                    ? 'bg-[#121622]' 
-                    : 'bg-[#151b2a] hover:bg-[#1c2438]'
+                  : 'bg-[#151b2a] hover:bg-[#1c2438]'
               }`}
             >
               {/* Day Number */}

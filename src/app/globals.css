@@ -135,28 +135,35 @@ input[type=number] {
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
+/* Signature Glowing Gradient Outer Border Wrapper */
+.gradient-border-wrapper {
+  position: relative;
+  border-radius: 24px;
+  padding: 1.5px;
+  background: linear-gradient(135deg, rgba(123, 97, 255, 0.8) 0%, rgba(168, 85, 247, 0.6) 50%, rgba(6, 182, 212, 0.8) 100%);
+  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.6), 0 0 30px rgba(123, 97, 255, 0.25);
+  transition: box-shadow 250ms ease, transform 250ms ease;
+}
+
+.gradient-border-wrapper:hover {
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), 0 0 40px rgba(123, 97, 255, 0.4);
+}
+
 /* Editorial Glass KPI Card */
 .kpi-editorial-card {
   position: relative;
-  background: rgba(15, 18, 26, 0.90);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  background: #141824;
   overflow: hidden;
-  will-change: transform;
+  border-radius: 22px;
 }
 
-.kpi-editorial-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(123, 97, 255, 0.35);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45), 0 0 25px rgba(123, 97, 255, 0.12);
-}
-
-/* Calendar Container Depth with rich slate-navy backdrop and prominent border */
+/* Calendar Container Depth with rich slate-navy backdrop */
 .calendar-container-depth {
-  background: #121624;
-  border: 1px solid rgba(123, 97, 255, 0.35);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  background: #141824;
+  border-radius: 22px;
+  overflow: hidden;
 }
+
 
 
 /* Floating Event Cards with Glowing Effect */

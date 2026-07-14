@@ -93,18 +93,11 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
                 cellIsToday 
                   ? 'bg-[#7b61ff] text-white font-black shadow-[0_0_20px_rgba(123,97,255,0.85)] ring-2 ring-white/30 z-10' 
                   : isWeekend 
-                    ? 'text-rose-400 bg-rose-500/[0.03]' 
+                    ? 'text-rose-400' 
                     : 'text-slate-300'
               }`}
             >
-              <div className="flex items-center gap-1">
-                <span>{day}</span>
-                {cellIsToday && (
-                  <span className="px-1.5 py-0.2 bg-white text-[#7b61ff] text-[8.5px] font-black rounded-full uppercase tracking-tighter shadow-sm">
-                    Hôm nay
-                  </span>
-                )}
-              </div>
+              <span>{day}</span>
               <span className={`text-[9.5px] font-bold normal-case ${cellIsToday ? 'text-white/90' : 'opacity-65'}`}>
                 {getDayDateString(day)}
               </span>
