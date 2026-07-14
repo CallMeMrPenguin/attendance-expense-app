@@ -294,8 +294,10 @@ export default function Dashboard() {
           </nav>
         </div>
       </aside>
-
-      {/* 2. Main Content Page Wrapper         {/* Top Navbar */}
+      {/* 2. Main Content Page Wrapper */}
+      <div className="flex-grow flex flex-col min-h-screen">
+        
+        {/* Top Navbar */}
         <nav className="border-b border-slate-200/50 dark:border-white/5 bg-white/40 dark:bg-[#090b10]/40 backdrop-blur-md sticky top-0 z-50 px-6 py-4 shadow-sm select-none">
           <div className="w-full flex items-center justify-between gap-4">
             
