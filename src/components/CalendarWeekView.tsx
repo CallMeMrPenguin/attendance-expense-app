@@ -100,12 +100,12 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
                 key={day}
                 className={`py-3.5 text-center text-[11px] font-extrabold uppercase tracking-widest flex flex-col items-center justify-center gap-0.5 last:border-r-0 transition-all ${
                   cellIsToday 
-                    ? 'bg-[#1a2032] border-x-2 border-t-2 border-x-[#5c36f5] border-t-[#5c36f5] z-10 text-white font-black' 
+                    ? 'bg-[#1a2032] border-x-2 border-t-2 border-x-[#5c36f5] border-t-[#5c36f5] z-10 text-white font-black shadow-[inset_0_0_30px_rgba(92,54,245,0.15)]' 
                     : `border-r border-[#28334e] ${isWeekend ? 'text-rose-450 bg-rose-500/[0.01]' : 'text-slate-350'}`
                 }`}
               >
-                <span>{day}</span>
-                <span className={`text-[9.5px] font-bold normal-case ${cellIsToday ? 'text-white/90 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]' : 'opacity-65'}`}>
+                <span className={cellIsToday ? 'text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.9)] font-black' : ''}>{day}</span>
+                <span className={`text-[9.5px] font-bold normal-case ${cellIsToday ? 'text-white/90 drop-shadow-[0_0_6px_rgba(255,255,255,0.9)]' : 'opacity-65'}`}>
                   {getDayDateString(day)}
                 </span>
               </div>
@@ -152,7 +152,7 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
                         key={`${slot}-${day}`}
                         className={`p-2.5 flex flex-col gap-2 overflow-y-auto max-h-[150px] custom-scrollbar transition-colors ${
                           cellIsToday 
-                            ? `bg-[#1f2042]/30 border-x-2 border-x-[#5c36f5] z-10 ${isLastSlot ? 'border-b-2 border-b-[#5c36f5]' : ''}` 
+                            ? `bg-[#1f2042]/30 shadow-[inset_0_0_35px_rgba(92,54,245,0.12)] border-x-2 border-x-[#5c36f5] z-10 ${isLastSlot ? 'border-b-2 border-b-[#5c36f5]' : ''}` 
                             : 'bg-[#151b2a] hover:bg-[#1c2438] border-r border-[#28334e] last:border-r-0'
                         }`}
                       >
