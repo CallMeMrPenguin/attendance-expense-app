@@ -566,13 +566,13 @@ export default function FlowTab({
         </div>
       </div>
 
-      {/* Overall Value Cards (Glow UI - Matched with Schedule style) */}
+      {/* Overall Value Cards (Glow UI - Specialized colors) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Income overall card */}
-        <div className="kpi-editorial-card p-6 flex flex-col justify-between min-h-[120px] text-left">
-          <div className="flex justify-between items-start">
-            <div className="space-y-1">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Tổng Thu Nhập</span>
+        <div className="kpi-card-green p-6 flex flex-col justify-between min-h-[120px] text-left">
+          <div className="flex justify-between items-start gap-2">
+            <div className="space-y-1 flex-1 min-w-0">
+              <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest block">Tổng Thu Nhập</span>
               <span className="text-xl font-black text-emerald-400 tracking-tight block">{formatVND(totalIncome)}</span>
               {/* MoM Comparison */}
               <div className="flex items-center gap-1 select-none">
@@ -590,10 +590,10 @@ export default function FlowTab({
         </div>
 
         {/* Expense overall card */}
-        <div className="kpi-editorial-card p-6 flex flex-col justify-between min-h-[120px] text-left">
-          <div className="flex justify-between items-start">
-            <div className="space-y-1">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Tổng Chi Tiêu</span>
+        <div className="kpi-card-red p-6 flex flex-col justify-between min-h-[120px] text-left">
+          <div className="flex justify-between items-start gap-2">
+            <div className="space-y-1 flex-1 min-w-0">
+              <span className="text-[10px] font-black text-rose-500 uppercase tracking-widest block">Tổng Chi Tiêu</span>
               <span className="text-xl font-black text-rose-500 tracking-tight block">{formatVND(totalExpense)}</span>
               {/* MoM Comparison */}
               <div className="flex items-center gap-1 select-none">
@@ -604,18 +604,18 @@ export default function FlowTab({
                 </span>
               </div>
             </div>
-            <div className="p-2 bg-rose-500/10 text-rose-455 border border-rose-500/30 rounded-xl shadow-[0_0_12px_rgba(244,63,94,0.35)] shrink-0">
+            <div className="p-2 bg-rose-500/10 text-rose-500 border border-rose-500/30 rounded-xl shadow-[0_0_12px_rgba(239,68,68,0.35)] shrink-0">
               <TrendingDown className="h-5 w-5" />
             </div>
           </div>
         </div>
 
         {/* Net overall card */}
-        <div className="kpi-editorial-card p-6 flex flex-col justify-between min-h-[120px] text-left">
-          <div className="flex justify-between items-start">
-            <div className="space-y-1">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Tổng Thặng Dư</span>
-              <span className="text-xl font-black text-white tracking-tight block">{formatVND(netValue)}</span>
+        <div className="kpi-card-blue p-6 flex flex-col justify-between min-h-[120px] text-left">
+          <div className="flex justify-between items-start gap-2">
+            <div className="space-y-1 flex-1 min-w-0">
+              <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest block">Tổng Thặng Dư</span>
+              <span className="text-xl font-black text-blue-400 tracking-tight block">{formatVND(netValue)}</span>
               {/* MoM Comparison */}
               <div className="flex items-center gap-1 select-none">
                 <span className={`text-[9px] font-black ${
@@ -625,7 +625,7 @@ export default function FlowTab({
                 </span>
               </div>
             </div>
-            <div className="p-2 bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 rounded-xl shadow-[0_0_12px_rgba(99,102,241,0.35)] shrink-0">
+            <div className="p-2 bg-blue-500/10 text-blue-400 border border-blue-500/30 rounded-xl shadow-[0_0_12px_rgba(59,130,246,0.35)] shrink-0">
               <DollarSign className="h-5 w-5" />
             </div>
           </div>
@@ -663,7 +663,7 @@ export default function FlowTab({
       <div className="calendar-container-depth p-5 bg-[#141824] space-y-4">
         <div className="flex items-center justify-between border-b border-white/5 pb-2.5">
           <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/25 rounded-lg">
+            <div className="p-1.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 rounded-lg shadow-[0_0_10px_rgba(99,102,241,0.55)]">
               <DollarSign className="h-4 w-4" />
             </div>
             <h3 className="text-xs font-black text-white uppercase tracking-wider">Giao dịch</h3>
@@ -755,28 +755,35 @@ export default function FlowTab({
                 paginatedTransactions.map((t) => {
                   const isIncome = t.type === 'income';
                   const catIcon = getCategoryIconName(t.category, t.type);
+                  const rowClass = isIncome 
+                    ? 'bg-emerald-500/[0.025] hover:bg-emerald-500/[0.055] text-emerald-450 transition-colors group' 
+                    : 'bg-rose-500/[0.025] hover:bg-rose-500/[0.055] text-rose-455 transition-colors group';
 
                   return (
-                    <tr key={t.id} className="hover:bg-white/[0.02] transition-colors group">
+                    <tr key={t.id} className={rowClass}>
                       <td className="py-3 text-center">
                         <span className={`inline-flex p-1.5 rounded-lg border ${
                           isIncome 
-                            ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 shadow-[0_0_8px_rgba(16,185,129,0.25)]' 
-                            : 'bg-rose-500/10 text-rose-500 border-rose-500/20 shadow-[0_0_8px_rgba(239,68,68,0.25)]'
+                            ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/35 shadow-[0_0_8px_rgba(16,185,129,0.35)]' 
+                            : 'bg-rose-500/15 text-rose-500 border-rose-500/35 shadow-[0_0_8px_rgba(239,68,68,0.35)]'
                         }`}>
                           <DollarSign className="h-3.5 w-3.5" />
                         </span>
                       </td>
                       <td className="py-3 text-left">
-                        <p className="text-white font-bold">{t.desc}</p>
-                        <span className="text-[8.5px] font-extrabold text-slate-555 block mt-0.5">{t.date}</span>
+                        <p className={isIncome ? 'text-emerald-300 font-bold' : 'text-rose-300 font-bold'}>{t.desc}</p>
+                        <span className={`text-[8.5px] font-extrabold block mt-0.5 ${isIncome ? 'text-emerald-500/60' : 'text-rose-500/60'}`}>{t.date}</span>
                       </td>
                       <td className="py-3 text-left">
                         <div className="flex items-center gap-2">
-                          <span className="inline-flex p-1.5 rounded-lg border bg-indigo-500/10 border-indigo-500/20 text-indigo-400 shadow-[0_0_8px_rgba(92,54,245,0.15)] shrink-0">
+                          <span className={`inline-flex p-1.5 rounded-lg border shrink-0 ${
+                            isIncome 
+                              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.2)]' 
+                              : 'bg-rose-500/10 border-rose-500/20 text-rose-400 shadow-[0_0_8px_rgba(239,68,68,0.2)]'
+                          }`}>
                             <CategoryIcon iconName={catIcon} className="h-3.5 w-3.5" />
                           </span>
-                          <span className="font-bold text-slate-200">{t.category}</span>
+                          <span className={isIncome ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>{t.category}</span>
                         </div>
                       </td>
                       <td className={`py-3 text-right font-black ${
@@ -785,7 +792,7 @@ export default function FlowTab({
                         {isIncome ? '+' : '-'}{formatVND(t.amount)}
                       </td>
                       <td className="py-3 text-center">
-                        {t.isManual && (
+                        {t.isManual ? (
                           <div className="flex items-center justify-center gap-1.5">
                             <button
                               onClick={() => setEditingTx({
@@ -796,17 +803,39 @@ export default function FlowTab({
                                 category: t.category,
                                 date: t.date
                               })}
-                              className="p-1 hover:bg-white/5 text-slate-400 hover:text-indigo-400 rounded-lg transition-all cursor-pointer"
+                              className={`p-1 rounded-lg transition-all cursor-pointer ${
+                                isIncome 
+                                  ? 'hover:bg-emerald-500/10 text-emerald-450 hover:text-emerald-300' 
+                                  : 'hover:bg-rose-500/10 text-rose-455 hover:text-rose-350'
+                              }`}
                               title="Sửa giao dịch"
                             >
                               <Edit2 className="h-3.5 w-3.5" />
                             </button>
                             <button
                               onClick={() => handleDeleteManualTx(t.id)}
-                              className="p-1 hover:bg-rose-500/10 text-slate-400 hover:text-rose-500 rounded-lg transition-all cursor-pointer"
+                              className={`p-1 rounded-lg transition-all cursor-pointer ${
+                                isIncome 
+                                  ? 'hover:bg-emerald-500/10 text-emerald-450 hover:text-emerald-300' 
+                                  : 'hover:bg-rose-500/10 text-rose-455 hover:text-rose-350'
+                              }`}
                               title="Xóa giao dịch"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center">
+                            <button
+                              onClick={() => alert('Đây là giao dịch học phí tự động liên kết với Lịch Trình ca dạy. Vui lòng chỉnh sửa giá hoặc trạng thái ca dạy trong tab Lịch Trình để cập nhật giao dịch này.')}
+                              className={`p-1 rounded-lg transition-all cursor-pointer ${
+                                isIncome 
+                                  ? 'hover:bg-emerald-500/10 text-emerald-455 hover:text-emerald-300' 
+                                  : 'hover:bg-rose-500/10 text-rose-455 hover:text-rose-350'
+                              }`}
+                              title="Thông tin giao dịch tự động"
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
                             </button>
                           </div>
                         )}
