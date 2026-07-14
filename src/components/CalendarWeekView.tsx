@@ -46,9 +46,16 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
     return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}`;
   };
 
+  const today = new Date();
+  const todayDateStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}`;
+
+  const isTodayColumn = (dayName: string) => {
+    return getDayDateString(dayName) === todayDateStr;
+  };
+
   if (timeSlots.length === 0) {
     return (
-      <div className="text-center py-20 text-slate-400 select-none bg-white dark:bg-[#11131a]/85 border border-slate-200/50 dark:border-white/5 rounded-3xl p-8">
+      <div className="text-center py-20 text-slate-400 select-none bg-[#0d1017] border border-white/[0.08] rounded-3xl p-8">
         Không có dữ liệu lịch dạy trong tuần.
       </div>
     );
@@ -60,29 +67,42 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
       <div className="glowing-timeline-bar w-full" />
 
       {/* Grid Header */}
-      <div className="grid grid-cols-[100px_repeat(7,_minmax(0,_1fr))] bg-[#0b0d14]/70 border-b border-white/[0.04] select-none">
-        <div className="py-4 px-2 flex items-center justify-center gap-1.5 text-[11px] font-extrabold uppercase text-slate-400 tracking-wider">
+      <div className="grid grid-cols-[100px_repeat(7,_minmax(0,_1fr))] bg-[#0b0d14]/80 border-b border-white/[0.08] select-none">
+        <div className="py-4 px-2 flex items-center justify-center gap-1.5 text-[11px] font-extrabold uppercase text-slate-400 tracking-wider border-r border-white/[0.07]">
           <Clock className="h-3.5 w-3.5 text-indigo-400" />
           Giờ
         </div>
         {DAYS.map((day, idx) => {
           const isWeekend = idx === 5 || idx === 6;
+          const cellIsToday = isTodayColumn(day);
+
           return (
             <div
               key={day}
-              className={`py-3.5 text-center text-[11px] font-extrabold uppercase tracking-widest flex flex-col items-center justify-center gap-0.5 ${
-                isWeekend ? 'text-rose-400/80 bg-rose-500/[0.015]' : 'text-slate-400'
+              className={`py-3.5 text-center text-[11px] font-extrabold uppercase tracking-widest flex flex-col items-center justify-center gap-0.5 border-r border-white/[0.07] last:border-r-0 transition-all ${
+                cellIsToday 
+                  ? 'bg-indigo-500/15 text-indigo-300 font-black ring-1 ring-indigo-500/50' 
+                  : isWeekend 
+                    ? 'text-rose-400/80 bg-rose-500/[0.015]' 
+                    : 'text-slate-400'
               }`}
             >
-              <span>{day}</span>
-              <span className="text-[9.5px] font-bold opacity-60 normal-case">{getDayDateString(day)}</span>
+              <div className="flex items-center gap-1">
+                <span>{day}</span>
+                {cellIsToday && (
+                  <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(123,97,255,1)]"></span>
+                )}
+              </div>
+              <span className={`text-[9.5px] font-bold normal-case ${cellIsToday ? 'text-indigo-200 opacity-90' : 'opacity-60'}`}>
+                {getDayDateString(day)}
+              </span>
             </div>
           );
         })}
       </div>
 
-      {/* Grid Rows - Grid lines reduced to rgba(255,255,255,0.025) */}
-      <div className="divide-y divide-white/[0.025] bg-[#0d1017]/90">
+      {/* Grid Rows - Grid lines set to divide-white/[0.07] */}
+      <div className="divide-y divide-white/[0.07] bg-[#0d1017]">
         {timeSlots.map((slot) => {
           return (
             <div
@@ -90,12 +110,13 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
               className="grid grid-cols-[100px_repeat(7,_minmax(0,_1fr))] min-h-[105px]"
             >
               {/* Hour time slot */}
-              <div className="relative px-3 flex items-center justify-center font-black text-xs text-slate-400 bg-[#08090f]/50 border-r border-white/[0.025] select-none">
+              <div className="relative px-3 flex items-center justify-center font-black text-xs text-slate-400 bg-[#08090f]/70 border-r border-white/[0.07] select-none">
                 {slot}
               </div>
 
               {/* Day columns */}
               {DAYS.map((day) => {
+                const cellIsToday = isTodayColumn(day);
                 const slotSessions = sessions.filter(
                   (s) => s.day_of_week === day && formatCleanTimeString(s.time) === slot
                 );
@@ -112,7 +133,9 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
                 return (
                   <div
                     key={`${slot}-${day}`}
-                    className="p-2.5 border-r border-white/[0.025] last:border-r-0 flex flex-col gap-2 overflow-y-auto max-h-[150px] custom-scrollbar"
+                    className={`p-2.5 border-r border-white/[0.07] last:border-r-0 flex flex-col gap-2 overflow-y-auto max-h-[150px] custom-scrollbar transition-colors ${
+                      cellIsToday ? 'bg-indigo-500/[0.035]' : ''
+                    }`}
                   >
                     {Object.values(grouped).map((group) => {
                       const s = group[0];
@@ -128,9 +151,7 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
                           style={{
                             backgroundColor: vStyle.bg,
                             borderColor: vStyle.border,
-                            boxShadow: vStyle.shadow,
-                            backdropFilter: 'blur(12px)',
-                            WebkitBackdropFilter: 'blur(12px)'
+                            boxShadow: vStyle.shadow
                           }}
                         >
                           {/* Time Column inside card */}
@@ -149,8 +170,7 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
                           {/* Info Column */}
                           <div className="flex-grow p-2 flex flex-col justify-between overflow-hidden">
                             <h4 
-                              className="text-[12px] font-black truncate leading-tight text-left tracking-tight"
-                              style={{ color: vStyle.titleColor }}
+                              className="text-[12px] font-black truncate leading-tight text-left tracking-tight text-white"
                             >
                               {s.student_name}
                             </h4>
@@ -175,4 +195,5 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
     </div>
   );
 }
+
 

@@ -68,8 +68,9 @@
   --radius-sm: 8px;
 }
 
-body, nav, aside, main, header, section, button, select, input {
-  transition: background-color 250ms cubic-bezier(0.16, 1, 0.3, 1), border-color 250ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 250ms cubic-bezier(0.16, 1, 0.3, 1);
+/* Target specific interactive controls for smooth transitions without global wildcard layout thrashing */
+nav, button, select, input, a, .kpi-editorial-card, .event-float {
+  transition: background-color 200ms cubic-bezier(0.16, 1, 0.3, 1), border-color 200ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 200ms cubic-bezier(0.16, 1, 0.3, 1), transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 body {
@@ -106,16 +107,14 @@ input[type=number] {
   background: rgba(123, 97, 255, 0.3);
 }
 
-/* Signature Multi-Layer Ambient Background */
+/* Optimized Multi-Layer Ambient Background */
 .ambient-bg-dark {
   background-color: #06070a;
   background-image: 
-    radial-gradient(ellipse 80% 50% at 20% -10%, rgba(123, 97, 255, 0.12), transparent 70%),
-    radial-gradient(ellipse 60% 40% at 85% 20%, rgba(6, 182, 212, 0.08), transparent 70%),
-    radial-gradient(ellipse 70% 60% at 50% 90%, rgba(147, 51, 234, 0.06), transparent 70%),
-    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
-  background-size: 100% 100%, 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+    radial-gradient(ellipse 70% 45% at 20% 0%, rgba(123, 97, 255, 0.14), transparent 70%),
+    radial-gradient(ellipse 50% 35% at 85% 15%, rgba(6, 182, 212, 0.10), transparent 70%),
+    radial-gradient(ellipse 60% 50% at 50% 95%, rgba(147, 51, 234, 0.08), transparent 70%);
+  background-attachment: fixed;
 }
 
 /* Subtle Vignette Overlay */
@@ -123,103 +122,61 @@ input[type=number] {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(circle at center, transparent 60%, rgba(4, 5, 8, 0.6) 100%);
+  background: radial-gradient(circle at center, transparent 65%, rgba(4, 5, 8, 0.7) 100%);
   z-index: 1;
 }
 
 /* Floating Glass Navbar */
 .macos-toolbar {
-  background: rgba(13, 16, 24, 0.65);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(13, 16, 24, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
-/* Editorial Glass KPI Card with Sweep Reflection */
+/* Editorial Glass KPI Card */
 .kpi-editorial-card {
   position: relative;
-  background: rgba(15, 18, 26, 0.85);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  background: rgba(15, 18, 26, 0.90);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   overflow: hidden;
-  transition: transform 250ms cubic-bezier(0.16, 1, 0.3, 1), border-color 250ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 250ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.kpi-editorial-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 60%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.03), transparent);
-  transform: skewX(-20deg);
-  transition: left 700ms ease;
-  pointer-events: none;
-}
-
-.kpi-editorial-card:hover::before {
-  left: 140%;
+  will-change: transform;
 }
 
 .kpi-editorial-card:hover {
   transform: translateY(-2px);
-  border-color: rgba(123, 97, 255, 0.25);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45), 0 0 25px rgba(123, 97, 255, 0.08);
+  border-color: rgba(123, 97, 255, 0.35);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45), 0 0 25px rgba(123, 97, 255, 0.12);
 }
 
-/* Calendar Container Depth (14% luminance) */
+/* Calendar Container Depth */
 .calendar-container-depth {
-  background: rgba(18, 22, 32, 0.75);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  background: rgba(15, 18, 26, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
-/* Floating Glass Event Cards */
+/* Floating Event Cards with Glowing Effect */
 .event-float {
-  border-radius: 12px;
-  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 200ms cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  will-change: transform, box-shadow;
 }
 
 .event-float:hover {
-  transform: translateY(-2px) scale(1.015);
-  box-shadow: 0 12px 30px rgba(123, 97, 255, 0.25), 0 0 20px rgba(123, 97, 255, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.2);
-}
-
-/* Animated Aurora Background Layer */
-@keyframes auroraMove {
-  0% { transform: translate(0px, 0px) scale(1); }
-  50% { transform: translate(30px, -20px) scale(1.08); }
-  100% { transform: translate(0px, 0px) scale(1); }
-}
-
-.animate-aurora {
-  animation: auroraMove 16s ease-in-out infinite alternate;
+  transform: translateY(-2px) scale(1.02);
 }
 
 .transition-all-ease {
-  transition: all 250ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.animate-fade-in {
-  animation: fadeIn 300ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  transition: all 200ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* Signature Glowing Horizontal Timeline Bar */
 .glowing-timeline-bar {
   height: 2px;
-  background: linear-gradient(90deg, transparent 0%, rgba(123, 97, 255, 0.8) 35%, rgba(6, 182, 212, 0.9) 65%, transparent 100%);
-  box-shadow: 0 0 12px rgba(123, 97, 255, 0.6);
+  background: linear-gradient(90deg, transparent 0%, rgba(123, 97, 255, 0.9) 35%, rgba(6, 182, 212, 1) 65%, transparent 100%);
+  box-shadow: 0 0 14px rgba(123, 97, 255, 0.8);
 }
+
 

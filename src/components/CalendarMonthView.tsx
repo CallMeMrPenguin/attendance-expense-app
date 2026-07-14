@@ -42,69 +42,43 @@ function hexToHSL(hex: string) {
 export function getPremiumVioletStyle(timeStr: string, status: string, hexColor: string = '#7b61ff') {
   const isDarkMode = true;
   
-  // Convert HEX to HSL so we can adjust opacity, borders, and lighting systematically
   const { h: hue, s: initialSat, l: initialLight } = hexToHSL(hexColor);
   
   let sat = initialSat;
   let lightness = initialLight;
 
-  // Status adjustments
   if (status === 'Đã dạy') {
-    // Completed: Muted
-    sat = Math.max(15, Math.round(initialSat * 0.45));
-    lightness = isDarkMode ? 45 : 75;
+    sat = Math.max(20, Math.round(initialSat * 0.5));
+    lightness = 50;
   } else if (status === 'Hủy') {
-    // Cancelled: Very muted/faded
     sat = Math.max(10, Math.round(initialSat * 0.25));
-    lightness = isDarkMode ? 35 : 88;
+    lightness = 38;
   } else {
-    // Active class coloring: ensure clean visibility on light and dark mode
-    if (isDarkMode) {
-      sat = Math.min(85, Math.max(65, initialSat));
-      lightness = Math.min(75, Math.max(50, initialLight)); // keep text/borders bright
-    } else {
-      sat = Math.min(90, Math.max(60, initialSat));
-      lightness = Math.min(65, Math.max(45, initialLight)); // keep text dark enough
-    }
+    sat = Math.min(85, Math.max(65, initialSat));
+    lightness = Math.min(75, Math.max(55, initialLight));
   }
 
-  if (isDarkMode) {
-    // Dark Mode Event Card styling spec:
-    // Semi-transparent bg (10-18% opacity), accent color border, soft outer glow
-    const alphaBg = status === 'Hủy' ? '0.04' : status === 'Đã dạy' ? '0.10' : '0.14';
-    const bg = `hsla(${hue}, ${sat}%, ${lightness}%, ${alphaBg})`;
-    const border = `hsla(${hue}, ${sat}%, ${lightness}%, 0.65)`;
-    const color = `hsla(${hue}, 90%, 90%, 0.95)`;
-    const shadow = status === 'Hủy' ? 'none' : `0 0 20px hsla(${hue}, ${sat}%, ${lightness}%, 0.15)`;
+  const alphaBg = status === 'Hủy' ? '0.04' : status === 'Đã dạy' ? '0.12' : '0.18';
+  const bg = `hsla(${hue}, ${sat}%, ${lightness}%, ${alphaBg})`;
+  const border = `hsla(${hue}, ${sat}%, ${lightness}%, ${status === 'Hủy' ? '0.25' : '0.70'})`;
+  const color = `hsla(${hue}, 90%, 92%, 0.95)`;
+  
+  // High-visibility vibrant glow shadow effect
+  const shadow = status === 'Hủy' 
+    ? 'none' 
+    : status === 'Đã dạy'
+      ? `0 0 14px hsla(${hue}, ${sat}%, ${lightness}%, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.15)`
+      : `0 0 22px hsla(${hue}, ${sat}%, ${lightness}%, 0.38), 0 4px 14px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.25)`;
 
-    return {
-      bg,
-      border,
-      innerBorder: `hsla(${hue}, ${sat}%, ${lightness}%, 0.25)`,
-      color,
-      titleColor: '#F8FAFC',
-      priceColor: color,
-      shadow
-    };
-  } else {
-    // Light Mode: Tinted colored background (8-12% opacity), solid colored border (25% opacity), dark text
-    const alphaBg = status === 'Hủy' ? '0.03' : status === 'Đã dạy' ? '0.05' : '0.08';
-    const bg = `hsla(${hue}, ${sat}%, ${lightness}%, ${alphaBg})`;
-    const border = `hsla(${hue}, ${sat}%, ${lightness}%, 0.25)`;
-    const color = `hsla(${hue}, ${sat}%, ${lightness - 20}%, 1)`; // Darker text for readability
-    const shadow = status === 'Hủy' ? 'none' : `0 2px 8px hsla(${hue}, ${sat}%, 70%, 0.04)`;
-
-    return {
-      bg,
-      border,
-      borderLeft: undefined,
-      innerBorder: `hsla(${hue}, ${sat}%, ${lightness}%, 0.15)`,
-      color,
-      titleColor: `hsla(${hue}, ${sat}%, ${lightness - 28}%, 1)`,
-      priceColor: color,
-      shadow
-    };
-  }
+  return {
+    bg,
+    border,
+    innerBorder: `hsla(${hue}, ${sat}%, ${lightness}%, 0.35)`,
+    color,
+    titleColor: '#FFFFFF',
+    priceColor: color,
+    shadow
+  };
 }
 
 export default function CalendarMonthView({
@@ -117,9 +91,8 @@ export default function CalendarMonthView({
 
   const firstDay = new Date(year, month - 1, 1);
   const totalDays = new Date(year, month, 0).getDate();
-  const firstDayOfWeek = firstDay.getDay(); // 0 = Sun, 1 = Mon...
+  const firstDayOfWeek = firstDay.getDay();
   
-  // Calculate offset to start grid on Monday
   const startOffset = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
   const totalCells = Math.ceil((startOffset + totalDays) / 7) * 7;
 
@@ -139,7 +112,7 @@ export default function CalendarMonthView({
       index: i,
       dayNum,
       inMonth: dayNum > 0 && dayNum <= totalDays,
-      isWeekend: i % 7 === 5 || i % 7 === 6, // Sat or Sun
+      isWeekend: i % 7 === 5 || i % 7 === 6,
     });
   }
 
@@ -154,7 +127,7 @@ export default function CalendarMonthView({
       <div className="glowing-timeline-bar w-full" />
       
       {/* Weekday Headers */}
-      <div className="grid grid-cols-7 bg-[#0b0d14]/70 border-b border-white/[0.04] select-none">
+      <div className="grid grid-cols-7 bg-[#0b0d14]/80 border-b border-white/[0.08] select-none">
         {DAYS.map((day, idx) => {
           const isWeekend = idx === 5 || idx === 6;
           return (
@@ -170,14 +143,14 @@ export default function CalendarMonthView({
         })}
       </div>
 
-      {/* Days Grid - Grid lines reduced to rgba(255,255,255,0.025) */}
-      <div className="grid grid-cols-7 gap-[1px] bg-white/[0.025]">
+      {/* Days Grid - Cell borders set to bg-white/[0.07] for crisp visibility */}
+      <div className="grid grid-cols-7 gap-[1px] bg-white/[0.07]">
         {cells.map((cell) => {
           if (!cell.inMonth) {
             return (
               <div 
                 key={`empty-${cell.index}`} 
-                className="bg-[#08090f]/60 min-h-[155px]" 
+                className="bg-[#08090f]/70 min-h-[155px]" 
               />
             );
           }
@@ -194,12 +167,12 @@ export default function CalendarMonthView({
           return (
             <div
               key={`day-${dayNum}`}
-              className={`bg-[#0d1017]/90 min-h-[160px] p-3 transition-all flex flex-col gap-2 relative ${
+              className={`bg-[#0d1017] min-h-[160px] p-3 transition-all flex flex-col gap-2 relative ${
                 cellIsToday 
-                  ? 'ring-1 ring-indigo-500/50 z-10 bg-indigo-500/[0.04]' 
+                  ? 'ring-1 ring-indigo-500/70 z-10 bg-indigo-500/[0.06]' 
                   : cell.isWeekend 
-                    ? 'bg-[#0b0d14]/40' 
-                    : 'hover:bg-[#121622]/60'
+                    ? 'bg-[#0b0d14]/60' 
+                    : 'hover:bg-[#121622]'
               }`}
             >
               {/* Day Number */}
@@ -207,14 +180,14 @@ export default function CalendarMonthView({
                 <span
                   className={`text-[12px] font-black font-sans rounded-full flex items-center justify-center h-6 w-6 ${
                     cellIsToday
-                      ? 'bg-[#7b61ff] text-white shadow-[0_0_12px_rgba(123,97,255,0.6)]'
+                      ? 'bg-[#7b61ff] text-white shadow-[0_0_14px_rgba(123,97,255,0.8)]'
                       : 'text-slate-400'
                   }`}
                 >
                   {dayNum}
                 </span>
                 {daySessions.length > 0 && (
-                  <span className="text-[10px] font-extrabold text-indigo-400/80 bg-indigo-500/10 px-1.5 py-0.5 rounded-full">
+                  <span className="text-[10px] font-extrabold text-indigo-300 bg-indigo-500/15 px-1.5 py-0.5 rounded-full">
                     {daySessions.length}
                   </span>
                 )}
@@ -235,9 +208,7 @@ export default function CalendarMonthView({
                       style={{
                         backgroundColor: vStyle.bg,
                         borderColor: vStyle.border,
-                        boxShadow: vStyle.shadow,
-                        backdropFilter: 'blur(12px)',
-                        WebkitBackdropFilter: 'blur(12px)'
+                        boxShadow: vStyle.shadow
                       }}
                     >
                       {/* Left Time Bar */}
@@ -256,13 +227,12 @@ export default function CalendarMonthView({
                        {/* Right Details */}
                       <div className="flex-grow p-2 flex flex-col justify-center overflow-hidden">
                         <h4 
-                          className="text-[12px] font-black truncate leading-tight text-left tracking-tight"
-                          style={{ color: vStyle.titleColor }}
+                          className="text-[12px] font-black truncate leading-tight text-left tracking-tight text-white"
                         >
                           {s.student_name}
                         </h4>
                         <div 
-                          className="text-[9.5px] font-bold mt-0.5 select-none leading-none text-left opacity-80"
+                          className="text-[9.5px] font-bold mt-0.5 select-none leading-none text-left opacity-90"
                           style={{ color: vStyle.color }}
                         >
                           {s.duration} ca • {s.status}
@@ -279,4 +249,5 @@ export default function CalendarMonthView({
     </div>
   );
 }
+
 

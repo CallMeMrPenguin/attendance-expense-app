@@ -400,13 +400,13 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* KPI 3 */}
+          {/* KPI 3 - Full currency display without truncation */}
           <div className="kpi-editorial-card rounded-2xl p-6 flex flex-col justify-between min-h-[140px]">
-            <div className="flex justify-between items-start">
-              <span className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight leading-none truncate max-w-[190px]">
+            <div className="flex justify-between items-start gap-2">
+              <span className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-none">
                 {formatVND(earnedIncome)}
               </span>
-              <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+              <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0">
                 <Coins className="h-4.5 w-4.5" />
               </div>
             </div>
@@ -418,13 +418,13 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* KPI 4 */}
+          {/* KPI 4 - Full currency display without truncation */}
           <div className="kpi-editorial-card rounded-2xl p-6 flex flex-col justify-between min-h-[140px]">
-            <div className="flex justify-between items-start">
-              <span className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight leading-none truncate max-w-[190px]">
+            <div className="flex justify-between items-start gap-2">
+              <span className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-none">
                 {formatVND(projectedIncome)}
               </span>
-              <div className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+              <div className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shrink-0">
                 <TrendingUp className="h-4.5 w-4.5" />
               </div>
             </div>
@@ -452,7 +452,7 @@ export default function Dashboard() {
             <div className="bg-[#090b10] border border-white/[0.08] p-1 rounded-xl flex gap-1 shadow-inner">
               <button
                 onClick={() => setCurrentView('month')}
-                className={`px-4 py-1.5 text-xs font-black rounded-lg transition-all cursor-pointer ${
+                className={`px-4 py-1.5 text-xs font-black rounded-lg transition-all duration-200 cursor-pointer ${
                   currentView === 'month' 
                     ? 'bg-[#7b61ff] text-white shadow-[0_2px_12px_rgba(123,97,255,0.4)]' 
                     : 'text-slate-400 hover:text-white'
@@ -462,7 +462,7 @@ export default function Dashboard() {
               </button>
               <button
                 onClick={() => setCurrentView('week')}
-                className={`px-4 py-1.5 text-xs font-black rounded-lg transition-all cursor-pointer ${
+                className={`px-4 py-1.5 text-xs font-black rounded-lg transition-all duration-200 cursor-pointer ${
                   currentView === 'week' 
                     ? 'bg-[#7b61ff] text-white shadow-[0_2px_12px_rgba(123,97,255,0.4)]' 
                     : 'text-slate-400 hover:text-white'
@@ -491,13 +491,14 @@ export default function Dashboard() {
               </p>
             </div>
           ) : (
-            <div className="relative w-full flex-grow">
+            /* Smooth Grid-Stacked View Transition Container - No Jumping */
+            <div className="grid grid-cols-1 grid-rows-1 w-full flex-grow">
               {/* Month View */}
               <div 
-                className={`transition-all duration-300 ease-in-out ${
+                className={`col-start-1 row-start-1 transition-all duration-300 ease-out ${
                   currentView === 'month' 
-                    ? 'opacity-100 scale-100 pointer-events-auto relative' 
-                    : 'opacity-0 scale-[0.99] pointer-events-none absolute inset-x-0 top-0'
+                    ? 'opacity-100 scale-100 z-10 pointer-events-auto' 
+                    : 'opacity-0 scale-[0.98] z-0 pointer-events-none'
                 }`}
               >
                 <CalendarMonthView
@@ -515,10 +516,10 @@ export default function Dashboard() {
 
               {/* Week View */}
               <div 
-                className={`transition-all duration-300 ease-in-out ${
+                className={`col-start-1 row-start-1 transition-all duration-300 ease-out ${
                   currentView === 'week' 
-                    ? 'opacity-100 scale-100 pointer-events-auto relative' 
-                    : 'opacity-0 scale-[0.99] pointer-events-none absolute inset-x-0 top-0'
+                    ? 'opacity-100 scale-100 z-10 pointer-events-auto' 
+                    : 'opacity-0 scale-[0.98] z-0 pointer-events-none'
                 }`}
               >
                 <CalendarWeekView
@@ -537,6 +538,7 @@ export default function Dashboard() {
         </section>
 
       </div>
+
 
       <AddSessionModal
         isOpen={addModalOpen}
