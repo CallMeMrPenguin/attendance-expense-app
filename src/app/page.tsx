@@ -296,63 +296,6 @@ export default function Dashboard() {
               <span className="font-black text-base bg-gradient-to-r from-white via-slate-200 to-indigo-300 bg-clip-text text-transparent tracking-tight">GiaSu Pro</span>
             </div>
 
-            {/* Toolbar Month Picker — fully custom dark dropdown */}
-            <div className="relative" data-picker>
-              <button
-                onClick={() => { setMonthPickerOpen(o => !o); setPickerYear(parseInt(selectedMonth.split('-')[0])); }}
-                className="flex items-center gap-2 bg-[#090b10]/80 border border-white/[0.08] hover:border-indigo-500/40 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all shadow-inner cursor-pointer"
-              >
-                <CalendarIcon className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
-                <span className="text-slate-200 font-bold text-xs select-none whitespace-nowrap">
-                  {(() => { const [y,m]=selectedMonth.split('-'); return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(m)-1]+' '+y; })()}
-                </span>
-                <ChevronDown className={`h-3 w-3 text-slate-400 transition-transform duration-200 ${monthPickerOpen ? 'rotate-180':''}`} />
-              </button>
-              {monthPickerOpen && (
-                <div className="absolute top-full mt-2 left-0 z-[200] w-64 bg-[#0d1018] border border-white/10 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.8)] p-4 backdrop-blur-xl">
-                  {/* Year nav */}
-                  <div className="flex items-center justify-between mb-3">
-                    <button onClick={() => setPickerYear(y=>y-1)} className="p-1.5 rounded-lg hover:bg-white/[0.06] text-slate-400 hover:text-white transition-colors cursor-pointer"><ChevronLeft className="h-4 w-4"/></button>
-                    <span className="text-sm font-black text-white">{pickerYear}</span>
-                    <button onClick={() => setPickerYear(y=>y+1)} className="p-1.5 rounded-lg hover:bg-white/[0.06] text-slate-400 hover:text-white transition-colors cursor-pointer"><ChevronRight className="h-4 w-4"/></button>
-                  </div>
-                  {/* Month grid */}
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((mn,i)=>{
-                      const val=`${pickerYear}-${String(i+1).padStart(2,'0')}`;
-                      const isActive=val===selectedMonth;
-                      return(
-                        <button key={mn} onClick={()=>{setSelectedMonth(val);setMonthPickerOpen(false);}} className={`py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${isActive?'bg-[#7b61ff] text-white shadow-[0_0_12px_rgba(123,97,255,0.5)]':'text-slate-400 hover:bg-white/[0.06] hover:text-white'}`}>{mn}</button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Toolbar Teacher Dropdown — fully custom */}
-            <div className="relative" data-picker>
-              <button
-                onClick={() => currentUser.role === 'admin' && setTeacherDropOpen(o=>!o)}
-                className={`flex items-center gap-2 bg-[#090b10]/80 border border-white/[0.08] hover:border-indigo-500/40 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all shadow-inner ${currentUser.role==='admin'?'cursor-pointer':'cursor-default'}`}
-              >
-                <span className="text-slate-400 font-extrabold uppercase text-[10px] tracking-wider">USER:</span>
-                <span className="h-2 w-2 rounded-full bg-emerald-400 inline-block shadow-[0_0_8px_rgba(16,185,129,0.8)] animate-pulse"></span>
-                <span className="text-slate-200 font-bold">{activeTeacherName}</span>
-                {currentUser.role === 'admin' && <ChevronDown className={`h-3 w-3 text-slate-400 transition-transform duration-200 ${teacherDropOpen?'rotate-180':''}`}/>}
-              </button>
-              {teacherDropOpen && currentUser.role === 'admin' && (
-                <div className="absolute top-full mt-2 left-0 z-[200] min-w-full w-max bg-[#0d1018] border border-white/10 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.8)] overflow-hidden backdrop-blur-xl">
-                  {teachers.map(t=>(
-                    <button key={t} onClick={()=>{setActiveTeacherName(t);setTeacherDropOpen(false);}} className={`w-full flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-left transition-colors cursor-pointer ${t===activeTeacherName?'bg-indigo-500/20 text-indigo-300':'text-slate-300 hover:bg-white/[0.05] hover:text-white'}`}>
-                      {t===activeTeacherName&&<Check className="h-3 w-3 text-indigo-400 shrink-0"/>}
-                      <span className={t===activeTeacherName?'':'ml-5'}>{t}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
             {/* Admin Manage Teachers Modal Trigger */}
             {currentUser.role === 'admin' && (
               <button
@@ -426,14 +369,6 @@ export default function Dashboard() {
 
           {/* Action button & Month Selector */}
           <div className="flex flex-wrap items-center gap-3 shrink-0 z-10">
-            <button
-              onClick={() => setAddModalOpen(true)}
-              className="flex items-center justify-center gap-2 px-5 py-2.5 bg-[#7b61ff] hover:bg-[#8e77ff] text-white font-extrabold text-xs rounded-xl shadow-[0_8px_25px_rgba(123,97,255,0.45)] hover:shadow-[0_12px_32px_rgba(123,97,255,0.65)] hover:scale-[1.02] transition-all cursor-pointer border border-white/20 select-none"
-            >
-              <Plus className="h-4.5 w-4.5" />
-              <span>Thêm Ca Dạy Nhanh</span>
-            </button>
-
             {/* Hero — Teacher Dropdown (Admin only) */}
             {currentUser.role === 'admin' && teachers.length > 0 && (
               <div className="relative" data-picker>
@@ -457,38 +392,6 @@ export default function Dashboard() {
                 )}
               </div>
             )}
-
-            {/* Hero — Month Picker (fully custom dark dropdown) */}
-            <div className="relative" data-picker>
-              <button
-                onClick={() => { setHeroMonthPickerOpen(o=>!o); setPickerYear(parseInt(selectedMonth.split('-')[0])); }}
-                className="flex items-center gap-2 bg-[#121624] border border-white/10 hover:border-indigo-500/40 text-white text-xs font-bold rounded-xl px-3.5 py-2.5 cursor-pointer transition-all shadow-lg"
-              >
-                <CalendarIcon className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
-                <span className="font-black">
-                  {(() => { const [y,m]=selectedMonth.split('-'); return ['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6','Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'][parseInt(m)-1]+' '+y; })()}
-                </span>
-                <ChevronDown className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-200 ${heroMonthPickerOpen?'rotate-180':''}`}/>
-              </button>
-              {heroMonthPickerOpen && (
-                <div className="absolute top-full mt-2 right-0 z-[200] w-64 bg-[#0d1018] border border-white/10 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.8)] p-4 backdrop-blur-xl">
-                  <div className="flex items-center justify-between mb-3">
-                    <button onClick={()=>setPickerYear(y=>y-1)} className="p-1.5 rounded-lg hover:bg-white/[0.06] text-slate-400 hover:text-white transition-colors cursor-pointer"><ChevronLeft className="h-4 w-4"/></button>
-                    <span className="text-sm font-black text-white">{pickerYear}</span>
-                    <button onClick={()=>setPickerYear(y=>y+1)} className="p-1.5 rounded-lg hover:bg-white/[0.06] text-slate-400 hover:text-white transition-colors cursor-pointer"><ChevronRight className="h-4 w-4"/></button>
-                  </div>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {['Th.1','Th.2','Th.3','Th.4','Th.5','Th.6','Th.7','Th.8','Th.9','Th.10','Th.11','Th.12'].map((mn,i)=>{
-                      const val=`${pickerYear}-${String(i+1).padStart(2,'0')}`;
-                      const isActive=val===selectedMonth;
-                      return(
-                        <button key={mn} onClick={()=>{setSelectedMonth(val);setHeroMonthPickerOpen(false);}} className={`py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${isActive?'bg-[#7b61ff] text-white shadow-[0_0_12px_rgba(123,97,255,0.5)]':'text-slate-400 hover:bg-white/[0.06] hover:text-white'}`}>{mn}</button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
           </div>
         </section>
 
@@ -581,33 +484,76 @@ export default function Dashboard() {
               </h3>
             </div>
             
-            {/* View Switcher — smooth sliding pill */}
-            <div className="relative flex bg-[#0d1018] border border-white/10 p-1 rounded-xl">
-              {/* Sliding pill background */}
-              <div
-                className="absolute top-1 bottom-1 rounded-[10px] bg-[#7b61ff] shadow-[0_0_16px_rgba(123,97,255,0.55)] transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] pointer-events-none"
-                style={{
-                  left: '4px',
-                  width: 'calc(50% - 4px)',
-                  transform: currentView === 'month' ? 'translateX(0)' : 'translateX(100%)',
-                }}
-              />
+            <div className="flex items-center gap-3 flex-wrap">
+              {/* Thêm Ca Dạy Nhanh Button */}
               <button
-                onClick={() => setCurrentView('month')}
-                className={`relative z-10 px-4 py-1.5 text-[10px] font-black rounded-[10px] transition-colors duration-300 ${
-                  currentView === 'month' ? 'text-white' : 'text-slate-500 hover:text-slate-300'
-                }`}
+                onClick={() => setAddModalOpen(true)}
+                className="flex items-center justify-center gap-2 px-4 py-1.5 bg-[#7b61ff] hover:bg-[#8e77ff] text-white font-extrabold text-[11px] rounded-xl shadow-[0_4px_12px_rgba(123,97,255,0.35)] hover:scale-[1.02] transition-all cursor-pointer border border-white/20 select-none"
               >
-                LỊCH THÁNG
+                <Plus className="h-3.5 w-3.5" />
+                <span>Thêm Ca Dạy Nhanh</span>
               </button>
-              <button
-                onClick={() => setCurrentView('week')}
-                className={`relative z-10 px-4 py-1.5 text-[10px] font-black rounded-[10px] transition-colors duration-300 ${
-                  currentView === 'week' ? 'text-white' : 'text-slate-500 hover:text-slate-300'
-                }`}
-              >
-                LỊCH TUẦN
-              </button>
+
+              {/* Month Picker dropdown — next to view switcher */}
+              <div className="relative" data-picker>
+                <button
+                  onClick={() => { setMonthPickerOpen(o => !o); setPickerYear(parseInt(selectedMonth.split('-')[0])); }}
+                  className="flex items-center gap-2 bg-[#121624] border border-white/10 hover:border-indigo-500/40 text-white text-[11px] font-bold rounded-xl px-3.5 py-1.5 cursor-pointer transition-all shadow-lg"
+                >
+                  <CalendarIcon className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
+                  <span className="font-black">
+                    {(() => { const [y,m]=selectedMonth.split('-'); return ['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6','Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'][parseInt(m)-1]+' '+y; })()}
+                  </span>
+                  <ChevronDown className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-200 ${monthPickerOpen?'rotate-180':''}`}/>
+                </button>
+                {monthPickerOpen && (
+                  <div className="absolute top-full mt-2 right-0 z-[200] w-64 bg-[#0d1018] border border-white/10 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.8)] p-4 backdrop-blur-xl">
+                    <div className="flex items-center justify-between mb-3">
+                      <button onClick={()=>setPickerYear(y=>y-1)} className="p-1.5 rounded-lg hover:bg-white/[0.06] text-slate-400 hover:text-white transition-colors cursor-pointer"><ChevronLeft className="h-4 w-4"/></button>
+                      <span className="text-sm font-black text-white">{pickerYear}</span>
+                      <button onClick={()=>setPickerYear(y=>y+1)} className="p-1.5 rounded-lg hover:bg-white/[0.06] text-slate-400 hover:text-white transition-colors cursor-pointer"><ChevronRight className="h-4 w-4"/></button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {['Th.1','Th.2','Th.3','Th.4','Th.5','Th.6','Th.7','Th.8','Th.9','Th.10','Th.11','Th.12'].map((mn,i)=>{
+                        const val=`${pickerYear}-${String(i+1).padStart(2,'0')}`;
+                        const isActive=val===selectedMonth;
+                        return(
+                          <button key={mn} onClick={()=>{setSelectedMonth(val);setMonthPickerOpen(false);}} className={`py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${isActive?'bg-[#7b61ff] text-white shadow-[0_0_12px_rgba(123,97,255,0.5)]':'text-slate-400 hover:bg-white/[0.06] hover:text-white'}`}>{mn}</button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* View Switcher — smooth sliding pill */}
+              <div className="relative flex bg-[#0d1018] border border-white/10 p-1 rounded-xl">
+                {/* Sliding pill background */}
+                <div
+                  className="absolute top-1 bottom-1 rounded-[10px] bg-[#7b61ff] shadow-[0_0_16px_rgba(123,97,255,0.55)] transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] pointer-events-none"
+                  style={{
+                    left: '4px',
+                    width: 'calc(50% - 4px)',
+                    transform: currentView === 'month' ? 'translateX(0)' : 'translateX(100%)',
+                  }}
+                />
+                <button
+                  onClick={() => setCurrentView('month')}
+                  className={`relative z-10 px-4 py-1.5 text-[10px] font-black rounded-[10px] transition-colors duration-300 ${
+                    currentView === 'month' ? 'text-white' : 'text-slate-500 hover:text-slate-300'
+                  }`}
+                >
+                  LỊCH THÁNG
+                </button>
+                <button
+                  onClick={() => setCurrentView('week')}
+                  className={`relative z-10 px-4 py-1.5 text-[10px] font-black rounded-[10px] transition-colors duration-300 ${
+                    currentView === 'week' ? 'text-white' : 'text-slate-500 hover:text-slate-300'
+                  }`}
+                >
+                  LỊCH TUẦN
+                </button>
+              </div>
             </div>
           </div>
 
