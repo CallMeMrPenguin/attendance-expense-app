@@ -118,7 +118,7 @@ export default function SettingsTab({
 
   const handleResetData = () => {
     const userId = currentUser.id;
-    if (confirm('CẢNH BÁO: Xóa bỏ vĩnh viễn toàn bộ giao dịch dòng chảy và tiết kiệm? Hành động này không thể hoàn tác.')) {
+    if (confirm('CẢNH BÁO: Xóa bỏ vĩnh viễn toàn bộ giao dịch dòng tiền và tiết kiệm? Hành động này không thể hoàn tác.')) {
       localStorage.removeItem(`finance_trans_${userId}`);
       localStorage.removeItem(`finance_em_curr_${userId}`);
       localStorage.removeItem(`finance_em_tar_${userId}`);

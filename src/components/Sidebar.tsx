@@ -37,7 +37,7 @@ export default function Sidebar({
 }: SidebarProps) {
   const tabs = [
     { id: 'dashboard', label: 'Tổng quan', icon: LayoutDashboard },
-    { id: 'flow', label: 'Dòng chảy', icon: Activity },
+    { id: 'flow', label: 'Dòng tiền', icon: Activity },
     { id: 'saving', label: 'Tiết kiệm', icon: PiggyBank },
     { id: 'schedule', label: 'Lịch trình', icon: CalendarIcon },
     { id: 'settings', label: 'Cài đặt', icon: Settings },
