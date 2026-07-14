@@ -532,7 +532,7 @@ export default function FlowTab({
               <ChevronDown className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-200 ${monthPickerOpen ? 'rotate-180' : ''}`} />
             </button>
             {monthPickerOpen && (
-              <div className="absolute top-full mt-2 right-0 z-[200] w-64 bg-[#0d1018] border border-white/10 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.8)] p-4 backdrop-blur-xl animate-mac-dropdown origin-top-right">
+              <div className="absolute top-full mt-2 right-0 z-[200] w-64 bg-[#0d1018] border border-white/10 rounded-[14px] shadow-[0_20px_60px_rgba(0,0,0,0.8)] p-4 backdrop-blur-xl animate-mac-dropdown origin-top-right">
                 <div className="flex items-center justify-between mb-3">
                   <button onClick={() => setPickerYear(y => y - 1)} className="p-1.5 rounded-lg hover:bg-white/[0.06] text-slate-400 hover:text-white transition-colors cursor-pointer"><ChevronLeft className="h-4 w-4" /></button>
                   <span className="text-sm font-black text-white">{pickerYear}</span>
@@ -586,8 +586,8 @@ export default function FlowTab({
         <div className="kpi-card-green p-6 flex flex-col justify-between min-h-[120px] text-left">
           <div className="flex justify-between items-start gap-2">
             <div className="space-y-1 flex-1 min-w-0">
-              <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest block">Tổng Thu Nhập</span>
-              <span className="text-xl font-black text-emerald-400 tracking-tight block">{formatVND(totalIncome)}</span>
+              <span className="text-[10px] font-black text-emerald-400 text-glow-green uppercase tracking-widest block">Tổng Thu Nhập</span>
+              <span className="text-xl font-black text-emerald-400 text-glow-green tracking-tight block">{formatVND(totalIncome)}</span>
               {/* MoM Comparison */}
               <div className="flex items-center gap-1 select-none">
                 <span className={`text-[9px] font-black ${
@@ -607,8 +607,8 @@ export default function FlowTab({
         <div className="kpi-card-red p-6 flex flex-col justify-between min-h-[120px] text-left">
           <div className="flex justify-between items-start gap-2">
             <div className="space-y-1 flex-1 min-w-0">
-              <span className="text-[10px] font-black text-rose-500 uppercase tracking-widest block">Tổng Chi Tiêu</span>
-              <span className="text-xl font-black text-rose-500 tracking-tight block">{formatVND(totalExpense)}</span>
+              <span className="text-[10px] font-black text-rose-500 text-glow-red uppercase tracking-widest block">Tổng Chi Tiêu</span>
+              <span className="text-xl font-black text-rose-500 text-glow-red tracking-tight block">{formatVND(totalExpense)}</span>
               {/* MoM Comparison */}
               <div className="flex items-center gap-1 select-none">
                 <span className={`text-[9px] font-black ${
@@ -628,8 +628,8 @@ export default function FlowTab({
         <div className="kpi-card-blue p-6 flex flex-col justify-between min-h-[120px] text-left">
           <div className="flex justify-between items-start gap-2">
             <div className="space-y-1 flex-1 min-w-0">
-              <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest block">Tổng Thặng Dư</span>
-              <span className="text-xl font-black text-blue-400 tracking-tight block">{formatVND(netValue)}</span>
+              <span className="text-[10px] font-black text-blue-400 text-glow-blue uppercase tracking-widest block">Tổng Thặng Dư</span>
+              <span className="text-xl font-black text-blue-400 text-glow-blue tracking-tight block">{formatVND(netValue)}</span>
               {/* MoM Comparison */}
               <div className="flex items-center gap-1 select-none">
                 <span className={`text-[9px] font-black ${
@@ -651,8 +651,8 @@ export default function FlowTab({
         
         {/* Income budget block */}
         <div className="calendar-container-depth p-5 bg-[#141824] space-y-4">
-          <div className="flex items-center justify-between border-b border-white/5 pb-2">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col items-center justify-center border-b border-white/5 pb-3">
+            <div className="flex items-center justify-center gap-2">
               <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.7)]"></div>
               <h3 className="text-[15px] font-black text-white uppercase tracking-wider">Loại thu nhập</h3>
             </div>
@@ -662,8 +662,8 @@ export default function FlowTab({
 
         {/* Expense budget block */}
         <div className="calendar-container-depth p-5 bg-[#141824] space-y-4">
-          <div className="flex items-center justify-between border-b border-white/5 pb-2">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col items-center justify-center border-b border-white/5 pb-3">
+            <div className="flex items-center justify-center gap-2">
               <div className="h-2.5 w-2.5 rounded-full bg-rose-500 shadow-[0_0_10px_rgba(239,68,68,0.7)]"></div>
               <h3 className="text-[15px] font-black text-white uppercase tracking-wider">Loại chi tiêu</h3>
             </div>
@@ -675,8 +675,8 @@ export default function FlowTab({
 
       {/* Unified Transaction List with search, filtering and pagination */}
       <div className="calendar-container-depth p-5 bg-[#141824] space-y-4">
-        <div className="flex items-center justify-between border-b border-white/5 pb-2.5">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-col items-center justify-center border-b border-white/5 pb-3">
+          <div className="flex items-center justify-center gap-2">
             <div className="p-1.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 rounded-lg shadow-[0_0_10px_rgba(99,102,241,0.55)]">
               <DollarSign className="h-4 w-4" />
             </div>
@@ -697,7 +697,7 @@ export default function FlowTab({
                     />
                   </span>
                   {typeFilterOpen && (
-                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1.5 z-40 bg-[#0d1018] border border-white/10 rounded-xl p-1 shadow-xl text-left font-normal normal-case w-24">
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1.5 z-40 bg-[#0d1018]/95 border border-white/10 rounded-[14px] p-1.5 shadow-2xl text-left font-normal normal-case w-24 animate-mac-dropdown origin-top">
                       {(['all', 'income', 'expense'] as const).map(option => (
                         <button
                           key={option}
@@ -733,7 +733,7 @@ export default function FlowTab({
                     />
                   </span>
                   {catFilterOpen && (
-                    <div className="absolute top-full left-0 mt-1.5 z-40 bg-[#0d1018] border border-white/10 rounded-xl p-1 shadow-xl text-left font-normal normal-case w-36 max-h-48 overflow-y-auto scrollbar-thin">
+                    <div className="absolute top-full left-0 mt-1.5 z-40 bg-[#0d1018]/95 border border-white/10 rounded-[14px] p-1.5 shadow-2xl text-left font-normal normal-case w-36 max-h-48 overflow-y-auto scrollbar-thin animate-mac-dropdown origin-top">
                       <button
                         onClick={() => { setFilterCategory('all'); setCatFilterOpen(false); setCurrentPage(1); }}
                         className={`w-full text-left px-2 py-1.5 text-[9px] font-bold rounded-lg ${

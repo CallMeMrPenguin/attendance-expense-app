@@ -165,7 +165,7 @@ export default function Sidebar({
 
         {/* Profile Popover Menu (Upward / flyout menu style) */}
         {profileOpen && (
-          <div className={`absolute z-[250] bg-[#0d1018]/95 border border-white/10 rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.85)] p-1.5 backdrop-blur-xl animate-mac-dropdown transition-all ${
+          <div className={`absolute z-[250] bg-[#0d1018]/95 border border-white/10 rounded-[14px] shadow-[0_12px_40px_rgba(0,0,0,0.85)] p-1.5 backdrop-blur-xl animate-mac-dropdown transition-all ${
             collapsed 
               ? 'left-full bottom-2 ml-3.5 w-44 origin-left' 
               : 'bottom-full left-0 mb-2 w-full origin-bottom'
