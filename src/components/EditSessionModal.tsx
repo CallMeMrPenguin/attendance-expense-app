@@ -9,7 +9,8 @@ import {
   ChevronUp, 
   BookOpen, 
   CalendarDays,
-  FileText
+  FileText,
+  AlertTriangle
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import {
@@ -179,6 +180,43 @@ export default function EditSessionModal({
     });
   };
 
+  const [warningMsg, setWarningMsg] = useState('');
+  const [showOverlapModal, setShowOverlapModal] = useState(false);
+  const [pendingSiblingSessions, setPendingSiblingSessions] = useState<any[]>([]);
+  const [pendingOldSiblingIds, setPendingOldSiblingIds] = useState<string[]>([]);
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+
+  const executeUpsertSessions = async (newSessions: any[], oldIds: string[]) => {
+    setLoading(true);
+    setError('');
+    setShowOverlapModal(false);
+
+    try {
+      const keepIds = newSessions.map((s) => s.id).filter(Boolean) as string[];
+      const deleteIds = oldIds.filter((id) => !keepIds.includes(id));
+
+      if (deleteIds.length > 0) {
+        const { error: deleteError } = await supabase
+          .from('sessions')
+          .delete()
+          .in('id', deleteIds);
+        if (deleteError) throw new Error(deleteError.message);
+      }
+
+      const { error: upsertError } = await supabase
+        .from('sessions')
+        .upsert(newSessions);
+      if (upsertError) throw new Error(upsertError.message);
+
+      onSave();
+      onClose();
+    } catch (err: any) {
+      setError(err.message || 'Lỗi khi cập nhật ca dạy.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSave = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!studentName.trim()) {
@@ -208,125 +246,90 @@ export default function EditSessionModal({
           s.month_year === session.month_year &&
           s.teacher_name === session.teacher_name
       );
-
       const oldSiblingIds = oldSiblings.map((s) => s.id);
-      const newSiblingSessions: Partial<Session>[] = [];
-      const newColor = getStudentColor(studentName.trim());
+      const existingOtherSessions = existingSessions.filter((s) => !oldSiblingIds.includes(s.id));
 
-      selectedDays.forEach(({ day, time: dayTime, duration: dayDur }) => {
+      const newSiblingSessions: any[] = [];
+      const sessionColor = getStudentColor(studentName.trim());
+
+      selectedDays.forEach(({ day, time, duration }) => {
         const dates = getDatesForWeekday(session.month_year, day);
         dates.forEach((dStr) => {
-          const existing = oldSiblings.find((item) => item.date === dStr);
-          if (existing) {
-            const updated = {
-              ...existing,
+          const matchOld = oldSiblings.find((s) => s.date === dStr);
+          if (matchOld) {
+            newSiblingSessions.push({
+              ...matchOld,
               student_name: studentName.trim(),
-              price: Number(price),
-              time: dayTime,
-              duration: dayDur,
               day_of_week: day,
-              color: newColor,
-            };
-
-            if (existing.id === session.id) {
-              updated.status = status;
-              updated.grade = grade.trim();
-              updated.homework = homework.trim();
-              updated.note = note.trim();
-            }
-
-            newSiblingSessions.push(updated);
+              time: time,
+              duration: Number(duration),
+              price: Number(price),
+              status: status,
+              grade: grade,
+              homework: homework,
+              note: note,
+              color: sessionColor,
+            });
           } else {
             newSiblingSessions.push({
               teacher_name: session.teacher_name,
               student_name: studentName.trim(),
               day_of_week: day,
-              time: dayTime,
-              duration: dayDur,
+              time: time,
+              duration: Number(duration),
               price: Number(price),
-              status: 'Chưa dạy',
-              grade: '',
-              homework: '',
-              note: '',
+              status: status,
+              grade: grade,
+              homework: homework,
+              note: note,
               month_year: session.month_year,
-              color: newColor,
+              color: sessionColor,
               date: dStr,
             });
           }
         });
       });
 
-      // Verification: Check overlaps
-      const overlaps = checkOverlaps(newSiblingSessions, existingSessions, oldSiblingIds);
+      const overlaps = checkOverlaps(newSiblingSessions, existingOtherSessions);
       if (overlaps.length > 0) {
         let msg = '';
         const strictOverlaps = overlaps.filter((o) => o.type === 'overlap');
         const gapWarnings = overlaps.filter((o) => o.type === 'gap');
 
         if (strictOverlaps.length > 0) {
-          msg += 'Cảnh báo trùng lịch dạy (overlap) của giáo viên:\n';
+          msg += 'Cảnh báo trùng lịch dạy của giáo viên:\n';
           strictOverlaps.forEach((o) => {
-            msg += `- Học sinh ${o.newS.student_name} (${o.newS.time}) trùng với ${o.extS.student_name} (${o.extS.time} - ${getEndTime(o.extS.time, o.extS.duration)}) vào ${formatDateVN(o.extS.date)}\n`;
+            msg += `- ${o.newS.student_name} (${o.newS.time}) trùng với ${o.extS.student_name} (${o.extS.time} - ${getEndTime(o.extS.time, o.extS.duration)}) vào ${formatDateVN(o.extS.date)}\n`;
           });
-          msg += '\n';
         }
 
         if (gapWarnings.length > 0) {
-          msg += 'Cảnh báo ca dạy liền nhau hoặc cách nhau dưới 15 phút:\n';
+          msg += '\nCảnh báo ca dạy cách nhau dưới 15 phút:\n';
           gapWarnings.forEach((o) => {
-            msg += `- Học sinh ${o.newS.student_name} (${o.newS.time}) cách dưới 15 phút với ${o.extS.student_name} (${o.extS.time} - ${getEndTime(o.extS.time, o.extS.duration)}) vào ${formatDateVN(o.extS.date)}\n`;
+            msg += `- ${o.newS.student_name} (${o.newS.time}) gần ca ${o.extS.student_name} (${o.extS.time}) vào ${formatDateVN(o.extS.date)}\n`;
           });
-          msg += '\n';
         }
 
-        msg += 'Bạn có muốn tiếp tục lưu không?';
-        if (!confirm(msg)) {
-          setLoading(false);
-          return;
-        }
+        setPendingSiblingSessions(newSiblingSessions);
+        setPendingOldSiblingIds(oldSiblingIds);
+        setWarningMsg(msg);
+        setShowOverlapModal(true);
+        setLoading(false);
+        return;
       }
 
-      // Remove untracked siblings
-      const keepIds = newSiblingSessions.map((s) => s.id).filter(Boolean) as string[];
-      const deleteIds = oldSiblingIds.filter((id) => !keepIds.includes(id));
-
-      if (deleteIds.length > 0) {
-        const { error: deleteError } = await supabase
-          .from('sessions')
-          .delete()
-          .in('id', deleteIds);
-        if (deleteError) throw new Error(deleteError.message);
-      }
-
-      // Upsert
-      const { error: upsertError } = await supabase
-        .from('sessions')
-        .upsert(newSiblingSessions);
-      if (upsertError) throw new Error(upsertError.message);
-
-      onSave();
-      onClose();
+      await executeUpsertSessions(newSiblingSessions, oldSiblingIds);
     } catch (err: any) {
       setError(err.message || 'Lỗi khi cập nhật ca dạy.');
-    } finally {
       setLoading(false);
     }
   };
 
-  const handleDeleteSessions = async () => {
+  const executeDeleteSessions = async () => {
     const checkedIds = siblings.filter((s) => s.checked).map((s) => s.id);
-    if (checkedIds.length === 0) {
-      setError('Vui lòng tích chọn ít nhất 1 ca để xóa!');
-      return;
-    }
-
-    const confirmed = confirm(
-      `Bạn có chắc chắn muốn xóa ${checkedIds.length} ca dạy đã chọn? Các ca này sẽ biến mất vĩnh viễn.`
-    );
-    if (!confirmed) return;
-
     setLoading(true);
     setError('');
+    setShowDeleteConfirmModal(false);
 
     try {
       const { error: deleteError } = await supabase
@@ -340,8 +343,18 @@ export default function EditSessionModal({
       onClose();
     } catch (err: any) {
       setError(err.message || 'Lỗi khi xóa ca dạy.');
+    } finally {
       setLoading(false);
     }
+  };
+
+  const handleDeleteSessions = () => {
+    const checkedIds = siblings.filter((s) => s.checked).map((s) => s.id);
+    if (checkedIds.length === 0) {
+      setError('Vui lòng tích chọn ít nhất 1 ca để xóa!');
+      return;
+    }
+    setShowDeleteConfirmModal(true);
   };
 
   return (
@@ -349,6 +362,63 @@ export default function EditSessionModal({
       className="fixed inset-0 bg-[#070911]/90 z-[100] flex items-center justify-center p-4 overflow-hidden pointer-events-auto select-none"
       onClick={(e) => e.stopPropagation()}
     >
+      {/* Overlap Warning Custom Modal */}
+      {showOverlapModal && (
+        <div className="fixed inset-0 bg-black/80 z-[120] flex items-center justify-center p-4">
+          <div className="bg-[#121624] border border-amber-500/40 rounded-2xl p-6 max-w-lg w-full shadow-2xl flex flex-col gap-4 text-left">
+            <div className="flex items-center gap-2 text-amber-400 font-black text-base">
+              <AlertTriangle className="h-5 w-5 shrink-0" />
+              <span>Phát Hiện Trùng / Gần Lịch Dạy</span>
+            </div>
+            <pre className="text-xs text-slate-300 bg-slate-900/80 p-3.5 rounded-xl whitespace-pre-wrap font-sans leading-relaxed max-h-[220px] overflow-y-auto border border-white/5">
+              {warningMsg}
+            </pre>
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                onClick={() => setShowOverlapModal(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl cursor-pointer"
+              >
+                Hủy Bỏ
+              </button>
+              <button
+                onClick={() => executeUpsertSessions(pendingSiblingSessions, pendingOldSiblingIds)}
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black rounded-xl shadow-[0_0_15px_rgba(245,158,11,0.4)] cursor-pointer"
+              >
+                Vẫn Lưu Ca Dạy
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Sessions Custom Modal */}
+      {showDeleteConfirmModal && (
+        <div className="fixed inset-0 bg-black/80 z-[120] flex items-center justify-center p-4">
+          <div className="bg-[#121624] border border-rose-500/40 rounded-2xl p-6 max-w-md w-full shadow-2xl flex flex-col gap-4 text-left">
+            <div className="flex items-center gap-2 text-rose-400 font-black text-base">
+              <Trash2 className="h-5 w-5 shrink-0" />
+              <span>Xác Nhận Xóa Ca Dạy</span>
+            </div>
+            <p className="text-xs text-slate-300 font-medium leading-relaxed bg-slate-900/80 p-3.5 rounded-xl border border-white/5">
+              Xóa <strong className="text-white">{siblings.filter((s) => s.checked).length}</strong> ca dạy đã chọn? Các ca này sẽ bị xóa khỏi hệ thống vĩnh viễn.
+            </p>
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                onClick={() => setShowDeleteConfirmModal(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl cursor-pointer"
+              >
+                Hủy Bỏ
+              </button>
+              <button
+                onClick={executeDeleteSessions}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-black rounded-xl shadow-[0_0_15px_rgba(244,63,94,0.4)] cursor-pointer"
+              >
+                Đồng Ý Xóa
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div 
         className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col max-h-[90vh] pointer-events-auto"
         onClick={(e) => e.stopPropagation()}

@@ -55,10 +55,10 @@ export default function ManageTeachersModal({
   const [newTeacherName, setNewTeacherName] = useState('');
   const [newTeacherPassword, setNewTeacherPassword] = useState('123456');
 
-  // Loading & Alert states
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
 
   // 1. Fetch teacher profiles helper
   const fetchProfiles = async () => {
@@ -247,24 +247,12 @@ export default function ManageTeachersModal({
     }
   };
 
-  // 5. Delete Teacher Account
-  const handleDeleteTeacher = async () => {
-    if (teachers.length <= 1) {
-      setError('Cần giữ lại ít nhất 1 giáo viên!');
-      return;
-    }
-    if (selectedTeacher === 'Admin' || selectedTeacher === 'admin') {
-      setError('Không thể xóa tài khoản Admin hệ thống.');
-      return;
-    }
-    const confirmed = confirm(
-      `Xóa giáo viên "${selectedTeacher}" sẽ xóa tất cả lịch dạy và tài khoản đăng nhập của người này vĩnh viễn. Có tiếp tục không?`
-    );
-    if (!confirmed) return;
-
+  // 5. Execute Delete Teacher Account
+  const executeDeleteTeacher = async () => {
     setLoading(true);
     setError('');
     setSuccess('');
+    setShowDeleteConfirmModal(false);
 
     try {
       const response = await fetch('/api/teachers', {
@@ -294,6 +282,7 @@ export default function ManageTeachersModal({
       const nextSelect = remaining[0] || '';
       setSelectedTeacher(nextSelect);
       onTeacherUpdated(nextSelect);
+      await fetchProfiles();
       setTimeout(() => setSuccess(''), 2500);
     } catch (err: any) {
       setError(err.message);
@@ -302,11 +291,51 @@ export default function ManageTeachersModal({
     }
   };
 
+  const handleDeleteTeacher = () => {
+    if (teachers.length <= 1) {
+      setError('Cần giữ lại ít nhất 1 giáo viên!');
+      return;
+    }
+    if (selectedTeacher === 'Admin' || selectedTeacher === 'admin') {
+      setError('Không thể xóa tài khoản Admin hệ thống.');
+      return;
+    }
+    setShowDeleteConfirmModal(true);
+  };
+
   return (
     <div 
       className="fixed inset-0 bg-[#070911]/90 z-[100] flex items-center justify-center p-4 overflow-hidden pointer-events-auto select-none"
       onClick={(e) => e.stopPropagation()}
     >
+      {/* Custom Delete Confirmation Modal */}
+      {showDeleteConfirmModal && (
+        <div className="fixed inset-0 bg-black/80 z-[120] flex items-center justify-center p-4">
+          <div className="bg-[#121624] border border-rose-500/40 rounded-2xl p-6 max-w-md w-full shadow-2xl flex flex-col gap-4 text-left">
+            <div className="flex items-center gap-2.5 text-rose-400 font-black text-base">
+              <Trash2 className="h-5 w-5 shrink-0" />
+              <span>Xác Nhận Xóa Giáo Viên</span>
+            </div>
+            <p className="text-xs text-slate-300 font-medium leading-relaxed bg-slate-900/80 p-3.5 rounded-xl border border-white/5">
+              Xóa giáo viên <strong className="text-white">"{selectedTeacher}"</strong> sẽ xóa toàn bộ lịch dạy và tài khoản đăng nhập của người này vĩnh viễn. Bạn có chắc chắn muốn xóa không?
+            </p>
+            <div className="flex justify-end gap-3 pt-1">
+              <button
+                onClick={() => setShowDeleteConfirmModal(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl cursor-pointer"
+              >
+                Hủy Bỏ
+              </button>
+              <button
+                onClick={executeDeleteTeacher}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-black rounded-xl shadow-[0_0_15px_rgba(244,63,94,0.4)] cursor-pointer"
+              >
+                Đồng Ý Xóa
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div 
         className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col max-h-[85vh] pointer-events-auto"
         onClick={(e) => e.stopPropagation()}
