@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
 // 2. UPDATE TEACHER DETAILS (NAME, USERNAME, PASSWORD, ROLE)
 export async function PUT(request: NextRequest) {
   try {
-    const { error, adminClient } = await verifyAdmin(request);
+    const { error, adminClient, user } = await verifyAdmin(request);
     if (error || !adminClient) {
       return NextResponse.json({ error }, { status: 403 });
     }
@@ -223,10 +223,15 @@ export async function PUT(request: NextRequest) {
       profileUpdates.username = activeUsername;
     }
     if (newRole && (newRole === 'admin' || newRole === 'teacher') && newRole !== profile.role) {
-      if (profile.username === 'admin' && newRole !== 'admin') {
-        return NextResponse.json({ error: 'Không thể hạ quyền tài khoản admin hệ thống!' }, { status: 400 });
+      if (profile.id === user.id) {
+        // Enforce admin privileges for their own account
+        profileUpdates.role = 'admin';
+      } else {
+        if (profile.username === 'admin' && newRole !== 'admin') {
+          return NextResponse.json({ error: 'Không thể hạ quyền tài khoản admin hệ thống!' }, { status: 400 });
+        }
+        profileUpdates.role = newRole;
       }
-      profileUpdates.role = newRole;
     }
 
     if (Object.keys(profileUpdates).length > 0) {
@@ -256,7 +261,7 @@ export async function PUT(request: NextRequest) {
       userMetadata.username = activeUsername;
     }
     if (newRole && newRole !== profile.role) {
-      userMetadata.role = newRole;
+      userMetadata.role = profile.id === user.id ? 'admin' : newRole;
     }
 
     if (Object.keys(userMetadata).length > 0) {

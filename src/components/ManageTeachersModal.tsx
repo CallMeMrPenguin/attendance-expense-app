@@ -21,6 +21,7 @@ interface ManageTeachersModalProps {
   activeTeacherName: string;
   teachers: string[];
   sessionToken: string;
+  currentAdminTeacherName: string;
   onTeacherUpdated: (updatedActiveName?: string) => void;
 }
 
@@ -36,6 +37,7 @@ export default function ManageTeachersModal({
   activeTeacherName,
   teachers,
   sessionToken,
+  currentAdminTeacherName,
   onTeacherUpdated,
 }: ManageTeachersModalProps) {
   // Navigation states
@@ -500,7 +502,7 @@ export default function ManageTeachersModal({
                   <select
                     id="editRoleSelect"
                     value={editRole}
-                    disabled={selectedTeacher === 'Admin' || selectedTeacher === 'admin'}
+                    disabled={selectedTeacher === currentAdminTeacherName || selectedTeacher === 'Admin' || selectedTeacher === 'admin'}
                     onChange={(e) => setEditRole(e.target.value as 'admin' | 'teacher')}
                     className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500 disabled:opacity-75"
                   >
@@ -537,7 +539,7 @@ export default function ManageTeachersModal({
                   <button
                     type="button"
                     onClick={handleDeleteTeacher}
-                    disabled={loading || selectedTeacher === 'Admin' || selectedTeacher === 'admin'}
+                    disabled={loading || selectedTeacher === currentAdminTeacherName || selectedTeacher === 'Admin' || selectedTeacher === 'admin'}
                     className="px-3.5 py-2.5 text-red-650 dark:text-red-400 border border-red-200 dark:border-red-950 bg-red-50/40 dark:bg-red-950/10 hover:bg-red-100 dark:hover:bg-red-950/25 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all disabled:opacity-40 shrink-0 cursor-pointer"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
