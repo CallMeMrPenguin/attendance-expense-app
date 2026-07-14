@@ -348,16 +348,23 @@ export default function Dashboard() {
             </p>
           </div>
 
-          {/* Action button shifted right to break rigid symmetry */}
-          {/* Month Selector Dropdown */}
-          <div className="flex items-center gap-3 shrink-0">
+          {/* Action button & Month Selector */}
+          <div className="flex flex-wrap items-center gap-3 shrink-0 z-10">
+            <button
+              onClick={() => setAddModalOpen(true)}
+              className="flex items-center justify-center gap-2 px-5 py-2.5 bg-[#7b61ff] hover:bg-[#8e77ff] text-white font-extrabold text-xs rounded-xl shadow-[0_8px_25px_rgba(123,97,255,0.45)] hover:shadow-[0_12px_32px_rgba(123,97,255,0.65)] hover:scale-[1.02] transition-all cursor-pointer border border-white/20 select-none"
+            >
+              <Plus className="h-4.5 w-4.5" />
+              <span>Thêm Ca Dạy Nhanh</span>
+            </button>
+
             {/* Filter by Teacher (Admin only) */}
             {currentUser.role === 'admin' && teachers.length > 0 && (
               <div className="relative">
                 <select
                   value={activeTeacherName}
                   onChange={(e) => setActiveTeacherName(e.target.value)}
-                  className="bg-[#121624] border border-white/10 text-white text-xs font-bold rounded-xl px-3 py-2 pr-8 appearance-none cursor-pointer focus:outline-none focus:border-indigo-500 transition-all shadow-lg"
+                  className="bg-[#121624] border border-white/10 text-white text-xs font-bold rounded-xl px-3 py-2.5 pr-8 appearance-none cursor-pointer focus:outline-none focus:border-indigo-500 transition-all shadow-lg"
                 >
                   {teachers.map((t) => (
                     <option key={t} value={t}>
@@ -374,7 +381,7 @@ export default function Dashboard() {
                 type="month"
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
-                className="bg-[#121624] border border-white/10 text-white text-xs font-black rounded-xl px-3.5 py-2 cursor-pointer focus:outline-none focus:border-indigo-500 transition-all shadow-lg text-center"
+                className="bg-[#121624] border border-white/10 text-white text-xs font-black rounded-xl px-3.5 py-2.5 cursor-pointer focus:outline-none focus:border-indigo-500 transition-all shadow-lg text-center"
               />
             </div>
           </div>
