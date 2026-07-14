@@ -165,7 +165,7 @@ export default function Dashboard() {
     fetchSession();
   }, [router]);
 
-  // Fetch teachers list (Admins see full list, non-admins see only themselves)
+  // Fetch teachers list via server API (service role key, bypasses RLS)
   const fetchTeachers = useCallback(async () => {
     if (!currentUser) return;
 
@@ -175,63 +175,49 @@ export default function Dashboard() {
       return;
     }
 
-    // Primary: teachers table
-    const { data, error } = await supabase
-      .from('teachers')
-      .select('name')
-      .neq('name', 'Giáo Viên 1')
-      .order('name', { ascending: true });
+    try {
+      const res = await fetch('/api/data/teachers');
+      const json = await res.json();
+      const list: string[] = res.ok && json.teachers ? json.teachers : [];
 
-    let list: string[] = [];
-    if (!error && data) {
-      list = data.map((t) => t.name).filter((n) => n !== 'Giáo Viên 1');
-    }
-
-    // Fallback: profiles table
-    if (list.length === 0) {
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('teacher_name')
-        .order('teacher_name', { ascending: true });
-      if (profileData) {
-        list = [...new Set(
-          profileData.map((p) => p.teacher_name).filter((n) => n && n !== 'Giáo Viên 1')
-        )];
+      if (list.length > 0) {
+        setTeachers(list);
+        const adminOwnName = currentUser?.teacherName;
+        const needsDefault =
+          !activeTeacherName ||
+          activeTeacherName === 'Giáo Viên 1' ||
+          !list.includes(activeTeacherName) ||
+          (activeTeacherName === adminOwnName && list.length > 1 && list[0] !== adminOwnName);
+        if (needsDefault) {
+          const preferred = list.find((n) => n !== adminOwnName) || list[0];
+          setActiveTeacherName(preferred);
+        }
       }
-    }
-
-    if (list.length > 0) {
-      setTeachers(list);
-      const adminOwnName = currentUser?.teacherName;
-      const needsDefault =
-        !activeTeacherName ||
-        activeTeacherName === 'Giáo Viên 1' ||
-        !list.includes(activeTeacherName) ||
-        (activeTeacherName === adminOwnName && list.length > 1 && list[0] !== adminOwnName);
-      if (needsDefault) {
-        const preferred = list.find((n) => n !== adminOwnName) || list[0];
-        setActiveTeacherName(preferred);
-      }
+    } catch (e) {
+      console.error('fetchTeachers error:', e);
     }
   }, [currentUser, activeTeacherName]);
 
 
 
-  // Fetch session schedule data
+  // Fetch session schedule data via server API (service role key, bypasses RLS)
   const fetchSessions = useCallback(async () => {
     if (!activeTeacherName || !selectedMonth) return;
 
     setLoading(true);
-    const { data, error } = await supabase
-      .from('sessions')
-      .select('*')
-      .eq('teacher_name', activeTeacherName)
-      .eq('month_year', selectedMonth);
-
-    if (!error && data) {
-      setSessions(data as Session[]);
-      calculateStats(data as Session[]);
-    } else {
+    try {
+      const params = new URLSearchParams({ teacher_name: activeTeacherName, month_year: selectedMonth });
+      const res = await fetch(`/api/sessions?${params}`);
+      const json = await res.json();
+      if (res.ok && json.data) {
+        setSessions(json.data as Session[]);
+        calculateStats(json.data as Session[]);
+      } else {
+        setSessions([]);
+        calculateStats([]);
+      }
+    } catch (e) {
+      console.error('fetchSessions error:', e);
       setSessions([]);
       calculateStats([]);
     }
