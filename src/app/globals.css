@@ -138,7 +138,7 @@ select {
   background-attachment: fixed;
 }
 
-/* Subtle Vignette Overlay */
+/* Subtle Vignette Overlay - Removed to avoid lag and shadow borders
 .vignette-overlay {
   position: fixed;
   inset: 0;
@@ -146,6 +146,7 @@ select {
   background: radial-gradient(circle at center, transparent 65%, rgba(4, 5, 8, 0.7) 100%);
   z-index: 1;
 }
+*/
 
 /* Floating Glass Navbar */
 .macos-toolbar {

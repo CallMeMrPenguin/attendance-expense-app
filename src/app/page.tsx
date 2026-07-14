@@ -502,11 +502,9 @@ export default function Dashboard() {
   // MAIN LAYOUT RETURN
   return (
     <div className="min-h-screen transition-colors duration-300 ambient-bg-dark text-slate-100 relative overflow-hidden select-none flex">
-      {/* Vignette Overlay */}
-      <div className="vignette-overlay" />
 
-      {/* Sidebar - Desktop view */}
-      <aside className={`hidden lg:flex flex-col bg-[#0a0d16]/90 border-r border-white/5 backdrop-blur-md h-screen fixed left-0 top-0 z-50 p-5 transition-all duration-300 ${sidebarCollapsed ? 'w-[80px]' : 'w-[260px]'}`}>
+      {/* Sidebar - Desktop view - Floating square with rounded corners */}
+      <aside className={`hidden lg:flex flex-col bg-[#0a0d16]/90 border border-white/5 backdrop-blur-md fixed left-4 top-4 bottom-4 z-50 p-5 rounded-2xl transition-all duration-300 ease-in-out ${sidebarCollapsed ? 'w-[80px]' : 'w-[260px]'}`}>
         <Sidebar
           activeTab={activeTab}
           setActiveTab={setActiveTab}
@@ -522,20 +520,19 @@ export default function Dashboard() {
       </aside>
 
       {/* Mobile grid flow */}
-      <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${sidebarCollapsed ? 'lg:pl-[80px]' : 'lg:pl-[260px]'}`}>
+      <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${sidebarCollapsed ? 'lg:pl-[112px]' : 'lg:pl-[292px]'}`}>
         
-        {/* macOS Floating Toolbar */}
-        <header className="h-16 border-b border-white/5 bg-[#0a0d16]/40 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-40 shrink-0">
+        {/* macOS Floating Toolbar - Mobile ONLY to eliminate empty header space on desktop */}
+        <header className="lg:hidden h-16 border-b border-white/5 bg-[#0a0d16]/40 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-40 shrink-0">
           <div className="flex items-center gap-3">
             {/* Hamburger for mobile */}
             <button
               onClick={() => setMobileMenuOpen(true)}
-              className="lg:hidden p-2 hover:bg-white/[0.05] rounded-xl text-slate-400 hover:text-white transition-colors cursor-pointer"
+              className="p-2 hover:bg-white/[0.05] rounded-xl text-slate-400 hover:text-white transition-colors cursor-pointer"
             >
               <Menu className="h-5 w-5" />
             </button>
           </div>
-
           <div className="flex items-center gap-3 relative">
             {/* Quick Scheduler Manage (Admin only & Schedule view) */}
             {currentUser.role === 'admin' && activeTab === 'schedule' && (

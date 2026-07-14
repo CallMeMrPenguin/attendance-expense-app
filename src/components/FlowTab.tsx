@@ -1,9 +1,6 @@
 import React from 'react';
 import { 
   Plus, 
-  Settings, 
-  ArrowUpRight, 
-  ArrowDownRight, 
   Trash2,
   DollarSign,
   Edit2,
@@ -161,15 +158,16 @@ export default function FlowTab({
     }
   }, [currentUser]);
 
-  // Edit category states
+  // Edit category state (contains budget now)
   const [editingCat, setEditingCat] = React.useState<{
     type: 'income' | 'expense';
     index: number;
     name: string;
     icon: string;
+    budget: number;
   } | null>(null);
 
-  // Edit manual transaction states
+  // Edit manual transaction state
   const [editingTx, setEditingTx] = React.useState<{
     id: string;
     desc: string;
@@ -236,25 +234,9 @@ export default function FlowTab({
     return found ? found.icon : 'HelpCircle';
   };
 
-  const handleEditBudgetPrompt = (cat: string) => {
-    const currentBudgetVal = categoryBudgets[cat] || 0;
-    const input = prompt(`Nhập hạn mức ngân sách hàng tháng mới cho danh mục "${cat}":`, String(currentBudgetVal));
-    if (input === null) return;
-    const num = Number(input);
-    if (isNaN(num) || num < 0) {
-      alert('Vui lòng nhập số tiền hợp lệ.');
-      return;
-    }
-    const updated = {
-      ...categoryBudgets,
-      [cat]: num
-    };
-    saveBudgets(currentUser.id, updated);
-  };
-
   const handleSaveCategoryEdit = () => {
     if (!editingCat || !editingCat.name.trim()) return;
-    const { type, index, name: newName, icon: newIcon } = editingCat;
+    const { type, index, name: newName, icon: newIcon, budget } = editingCat;
     
     const list = type === 'income' ? incomeCats : expenseCats;
     const oldName = list[index].name;
@@ -272,14 +254,13 @@ export default function FlowTab({
       localStorage.setItem(`finance_expense_cats_${currentUser.id}`, JSON.stringify(updatedList));
     }
 
-    // 2. Transfer budget
-    const oldBudget = categoryBudgets[oldName] || 0;
+    // 2. Transfer and update budget
+    const updatedBudgets = { ...categoryBudgets };
     if (oldName !== newName.trim()) {
-      const updatedBudgets = { ...categoryBudgets };
       delete updatedBudgets[oldName];
-      updatedBudgets[newName.trim()] = oldBudget;
-      saveBudgets(currentUser.id, updatedBudgets);
     }
+    updatedBudgets[newName.trim()] = Number(budget);
+    saveBudgets(currentUser.id, updatedBudgets);
 
     // 3. Update transaction items
     if (oldName !== newName.trim() && saveTransactions) {
@@ -385,6 +366,38 @@ export default function FlowTab({
   const totalExpense = expenses.reduce((sum, t) => sum + t.amount, 0);
   const netValue = totalIncome - totalExpense;
 
+  // Month-over-Month Comparisons
+  const getPreviousMonthStr = (monthStr: string) => {
+    if (!monthStr) return '';
+    const [y, m] = monthStr.split('-').map(Number);
+    if (m === 1) return `${y - 1}-12`;
+    return `${y}-${String(m - 1).padStart(2, '0')}`;
+  };
+
+  const prevMonths = chartSelectedMonths.map(getPreviousMonthStr).filter(Boolean);
+
+  const prevIncome = manualTransactions
+    .filter(t => t.type === 'income' && prevMonths.includes(t.date.substring(0, 7)))
+    .reduce((sum, t) => sum + (Number(t.amount) || 0), 0) +
+    sessions
+      .filter(s => s.status === 'Đã dạy' && prevMonths.includes(s.month_year))
+      .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+
+  const prevExpense = manualTransactions
+    .filter(t => t.type === 'expense' && prevMonths.includes(t.date.substring(0, 7)))
+    .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+
+  const prevNet = prevIncome - prevExpense;
+
+  const getChangePercent = (current: number, previous: number) => {
+    if (previous === 0) return 0;
+    return Math.round(((current - previous) / previous) * 100);
+  };
+
+  const incomeChange = getChangePercent(totalIncome, prevIncome);
+  const expenseChange = getChangePercent(totalExpense, prevExpense);
+  const netChange = getChangePercent(netValue, prevNet);
+
   const renderCategoryTable = (type: 'income' | 'expense') => {
     const list = type === 'income' ? incomeCats : expenseCats;
     const isIncome = type === 'income';
@@ -414,10 +427,10 @@ export default function FlowTab({
                 <tr key={cat} className="hover:bg-white/[0.02] transition-colors group">
                   <td className="py-3 text-left">
                     <div className="flex items-center gap-3">
-                      <span className={`inline-flex p-1.5 rounded-lg border ${
+                      <span className={`inline-flex p-1.5 rounded-lg border transition-all duration-300 ${
                         isIncome 
-                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_8px_rgba(16,185,129,0.35)]' 
-                          : 'bg-rose-500/10 text-rose-450 border-rose-500/30 shadow-[0_0_8px_rgba(239,68,68,0.35)]'
+                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.45)]' 
+                          : 'bg-[#ec4899]/10 text-rose-400 border-[#ec4899]/30 shadow-[0_0_10px_rgba(236,72,153,0.45)]'
                       }`}>
                         <CategoryIcon iconName={iconName} className="h-3.5 w-3.5" />
                       </span>
@@ -427,44 +440,41 @@ export default function FlowTab({
                   <td className="py-3 text-right text-slate-200">
                     {formatAbbreviatedVND(actual)}
                   </td>
-                  <td className="py-3 text-right text-slate-450">
+                  <td className="py-3 text-right text-slate-400">
                     {formatAbbreviatedVND(budgetVal)}
                   </td>
                   <td className="py-3 text-center px-4">
                     <div className="space-y-1">
-                      <div className="h-1.5 bg-[#101420] rounded-full overflow-hidden w-full">
+                      <div className="h-1.5 bg-[#101420] rounded-full w-full relative">
                         <div
-                          className={`h-full transition-all duration-300 ${
+                          className={`h-full rounded-full transition-all duration-300 ${
                             isIncome 
-                              ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.65)]' 
-                              : (isOver ? 'bg-rose-500 shadow-[0_0_8px_rgba(239,68,68,0.65)]' : 'bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.65)]')
+                              ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.7)]' 
+                              : (isOver ? 'bg-rose-500 shadow-[0_0_10px_rgba(239,68,68,0.7)]' : 'bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.7)]')
                           }`}
                           style={{ width: `${pct}%` }}
                         ></div>
                       </div>
-                      <div className="flex justify-between text-[8px] font-extrabold text-slate-555">
+                      <div className="flex justify-between text-[8px] font-extrabold text-slate-400">
                         <span>{pct}%</span>
-                        {isOver && <span className="text-rose-455 font-black uppercase">Vượt!</span>}
+                        {isOver && <span className="text-rose-500 font-black uppercase">Vượt!</span>}
                       </div>
                     </div>
                   </td>
                   <td className="py-3 text-center">
-                    <div className="flex items-center justify-center gap-1.5">
-                      <button
-                        onClick={() => setEditingCat({ type, index: idx, name: cat, icon: iconName })}
-                        className="p-1 hover:bg-white/5 text-slate-500 hover:text-indigo-400 rounded transition-all cursor-pointer"
-                        title="Sửa tên & biểu tượng"
-                      >
-                        <Edit2 className="h-3 w-3" />
-                      </button>
-                      <button
-                        onClick={() => handleEditBudgetPrompt(cat)}
-                        className="p-1 hover:bg-white/5 text-slate-500 hover:text-indigo-400 rounded transition-all cursor-pointer"
-                        title="Sửa hạn mức"
-                      >
-                        <Settings className="h-3 w-3" />
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => setEditingCat({ 
+                        type, 
+                        index: idx, 
+                        name: cat, 
+                        icon: iconName, 
+                        budget: budgetVal 
+                      })}
+                      className="p-1 hover:bg-white/5 text-slate-400 hover:text-indigo-400 rounded transition-all cursor-pointer inline-flex"
+                      title="Chỉnh sửa danh mục"
+                    >
+                      <Edit2 className="h-3.5 w-3.5" />
+                    </button>
                   </td>
                 </tr>
               );
@@ -556,74 +566,93 @@ export default function FlowTab({
         </div>
       </div>
 
-      {/* Overall Value Cards (Glow UI) */}
+      {/* Overall Value Cards (Glow UI - Matched with Schedule style) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Income overall card */}
-        <div className="relative group overflow-hidden bg-[#131b25]/60 border border-emerald-500/40 rounded-2xl p-5 shadow-[0_0_15px_rgba(16,185,129,0.15)] hover:shadow-[0_0_22px_rgba(16,185,129,0.22)] transition-all duration-300">
-          <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-emerald-500/20 to-emerald-500"></div>
+        <div className="kpi-editorial-card p-6 flex flex-col justify-between min-h-[120px] text-left">
           <div className="flex justify-between items-start">
             <div className="space-y-1">
-              <span className="text-[10px] font-black text-emerald-450 uppercase tracking-widest block">Tổng Thu Nhập</span>
-              <span className="text-xl font-black text-white tracking-tight block">{formatVND(totalIncome)}</span>
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Tổng Thu Nhập</span>
+              <span className="text-xl font-black text-emerald-400 tracking-tight block">{formatVND(totalIncome)}</span>
+              {/* MoM Comparison */}
+              <div className="flex items-center gap-1 select-none">
+                <span className={`text-[9px] font-black ${
+                  incomeChange > 0 ? 'text-emerald-400' : incomeChange < 0 ? 'text-rose-500' : 'text-amber-500'
+                }`}>
+                  {incomeChange > 0 ? `↑ +${incomeChange}%` : incomeChange < 0 ? `↓ ${incomeChange}%` : '0%'} so với tháng trước
+                </span>
+              </div>
             </div>
-            <div className="p-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 rounded-xl shadow-[0_0_8px_rgba(16,185,129,0.3)]">
+            <div className="p-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-xl shadow-[0_0_12px_rgba(16,185,129,0.35)] shrink-0">
               <TrendingUp className="h-5 w-5" />
             </div>
           </div>
         </div>
 
         {/* Expense overall card */}
-        <div className="relative group overflow-hidden bg-[#1b151e]/60 border border-rose-500/40 rounded-2xl p-5 shadow-[0_0_15px_rgba(239,68,68,0.15)] hover:shadow-[0_0_22px_rgba(239,68,68,0.22)] transition-all duration-300">
-          <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-rose-500/20 to-rose-500"></div>
+        <div className="kpi-editorial-card p-6 flex flex-col justify-between min-h-[120px] text-left">
           <div className="flex justify-between items-start">
             <div className="space-y-1">
-              <span className="text-[10px] font-black text-rose-450 uppercase tracking-widest block">Tổng Chi Tiêu</span>
-              <span className="text-xl font-black text-white tracking-tight block">{formatVND(totalExpense)}</span>
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Tổng Chi Tiêu</span>
+              <span className="text-xl font-black text-rose-500 tracking-tight block">{formatVND(totalExpense)}</span>
+              {/* MoM Comparison */}
+              <div className="flex items-center gap-1 select-none">
+                <span className={`text-[9px] font-black ${
+                  expenseChange > 0 ? 'text-rose-500' : expenseChange < 0 ? 'text-emerald-400' : 'text-amber-500'
+                }`}>
+                  {expenseChange > 0 ? `↑ +${expenseChange}%` : expenseChange < 0 ? `↓ ${expenseChange}%` : '0%'} so với tháng trước
+                </span>
+              </div>
             </div>
-            <div className="p-2 bg-rose-500/10 text-rose-400 border border-rose-500/25 rounded-xl shadow-[0_0_8px_rgba(239,68,68,0.3)]">
+            <div className="p-2 bg-rose-500/10 text-rose-455 border border-rose-500/30 rounded-xl shadow-[0_0_12px_rgba(244,63,94,0.35)] shrink-0">
               <TrendingDown className="h-5 w-5" />
             </div>
           </div>
         </div>
 
         {/* Net overall card */}
-        <div className="relative group overflow-hidden bg-[#15172b]/60 border border-indigo-500/40 rounded-2xl p-5 shadow-[0_0_15px_rgba(99,102,241,0.15)] hover:shadow-[0_0_22px_rgba(99,102,241,0.22)] transition-all duration-300">
-          <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-indigo-500/20 to-indigo-500"></div>
+        <div className="kpi-editorial-card p-6 flex flex-col justify-between min-h-[120px] text-left">
           <div className="flex justify-between items-start">
             <div className="space-y-1">
-              <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest block">Tổng Thặng Dư</span>
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Tổng Thặng Dư</span>
               <span className="text-xl font-black text-white tracking-tight block">{formatVND(netValue)}</span>
+              {/* MoM Comparison */}
+              <div className="flex items-center gap-1 select-none">
+                <span className={`text-[9px] font-black ${
+                  netChange > 0 ? 'text-emerald-400' : netChange < 0 ? 'text-rose-500' : 'text-amber-500'
+                }`}>
+                  {netChange > 0 ? `↑ +${netChange}%` : netChange < 0 ? `↓ ${netChange}%` : '0%'} so với tháng trước
+                </span>
+              </div>
             </div>
-            <div className="p-2 bg-indigo-500/10 text-indigo-400 border border-indigo-500/25 rounded-xl shadow-[0_0_8px_rgba(99,102,241,0.3)]">
+            <div className="p-2 bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 rounded-xl shadow-[0_0_12px_rgba(99,102,241,0.35)] shrink-0">
               <DollarSign className="h-5 w-5" />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Category Tables split into 2 sections (Glow UI) */}
+      {/* Category Tables split into 2 sections (Calendar container depth styles) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
         {/* Income budget block */}
-        <div className="calendar-container-depth p-5 bg-[#141824] space-y-4 border border-white/5 hover:border-emerald-500/20 hover:shadow-[0_0_15px_rgba(16,185,129,0.04)] transition-all duration-300">
+        <div className="calendar-container-depth p-5 bg-[#141824] space-y-4">
           <div className="flex items-center justify-between border-b border-white/5 pb-2">
             <div className="flex items-center gap-2">
               <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.7)]"></div>
               <h3 className="text-xs font-black text-white uppercase tracking-wider">Loại thu nhập</h3>
             </div>
-            <span className="text-[9px] text-slate-500 font-extrabold block">Click icon sửa để đổi tên & biểu tượng.</span>
           </div>
           {renderCategoryTable('income')}
         </div>
 
         {/* Expense budget block */}
-        <div className="calendar-container-depth p-5 bg-[#141824] space-y-4 border border-white/5 hover:border-rose-500/20 hover:shadow-[0_0_15px_rgba(239,68,68,0.04)] transition-all duration-300">
+        <div className="calendar-container-depth p-5 bg-[#141824] space-y-4">
           <div className="flex items-center justify-between border-b border-white/5 pb-2">
             <div className="flex items-center gap-2">
               <div className="h-2.5 w-2.5 rounded-full bg-rose-500 shadow-[0_0_10px_rgba(239,68,68,0.7)]"></div>
               <h3 className="text-xs font-black text-white uppercase tracking-wider">Loại chi tiêu</h3>
             </div>
-            <span className="text-[9px] text-slate-500 font-extrabold block">Click icon sửa để đổi tên & biểu tượng.</span>
           </div>
           {renderCategoryTable('expense')}
         </div>
@@ -631,7 +660,7 @@ export default function FlowTab({
       </div>
 
       {/* Unified Transaction List with search, filtering and pagination */}
-      <div className="calendar-container-depth p-5 bg-[#141824] space-y-4 border border-white/5 hover:border-indigo-500/20 hover:shadow-[0_0_15px_rgba(99,102,241,0.04)] transition-all duration-300">
+      <div className="calendar-container-depth p-5 bg-[#141824] space-y-4">
         <div className="flex items-center justify-between border-b border-white/5 pb-2.5">
           <div className="flex items-center gap-2">
             <div className="p-1.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/25 rounded-lg">
@@ -642,10 +671,10 @@ export default function FlowTab({
         </div>
 
         <div className="overflow-x-auto overflow-y-visible">
-          <table className="w-full text-[11px] font-bold text-slate-350">
+          <table className="w-full table-fixed text-[13px] font-bold text-slate-350">
             <thead>
               <tr className="border-b border-white/5 text-[9px] font-black uppercase text-slate-500 tracking-wider">
-                <th className="py-2.5 text-center font-black w-16 relative" data-filter-type>
+                <th className="py-2.5 text-center font-black w-[10%] relative" data-filter-type>
                   <span className="inline-flex items-center gap-1.5 justify-center">
                     <span>Loại</span>
                     <Filter 
@@ -669,19 +698,19 @@ export default function FlowTab({
                     </div>
                   )}
                 </th>
-                <th className="py-2.5 text-left font-black">
-                  <span className="inline-flex items-center gap-1">
+                <th className="py-2.5 text-left font-black w-[35%]">
+                  <span className="inline-flex items-center gap-1.5">
                     <span>Chi tiết giao dịch</span>
                     <input
                       type="text"
-                      placeholder="Tìm kiếm..."
+                      placeholder="Tìm..."
                       value={searchQuery}
                       onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                       className="ml-2 bg-[#0d1018] border border-white/10 rounded-lg px-2 py-0.5 text-[8.5px] font-medium text-white focus:outline-none focus:border-indigo-500/50 w-24 normal-case placeholder-slate-600"
                     />
                   </span>
                 </th>
-                <th className="py-2.5 text-left font-black relative w-36" data-filter-cat>
+                <th className="py-2.5 text-left font-black w-[25%] relative" data-filter-cat>
                   <span className="inline-flex items-center gap-1.5">
                     <span>Danh mục</span>
                     <Filter 
@@ -713,8 +742,8 @@ export default function FlowTab({
                     </div>
                   )}
                 </th>
-                <th className="py-2.5 text-right font-black">Số tiền</th>
-                <th className="py-2.5 text-center font-black w-16">Thao tác</th>
+                <th className="py-2.5 text-right font-black w-[20%]">Số tiền</th>
+                <th className="py-2.5 text-center font-black w-[10%]">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -743,19 +772,21 @@ export default function FlowTab({
                         <span className="text-[8.5px] font-extrabold text-slate-555 block mt-0.5">{t.date}</span>
                       </td>
                       <td className="py-3 text-left">
-                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-[#0d1018] rounded-lg text-[9px] border border-white/5">
-                          <CategoryIcon iconName={catIcon} className="h-3 w-3 text-indigo-400" />
-                          <span>{t.category}</span>
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex p-1.5 rounded-lg border bg-indigo-500/10 border-indigo-500/20 text-indigo-400 shadow-[0_0_8px_rgba(92,54,245,0.15)] shrink-0">
+                            <CategoryIcon iconName={catIcon} className="h-3.5 w-3.5" />
+                          </span>
+                          <span className="font-bold text-slate-200">{t.category}</span>
+                        </div>
                       </td>
                       <td className={`py-3 text-right font-black ${
-                        isIncome ? 'text-emerald-400' : 'text-rose-455'
+                        isIncome ? 'text-emerald-400' : 'text-rose-500'
                       }`}>
                         {isIncome ? '+' : '-'}{formatVND(t.amount)}
                       </td>
                       <td className="py-3 text-center">
                         {t.isManual && (
-                          <div className="flex items-center justify-center gap-1">
+                          <div className="flex items-center justify-center gap-1.5">
                             <button
                               onClick={() => setEditingTx({
                                 id: t.id,
@@ -765,17 +796,17 @@ export default function FlowTab({
                                 category: t.category,
                                 date: t.date
                               })}
-                              className="p-1 hover:bg-white/5 text-slate-500 hover:text-indigo-400 rounded-lg transition-all cursor-pointer opacity-0 group-hover:opacity-100"
+                              className="p-1 hover:bg-white/5 text-slate-400 hover:text-indigo-400 rounded-lg transition-all cursor-pointer"
                               title="Sửa giao dịch"
                             >
-                              <Edit2 className="h-3 w-3" />
+                              <Edit2 className="h-3.5 w-3.5" />
                             </button>
                             <button
                               onClick={() => handleDeleteManualTx(t.id)}
-                              className="p-1 hover:bg-rose-500/10 text-slate-500 hover:text-rose-455 rounded-lg transition-all cursor-pointer opacity-0 group-hover:opacity-100"
+                              className="p-1 hover:bg-rose-500/10 text-slate-400 hover:text-rose-500 rounded-lg transition-all cursor-pointer"
                               title="Xóa giao dịch"
                             >
-                              <Trash2 className="h-3 w-3" />
+                              <Trash2 className="h-3.5 w-3.5" />
                             </button>
                           </div>
                         )}
@@ -788,26 +819,22 @@ export default function FlowTab({
           </table>
         </div>
 
-        {/* Pagination Footer */}
+        {/* Page selection list pagination buttons */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between border-t border-white/5 pt-3 text-[10px] font-bold text-slate-450">
-            <span>Trang {currentPage} / {totalPages}</span>
-            <div className="flex gap-2">
+          <div className="flex items-center justify-center gap-1.5 mt-4 pt-3 border-t border-white/5">
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => (
               <button
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                className={`px-3 py-1 rounded-lg border border-white/10 ${currentPage === 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-white/5 text-white cursor-pointer'}`}
+                key={pageNum}
+                onClick={() => setCurrentPage(pageNum)}
+                className={`px-3 py-1.5 rounded-xl border text-[11px] font-black transition-all cursor-pointer ${
+                  currentPage === pageNum 
+                    ? 'bg-indigo-500 text-white border-indigo-500/35 shadow-[0_0_12px_rgba(92,54,245,0.45)]' 
+                    : 'bg-transparent border-white/10 text-slate-400 hover:text-white hover:bg-white/[0.04]'
+                }`}
               >
-                Trước
+                {pageNum}
               </button>
-              <button
-                disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                className={`px-3 py-1 rounded-lg border border-white/10 ${currentPage === totalPages ? 'opacity-30 cursor-not-allowed' : 'hover:bg-white/5 text-white cursor-pointer'}`}
-              >
-                Sau
-              </button>
-            </div>
+            ))}
           </div>
         )}
       </div>
@@ -828,6 +855,20 @@ export default function FlowTab({
                   type="text"
                   value={editingCat.name}
                   onChange={(e) => setEditingCat(prev => prev ? { ...prev, name: e.target.value } : null)}
+                  className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500"
+                  required
+                />
+              </div>
+
+              {/* Budget/Limit Input */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">
+                  {editingCat.type === 'income' ? 'Mục tiêu (đ)' : 'Hạn mức (đ)'}
+                </label>
+                <input
+                  type="number"
+                  value={editingCat.budget}
+                  onChange={(e) => setEditingCat(prev => prev ? { ...prev, budget: Number(e.target.value) } : null)}
                   className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500"
                   required
                 />

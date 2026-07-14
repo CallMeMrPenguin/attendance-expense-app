@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Wallet, 
   Plus, 
@@ -52,12 +52,29 @@ export default function Sidebar({
     { id: 'settings', label: 'CÀI ĐẶT', icon: Settings },
   ] as const;
 
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
+
+  // Close profile popover when clicking outside
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setProfileOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
+
   return (
     <div className="flex flex-col h-full select-none text-left relative">
       {/* Collapse floating toggle button (Desktop only) */}
       {!isMobile && setCollapsed && (
         <button
-          onClick={() => setCollapsed(!collapsed)}
+          onClick={() => {
+            setCollapsed(!collapsed);
+            setProfileOpen(false);
+          }}
           className="absolute top-4 -right-8.5 bg-[#0f1320] hover:bg-[#151a2d] text-slate-400 hover:text-white border border-white/10 p-1.5 rounded-full shadow-[0_0_15px_rgba(92,54,245,0.15)] z-50 cursor-pointer"
           title={collapsed ? 'Mở rộng menu' : 'Thu gọn menu'}
         >
@@ -66,16 +83,14 @@ export default function Sidebar({
       )}
 
       {/* Brand */}
-      <div className={`flex items-center gap-3 py-4 mb-4 border-b border-white/5 transition-all duration-300 ${collapsed ? 'px-0 justify-center' : 'px-2'}`}>
+      <div className={`flex items-center py-4 mb-4 border-b border-white/5 transition-all duration-300 ${collapsed ? 'px-0 justify-center' : 'px-2 gap-3'}`}>
         <div className="h-10 w-10 bg-indigo-500/20 border border-indigo-500/40 rounded-xl flex items-center justify-center text-indigo-400 shadow-[0_0_20px_rgba(92,54,245,0.45)] shrink-0">
           <Wallet className="h-5.5 w-5.5" />
         </div>
-        {!collapsed && (
-          <div className="flex flex-col">
-            <span className="font-black text-sm tracking-wide text-white uppercase leading-none shadow-[0_0_10px_rgba(255,255,255,0.1)]">Finance</span>
-            <span className="font-extrabold text-[9px] tracking-widest text-indigo-400 uppercase shadow-[0_0_10px_rgba(92,54,245,0.3)]">Dashboard</span>
-          </div>
-        )}
+        <div className={`flex flex-col transition-all duration-300 ease-in-out overflow-hidden whitespace-nowrap ${collapsed ? 'w-0 opacity-0 max-w-0' : 'w-auto opacity-100 max-w-40'}`}>
+          <span className="font-black text-sm tracking-wide text-white uppercase leading-none shadow-[0_0_10px_rgba(255,255,255,0.1)]">Finance</span>
+          <span className="font-extrabold text-[9px] tracking-widest text-indigo-400 uppercase shadow-[0_0_10px_rgba(92,54,245,0.3)] mt-0.5">Dashboard</span>
+        </div>
       </div>
 
       {/* Global Pop-up input button in sidebar */}
@@ -87,7 +102,11 @@ export default function Sidebar({
         title="Thêm giao dịch"
       >
         <Plus className="h-4.5 w-4.5" />
-        {!collapsed && <span>Thêm giao dịch</span>}
+        <span className={`transition-all duration-300 ease-in-out overflow-hidden whitespace-nowrap ${
+          collapsed ? 'w-0 opacity-0 max-w-0' : 'w-auto opacity-100 max-w-40'
+        }`}>
+          Thêm giao dịch
+        </span>
       </button>
 
       {/* Navigation list */}
@@ -103,7 +122,7 @@ export default function Sidebar({
                 if (isMobile) setMobileMenuOpen(false);
               }}
               className={`flex items-center rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer text-left ${
-                collapsed ? 'justify-center p-3' : 'gap-3 px-4 py-3'
+                collapsed ? 'justify-center p-3' : 'px-4 py-3 gap-3'
               } ${
                 isActive
                   ? 'bg-indigo-500/20 border border-indigo-500/60 text-white shadow-[0_0_15px_rgba(92,54,245,0.3)]'
@@ -112,53 +131,69 @@ export default function Sidebar({
               title={tab.label}
             >
               <Icon className={`h-4.5 w-4.5 shrink-0 ${isActive ? 'text-indigo-400' : 'text-slate-400'}`} />
-              {!collapsed && <span>{tab.label}</span>}
+              <span className={`transition-all duration-300 ease-in-out overflow-hidden whitespace-nowrap ${
+                collapsed ? 'w-0 opacity-0 max-w-0 pointer-events-none' : 'w-auto opacity-100 max-w-40'
+              }`}>
+                {tab.label}
+              </span>
             </button>
           );
         })}
       </nav>
 
-      {/* User profile card & password / logout actions */}
-      <div className="border-t border-white/5 pt-4 flex flex-col gap-1.5 shrink-0">
-        <div className={`flex items-center py-1.5 transition-all duration-300 ${collapsed ? 'justify-center px-0' : 'gap-2.5 px-2 mb-2'}`}>
-          <div className="h-8.5 w-8.5 bg-indigo-500/20 border border-indigo-500/40 rounded-xl flex items-center justify-center text-indigo-300 font-black text-xs shadow-sm shrink-0">
+      {/* User profile section with popup dropdown menu */}
+      <div className="border-t border-white/5 pt-4 flex flex-col shrink-0 relative" ref={profileRef}>
+        <button
+          onClick={() => setProfileOpen(!profileOpen)}
+          className={`flex items-center py-2.5 rounded-xl hover:bg-white/[0.04] transition-all duration-300 text-left w-full cursor-pointer ${collapsed ? 'justify-center px-0' : 'gap-2.5 px-2'}`}
+          title={currentUser.teacherName}
+        >
+          <div className="h-8.5 w-8.5 bg-indigo-500/20 border border-indigo-500/40 rounded-xl flex items-center justify-center text-indigo-300 font-black text-xs shadow-sm hover:shadow-[0_0_10px_rgba(92,54,245,0.4)] transition-all shrink-0">
             {currentUser.teacherName.charAt(0).toUpperCase()}
           </div>
-          {!collapsed && (
-            <div className="flex flex-col min-w-0">
-              <span className="text-xs font-extrabold text-white truncate leading-tight">
-                {currentUser.teacherName}
-              </span>
-              <span className="text-[9px] font-black text-indigo-400/80 uppercase tracking-widest leading-none">
-                {currentUser.role === 'admin' ? 'Admin' : 'User'}
-              </span>
-            </div>
-          )}
-        </div>
+          <div className={`flex flex-col min-w-0 transition-all duration-300 ease-in-out overflow-hidden whitespace-nowrap ${
+            collapsed ? 'w-0 opacity-0 max-w-0 pointer-events-none' : 'w-auto opacity-100 max-w-40 ml-1'
+          }`}>
+            <span className="text-xs font-extrabold text-white truncate leading-tight">
+              {currentUser.teacherName}
+            </span>
+            <span className="text-[9px] font-black text-indigo-400/80 uppercase tracking-widest leading-none mt-0.5">
+              {currentUser.role === 'admin' ? 'Admin' : 'User'}
+            </span>
+          </div>
+        </button>
 
-        {/* Change password button */}
-        <button
-          onClick={onChangePassword}
-          className={`flex items-center text-slate-400 hover:bg-white/[0.04] hover:text-slate-200 rounded-xl transition-all cursor-pointer text-left ${
-            collapsed ? 'justify-center p-2.5' : 'gap-2.5 px-4 py-2.5 text-xs font-bold'
-          }`}
-          title="Đổi mật khẩu"
-        >
-          <Key className="h-4.5 w-4.5 text-slate-400 shrink-0" />
-          {!collapsed && <span>Đổi mật khẩu</span>}
-        </button>
-        
-        {/* Logout button */}
-        <button
-          onClick={handleLogout}
-          className={`flex items-center text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all cursor-pointer text-left ${
-            collapsed ? 'justify-center p-2.5' : 'gap-2.5 px-4 py-2.5 text-xs font-bold'
-          }`}
-          title="Đăng xuất"
-        >
-          <LogOut className="h-4.5 w-4.5 text-rose-450 shrink-0" />
-          {!collapsed && <span>Đăng xuất</span>}
-        </button>
+        {/* Profile Popover Menu (Upward / flyout menu style) */}
+        {profileOpen && (
+          <div className={`absolute z-[250] bg-[#0d1018]/95 border border-white/10 rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.85)] p-1.5 backdrop-blur-xl animate-mac-dropdown transition-all ${
+            collapsed 
+              ? 'left-full bottom-2 ml-3.5 w-44 origin-left' 
+              : 'bottom-full left-0 mb-2 w-full origin-bottom'
+          }`}>
+            {!collapsed && (
+              <div className="px-3.5 py-2.5 border-b border-white/5 select-none mb-1 text-left">
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider truncate">Tài khoản</p>
+                <p className="text-xs font-extrabold text-white truncate mt-0.5">{currentUser.username}</p>
+              </div>
+            )}
+            
+            <button
+              onClick={() => { onChangePassword?.(); setProfileOpen(false); }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-white/[0.05] hover:text-white rounded-xl transition-all cursor-pointer text-left"
+            >
+              <Key className="h-4 w-4 text-slate-400 shrink-0" />
+              <span>Đổi mật khẩu</span>
+            </button>
+            
+            <button
+              onClick={() => { handleLogout(); setProfileOpen(false); }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all cursor-pointer text-left border-t border-white/5 mt-1 pt-2"
+            >
+              <LogOut className="h-4 w-4 text-rose-500 shrink-0" />
+              <span>Đăng xuất</span>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
