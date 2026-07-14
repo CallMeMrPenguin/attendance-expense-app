@@ -47,6 +47,19 @@ interface RecurringDayConfig {
   duration: number;
 }
 
+const PALETTE = [
+  '#7c3aed', // Vivid Purple Violet
+  '#0ea5e9', // Sky Blue
+  '#10b981', // Emerald Green
+  '#f59e0b', // Amber Gold
+  '#ec4899', // Hot Pink
+  '#06b6d4', // Cyan Teal
+  '#f97316', // Bright Orange
+  '#84cc16', // Lime Green
+  '#a78bfa', // Lavender
+  '#fb7185', // Rose Red
+];
+
 export default function EditSessionModal({
   isOpen,
   onClose,
@@ -61,6 +74,9 @@ export default function EditSessionModal({
   const [grade, setGrade] = useState('');
   const [homework, setHomework] = useState('');
   const [note, setNote] = useState('');
+  const [color, setColor] = useState('#7c3aed');
+  const [isColorCustomized, setIsColorCustomized] = useState(false);
+  const colorInputRef = React.useRef<HTMLInputElement>(null);
   const [dayOfWeek, setDayOfWeek] = useState('Thứ 2');
   const [time, setTime] = useState('18:00');
   const [duration, setDuration] = useState(1.5);
@@ -95,6 +111,10 @@ export default function EditSessionModal({
     setDayOfWeek(session.day_of_week || 'Thứ 2');
     setTime(formatCleanTimeString(session.time));
     setDuration(session.duration || 1.5);
+    
+    const studentColor = session.color || getStudentColor(session.student_name);
+    setColor(studentColor);
+    setIsColorCustomized(!!session.color && session.color !== getStudentColor(session.student_name));
 
     // Find siblings
     const related = existingSessions.filter(
@@ -255,7 +275,7 @@ export default function EditSessionModal({
       const existingOtherSessions = existingSessions.filter((s) => !oldSiblingIds.includes(s.id));
 
       const newSiblingSessions: any[] = [];
-      const sessionColor = getStudentColor(studentName.trim());
+      const sessionColor = color;
 
       selectedDays.forEach(({ day, time, duration }) => {
         const dates = getDatesForWeekday(session.month_year, day);
@@ -557,6 +577,67 @@ export default function EditSessionModal({
             </div>
           </div>
 
+          {/* Color Picker Row */}
+          <div className="space-y-2 pb-2 border-b border-slate-100 dark:border-slate-800">
+            <label className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider block">
+              Màu sắc hiển thị ca dạy
+            </label>
+            <div className="flex flex-wrap items-center gap-2.5">
+              {PALETTE.map((c) => {
+                const isActive = color.toLowerCase() === c.toLowerCase();
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => {
+                      setColor(c);
+                      setIsColorCustomized(true);
+                    }}
+                    style={{ backgroundColor: c }}
+                    className={`w-7 h-7 rounded-full transition-all cursor-pointer ${
+                      isActive 
+                        ? 'ring-2 ring-indigo-500 ring-offset-2 dark:ring-offset-slate-900 scale-110 shadow-lg' 
+                        : 'hover:scale-105 opacity-80 hover:opacity-100'
+                    }`}
+                    title={`Chọn màu ${c}`}
+                  />
+                );
+              })}
+              
+              {/* Custom Color Button */}
+              <button
+                type="button"
+                onClick={() => colorInputRef.current?.click()}
+                style={{
+                  backgroundColor: PALETTE.includes(color.toLowerCase()) ? '#1e293b' : color,
+                  backgroundImage: PALETTE.includes(color.toLowerCase()) 
+                    ? 'linear-gradient(135deg, #f43f5e 0%, #3b82f6 50%, #10b981 100%)' 
+                    : 'none'
+                }}
+                className={`w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer border border-slate-700/50 ${
+                  !PALETTE.includes(color.toLowerCase())
+                    ? 'ring-2 ring-indigo-500 ring-offset-2 dark:ring-offset-slate-900 scale-110 shadow-lg'
+                    : 'hover:scale-105'
+                }`}
+                title="Màu tùy chỉnh"
+              >
+                <span className="text-[10px] font-black text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
+                  +
+                </span>
+              </button>
+              <input
+                ref={colorInputRef}
+                type="color"
+                value={color}
+                onChange={(e) => {
+                  setColor(e.target.value);
+                  setIsColorCustomized(true);
+                }}
+                className="hidden"
+              />
+            </div>
+          </div>
+
           {/* Block 2: Collapsible Sibling Sessions List */}
           <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
             <button
@@ -700,7 +781,12 @@ export default function EditSessionModal({
                 type="text"
                 required
                 value={studentName}
-                onChange={(e) => setStudentName(e.target.value)}
+                onChange={(e) => {
+                  setStudentName(e.target.value);
+                  if (!isColorCustomized) {
+                    setColor(getStudentColor(e.target.value.trim()));
+                  }
+                }}
                 className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500"
               />
             </div>

@@ -160,7 +160,7 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
                           const s = group[0];
                           const startTime = formatCleanTimeString(s.time);
                           const endTime = getEndTime(startTime, s.duration);
-                          const vStyle = getPremiumVioletStyle(s.time, s.status, getStudentColor(s.student_name));
+                          const vStyle = getPremiumVioletStyle(s.time, s.status, s.color || getStudentColor(s.student_name));
 
                           return (
                             <div

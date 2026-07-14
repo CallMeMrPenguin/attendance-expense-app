@@ -18,6 +18,19 @@ interface DayConfig {
   duration: number;
 }
 
+const PALETTE = [
+  '#7c3aed', // Vivid Purple Violet
+  '#0ea5e9', // Sky Blue
+  '#10b981', // Emerald Green
+  '#f59e0b', // Amber Gold
+  '#ec4899', // Hot Pink
+  '#06b6d4', // Cyan Teal
+  '#f97316', // Bright Orange
+  '#84cc16', // Lime Green
+  '#a78bfa', // Lavender
+  '#fb7185', // Rose Red
+];
+
 export default function AddSessionModal({
   isOpen,
   onClose,
@@ -31,6 +44,9 @@ export default function AddSessionModal({
   const [status, setStatus] = useState('Chưa dạy');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [color, setColor] = useState('#7c3aed');
+  const [isColorCustomized, setIsColorCustomized] = useState(false);
+  const colorInputRef = React.useRef<HTMLInputElement>(null);
 
   // Initial weekday configurations (default to Mon enabled, others disabled)
   const [dayConfigs, setDayConfigs] = useState<Record<string, DayConfig>>(
@@ -85,6 +101,8 @@ export default function AddSessionModal({
       setStudentName('');
       setPrice('');
       setStatus('Chưa dạy');
+      setColor('#7c3aed');
+      setIsColorCustomized(false);
       setShowWarningModal(false);
       
       setDayConfigs(
@@ -128,7 +146,7 @@ export default function AddSessionModal({
     setError('');
 
     try {
-      const sessionColor = getStudentColor(studentName.trim());
+      const sessionColor = color;
       const candidates: any[] = [];
 
       selectedDays.forEach(([day, config]) => {
@@ -257,10 +275,76 @@ export default function AddSessionModal({
                 type="text"
                 required
                 value={studentName}
-                onChange={(e) => setStudentName(e.target.value)}
+                onChange={(e) => {
+                  setStudentName(e.target.value);
+                  if (!isColorCustomized) {
+                    setColor(getStudentColor(e.target.value.trim()));
+                  }
+                }}
                 placeholder="VD: Nguyễn Văn Nam"
                 className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
               />
+            </div>
+
+            {/* Custom Color Picker Row */}
+            <div className="space-y-2">
+              <label className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider block">
+                Màu sắc hiển thị ca dạy
+              </label>
+              <div className="flex flex-wrap items-center gap-2.5">
+                {PALETTE.map((c) => {
+                  const isActive = color.toLowerCase() === c.toLowerCase();
+                  return (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => {
+                        setColor(c);
+                        setIsColorCustomized(true);
+                      }}
+                      style={{ backgroundColor: c }}
+                      className={`w-7 h-7 rounded-full transition-all cursor-pointer ${
+                        isActive 
+                          ? 'ring-2 ring-indigo-500 ring-offset-2 dark:ring-offset-slate-900 scale-110 shadow-lg' 
+                          : 'hover:scale-105 opacity-80 hover:opacity-100'
+                      }`}
+                      title={`Chọn màu ${c}`}
+                    />
+                  );
+                })}
+                
+                {/* Custom Color Button */}
+                <button
+                  type="button"
+                  onClick={() => colorInputRef.current?.click()}
+                  style={{
+                    backgroundColor: PALETTE.includes(color.toLowerCase()) ? '#1e293b' : color,
+                    backgroundImage: PALETTE.includes(color.toLowerCase()) 
+                      ? 'linear-gradient(135deg, #f43f5e 0%, #3b82f6 50%, #10b981 100%)' 
+                      : 'none'
+                  }}
+                  className={`w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer border border-slate-700/50 ${
+                    !PALETTE.includes(color.toLowerCase())
+                      ? 'ring-2 ring-indigo-500 ring-offset-2 dark:ring-offset-slate-900 scale-110 shadow-lg'
+                      : 'hover:scale-105'
+                  }`}
+                  title="Màu tùy chỉnh"
+                >
+                  <span className="text-[10px] font-black text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
+                    +
+                  </span>
+                </button>
+                <input
+                  ref={colorInputRef}
+                  type="color"
+                  value={color}
+                  onChange={(e) => {
+                    setColor(e.target.value);
+                    setIsColorCustomized(true);
+                  }}
+                  className="hidden"
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

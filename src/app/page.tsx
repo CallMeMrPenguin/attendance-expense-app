@@ -409,17 +409,19 @@ export default function Dashboard() {
         <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5 mb-14 text-left">
           
           {/* KPI 1 */}
-          <div className="kpi-editorial-card p-6 flex flex-col justify-between min-h-[140px] relative">
-            <div className="pr-14">
-              <span className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-none">
+          <div className="kpi-editorial-card p-6 flex flex-col justify-between min-h-[140px]">
+            <div className="flex justify-between items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 truncate">Ca dạy trong tháng</span>
+              <div className="p-2 rounded-xl bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 shadow-[0_0_12px_rgba(123,97,255,0.3)] shrink-0">
+                <CalendarIcon className="h-4 w-4" />
+              </div>
+            </div>
+            <div className="mt-3">
+              <span className="text-xl sm:text-2xl lg:text-3xl font-black text-white tracking-tight leading-none block truncate" title={String(totalSessions)}>
                 {totalSessions}
               </span>
             </div>
-            <div className="absolute top-6 right-6 p-2.5 rounded-xl bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 shadow-[0_0_16px_rgba(123,97,255,0.45)] shrink-0">
-              <CalendarIcon className="h-4.5 w-4.5" />
-            </div>
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-1.5">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Ca dạy trong tháng</span>
+            <div className="mt-2 flex">
               <span className="text-[10px] font-extrabold text-indigo-300 bg-indigo-500/15 px-2 py-0.5 rounded-md">
                 Tổng ca
               </span>
@@ -427,17 +429,19 @@ export default function Dashboard() {
           </div>
 
           {/* KPI 2 */}
-          <div className="kpi-editorial-card p-6 flex flex-col justify-between min-h-[140px] relative">
-            <div className="pr-14">
-              <span className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-none">
+          <div className="kpi-editorial-card p-6 flex flex-col justify-between min-h-[140px]">
+            <div className="flex justify-between items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 truncate">Ca hoàn thành</span>
+              <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.3)] shrink-0">
+                <CheckCircle2 className="h-4 w-4" />
+              </div>
+            </div>
+            <div className="mt-3">
+              <span className="text-xl sm:text-2xl lg:text-3xl font-black text-white tracking-tight leading-none block truncate" title={String(completedSessions)}>
                 {completedSessions}
               </span>
             </div>
-            <div className="absolute top-6 right-6 p-2.5 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-[0_0_16px_rgba(16,185,129,0.45)] shrink-0">
-              <CheckCircle2 className="h-4.5 w-4.5" />
-            </div>
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-1.5">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Ca hoàn thành</span>
+            <div className="mt-2 flex">
               {totalSessions > 0 && (
                 <span className="text-[10px] font-black text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded-md">
                   ↑ {Math.round((completedSessions / totalSessions) * 100)}%
@@ -447,17 +451,19 @@ export default function Dashboard() {
           </div>
 
           {/* KPI 3 */}
-          <div className="kpi-editorial-card p-6 flex flex-col justify-between min-h-[140px] relative">
-            <div className="pr-14">
-              <span className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-none">
+          <div className="kpi-editorial-card p-6 flex flex-col justify-between min-h-[140px]">
+            <div className="flex justify-between items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 truncate">Thu nhập thực tế</span>
+              <div className="p-2 rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.3)] shrink-0">
+                <Coins className="h-4 w-4" />
+              </div>
+            </div>
+            <div className="mt-3">
+              <span className="text-xl sm:text-2xl lg:text-3xl font-black text-white tracking-tight leading-none block truncate" title={formatVND(earnedIncome)}>
                 {formatVND(earnedIncome)}
               </span>
             </div>
-            <div className="absolute top-6 right-6 p-2.5 rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-[0_0_16px_rgba(245,158,11,0.45)] shrink-0">
-              <Coins className="h-4.5 w-4.5" />
-            </div>
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-1.5">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Thu nhập thực tế</span>
+            <div className="mt-2 flex">
               <span className="text-[10px] font-extrabold text-amber-300 bg-amber-500/15 px-2 py-0.5 rounded-md">
                 Đã dạy
               </span>
@@ -465,17 +471,19 @@ export default function Dashboard() {
           </div>
 
           {/* KPI 4 */}
-          <div className="kpi-editorial-card p-6 flex flex-col justify-between min-h-[140px] relative">
-            <div className="pr-14">
-              <span className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-none">
+          <div className="kpi-editorial-card p-6 flex flex-col justify-between min-h-[140px]">
+            <div className="flex justify-between items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 truncate">Dự kiến thu nhập</span>
+              <div className="p-2 rounded-xl bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 shadow-[0_0_12px_rgba(6,182,212,0.3)] shrink-0">
+                <TrendingUp className="h-4 w-4" />
+              </div>
+            </div>
+            <div className="mt-3">
+              <span className="text-xl sm:text-2xl lg:text-3xl font-black text-white tracking-tight leading-none block truncate" title={formatVND(projectedIncome)}>
                 {formatVND(projectedIncome)}
               </span>
             </div>
-            <div className="absolute top-6 right-6 p-2.5 rounded-xl bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 shadow-[0_0_16px_rgba(6,182,212,0.45)] shrink-0">
-              <TrendingUp className="h-4.5 w-4.5" />
-            </div>
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-1.5">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Dự kiến thu nhập</span>
+            <div className="mt-2 flex">
               <span className="text-[10px] font-extrabold text-cyan-300 bg-cyan-500/15 px-2 py-0.5 rounded-md">
                 Tối đa
               </span>
