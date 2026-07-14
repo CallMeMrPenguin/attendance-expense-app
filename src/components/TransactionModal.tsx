@@ -150,7 +150,7 @@ export default function TransactionModal({
         <div className="relative flex bg-[#090b10] border border-white/5 p-1 rounded-xl w-full mb-5">
           {/* Sliding pill background */}
           <div
-            className={`absolute top-1 bottom-1 rounded-[10px] transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] pointer-events-none ${
+            className={`absolute top-1 bottom-1 rounded-[10px] transition-all duration-200 ease-out pointer-events-none ${
               modalTxType === 'expense'
                 ? 'bg-rose-500 shadow-[0_0_14px_rgba(239,68,68,0.4)]'
                 : modalTxType === 'income'

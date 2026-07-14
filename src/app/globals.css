@@ -4,6 +4,7 @@
 @variant dark (&:where(.dark, .dark *));
 
 :root {
+  color-scheme: dark;
   --background: #06070a;
   --foreground: #f8fafc;
   --primary: #5c36f5;
@@ -23,6 +24,7 @@
 }
 
 .dark {
+  color-scheme: dark;
   --background: #06070a;
   --foreground: #f8fafc;
   --primary: #5c36f5;
@@ -202,7 +204,7 @@ select {
   backdrop-filter: blur(12px) !important;
   -webkit-backdrop-filter: blur(12px) !important;
   box-shadow: 
-    inset 0 0 20px rgba(16, 185, 129, 0.20),
+    inset 0 0 10px rgba(16, 185, 129, 0.12),
     0 12px 30px rgba(0, 0, 0, 0.35), 
     0 0 22px rgba(16, 185, 129, 0.25) !important;
 }
@@ -220,7 +222,7 @@ select {
   backdrop-filter: blur(12px) !important;
   -webkit-backdrop-filter: blur(12px) !important;
   box-shadow: 
-    inset 0 0 20px rgba(239, 68, 68, 0.20),
+    inset 0 0 10px rgba(239, 68, 68, 0.12),
     0 12px 30px rgba(0, 0, 0, 0.35), 
     0 0 22px rgba(239, 68, 68, 0.25) !important;
 }
@@ -238,7 +240,7 @@ select {
   backdrop-filter: blur(12px) !important;
   -webkit-backdrop-filter: blur(12px) !important;
   box-shadow: 
-    inset 0 0 20px rgba(59, 130, 246, 0.20),
+    inset 0 0 10px rgba(59, 130, 246, 0.12),
     0 12px 30px rgba(0, 0, 0, 0.35), 
     0 0 22px rgba(59, 130, 246, 0.25) !important;
 }
@@ -350,33 +352,52 @@ select {
   text-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
 }
 
-/* Highlighted Row Inward Border Glow for Table Rows */
+
+/* Highlighted Row Inward Border Glow for Table Rows (Top and Bottom only, no vertical divisions) */
 .highlight-income-row td {
   border-top: 1px solid rgba(16, 185, 129, 0.25) !important;
   border-bottom: 1px solid rgba(16, 185, 129, 0.25) !important;
-  box-shadow: inset 0 0 16px rgba(16, 185, 129, 0.12) !important;
+  box-shadow: 
+    inset 0 10px 12px -8px rgba(16, 185, 129, 0.15), 
+    inset 0 -10px 12px -8px rgba(16, 185, 129, 0.15) !important;
   transition: all 200ms ease;
 }
 .highlight-income-row td:first-child {
-  border-left: 2px solid rgba(16, 185, 129, 0.75) !important;
-  box-shadow: inset 6px 0 10px -4px rgba(16, 185, 129, 0.25), inset 0 0 16px rgba(16, 185, 129, 0.12) !important;
+  border-left: 2.5px solid rgba(16, 185, 129, 0.8) !important;
+  box-shadow: 
+    inset 0 10px 12px -8px rgba(16, 185, 129, 0.15), 
+    inset 0 -10px 12px -8px rgba(16, 185, 129, 0.15),
+    inset 10px 0 12px -8px rgba(16, 185, 129, 0.22) !important;
 }
 .highlight-income-row td:last-child {
   border-right: 1px solid rgba(16, 185, 129, 0.25) !important;
+  box-shadow: 
+    inset 0 10px 12px -8px rgba(16, 185, 129, 0.15), 
+    inset 0 -10px 12px -8px rgba(16, 185, 129, 0.15),
+    inset -10px 0 12px -8px rgba(16, 185, 129, 0.15) !important;
 }
 
 .highlight-expense-row td {
   border-top: 1px solid rgba(239, 68, 68, 0.25) !important;
   border-bottom: 1px solid rgba(239, 68, 68, 0.25) !important;
-  box-shadow: inset 0 0 16px rgba(239, 68, 68, 0.12) !important;
+  box-shadow: 
+    inset 0 10px 12px -8px rgba(239, 68, 68, 0.15), 
+    inset 0 -10px 12px -8px rgba(239, 68, 68, 0.15) !important;
   transition: all 200ms ease;
 }
 .highlight-expense-row td:first-child {
-  border-left: 2px solid rgba(239, 68, 68, 0.75) !important;
-  box-shadow: inset 6px 0 10px -4px rgba(239, 68, 68, 0.25), inset 0 0 16px rgba(239, 68, 68, 0.12) !important;
+  border-left: 2.5px solid rgba(239, 68, 68, 0.8) !important;
+  box-shadow: 
+    inset 0 10px 12px -8px rgba(239, 68, 68, 0.15), 
+    inset 0 -10px 12px -8px rgba(239, 68, 68, 0.15),
+    inset 10px 0 12px -8px rgba(239, 68, 68, 0.22) !important;
 }
 .highlight-expense-row td:last-child {
   border-right: 1px solid rgba(239, 68, 68, 0.25) !important;
+  box-shadow: 
+    inset 0 10px 12px -8px rgba(239, 68, 68, 0.15), 
+    inset 0 -10px 12px -8px rgba(239, 68, 68, 0.15),
+    inset -10px 0 12px -8px rgba(239, 68, 68, 0.15) !important;
 }
 
 /* Custom dark date picker input & calendar icon */
