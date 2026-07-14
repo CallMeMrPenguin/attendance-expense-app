@@ -100,9 +100,9 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
                 key={day}
                 className={`py-3.5 text-center text-[11px] font-extrabold uppercase tracking-widest flex flex-col items-center justify-center gap-0.5 border-r border-[#28334e] last:border-r-0 transition-all ${
                   cellIsToday 
-                    ? 'ring-2 ring-[#5c36f5] z-10 bg-[#1c2035]/40 shadow-[inset_0_0_15px_rgba(92,54,245,0.15)] text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.9)] font-black' 
+                    ? 'bg-[#1a2032] shadow-[inset_0_0_0_2px_#5c36f5,0_0_12px_rgba(92,54,245,0.4)] z-10 text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.9)] font-black' 
                     : isWeekend 
-                      ? 'text-rose-400 bg-rose-500/[0.01]' 
+                      ? 'text-rose-450 bg-rose-500/[0.01]' 
                       : 'text-slate-300'
                 }`}
               >
