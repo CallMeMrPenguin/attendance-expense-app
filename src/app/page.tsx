@@ -82,6 +82,7 @@ export default function Dashboard() {
   const [heroMonthPickerOpen, setHeroMonthPickerOpen] = useState(false);
   const [teacherDropOpen, setTeacherDropOpen] = useState(false);
   const [heroTeacherDropOpen, setHeroTeacherDropOpen] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [pickerYear, setPickerYear] = useState(() => new Date().getFullYear());
 
 
@@ -104,6 +105,7 @@ export default function Dashboard() {
         setHeroMonthPickerOpen(false);
         setTeacherDropOpen(false);
         setHeroTeacherDropOpen(false);
+        setProfileMenuOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -310,36 +312,44 @@ export default function Dashboard() {
           </div>
 
           {/* Right toolbar profile & actions */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 relative" data-picker>
             <button
-              onClick={() => setPasswordModalOpen(true)}
-              title="Đổi mật khẩu"
-              className="p-2 border border-white/[0.08] hover:border-white/20 hover:bg-white/[0.06] text-slate-300 transition-all rounded-xl cursor-pointer bg-[#090b10]/60"
+              onClick={() => setProfileMenuOpen(o => !o)}
+              className="flex items-center gap-2.5 p-1 px-2.5 hover:bg-white/[0.05] border border-transparent hover:border-white/10 rounded-xl transition-all cursor-pointer text-left select-none"
             >
-              <Key className="h-4 w-4" />
-            </button>
-
-            <button
-              onClick={handleLogout}
-              title="Đăng xuất"
-              className="p-2 border border-red-500/20 hover:bg-red-500/10 hover:border-red-500/40 text-rose-400 transition-all rounded-xl cursor-pointer bg-rose-950/10"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
-
-            <div className="flex items-center border-l border-white/10 pl-3.5 gap-2.5">
-              <div className="h-8.5 w-8.5 bg-indigo-500/20 border border-indigo-500/40 rounded-xl flex items-center justify-center text-indigo-300 font-black text-xs shadow-[0_0_12px_rgba(123,97,255,0.2)]">
+              <div className="h-8.5 w-8.5 bg-indigo-500/20 border border-indigo-500/40 rounded-xl flex items-center justify-center text-indigo-300 font-black text-xs shadow-[0_0_12px_rgba(123,97,255,0.2)] shrink-0">
                 {currentUser.teacherName.charAt(0).toUpperCase()}
               </div>
-              <div className="hidden sm:flex flex-col text-left">
+              <div className="hidden sm:flex flex-col">
                 <span className="text-xs font-extrabold text-white leading-tight">
                   {currentUser.teacherName}
                 </span>
-                <span className="text-[9px] font-black text-indigo-400/80 uppercase tracking-widest leading-none">
+                <span className="text-[9px] font-black text-indigo-400/80 uppercase tracking-widest leading-none flex items-center gap-1">
                   {currentUser.role === 'admin' ? 'Admin' : 'User'}
+                  <ChevronDown className="h-2.5 w-2.5 text-slate-400" />
                 </span>
               </div>
-            </div>
+            </button>
+
+            {profileMenuOpen && (
+              <div className="absolute right-0 top-full mt-2 z-[200] w-48 bg-[#0d1018] border border-white/10 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.8)] overflow-hidden backdrop-blur-xl">
+                <button
+                  onClick={() => { setPasswordModalOpen(true); setProfileMenuOpen(false); }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-slate-300 hover:bg-white/[0.05] hover:text-white transition-colors cursor-pointer text-left"
+                >
+                  <Key className="h-4 w-4 text-indigo-400 shrink-0" />
+                  <span>Đổi mật khẩu</span>
+                </button>
+                <div className="border-t border-white/5" />
+                <button
+                  onClick={() => { handleLogout(); setProfileMenuOpen(false); }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-colors cursor-pointer text-left"
+                >
+                  <LogOut className="h-4 w-4 text-rose-400 shrink-0" />
+                  <span>Đăng xuất</span>
+                </button>
+              </div>
+            )}
           </div>
         </header>
 
@@ -642,6 +652,12 @@ export default function Dashboard() {
         session={selectedSession}
         existingSessions={sessions}
         onSave={fetchSessions}
+        onSwitchSession={(id) => {
+          const matched = sessions.find((s) => s.id === id);
+          if (matched) {
+            setSelectedSession(matched);
+          }
+        }}
       />
 
       {currentUser.role === 'admin' && (

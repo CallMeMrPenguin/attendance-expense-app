@@ -30,6 +30,7 @@ interface EditSessionModalProps {
   session: Session | null;
   existingSessions: Session[];
   onSave: () => void;
+  onSwitchSession?: (id: string) => void;
 }
 
 interface SiblingCheck {
@@ -52,6 +53,7 @@ export default function EditSessionModal({
   session,
   existingSessions,
   onSave,
+  onSwitchSession,
 }: EditSessionModalProps) {
   const [studentName, setStudentName] = useState('');
   const [price, setPrice] = useState('');
@@ -648,25 +650,36 @@ export default function EditSessionModal({
                   {siblings.map((sib) => {
                     const isCurrent = sib.id === session.id;
                     return (
-                      <label
+                      <div
                         key={sib.id}
-                        className={`flex items-center gap-2.5 cursor-pointer p-2 rounded-xl transition-all border ${
+                        className={`flex items-center justify-between gap-2.5 p-2 rounded-xl border ${
                           isCurrent
                             ? 'bg-indigo-50/40 dark:bg-indigo-950/25 border-indigo-150 dark:border-indigo-900/40'
                             : 'bg-slate-50/40 dark:bg-slate-950/20 border-slate-200/50 dark:border-slate-850 hover:bg-slate-50 dark:hover:bg-slate-800'
                         }`}
                       >
-                        <input
-                          type="checkbox"
-                          checked={sib.checked}
-                          onChange={(e) => handleSiblingCheck(sib.id, e.target.checked)}
-                          className="h-4 w-4 rounded border-slate-350 dark:border-slate-700 text-indigo-650 focus:ring-indigo-500 cursor-pointer"
-                        />
-                        <span className={`text-xs font-semibold ${isCurrent ? 'text-indigo-950 dark:text-indigo-300 font-bold' : 'text-slate-700 dark:text-slate-300'}`}>
-                          {formatDateVN(sib.date)} ({formatCleanTimeString(sib.time)} - {getEndTime(sib.time, sib.duration)})
-                          {isCurrent ? ' (Đang mở)' : ''}
-                        </span>
-                      </label>
+                        <label className="flex items-center gap-2.5 cursor-pointer flex-grow overflow-hidden">
+                          <input
+                            type="checkbox"
+                            checked={sib.checked}
+                            onChange={(e) => handleSiblingCheck(sib.id, e.target.checked)}
+                            className="h-4 w-4 rounded border-slate-350 dark:border-slate-700 text-indigo-650 focus:ring-indigo-500 cursor-pointer"
+                          />
+                          <span className={`text-xs font-semibold truncate ${isCurrent ? 'text-indigo-950 dark:text-indigo-300 font-bold' : 'text-slate-700 dark:text-slate-300'}`}>
+                            {formatDateVN(sib.date)} ({formatCleanTimeString(sib.time)} - {getEndTime(sib.time, sib.duration)})
+                            {isCurrent ? ' (Đang mở)' : ''}
+                          </span>
+                        </label>
+                        {!isCurrent && onSwitchSession && (
+                          <button
+                            type="button"
+                            onClick={() => onSwitchSession(sib.id)}
+                            className="text-[10px] font-black text-indigo-500 hover:text-indigo-600 bg-indigo-500/10 hover:bg-indigo-500/20 px-2 py-1 rounded-lg transition-colors cursor-pointer select-none whitespace-nowrap"
+                          >
+                            Chi tiết
+                          </button>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
