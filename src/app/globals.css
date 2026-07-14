@@ -68,9 +68,9 @@
   --radius-sm: 8px;
 }
 
-/* Target specific interactive controls for smooth transitions without global wildcard layout thrashing */
-nav, button, select, input, a, .kpi-editorial-card, .event-float {
-  transition: background-color 200ms cubic-bezier(0.16, 1, 0.3, 1), border-color 200ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 200ms cubic-bezier(0.16, 1, 0.3, 1), transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
+/* Targeted interactive component transitions for fast 60FPS rendering */
+.kpi-editorial-card, .event-float, .btn-interactive {
+  transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
 }
 
 body {

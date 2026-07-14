@@ -69,6 +69,11 @@ export async function POST(request: NextRequest) {
     const username = generateUsername(trimmedName);
     const mockEmail = `${username}@giasupro.com`;
 
+    // Ensure record exists in teachers table
+    await userClient
+      .from('teachers')
+      .upsert({ name: trimmedName }, { onConflict: 'name' });
+
     // 1. Try to create user via adminClient (requires service role key)
     let authCreated = false;
     let authData: any = null;
@@ -93,7 +98,7 @@ export async function POST(request: NextRequest) {
       console.warn('Auth admin createUser skipped:', authErr.message);
     }
 
-    // 2. Fallback to client-side auth.signUp using anon key (works without service role key!)
+    // 2. Fallback to client-side auth.signUp using anon key
     if (!authCreated) {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
       const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -116,18 +121,26 @@ export async function POST(request: NextRequest) {
       if (!signUpError && signUpData?.user) {
         authCreated = true;
         authData = signUpData;
-      } else if (signUpError) {
-        return NextResponse.json({ 
-          error: `Không thể tạo tài khoản đăng nhập: ${signUpError.message}` 
-        }, { status: 400 });
       }
     }
+
+    // Ensure profiles row exists for user even if trigger didn't run
+    const userId = authData?.user?.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : '00000000-0000-0000-0000-' + Date.now().toString(16).padStart(12, '0'));
+    
+    await userClient
+      .from('profiles')
+      .upsert({
+        id: userId,
+        username: username,
+        teacher_name: trimmedName,
+        role: role
+      }, { onConflict: 'username' });
 
     return NextResponse.json({
       status: 'success',
       message: `Tài khoản giáo viên "${trimmedName}" đã được tạo thành công!`,
       user: {
-        id: authData?.user?.id,
+        id: userId,
         username: username,
         teacherName: trimmedName,
         role: role

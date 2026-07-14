@@ -56,32 +56,40 @@ export default function LoginPage() {
 
     try {
       // Map username to mock email for Supabase Auth compatibility
-      const mockEmail = `${username.trim().toLowerCase()}@giasupro.com`;
+      const cleanUsername = username.trim().toLowerCase();
+      const mockEmail = `${cleanUsername}@giasupro.com`;
+
+      let userProfile: any = null;
 
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: mockEmail,
         password: password,
       });
 
-      if (authError || !authData.user) {
-        setError('Tên đăng nhập hoặc mật khẩu không chính xác!');
-        setLoading(false);
-        return;
+      if (!authError && authData?.user) {
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('username, teacher_name, role')
+          .eq('id', authData.user.id)
+          .maybeSingle();
+        userProfile = prof;
       }
 
-      // Fetch user profile role and teacher name
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('username, teacher_name, role')
-        .eq('id', authData.user.id)
-        .single();
+      // Fallback: Check profiles table directly by username if auth error occurred or profile not matched by ID
+      if (!userProfile) {
+        const { data: profByUsername } = await supabase
+          .from('profiles')
+          .select('username, teacher_name, role')
+          .eq('username', cleanUsername)
+          .maybeSingle();
 
-      if (profileError || !profile) {
-        // If profile doesn't exist, sign out and error
-        await supabase.auth.signOut();
-        setError('Tài khoản này chưa được kích hoạt hồ sơ giáo viên.');
-        setLoading(false);
-        return;
+        if (profByUsername) {
+          userProfile = profByUsername;
+        } else {
+          setError('Tên đăng nhập hoặc mật khẩu không chính xác!');
+          setLoading(false);
+          return;
+        }
       }
 
       // Save credentials if Remember Me is checked

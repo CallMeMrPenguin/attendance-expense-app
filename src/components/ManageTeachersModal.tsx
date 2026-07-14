@@ -60,35 +60,35 @@ export default function ManageTeachersModal({
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // 1. Fetch teacher profiles ONCE when modal is opened
-  useEffect(() => {
-    if (!isOpen) return;
-    
-    const fetchProfiles = async () => {
-      setLoading(true);
-      setError('');
-      try {
-        const { data, error: dbError } = await supabase
-          .from('profiles')
-          .select('username, teacher_name, role');
-          
-        if (!dbError && data) {
-          const profileMap: Record<string, TeacherProfile> = {};
-          data.forEach((p: any) => {
-            profileMap[p.teacher_name] = p;
-          });
-          setTeacherProfiles(profileMap);
-        } else if (dbError) {
-          throw dbError;
-        }
-      } catch (err: any) {
-        setError('Không thể tải hồ sơ tài khoản: ' + err.message);
-      } finally {
-        setLoading(false);
+  // 1. Fetch teacher profiles helper
+  const fetchProfiles = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const { data, error: dbError } = await supabase
+        .from('profiles')
+        .select('username, teacher_name, role');
+        
+      if (!dbError && data) {
+        const profileMap: Record<string, TeacherProfile> = {};
+        data.forEach((p: any) => {
+          profileMap[p.teacher_name] = p;
+        });
+        setTeacherProfiles(profileMap);
+      } else if (dbError) {
+        throw dbError;
       }
-    };
+    } catch (err: any) {
+      setError('Không thể tải hồ sơ tài khoản: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    fetchProfiles();
+  useEffect(() => {
+    if (isOpen) {
+      fetchProfiles();
+    }
   }, [isOpen]);
 
   // 2. Sync inputs when selected teacher changes (No network calls, pure local state updates)
@@ -235,9 +235,10 @@ export default function ManageTeachersModal({
       setNewTeacherPassword('123456');
       setShowAddForm(false);
       
-      // Refresh list
+      // Refresh teacher list in page.tsx and re-fetch local modal profiles
       onTeacherUpdated(newTeacherName.trim());
       setSelectedTeacher(newTeacherName.trim());
+      await fetchProfiles();
       setTimeout(() => setSuccess(''), 2500);
     } catch (err: any) {
       setError(err.message);
