@@ -487,143 +487,45 @@ export default function EditSessionModal({
             </div>
           )}
 
-          {/* Block 1: Basic Information */}
-          <div className="space-y-4">
-            <div className="space-y-1.5">
-              <label htmlFor="editStudentName" className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
-                Tên học sinh *
-              </label>
-              <input
-                id="editStudentName"
-                type="text"
-                required
-                value={studentName}
-                onChange={(e) => setStudentName(e.target.value)}
-                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label htmlFor="editDay" className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
-                  Thứ trong tuần *
-                </label>
-                <select
-                  id="editDay"
-                  value={dayOfWeek}
-                  onChange={(e) => handleActiveDayTimeDurationChange(e.target.value, time, duration)}
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500"
-                >
-                  {DAYS.map((d) => (
-                    <option key={d} value={d} className="dark:bg-slate-950">{d}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label htmlFor="editTime" className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
-                  Giờ học *
-                </label>
-                <input
-                  id="editTime"
-                  type="time"
-                  required
-                  value={time}
-                  onChange={(e) => handleActiveDayTimeDurationChange(dayOfWeek, e.target.value, duration)}
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-bold focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label htmlFor="editDuration" className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
-                  Số giờ dạy *
-                </label>
-                <input
-                  id="editDuration"
-                  type="number"
-                  step="0.5"
-                  required
-                  value={duration}
-                  onChange={(e) => handleActiveDayTimeDurationChange(dayOfWeek, time, parseFloat(e.target.value) || 1.5)}
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label htmlFor="editPrice" className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
-                  Học phí/buổi *
-                </label>
-                <input
-                  id="editPrice"
-                  type="number"
-                  step="10000"
-                  required
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label htmlFor="editStatus" className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
-                  Trạng thái *
-                </label>
-                <select
-                  id="editStatus"
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500"
-                >
-                  <option value="Chưa dạy">Chưa dạy</option>
-                  <option value="Đã dạy">Đã dạy</option>
-                  <option value="Hủy">Đã Hủy / Nghỉ</option>
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label htmlFor="editGrade" className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
-                  Điểm số
-                </label>
-                <input
-                  id="editGrade"
-                  type="text"
-                  value={grade}
-                  onChange={(e) => setGrade(e.target.value)}
-                  placeholder="VD: 9/10"
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <label htmlFor="editHomework" className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
-                Bài tập về nhà
-              </label>
-              <input
-                id="editHomework"
-                type="text"
-                value={homework}
-                onChange={(e) => setHomework(e.target.value)}
-                placeholder="Nội dung bài tập..."
-                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label htmlFor="editNote" className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
-                Nhận xét & Ghi chú
-              </label>
-              <textarea
-                id="editNote"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="Nhập ghi chú buổi học..."
-                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm min-h-[80px] resize-y focus:outline-none focus:border-indigo-500"
-              />
+          {/* Block 0: Status Function Buttons (chua day-da hoc-nghi) */}
+          <div className="space-y-1.5 pb-2 border-b border-slate-100 dark:border-slate-800">
+            <label className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider block">
+              Trạng thái ca dạy *
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setStatus('Chưa dạy')}
+                className={`py-2.5 px-3 text-xs font-bold rounded-xl border text-center transition-all cursor-pointer ${
+                  status === 'Chưa dạy'
+                    ? 'bg-indigo-600 hover:bg-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-400 text-white border-indigo-600 dark:border-indigo-500 shadow-md font-extrabold'
+                    : 'bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-850 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-800'
+                }`}
+              >
+                Chưa dạy
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatus('Đã dạy')}
+                className={`py-2.5 px-3 text-xs font-bold rounded-xl border text-center transition-all cursor-pointer ${
+                  status === 'Đã dạy'
+                    ? 'bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white border-emerald-600 dark:border-emerald-500 shadow-md font-extrabold'
+                    : 'bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-850 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-800'
+                }`}
+              >
+                Đã học
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatus('Hủy')}
+                className={`py-2.5 px-3 text-xs font-bold rounded-xl border text-center transition-all cursor-pointer ${
+                  status === 'Hủy'
+                    ? 'bg-rose-600 hover:bg-rose-500 dark:bg-rose-500 dark:hover:bg-rose-450 text-white border-rose-600 dark:border-rose-500 shadow-md font-extrabold'
+                    : 'bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-850 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-800'
+                }`}
+              >
+                Nghỉ
+              </button>
             </div>
           </div>
 
@@ -724,9 +626,9 @@ export default function EditSessionModal({
                             type="checkbox"
                             checked={config.checked}
                             onChange={(e) => handleRecurringCheck(day, e.target.checked)}
-                            className="h-3.5 w-3.5 rounded border-slate-350 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500"
+                            className="h-3.5 w-3.5 rounded border-slate-350 dark:border-slate-700 text-indigo-650 focus:ring-indigo-500"
                           />
-                          <span className={config.checked ? 'text-indigo-900 dark:text-indigo-300' : 'text-slate-550 dark:text-slate-450'}>
+                          <span className={config.checked ? 'text-indigo-900 dark:text-indigo-300' : 'text-slate-550 dark:text-slate-455'}>
                             {day}
                           </span>
                         </label>
@@ -757,6 +659,114 @@ export default function EditSessionModal({
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Block 1: Basic Information */}
+          <div className="space-y-4 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <div className="space-y-1.5">
+              <label htmlFor="editStudentName" className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
+                Tên học sinh *
+              </label>
+              <input
+                id="editStudentName"
+                type="text"
+                required
+                value={studentName}
+                onChange={(e) => setStudentName(e.target.value)}
+                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label htmlFor="editDay" className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
+                  Thứ trong tuần *
+                </label>
+                <select
+                  id="editDay"
+                  value={dayOfWeek}
+                  onChange={(e) => handleActiveDayTimeDurationChange(e.target.value, time, duration)}
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500"
+                >
+                  {DAYS.map((d) => (
+                    <option key={d} value={d} className="dark:bg-slate-950">{d}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="editTime" className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
+                  Giờ học *
+                </label>
+                <input
+                  id="editTime"
+                  type="time"
+                  required
+                  value={time}
+                  onChange={(e) => handleActiveDayTimeDurationChange(dayOfWeek, e.target.value, duration)}
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-bold focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label htmlFor="editDuration" className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
+                  Số giờ dạy *
+                </label>
+                <input
+                  id="editDuration"
+                  type="number"
+                  step="0.5"
+                  required
+                  value={duration}
+                  onChange={(e) => handleActiveDayTimeDurationChange(dayOfWeek, time, parseFloat(e.target.value) || 1.5)}
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="editPrice" className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
+                  Học phí/buổi *
+                </label>
+                <input
+                  id="editPrice"
+                  type="number"
+                  step="10000"
+                  required
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label htmlFor="editGrade" className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
+                Điểm số
+              </label>
+              <input
+                id="editGrade"
+                type="text"
+                value={grade}
+                onChange={(e) => setGrade(e.target.value)}
+                placeholder="VD: 9/10"
+                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label htmlFor="editNote" className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
+                Nhận xét & Ghi chú
+              </label>
+              <textarea
+                id="editNote"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Nhập ghi chú buổi học..."
+                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm min-h-[80px] resize-y focus:outline-none focus:border-indigo-500"
+              />
+            </div>
           </div>
         </div>
 
