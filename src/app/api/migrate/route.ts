@@ -26,6 +26,25 @@ async function verifyAdmin(request: NextRequest) {
   return getSupabaseAdmin();
 }
 
+// Direct purge and cleanup endpoint
+export async function GET() {
+  try {
+    const adminClient = getSupabaseAdmin();
+    
+    // Purge Giáo Viên 1 records
+    await adminClient.from('sessions').delete().eq('teacher_name', 'Giáo Viên 1');
+    await adminClient.from('profiles').delete().eq('teacher_name', 'Giáo Viên 1');
+    await adminClient.from('teachers').delete().eq('name', 'Giáo Viên 1');
+    
+    // Normalize role 'teacher' -> 'user'
+    await adminClient.from('profiles').update({ role: 'user' }).eq('role', 'teacher');
+
+    return NextResponse.json({ status: 'success', message: 'Legacy records purged and roles normalized successfully!' });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const adminClient = await verifyAdmin(request);

@@ -12,9 +12,13 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     username text UNIQUE NOT NULL,
     teacher_name text REFERENCES public.teachers(name) ON UPDATE CASCADE ON DELETE CASCADE NOT NULL,
-    role text NOT NULL CHECK (role IN ('admin', 'teacher')),
+    role text NOT NULL CHECK (role IN ('admin', 'user')),
     created_at timestamp with time zone DEFAULT now() NOT NULL
 );
+
+-- Fix check constraint if table previously had 'teacher' role in check constraint
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_role_check CHECK (role IN ('admin', 'user'));
 
 -- 4. Create sessions table
 CREATE TABLE IF NOT EXISTS public.sessions (
@@ -62,36 +66,44 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 7. Policies for teachers table
+-- 7. Policies for teachers table (Idempotent DROP before CREATE)
+DROP POLICY IF EXISTS select_teachers ON public.teachers;
 CREATE POLICY select_teachers ON public.teachers 
     FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS write_teachers ON public.teachers;
 CREATE POLICY write_teachers ON public.teachers 
     FOR ALL TO authenticated USING (public.is_admin());
 
--- 8. Policies for profiles table
+-- 8. Policies for profiles table (Idempotent DROP before CREATE)
+DROP POLICY IF EXISTS select_profiles ON public.profiles;
 CREATE POLICY select_profiles ON public.profiles 
     FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS write_profiles ON public.profiles;
 CREATE POLICY write_profiles ON public.profiles 
     FOR ALL TO authenticated USING (public.is_admin());
 
--- 9. Policies for sessions table
+-- 9. Policies for sessions table (Idempotent DROP before CREATE)
+DROP POLICY IF EXISTS select_sessions ON public.sessions;
 CREATE POLICY select_sessions ON public.sessions 
     FOR SELECT TO authenticated USING (
         public.is_admin() OR (teacher_name = public.get_teacher_name())
     );
 
+DROP POLICY IF EXISTS insert_sessions ON public.sessions;
 CREATE POLICY insert_sessions ON public.sessions 
     FOR INSERT TO authenticated WITH CHECK (
         public.is_admin() OR (teacher_name = public.get_teacher_name())
     );
 
+DROP POLICY IF EXISTS update_sessions ON public.sessions;
 CREATE POLICY update_sessions ON public.sessions 
     FOR UPDATE TO authenticated USING (
         public.is_admin() OR (teacher_name = public.get_teacher_name())
     );
 
+DROP POLICY IF EXISTS delete_sessions ON public.sessions;
 CREATE POLICY delete_sessions ON public.sessions 
     FOR DELETE TO authenticated USING (
         public.is_admin() OR (teacher_name = public.get_teacher_name())
@@ -116,13 +128,24 @@ BEGIN
 
   -- Insert profile
   INSERT INTO public.profiles (id, username, teacher_name, role)
-  VALUES (new.id, u_name, t_name, u_role);
+  VALUES (new.id, u_name, t_name, u_role)
+  ON CONFLICT (id) DO UPDATE SET
+    username = EXCLUDED.username,
+    teacher_name = EXCLUDED.teacher_name,
+    role = EXCLUDED.role;
 
   RETURN new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Trigger execution
-CREATE OR REPLACE TRIGGER on_auth_user_created
+-- Trigger execution (Idempotent DROP before CREATE)
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- 11. Purge legacy 'Giáo Viên 1' and normalize legacy 'teacher' role to 'user'
+DELETE FROM public.teachers WHERE name = 'Giáo Viên 1';
+DELETE FROM public.profiles WHERE teacher_name = 'Giáo Viên 1';
+DELETE FROM public.sessions WHERE teacher_name = 'Giáo Viên 1';
+UPDATE public.profiles SET role = 'user' WHERE role = 'teacher';
