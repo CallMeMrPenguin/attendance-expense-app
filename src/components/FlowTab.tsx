@@ -29,7 +29,8 @@ import {
   ChevronRight,
   ChevronDown,
   Filter,
-  X
+  X,
+  Sparkles
 } from 'lucide-react';
 import { formatVND, Session, formatDateVN } from '@/lib/utils';
 import CustomDatePicker from './CustomDatePicker';
@@ -532,50 +533,71 @@ export default function FlowTab({
     );
   };
 
+  // Projected income calculation (Realized income + pending/expected items in selected months)
+  const projectedIncome = React.useMemo(() => {
+    const manualInc = manualTransactions
+      .filter(t => t.type === 'income' && isTxInSelectedMonths(t, chartSelectedMonths))
+      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+
+    const sessionInc = sessions
+      .filter(s => s.status !== 'Hủy' && chartSelectedMonths.includes(s.month_year))
+      .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+
+    return manualInc + sessionInc;
+  }, [manualTransactions, sessions, chartSelectedMonths, isTxInSelectedMonths]);
+
   return (
-    <div className="space-y-6 animate-mac-dropdown text-left">
-      {/* Header Title */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex flex-col">
+    <div className="space-y-6 animate-mac-dropdown">
+      {/* Upper Action Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-white/5 pb-4 select-none">
+        <div className="flex flex-col text-left">
           <h2 className="text-2xl font-black text-white text-glow-white tracking-tight">Sổ Nhật Ký Dòng Tiền</h2>
-          <p className="text-slate-400 text-xs font-semibold">Liệt kê tất cả các khoản chi tiêu và nguồn thu nhập thực tế trong bộ lọc tháng.</p>
+          <p className="text-slate-400 text-xs font-semibold mt-0.5">Theo dõi doanh thu, chi phí, lập ngân sách thu chi theo danh mục & thặng dư</p>
         </div>
-        
-        <div className="flex items-center gap-3">
-          {/* Month picker using schedule view style */}
+
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Multi-Month Picker */}
           <div className="relative" data-picker>
             <button
-              onClick={() => {
-                setMonthPickerOpen(o => !o);
-                const firstMonth = chartSelectedMonths[0] || '';
-                if (firstMonth) setPickerYear(parseInt(firstMonth.split('-')[0]));
-              }}
-              className="flex items-center gap-2 bg-[#121624] border border-white/10 hover:border-indigo-500/40 text-white text-[11px] font-bold rounded-xl px-3.5 py-1.5 cursor-pointer transition-all shadow-lg"
+              onClick={() => setMonthPickerOpen(o => !o)}
+              className="flex items-center gap-2 bg-[#121624] border border-white/10 hover:border-indigo-500/40 text-white text-xs font-bold rounded-xl px-3.5 py-2 cursor-pointer transition-all shadow-lg"
             >
               <CalendarIcon className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
-              <span className="font-black">
+              <span>
                 {chartSelectedMonths.length === 1 
-                  ? (() => {
-                      const [y, m] = chartSelectedMonths[0].split('-');
-                      return `${['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6','Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'][parseInt(m)-1]} ${y}`;
-                    })()
-                  : `${chartSelectedMonths.length} tháng đã chọn`
+                  ? `Tháng ${chartSelectedMonths[0].split('-')[1]}/${chartSelectedMonths[0].split('-')[0]}` 
+                  : `${chartSelectedMonths.length} tháng được chọn`
                 }
               </span>
               <ChevronDown className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-200 ${monthPickerOpen ? 'rotate-180' : ''}`} />
             </button>
+
             {monthPickerOpen && (
-              <div className="absolute top-full mt-2 right-0 z-[200] w-64 bg-[#0d1018] border border-white/10 rounded-[14px] shadow-[0_20px_60px_rgba(0,0,0,0.8)] p-4 backdrop-blur-xl animate-mac-dropdown origin-top-right">
-                <div className="flex items-center justify-between mb-3">
-                  <button onClick={() => setPickerYear(y => y - 1)} className="p-1.5 rounded-lg hover:bg-white/[0.06] text-slate-400 hover:text-white transition-colors cursor-pointer"><ChevronLeft className="h-4 w-4" /></button>
-                  <span className="text-sm font-black text-white">{pickerYear}</span>
-                  <button onClick={() => setPickerYear(y => y + 1)} className="p-1.5 rounded-lg hover:bg-white/[0.06] text-slate-400 hover:text-white transition-colors cursor-pointer"><ChevronRight className="h-4 w-4" /></button>
+              <div className="absolute top-full mt-2 right-0 z-50 bg-[#0d1018]/95 border border-white/10 rounded-2xl p-3 shadow-2xl backdrop-blur-xl w-64 animate-mac-dropdown">
+                <div className="flex items-center justify-between border-b border-white/5 pb-2 mb-2">
+                  <span className="text-xs font-black text-slate-300">Chọn Tháng So Sánh</span>
+                  <div className="flex items-center gap-1">
+                    <button 
+                      onClick={() => setPickerYear(y => y - 1)}
+                      className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </button>
+                    <span className="text-xs font-bold text-indigo-400">{pickerYear}</span>
+                    <button 
+                      onClick={() => setPickerYear(y => y + 1)}
+                      className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                    >
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
+
                 <div className="grid grid-cols-3 gap-1.5">
-                  {['Th.1','Th.2','Th.3','Th.4','Th.5','Th.6','Th.7','Th.8','Th.9','Th.10','Th.11','Th.12'].map((mn, i) => {
-                    const val = `${pickerYear}-${String(i + 1).padStart(2, '0')}`;
+                  {['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12'].map((mn, i) => {
+                    const mNum = String(i + 1).padStart(2, '0');
+                    const val = `${pickerYear}-${mNum}`;
                     const isActive = chartSelectedMonths.includes(val);
-                    
                     const currentDate = new Date();
                     const curY = currentDate.getFullYear();
                     const curM = currentDate.getMonth() + 1;
@@ -605,7 +627,7 @@ export default function FlowTab({
 
           <button
             onClick={() => handleOpenTxModal('expense')}
-            className="flex items-center gap-2 px-4 py-1.5 bg-[#5c36f5] hover:bg-[#7351f7] text-white font-extrabold text-[11px] rounded-xl cursor-pointer transition-all hover:scale-[1.02] shadow-[0_0_12px_rgba(92,54,245,0.45)] hover:shadow-[0_0_18px_rgba(92,54,245,0.65)]"
+            className="flex items-center gap-2 px-4 py-2 bg-[#5c36f5] hover:bg-[#7351f7] text-white font-extrabold text-xs rounded-xl cursor-pointer transition-all hover:scale-[1.02] shadow-[0_0_12px_rgba(92,54,245,0.45)] hover:shadow-[0_0_18px_rgba(92,54,245,0.65)]"
           >
             <Plus className="h-3.5 w-3.5" />
             <span>Thêm Giao Dịch</span>
@@ -613,13 +635,31 @@ export default function FlowTab({
         </div>
       </div>
 
-      {/* Overall Value Cards (Glow UI - Specialized colors) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Income overall card */}
+      {/* Overall Value Cards (Glow UI - 4 Cards: Thu Nhập Dự Kiến, Thu Nhập, Chi Tiêu, Thặng Dư) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
+        {/* Card 1: Projected Income (Purple Theme) */}
+        <div className="kpi-card-purple p-6 flex flex-col justify-between min-h-[120px] text-left">
+          <div className="flex justify-between items-start gap-2">
+            <div className="space-y-1 flex-1 min-w-0">
+              <span className="text-[10px] font-black text-purple-400 text-glow-purple uppercase tracking-widest block">Thu Nhập Dự Kiến</span>
+              <span className="text-xl font-black text-purple-400 text-glow-purple tracking-tight block">{formatVND(projectedIncome)}</span>
+              <div className="flex items-center gap-1 select-none">
+                <span className="text-[9px] font-black text-purple-300/80">
+                  Dự kiến theo lịch trình
+                </span>
+              </div>
+            </div>
+            <div className="p-2 bg-purple-500/10 text-purple-400 border border-purple-500/30 rounded-xl shadow-[0_0_12px_rgba(168,85,247,0.35)] shrink-0">
+              <Sparkles className="h-5 w-5" />
+            </div>
+          </div>
+        </div>
+
+        {/* Card 2: Income overall card */}
         <div className="kpi-card-green p-6 flex flex-col justify-between min-h-[120px] text-left">
           <div className="flex justify-between items-start gap-2">
             <div className="space-y-1 flex-1 min-w-0">
-              <span className="text-[10px] font-black text-emerald-400 text-glow-green uppercase tracking-widest block">Tổng Thu Nhập</span>
+              <span className="text-[10px] font-black text-emerald-400 text-glow-green uppercase tracking-widest block">Thu Nhập</span>
               <span className="text-xl font-black text-emerald-400 text-glow-green tracking-tight block">{formatVND(totalIncome)}</span>
               {/* MoM Comparison */}
               <div className="flex items-center gap-1 select-none">
@@ -636,11 +676,11 @@ export default function FlowTab({
           </div>
         </div>
 
-        {/* Expense overall card */}
+        {/* Card 3: Expense overall card */}
         <div className="kpi-card-red p-6 flex flex-col justify-between min-h-[120px] text-left">
           <div className="flex justify-between items-start gap-2">
             <div className="space-y-1 flex-1 min-w-0">
-              <span className="text-[10px] font-black text-rose-500 text-glow-red uppercase tracking-widest block">Tổng Chi Tiêu</span>
+              <span className="text-[10px] font-black text-rose-500 text-glow-red uppercase tracking-widest block">Chi Tiêu</span>
               <span className="text-xl font-black text-rose-500 text-glow-red tracking-tight block">{formatVND(totalExpense)}</span>
               {/* MoM Comparison */}
               <div className="flex items-center gap-1 select-none">
@@ -657,11 +697,11 @@ export default function FlowTab({
           </div>
         </div>
 
-        {/* Net overall card */}
+        {/* Card 4: Net overall card */}
         <div className="kpi-card-blue p-6 flex flex-col justify-between min-h-[120px] text-left">
           <div className="flex justify-between items-start gap-2">
             <div className="space-y-1 flex-1 min-w-0">
-              <span className="text-[10px] font-black text-blue-400 text-glow-blue uppercase tracking-widest block">Tổng Thặng Dư</span>
+              <span className="text-[10px] font-black text-blue-400 text-glow-blue uppercase tracking-widest block">Thặng Dư</span>
               <span className="text-xl font-black text-blue-400 text-glow-blue tracking-tight block">{formatVND(netValue)}</span>
               {/* MoM Comparison */}
               <div className="flex items-center gap-1 select-none">
