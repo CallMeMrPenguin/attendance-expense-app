@@ -127,14 +127,14 @@ export default function CalendarMonthView({
       <div className="glowing-timeline-bar w-full" />
       
       {/* Weekday Headers */}
-      <div className="grid grid-cols-7 bg-[#0b0d14]/80 border-b border-white/[0.08] select-none">
+      <div className="grid grid-cols-7 bg-[#1a2032] border-b border-[#2a3550] select-none">
         {DAYS.map((day, idx) => {
           const isWeekend = idx === 5 || idx === 6;
           return (
             <div
               key={day}
               className={`py-4 text-center text-[11px] font-extrabold uppercase tracking-widest ${
-                isWeekend ? 'text-rose-400/80 bg-rose-500/[0.015]' : 'text-slate-400'
+                isWeekend ? 'text-rose-400 bg-rose-500/[0.03]' : 'text-slate-300'
               }`}
             >
               {day}
@@ -143,14 +143,14 @@ export default function CalendarMonthView({
         })}
       </div>
 
-      {/* Days Grid - Cell borders set to bg-white/[0.07] for crisp visibility */}
-      <div className="grid grid-cols-7 gap-[1px] bg-white/[0.07]">
+      {/* Days Grid - Distinct cell divider lines (#28334e) */}
+      <div className="grid grid-cols-7 gap-[1px] bg-[#28334e]">
         {cells.map((cell) => {
           if (!cell.inMonth) {
             return (
               <div 
                 key={`empty-${cell.index}`} 
-                className="bg-[#08090f]/70 min-h-[155px]" 
+                className="bg-[#101420] min-h-[155px]" 
               />
             );
           }
@@ -167,27 +167,27 @@ export default function CalendarMonthView({
           return (
             <div
               key={`day-${dayNum}`}
-              className={`bg-[#0d1017] min-h-[160px] p-3 transition-all flex flex-col gap-2 relative ${
+              className={`min-h-[160px] p-3 transition-all flex flex-col gap-2 relative ${
                 cellIsToday 
-                  ? 'ring-1 ring-indigo-500/70 z-10 bg-indigo-500/[0.06]' 
+                  ? 'bg-[#1f2042] ring-2 ring-[#7b61ff] z-10 shadow-[inset_0_0_20px_rgba(123,97,255,0.25)]' 
                   : cell.isWeekend 
-                    ? 'bg-[#0b0d14]/60' 
-                    : 'hover:bg-[#121622]'
+                    ? 'bg-[#121622]' 
+                    : 'bg-[#151b2a] hover:bg-[#1c2438]'
               }`}
             >
               {/* Day Number */}
               <div className="flex justify-between items-center shrink-0 select-none">
                 <span
-                  className={`text-[12px] font-black font-sans rounded-full flex items-center justify-center h-6 w-6 ${
+                  className={`text-[12px] font-black font-sans rounded-full flex items-center justify-center h-6.5 w-6.5 ${
                     cellIsToday
-                      ? 'bg-[#7b61ff] text-white shadow-[0_0_14px_rgba(123,97,255,0.8)]'
-                      : 'text-slate-400'
+                      ? 'bg-[#7b61ff] text-white shadow-[0_0_16px_rgba(123,97,255,0.9)] ring-2 ring-white/30'
+                      : 'text-slate-300'
                   }`}
                 >
                   {dayNum}
                 </span>
                 {daySessions.length > 0 && (
-                  <span className="text-[10px] font-extrabold text-indigo-300 bg-indigo-500/15 px-1.5 py-0.5 rounded-full">
+                  <span className="text-[10px] font-extrabold text-indigo-300 bg-indigo-500/20 border border-indigo-500/30 px-2 py-0.5 rounded-full">
                     {daySessions.length}
                   </span>
                 )}
@@ -249,6 +249,7 @@ export default function CalendarMonthView({
     </div>
   );
 }
+
 
 
 

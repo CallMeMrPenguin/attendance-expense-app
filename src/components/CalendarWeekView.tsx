@@ -46,16 +46,26 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
     return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}`;
   };
 
-  const today = new Date();
-  const todayDateStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}`;
-
-  const isTodayColumn = (dayName: string) => {
-    return getDayDateString(dayName) === todayDateStr;
+  const getTodayDayName = () => {
+    const dayNum = new Date().getDay();
+    const map: Record<number, string> = {
+      1: 'Thứ 2',
+      2: 'Thứ 3',
+      3: 'Thứ 4',
+      4: 'Thứ 5',
+      5: 'Thứ 6',
+      6: 'Thứ 7',
+      0: 'Chủ nhật',
+    };
+    return map[dayNum] || 'Thứ 2';
   };
+  
+  const todayDayName = getTodayDayName();
+  const isTodayColumn = (dayName: string) => dayName === todayDayName;
 
   if (timeSlots.length === 0) {
     return (
-      <div className="text-center py-20 text-slate-400 select-none bg-[#0d1017] border border-white/[0.08] rounded-3xl p-8">
+      <div className="text-center py-20 text-slate-300 select-none bg-[#151b2a] border border-[#28334e] rounded-3xl p-8">
         Không có dữ liệu lịch dạy trong tuần.
       </div>
     );
@@ -67,8 +77,8 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
       <div className="glowing-timeline-bar w-full" />
 
       {/* Grid Header */}
-      <div className="grid grid-cols-[100px_repeat(7,_minmax(0,_1fr))] bg-[#0b0d14]/80 border-b border-white/[0.08] select-none">
-        <div className="py-4 px-2 flex items-center justify-center gap-1.5 text-[11px] font-extrabold uppercase text-slate-400 tracking-wider border-r border-white/[0.07]">
+      <div className="grid grid-cols-[100px_repeat(7,_minmax(0,_1fr))] bg-[#1a2032] border-b border-[#28334e] select-none">
+        <div className="py-4 px-2 flex items-center justify-center gap-1.5 text-[11px] font-extrabold uppercase text-slate-300 tracking-wider border-r border-[#28334e]">
           <Clock className="h-3.5 w-3.5 text-indigo-400" />
           Giờ
         </div>
@@ -79,21 +89,23 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
           return (
             <div
               key={day}
-              className={`py-3.5 text-center text-[11px] font-extrabold uppercase tracking-widest flex flex-col items-center justify-center gap-0.5 border-r border-white/[0.07] last:border-r-0 transition-all ${
+              className={`py-3.5 text-center text-[11px] font-extrabold uppercase tracking-widest flex flex-col items-center justify-center gap-0.5 border-r border-[#28334e] last:border-r-0 transition-all ${
                 cellIsToday 
-                  ? 'bg-indigo-500/15 text-indigo-300 font-black ring-1 ring-indigo-500/50' 
+                  ? 'bg-[#7b61ff] text-white font-black shadow-[0_0_20px_rgba(123,97,255,0.85)] ring-2 ring-white/30 z-10' 
                   : isWeekend 
-                    ? 'text-rose-400/80 bg-rose-500/[0.015]' 
-                    : 'text-slate-400'
+                    ? 'text-rose-400 bg-rose-500/[0.03]' 
+                    : 'text-slate-300'
               }`}
             >
               <div className="flex items-center gap-1">
                 <span>{day}</span>
                 {cellIsToday && (
-                  <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(123,97,255,1)]"></span>
+                  <span className="px-1.5 py-0.2 bg-white text-[#7b61ff] text-[8.5px] font-black rounded-full uppercase tracking-tighter shadow-sm">
+                    Hôm nay
+                  </span>
                 )}
               </div>
-              <span className={`text-[9.5px] font-bold normal-case ${cellIsToday ? 'text-indigo-200 opacity-90' : 'opacity-60'}`}>
+              <span className={`text-[9.5px] font-bold normal-case ${cellIsToday ? 'text-white/90' : 'opacity-65'}`}>
                 {getDayDateString(day)}
               </span>
             </div>
@@ -101,8 +113,8 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
         })}
       </div>
 
-      {/* Grid Rows - Grid lines set to divide-white/[0.07] */}
-      <div className="divide-y divide-white/[0.07] bg-[#0d1017]">
+      {/* Grid Rows - Divider color #28334e */}
+      <div className="divide-y divide-[#28334e] bg-[#151b2a]">
         {timeSlots.map((slot) => {
           return (
             <div
@@ -110,7 +122,7 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
               className="grid grid-cols-[100px_repeat(7,_minmax(0,_1fr))] min-h-[105px]"
             >
               {/* Hour time slot */}
-              <div className="relative px-3 flex items-center justify-center font-black text-xs text-slate-400 bg-[#08090f]/70 border-r border-white/[0.07] select-none">
+              <div className="relative px-3 flex items-center justify-center font-black text-xs text-slate-300 bg-[#121624] border-r border-[#28334e] select-none">
                 {slot}
               </div>
 
@@ -133,8 +145,10 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
                 return (
                   <div
                     key={`${slot}-${day}`}
-                    className={`p-2.5 border-r border-white/[0.07] last:border-r-0 flex flex-col gap-2 overflow-y-auto max-h-[150px] custom-scrollbar transition-colors ${
-                      cellIsToday ? 'bg-indigo-500/[0.035]' : ''
+                    className={`p-2.5 border-r border-[#28334e] last:border-r-0 flex flex-col gap-2 overflow-y-auto max-h-[150px] custom-scrollbar transition-colors ${
+                      cellIsToday 
+                        ? 'bg-[#212349] border-x border-[#7b61ff]/40 shadow-[inset_0_0_20px_rgba(123,97,255,0.18)]' 
+                        : 'bg-[#151b2a] hover:bg-[#1c2438]'
                     }`}
                   >
                     {Object.values(grouped).map((group) => {
@@ -195,5 +209,6 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
     </div>
   );
 }
+
 
 
