@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   UserCircle, 
   Settings, 
@@ -47,7 +47,7 @@ interface UserProfile {
   token: string;
 }
 
-export default function Dashboard() {
+function DashboardInner() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -82,8 +82,14 @@ export default function Dashboard() {
   const [heroMonthPickerOpen, setHeroMonthPickerOpen] = useState(false);
   const [teacherDropOpen, setTeacherDropOpen] = useState(false);
   const [heroTeacherDropOpen, setHeroTeacherDropOpen] = useState(false);
-  // Year shown in month picker
   const [pickerYear, setPickerYear] = useState(() => new Date().getFullYear());
+
+  // Debug log (shown when ?debug=1 in URL)
+  const searchParams = useSearchParams();
+  const isDebug = searchParams?.get('debug') === '1';
+  const [debugLog, setDebugLog] = useState<string[]>([]);
+  const addDebug = (msg: string) => setDebugLog(prev => [`${new Date().toLocaleTimeString()}: ${msg}`, ...prev.slice(0, 19)]);
+
 
   // Always force dark mode (night mode)
   useEffect(() => {
@@ -117,13 +123,17 @@ export default function Dashboard() {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session) {
-        const { data: profile } = await supabase
+        addDebug(`✅ Supabase Auth session found. User: ${session.user.email}`);
+        const { data: profile, error: profErr } = await supabase
           .from('profiles')
           .select('username, teacher_name, role')
           .eq('id', session.user.id)
           .maybeSingle();
 
+        if (profErr) addDebug(`❌ profiles error: ${profErr.message}`);
+
         if (profile) {
+          addDebug(`✅ Profile loaded: name="${profile.teacher_name}" role=${profile.role}`);
           setCurrentUser({
             id: session.user.id,
             username: profile.username,
@@ -131,18 +141,22 @@ export default function Dashboard() {
             role: profile.role,
             token: session.access_token,
           });
-
           setActiveTeacherName(profile.teacher_name);
           return;
+        } else {
+          addDebug('⚠️ Auth session exists but no profile row found');
         }
+      } else {
+        addDebug('⚠️ No Supabase Auth session — checking localStorage fallback');
       }
 
-      // Custom session fallback from localStorage
       const customSessionStr = localStorage.getItem('custom_teacher_session');
       if (customSessionStr) {
+        addDebug(`📦 Using custom_teacher_session from localStorage`);
         try {
           const customSession = JSON.parse(customSessionStr);
           if (customSession && customSession.username) {
+            addDebug(`✅ Custom session: name="${customSession.teacherName}" role=${customSession.role}`);
             setCurrentUser({
               id: 'custom-session-id',
               username: customSession.username,
@@ -150,13 +164,15 @@ export default function Dashboard() {
               role: customSession.role,
               token: 'custom-token',
             });
-
             setActiveTeacherName(customSession.teacherName);
             return;
           }
         } catch (e) {
+          addDebug(`❌ Failed to parse custom session: ${e}`);
           console.warn('Failed to parse custom session:', e);
         }
+      } else {
+        addDebug('❌ No custom_teacher_session in localStorage either — redirecting to login');
       }
 
       router.push('/login');
@@ -214,7 +230,11 @@ export default function Dashboard() {
 
   // Fetch session schedule data
   const fetchSessions = useCallback(async () => {
-    if (!activeTeacherName || !selectedMonth) return;
+    if (!activeTeacherName || !selectedMonth) {
+      addDebug(`⛔ fetchSessions skipped: teacher="${activeTeacherName}" month="${selectedMonth}"`);
+      return;
+    }
+    addDebug(`🔄 Querying sessions: teacher="${activeTeacherName}" month="${selectedMonth}"`);
     setLoading(true);
     const { data, error } = await supabase
       .from('sessions')
@@ -222,14 +242,17 @@ export default function Dashboard() {
       .eq('teacher_name', activeTeacherName)
       .eq('month_year', selectedMonth);
     if (!error && data) {
+      addDebug(`✅ Sessions loaded: ${data.length} records`);
       setSessions(data as Session[]);
       calculateStats(data as Session[]);
     } else {
+      addDebug(`❌ Sessions error: ${error?.message || 'unknown'} | code: ${error?.code} | hint: ${error?.hint}`);
       setSessions([]);
       calculateStats([]);
     }
     setLoading(false);
   }, [activeTeacherName, selectedMonth]);
+
 
 
 
@@ -301,7 +324,31 @@ export default function Dashboard() {
 
       {/* Main Content Container - Widened Viewport (Dominating Page) */}
       <div className="relative z-10 w-full max-w-[1720px] mx-auto px-4 sm:px-8 lg:px-12 py-6 flex flex-col min-h-screen">
-        
+
+        {/* 🐛 Debug Panel — visible only when ?debug=1 */}
+        {isDebug && (
+          <div className="fixed bottom-0 left-0 right-0 z-[9999] bg-black/95 border-t border-green-500/40 p-3 max-h-64 overflow-y-auto font-mono text-[10px] leading-relaxed">
+            <div className="flex items-center gap-2 mb-2 text-green-400 font-bold text-xs sticky top-0 bg-black/95 pb-1 border-b border-green-500/20">
+              <span>🐛 DEBUG PANEL</span>
+              <span className="text-slate-500">|</span>
+              <span className="text-yellow-300">teacher: <b>{activeTeacherName || '(empty)'}</b></span>
+              <span className="text-slate-500">|</span>
+              <span className="text-cyan-300">month: <b>{selectedMonth || '(empty)'}</b></span>
+              <span className="text-slate-500">|</span>
+              <span className="text-purple-300">sessions: <b>{sessions.length}</b></span>
+              <span className="text-slate-500">|</span>
+              <span className="text-orange-300">auth: <b>{currentUser ? (currentUser.token === 'custom-token' ? 'custom-session' : 'supabase-auth') : 'none'}</b></span>
+            </div>
+            {debugLog.length === 0 && <div className="text-slate-500 italic">No log entries yet...</div>}
+            {debugLog.map((line, i) => (
+              <div key={i} className={`py-0.5 ${line.includes('❌') ? 'text-red-400' : line.includes('⚠️') ? 'text-yellow-400' : line.includes('✅') ? 'text-green-400' : 'text-slate-300'}`}>
+                {line}
+              </div>
+            ))}
+          </div>
+        )}
+
+
         {/* 11. Floating macOS Style Top Toolbar */}
         <header className="macos-toolbar rounded-2xl px-6 py-3.5 mb-10 w-full flex flex-wrap items-center justify-between gap-4 sticky top-4 z-50">
           
@@ -734,5 +781,18 @@ export default function Dashboard() {
         onClose={() => setPasswordModalOpen(false)}
       />
     </div>
+  );
+}
+
+// Suspense wrapper required by Next.js for useSearchParams
+export default function Dashboard() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-[#090b10]">
+        <div className="h-10 w-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <DashboardInner />
+    </Suspense>
   );
 }
