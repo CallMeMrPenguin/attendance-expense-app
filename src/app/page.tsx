@@ -632,6 +632,7 @@ export default function Dashboard() {
               handleDeleteManualTx={handleDeleteManualTx}
               handleOpenTxModal={handleOpenTxModal}
               saveBudgets={saveBudgets}
+              saveTransactions={saveTransactions}
             />
           )}
 

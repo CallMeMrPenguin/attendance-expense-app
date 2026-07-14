@@ -42,18 +42,32 @@ export default function TransactionModal({
   const [modalDate, setModalDate] = useState('');
   const [modalSavingFund, setModalSavingFund] = useState<'emergency' | 'accumulation'>('emergency');
   const [modalSavingAction, setModalSavingAction] = useState<'deposit' | 'withdraw'>('deposit');
+  const [incomeCategories, setIncomeCategories] = useState<string[]>(['Lương', 'Giáo dục', 'Đầu tư', 'Khác']);
+  const [expenseCategories, setExpenseCategories] = useState<string[]>(['Ăn uống', 'Di chuyển', 'Shopping', 'Hóa đơn', 'Giải trí', 'Khác']);
 
   useEffect(() => {
     if (isOpen) {
       setModalTxType(defaultType);
-      setModalCategory(defaultType === 'income' ? 'Lương' : 'Ăn uống');
+      
+      let incCats = ['Lương', 'Giáo dục', 'Đầu tư', 'Khác'];
+      let expCats = ['Ăn uống', 'Di chuyển', 'Shopping', 'Hóa đơn', 'Giải trí', 'Khác'];
+      if (currentUser?.id) {
+        const savedIncome = localStorage.getItem(`finance_income_cats_${currentUser.id}`);
+        const savedExpense = localStorage.getItem(`finance_expense_cats_${currentUser.id}`);
+        if (savedIncome) incCats = JSON.parse(savedIncome).map((c: any) => c.name);
+        if (savedExpense) expCats = JSON.parse(savedExpense).map((c: any) => c.name);
+      }
+      setIncomeCategories(incCats);
+      setExpenseCategories(expCats);
+
+      setModalCategory(defaultType === 'income' ? (incCats[0] || 'Lương') : (expCats[0] || 'Ăn uống'));
       setModalDesc('');
       setModalAmount('');
       setModalDate(new Date().toISOString().split('T')[0]);
       setModalSavingFund('emergency');
       setModalSavingAction('deposit');
     }
-  }, [isOpen, defaultType]);
+  }, [isOpen, defaultType, currentUser]);
 
   if (!isOpen) return null;
 
@@ -143,13 +157,13 @@ export default function TransactionModal({
                 if (t === 'saving') {
                   setModalCategory('Khác');
                 } else {
-                  setModalCategory(t === 'income' ? 'Lương' : 'Ăn uống');
+                  setModalCategory(t === 'income' ? (incomeCategories[0] || 'Lương') : (expenseCategories[0] || 'Ăn uống'));
                 }
               }}
               className={`py-1.5 text-[10px] font-black tracking-wider uppercase rounded-lg transition-all cursor-pointer ${
                 modalTxType === t
                   ? 'bg-indigo-500 text-white shadow-sm'
-                  : 'text-slate-450 hover:bg-white/[0.03] hover:text-slate-200'
+                  : 'text-slate-455 hover:bg-white/[0.03] hover:text-slate-200'
               }`}
             >
               {t === 'expense' ? 'Chi tiêu' : t === 'income' ? 'Thu nhập' : 'Tiết kiệm'}
@@ -247,7 +261,7 @@ export default function TransactionModal({
                     onChange={(e) => setModalCategory(e.target.value)}
                     className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 cursor-pointer block"
                   >
-                    {(modalTxType === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES).map((c) => (
+                    {(modalTxType === 'income' ? incomeCategories : expenseCategories).map((c) => (
                       <option key={c} value={c} className="bg-[#0d1018] text-white">
                         {c}
                       </option>
