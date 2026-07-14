@@ -92,6 +92,13 @@ export default function LoginPage() {
         }
       }
 
+      // Store custom teacher session in localStorage for seamless dashboard access
+      localStorage.setItem('custom_teacher_session', JSON.stringify({
+        username: userProfile.username,
+        teacherName: userProfile.teacher_name,
+        role: userProfile.role
+      }));
+
       // Save credentials if Remember Me is checked
       if (rememberMe) {
         localStorage.setItem('remembered_username', username.trim());

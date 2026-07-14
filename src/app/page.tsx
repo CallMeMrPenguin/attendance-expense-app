@@ -84,39 +84,56 @@ export default function Dashboard() {
   // Authenticate and fetch session on load
   useEffect(() => {
     const fetchSession = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error || !session) {
-        router.push('/login');
-        return;
-      }
-
-      // Fetch user profile role and teacher name
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('username, teacher_name, role')
-        .eq('id', session.user.id)
-        .single();
-
-      if (profileError || !profile) {
-        await supabase.auth.signOut();
-        router.push('/login');
-        return;
-      }
-
-      setCurrentUser({
-        id: session.user.id,
-        username: profile.username,
-        teacherName: profile.teacher_name,
-        role: profile.role,
-        token: session.access_token,
-      });
-
-      setActiveTeacherName(profile.teacher_name);
-
-      // Set default month
       const now = new Date();
       const currMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
       setSelectedMonth(currMonth);
+
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('username, teacher_name, role')
+          .eq('id', session.user.id)
+          .maybeSingle();
+
+        if (profile) {
+          setCurrentUser({
+            id: session.user.id,
+            username: profile.username,
+            teacherName: profile.teacher_name,
+            role: profile.role,
+            token: session.access_token,
+          });
+
+          setActiveTeacherName(profile.teacher_name);
+          return;
+        }
+      }
+
+      // Custom session fallback from localStorage
+      const customSessionStr = localStorage.getItem('custom_teacher_session');
+      if (customSessionStr) {
+        try {
+          const customSession = JSON.parse(customSessionStr);
+          if (customSession && customSession.username) {
+            setCurrentUser({
+              id: 'custom-session-id',
+              username: customSession.username,
+              teacherName: customSession.teacherName,
+              role: customSession.role,
+              token: 'custom-token',
+            });
+
+            setActiveTeacherName(customSession.teacherName);
+            return;
+          }
+        } catch (e) {
+          console.warn('Failed to parse custom session:', e);
+        }
+      }
+
+      router.push('/login');
     };
 
     fetchSession();
@@ -201,6 +218,7 @@ export default function Dashboard() {
   };
 
   const handleLogout = async () => {
+    localStorage.removeItem('custom_teacher_session');
     await supabase.auth.signOut();
     router.push('/login');
   };
