@@ -72,13 +72,15 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
   }
 
   return (
-    <div className="w-full overflow-auto rounded-3xl border border-white/10 shadow-2xl relative max-h-[680px] scrollbar-thin">
-      <div className="min-w-[1000px] select-none relative bg-[#101420]">
-        {/* Signature glowing top timeline accent */}
-        <div className="glowing-timeline-bar w-full sticky top-0 z-30" />
+    <div className="w-full calendar-container-depth rounded-3xl overflow-hidden shadow-2xl relative select-none">
+      {/* Scrollable Viewport Container */}
+      <div className="w-full overflow-auto max-h-[680px]">
+        <div className="min-w-[1000px] relative bg-[#101420]">
+          {/* Signature glowing top timeline accent */}
+          <div className="glowing-timeline-bar w-full sticky top-0 z-30" />
 
-        {/* Grid Header */}
-        <div className="grid grid-cols-[100px_repeat(7,_minmax(0,_1fr))] bg-[#1a2032] border-b border-[#28334e] select-none sticky top-0 z-20 shadow-md">
+          {/* Grid Header */}
+          <div className="grid grid-cols-[100px_repeat(7,_minmax(0,_1fr))] bg-[#1a2032] border-b border-[#28334e] select-none sticky top-0 z-20 shadow-md">
         <div className="py-4 px-2 flex items-center justify-center gap-1.5 text-[11px] font-extrabold uppercase text-slate-300 tracking-wider border-r border-[#28334e]">
           <Clock className="h-3.5 w-3.5 text-indigo-400" />
           Giờ
@@ -201,6 +203,7 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
       </div>
     </div>
   </div>
+</div>
   );
 }
 

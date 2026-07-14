@@ -106,18 +106,26 @@ select {
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(13, 16, 24, 0.3);
   border-radius: 99px;
 }
+::-webkit-scrollbar-thumb {
+  background: rgba(123, 97, 255, 0.25);
+  border-radius: 99px;
+  border: 2px solid #06070a;
+}
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(123, 97, 255, 0.3);
+  background: rgba(123, 97, 255, 0.55);
+}
+
+/* Firefox custom scrollbar styling */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(123, 97, 255, 0.25) rgba(13, 16, 24, 0.3);
 }
 
 /* Optimized Multi-Layer Ambient Background */

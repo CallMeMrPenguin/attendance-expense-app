@@ -127,13 +127,15 @@ export default function CalendarMonthView({
   };
 
   return (
-    <div className="w-full overflow-auto rounded-3xl border border-white/10 shadow-2xl relative max-h-[680px] scrollbar-thin">
-      <div className="min-w-[1000px] select-none relative bg-[#101420]">
-        {/* Signature glowing top timeline accent */}
-        <div className="glowing-timeline-bar w-full sticky top-0 z-30" />
-        
-        {/* Weekday Headers */}
-        <div className="grid grid-cols-7 bg-[#1a2032] border-b border-[#2a3550] select-none sticky top-0 z-20 shadow-md">
+    <div className="w-full calendar-container-depth rounded-3xl overflow-hidden shadow-2xl relative select-none">
+      {/* Scrollable Viewport Container */}
+      <div className="w-full overflow-auto max-h-[680px]">
+        <div className="min-w-[1000px] relative bg-[#101420]">
+          {/* Signature glowing top timeline accent */}
+          <div className="glowing-timeline-bar w-full sticky top-0 z-30" />
+          
+          {/* Weekday Headers */}
+          <div className="grid grid-cols-7 bg-[#1a2032] border-b border-[#2a3550] select-none sticky top-0 z-20 shadow-md">
         {DAYS.map((day, idx) => {
           const isWeekend = idx === 5 || idx === 6;
           return (
@@ -252,5 +254,6 @@ export default function CalendarMonthView({
       </div>
     </div>
   </div>
+</div>
   );
 }
