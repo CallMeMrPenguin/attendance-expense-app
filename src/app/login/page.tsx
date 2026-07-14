@@ -55,12 +55,25 @@ export default function LoginPage() {
     setError('');
 
     try {
-      // Map username or real email for Supabase Auth compatibility
       const cleanInput = username.trim().toLowerCase();
-      const loginEmail = cleanInput.includes('@') ? cleanInput : `${cleanInput}@giasupro.com`;
+      let loginEmail = cleanInput.includes('@') ? cleanInput : `${cleanInput}@giasupro.com`;
+
+      // 1. Resolve registered email from public profiles table if username typed
+      if (!cleanInput.includes('@')) {
+        const { data: matchedProfile } = await supabase
+          .from('profiles')
+          .select('email')
+          .eq('username', cleanInput)
+          .maybeSingle();
+        
+        if (matchedProfile?.email) {
+          loginEmail = matchedProfile.email;
+        }
+      }
 
       let userProfile: any = null;
 
+      // 2. Perform Supabase Sign In
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: loginEmail,
         password: password,
