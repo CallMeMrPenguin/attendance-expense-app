@@ -92,6 +92,15 @@ export default function CalendarMonthView({
   onSessionClick,
 }: CalendarMonthViewProps) {
   const [year, month] = selectedMonth.split('-').map(Number);
+  const headerRef = React.useRef<HTMLDivElement>(null);
+  const bodyRef = React.useRef<HTMLDivElement>(null);
+
+  const handleScroll = () => {
+    if (bodyRef.current && headerRef.current) {
+      headerRef.current.scrollLeft = bodyRef.current.scrollLeft;
+    }
+  };
+
   if (!year || !month) return null;
 
   const firstDay = new Date(year, month - 1, 1);
@@ -127,133 +136,136 @@ export default function CalendarMonthView({
   };
 
   return (
-    <div className="w-full calendar-container-depth rounded-3xl overflow-hidden shadow-2xl relative select-none">
-      {/* Scrollable Viewport Container */}
-      <div className="w-full overflow-auto max-h-[680px]">
-        <div className="min-w-[1000px] relative bg-[#101420]">
-          {/* Signature glowing top timeline accent */}
-          <div className="glowing-timeline-bar w-full sticky top-0 z-30" />
-          
-          {/* Weekday Headers */}
-          <div className="grid grid-cols-7 bg-[#1a2032] border-b border-[#2a3550] select-none sticky top-0 z-20 shadow-md">
-        {DAYS.map((day, idx) => {
-          const isWeekend = idx === 5 || idx === 6;
-          return (
-            <div
-              key={day}
-              className={`py-4 text-center text-[11px] font-extrabold uppercase tracking-widest ${
-                isWeekend ? 'text-rose-400 bg-rose-500/[0.03]' : 'text-slate-300'
-              }`}
-            >
-              {day}
-            </div>
-          );
-        })}
+    <div className="w-full calendar-container-depth rounded-3xl overflow-hidden shadow-2xl relative select-none bg-[#141824]">
+      {/* Signature glowing top timeline accent */}
+      <div className="glowing-timeline-bar w-full" />
+      
+      {/* 1. Header Scroll Container (Horizontal only, no scrollbar shown) */}
+      <div ref={headerRef} className="w-full overflow-hidden bg-[#1a2032] border-b border-[#2a3550]">
+        <div className="min-w-[1000px] grid grid-cols-7 select-none">
+          {DAYS.map((day, idx) => {
+            const isWeekend = idx === 5 || idx === 6;
+            return (
+              <div
+                key={day}
+                className={`py-4 text-center text-[11px] font-extrabold uppercase tracking-widest ${
+                  isWeekend ? 'text-rose-450 dark:text-rose-400 bg-rose-500/[0.03]' : 'text-slate-350'
+                }`}
+              >
+                {day}
+              </div>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Days Grid - Distinct cell divider lines (#28334e) */}
-      <div className="grid grid-cols-7 gap-[1px] bg-[#28334e]">
-        {cells.map((cell) => {
-          if (!cell.inMonth) {
-            return (
-              <div 
-                key={`empty-${cell.index}`} 
-                className="bg-[#101420] min-h-[155px]" 
-              />
-            );
-          }
-
-          const dayNum = cell.dayNum;
-          const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+      {/* 2. Body Scroll Container (Vertical and Horizontal scrollable) */}
+      <div ref={bodyRef} onScroll={handleScroll} className="w-full overflow-auto max-h-[620px] bg-[#101420]">
+        <div className="min-w-[1000px] relative">
           
-          const daySessions = sessions
-            .filter((s) => s.date === dateStr)
-            .sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
+          {/* Days Grid - Distinct cell divider lines (#28334e) */}
+          <div className="grid grid-cols-7 gap-[1px] bg-[#28334e]">
+            {cells.map((cell) => {
+              if (!cell.inMonth) {
+                return (
+                  <div 
+                    key={`empty-${cell.index}`} 
+                    className="bg-[#101420] min-h-[155px]" 
+                  />
+                );
+              }
 
-          const cellIsToday = isToday(dayNum);
+              const dayNum = cell.dayNum;
+              const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+              
+              const daySessions = sessions
+                .filter((s) => s.date === dateStr)
+                .sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
 
-          return (
-            <div
-              key={`day-${dayNum}`}
-              className={`min-h-[160px] p-3 transition-all flex flex-col gap-2 relative ${
-                cellIsToday 
-                  ? 'bg-[#1f2042] ring-2 ring-[#7b61ff] z-10 shadow-[inset_0_0_20px_rgba(123,97,255,0.25)]' 
-                  : 'bg-[#151b2a] hover:bg-[#1c2438]'
-              }`}
-            >
-              {/* Day Number */}
-              <div className="flex justify-between items-center shrink-0 select-none">
-                <span
-                  className={`text-[12px] font-black font-sans rounded-full flex items-center justify-center h-6.5 w-6.5 ${
-                    cellIsToday
-                      ? 'bg-[#7b61ff] text-white shadow-[0_0_16px_rgba(123,97,255,0.9)] ring-2 ring-white/30'
-                      : 'text-slate-300'
+              const cellIsToday = isToday(dayNum);
+
+              return (
+                <div
+                  key={`day-${dayNum}`}
+                  className={`min-h-[160px] p-3 transition-all flex flex-col gap-2 relative ${
+                    cellIsToday 
+                      ? 'bg-[#1f2042] ring-2 ring-[#7b61ff] z-10 shadow-[inset_0_0_20px_rgba(123,97,255,0.25)]' 
+                      : 'bg-[#151b2a] hover:bg-[#1c2438]'
                   }`}
                 >
-                  {dayNum}
-                </span>
-                {daySessions.length > 0 && (
-                  <span className="text-[10px] font-extrabold text-indigo-300 bg-indigo-500/20 border border-indigo-500/30 px-2 py-0.5 rounded-full">
-                    {daySessions.length}
-                  </span>
-                )}
-              </div>
-              
-              {/* Day Session Cards */}
-              <div className="flex-grow flex flex-col gap-2">
-                {daySessions.map((s) => {
-                  const startTime = formatCleanTimeString(s.time);
-                  const endTime = getEndTime(startTime, s.duration);
-                  const vStyle = getPremiumVioletStyle(s.time, s.status, s.color);
-
-                  return (
-                    <div
-                      key={s.id}
-                      onClick={() => onSessionClick(s.id)}
-                      className="flex rounded-xl cursor-pointer transition-all active:scale-[0.98] min-h-[52px] border border-solid event-float overflow-hidden"
-                      style={{
-                        backgroundColor: vStyle.bg,
-                        borderColor: vStyle.border,
-                        boxShadow: vStyle.shadow
-                      }}
+                  {/* Day Number */}
+                  <div className="flex justify-between items-center shrink-0 select-none">
+                    <span
+                      className={`text-[12px] font-black font-sans rounded-full flex items-center justify-center h-6.5 w-6.5 ${
+                        cellIsToday
+                          ? 'bg-[#7b61ff] text-white shadow-[0_0_16px_rgba(123,97,255,0.9)] ring-2 ring-white/30'
+                          : 'text-slate-300'
+                      }`}
                     >
-                      {/* Left Time Bar */}
-                      <div
-                        className="flex flex-col justify-center items-center px-2 py-1 text-[9px] font-black w-[48px] select-none text-center border-r border-solid"
-                        style={{ 
-                          borderColor: vStyle.innerBorder,
-                          color: vStyle.color
-                        }}
-                      >
-                        <span className="leading-none">{startTime}</span>
-                        <span className="text-[7px] my-0.5 opacity-50">↓</span>
-                        <span className="leading-none">{endTime}</span>
-                      </div>
+                      {dayNum}
+                    </span>
+                    {daySessions.length > 0 && (
+                      <span className="text-[10px] font-extrabold text-indigo-300 bg-indigo-500/20 border border-indigo-500/30 px-2 py-0.5 rounded-full">
+                        {daySessions.length}
+                      </span>
+                    )}
+                  </div>
+                  
+                  {/* Day Session Cards */}
+                  <div className="flex-grow flex flex-col gap-2">
+                    {daySessions.map((s) => {
+                      const startTime = formatCleanTimeString(s.time);
+                      const endTime = getEndTime(startTime, s.duration);
+                      const vStyle = getPremiumVioletStyle(s.time, s.status, s.color);
 
-                       {/* Right Details: Displays ONLY student name & status */}
-                      <div className="flex-grow p-2 flex flex-col justify-center overflow-hidden">
-                        <h4 
-                          className="text-[12px] font-black truncate leading-tight text-left tracking-tight text-white"
+                      return (
+                        <div
+                          key={s.id}
+                          onClick={() => onSessionClick(s.id)}
+                          className="flex rounded-xl cursor-pointer transition-all active:scale-[0.98] min-h-[52px] border border-solid event-float overflow-hidden"
+                          style={{
+                            backgroundColor: vStyle.bg,
+                            borderColor: vStyle.border,
+                            boxShadow: vStyle.shadow
+                          }}
                         >
-                          {s.student_name}
-                        </h4>
-                        <div 
-                          className="text-[9.5px] font-bold mt-0.5 select-none leading-none text-left opacity-90"
-                          style={{ color: vStyle.color }}
-                        >
-                          {s.status}
+                          {/* Left Time Bar */}
+                          <div
+                            className="flex flex-col justify-center items-center px-2 py-1 text-[9px] font-black w-[48px] select-none text-center border-r border-solid"
+                            style={{ 
+                              borderColor: vStyle.innerBorder,
+                              color: vStyle.color
+                            }}
+                          >
+                            <span className="leading-none">{startTime}</span>
+                            <span className="text-[7px] my-0.5 opacity-50">↓</span>
+                            <span className="leading-none">{endTime}</span>
+                          </div>
+
+                           {/* Right Details: Displays ONLY student name & status */}
+                          <div className="flex-grow p-2 flex flex-col justify-center overflow-hidden">
+                            <h4 
+                              className="text-[12px] font-black truncate leading-tight text-left tracking-tight text-white"
+                            >
+                              {s.student_name}
+                            </h4>
+                            <div 
+                              className="text-[9.5px] font-bold mt-0.5 select-none leading-none text-left opacity-90"
+                              style={{ color: vStyle.color }}
+                            >
+                              {s.status}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
-  </div>
-</div>
   );
 }
