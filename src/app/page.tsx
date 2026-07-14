@@ -291,66 +291,11 @@ export default function Dashboard() {
               <LayoutDashboard className="h-4.5 w-4.5" />
               <span>Tổng quan</span>
             </button>
-            
-            {currentUser.role === 'admin' && (
-              <button 
-                onClick={() => setTeachersModalOpen(true)} 
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/3 select-none transition-all cursor-pointer"
-              >
-                <Users className="h-4.5 w-4.5" />
-                <span>Giáo viên</span>
-              </button>
-            )}
-            
-            <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/3 select-none transition-all cursor-pointer">
-              <CalendarRange className="h-4.5 w-4.5" />
-              <span>Lịch dạy</span>
-            </button>
-            
-            <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/3 select-none transition-all cursor-pointer">
-              <BookOpen className="h-4.5 w-4.5" />
-              <span>Học viên</span>
-            </button>
-            
-            <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/3 select-none transition-all cursor-pointer">
-              <FileText className="h-4.5 w-4.5" />
-              <span>Đơn hàng</span>
-            </button>
-            
-            <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/3 select-none transition-all cursor-pointer">
-              <BarChart3 className="h-4.5 w-4.5" />
-              <span>Báo cáo</span>
-            </button>
-
-            <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/3 select-none transition-all cursor-pointer">
-              <MessageSquare className="h-4.5 w-4.5" />
-              <span>Tin nhắn</span>
-            </button>
           </nav>
-        </div>
-
-        {/* Support widget card block */}
-        <div className="bg-slate-50 dark:bg-[#11131a]/60 border border-slate-200/50 dark:border-white/5 rounded-2xl p-5 relative overflow-hidden select-none">
-          <div className="absolute -top-12 -left-12 w-24 h-24 bg-indigo-500/5 dark:bg-indigo-500/15 blur-xl rounded-full"></div>
-          <div className="h-10 w-10 bg-white dark:bg-[#171a22] border border-slate-200/50 dark:border-white/5 rounded-xl flex items-center justify-center text-[#7b61ff] shadow-sm mb-3">
-            <MessageSquare className="h-5 w-5" />
-          </div>
-          <h4 className="text-xs font-bold text-slate-800 dark:text-white text-left">Cần hỗ trợ?</h4>
-          <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 leading-normal text-left">Đội ngũ của chúng tôi luôn sẵn sàng hỗ trợ bạn.</p>
-          <button 
-            onClick={() => alert('Đang kết nối hỗ trợ...')}
-            className="w-full mt-4 py-2 px-3 bg-indigo-500 hover:bg-indigo-650 text-white font-bold text-[10px] rounded-lg transition-all flex items-center justify-between cursor-pointer border border-indigo-600/10"
-          >
-            <span>Liên hệ hỗ trợ</span>
-            <ChevronRight className="h-3.5 w-3.5" />
-          </button>
         </div>
       </aside>
 
-      {/* 2. Main Content Page Wrapper */}
-      <div className="flex-grow flex flex-col min-h-screen">
-        
-        {/* Top Navbar */}
+      {/* 2. Main Content Page Wrapper         {/* Top Navbar */}
         <nav className="border-b border-slate-200/50 dark:border-white/5 bg-white/40 dark:bg-[#090b10]/40 backdrop-blur-md sticky top-0 z-50 px-6 py-4 shadow-sm select-none">
           <div className="w-full flex items-center justify-between gap-4">
             
@@ -384,20 +329,22 @@ export default function Dashboard() {
                   ))}
                 </select>
               </div>
+
+              {/* Quản lý button next to Teacher selector (only for Admin) */}
+              {currentUser.role === 'admin' && (
+                <button
+                  onClick={() => setTeachersModalOpen(true)}
+                  title="Quản lý giáo viên"
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 bg-[#7b61ff]/10 hover:bg-[#7b61ff]/18 border border-[#7b61ff]/20 rounded-xl text-xs font-bold text-[#7b61ff] transition-all shadow-sm cursor-pointer select-none"
+                >
+                  <Settings className="h-3.5 w-3.5" />
+                  <span>Quản lý</span>
+                </button>
+              )}
             </div>
 
             {/* Right toolbar controls */}
             <div className="flex items-center gap-3">
-              {/* Search button */}
-              <button className="p-2 border border-slate-200/50 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-slate-850 rounded-xl text-slate-500 transition-all shadow-sm bg-white dark:bg-[#1a1e28] cursor-pointer">
-                <Search className="h-4 w-4" />
-              </button>
-
-              {/* Bell notifications button with active badge count */}
-              <button className="relative p-2 border border-slate-200/50 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-slate-850 rounded-xl text-slate-500 transition-all shadow-sm bg-white dark:bg-[#1a1e28] cursor-pointer">
-                <Bell className="h-4 w-4" />
-                <span className="absolute -top-1 -right-1 h-4 w-4 bg-[#7b61ff] text-white font-extrabold text-[8px] flex items-center justify-center rounded-full shadow-md">2</span>
-              </button>
 
               {/* Theme Toggle Button */}
               <button

@@ -34,9 +34,8 @@ async function verifyAdmin(request: NextRequest) {
     return { error: 'Invalid or expired session', status: 401 };
   }
 
-  // Check admin role in profiles
-  const adminClient = getSupabaseAdmin();
-  const { data: profile, error: dbError } = await adminClient
+  // Check admin role in profiles using the authenticated userClient (RLS active)
+  const { data: profile, error: dbError } = await userClient
     .from('profiles')
     .select('role')
     .eq('id', user.id)
@@ -46,7 +45,8 @@ async function verifyAdmin(request: NextRequest) {
     return { error: 'Access denied: Admin role required', status: 403 };
   }
 
-  return { user, adminClient };
+  const adminClient = getSupabaseAdmin();
+  return { user, adminClient, userClient };
 }
 
 // 1. ADD TEACHER
@@ -79,7 +79,10 @@ export async function POST(request: NextRequest) {
     });
 
     if (createError) {
-      return NextResponse.json({ error: createError.message }, { status: 400 });
+      const hint = createError.message.includes('Service role') || createError.message.includes('not allowed') || createError.message.includes('JWKS')
+        ? ' (Cần cấu hình SUPABASE_SERVICE_ROLE_KEY trong file .env.local để tạo tài khoản đăng nhập cho giáo viên mới)'
+        : '';
+      return NextResponse.json({ error: `${createError.message}${hint}` }, { status: 400 });
     }
 
     return NextResponse.json({
@@ -100,8 +103,8 @@ export async function POST(request: NextRequest) {
 // 2. UPDATE TEACHER DETAILS (NAME, USERNAME, PASSWORD, ROLE)
 export async function PUT(request: NextRequest) {
   try {
-    const { error, adminClient, user } = await verifyAdmin(request);
-    if (error || !adminClient) {
+    const { error, adminClient, user, userClient } = await verifyAdmin(request);
+    if (error || !adminClient || !userClient) {
       return NextResponse.json({ error }, { status: 403 });
     }
 
@@ -112,8 +115,8 @@ export async function PUT(request: NextRequest) {
 
     const trimmedOld = oldName.trim();
 
-    // 1. Find profile of the teacher
-    const { data: profile, error: profileError } = await adminClient
+    // 1. Find profile of the teacher using userClient (RLS active)
+    const { data: profile, error: profileError } = await userClient
       .from('profiles')
       .select('id, username, teacher_name, role')
       .eq('teacher_name', trimmedOld)
@@ -124,7 +127,7 @@ export async function PUT(request: NextRequest) {
 
     // 2. Handle orphan teacher (no profiles record exists yet, like 'Giáo Viên 1')
     if (!profile) {
-      const { data: teacherRow } = await adminClient
+      const { data: teacherRow } = await userClient
         .from('teachers')
         .select('name')
         .eq('name', trimmedOld)
@@ -136,7 +139,7 @@ export async function PUT(request: NextRequest) {
 
       // Rename teacher row if changed
       if (trimmedNewName && trimmedNewName !== trimmedOld) {
-        const { error: renameError } = await adminClient
+        const { error: renameError } = await userClient
           .from('teachers')
           .update({ name: trimmedNewName })
           .eq('name', trimmedOld);
@@ -148,7 +151,7 @@ export async function PUT(request: NextRequest) {
 
       // Lazy create login account if credentials were provided
       if (trimmedNewUsername) {
-        const { data: existingUser } = await adminClient
+        const { data: existingUser } = await userClient
           .from('profiles')
           .select('id')
           .eq('username', trimmedNewUsername)
@@ -158,19 +161,27 @@ export async function PUT(request: NextRequest) {
           return NextResponse.json({ error: 'Tên đăng nhập đã tồn tại!' }, { status: 400 });
         }
 
-        const { data: authData, error: createError } = await adminClient.auth.admin.createUser({
-          email: `${trimmedNewUsername}@giasupro.com`,
-          password: newPassword?.trim() || '123456',
-          email_confirm: true,
-          user_metadata: {
-            role: newRole || 'teacher',
-            teacher_name: trimmedNewName || trimmedOld,
-            username: trimmedNewUsername
-          }
-        });
+        // Creating auth users requires service role key
+        try {
+          const { data: authData, error: createError } = await adminClient.auth.admin.createUser({
+            email: `${trimmedNewUsername}@giasupro.com`,
+            password: newPassword?.trim() || '123456',
+            email_confirm: true,
+            user_metadata: {
+              role: newRole || 'teacher',
+              teacher_name: trimmedNewName || trimmedOld,
+              username: trimmedNewUsername
+            }
+          });
 
-        if (createError) {
-          return NextResponse.json({ error: `Lỗi tạo tài khoản đăng nhập: ${createError.message}` }, { status: 400 });
+          if (createError) {
+            const hint = createError.message.includes('Service role') || createError.message.includes('not allowed') || createError.message.includes('JWKS')
+              ? ' (Cần cấu hình SUPABASE_SERVICE_ROLE_KEY trong file .env.local để tạo tài khoản đăng nhập cho giáo viên mới)'
+              : '';
+            return NextResponse.json({ error: `Lỗi tạo tài khoản đăng nhập: ${createError.message}${hint}` }, { status: 400 });
+          }
+        } catch (authCreateErr: any) {
+          return NextResponse.json({ error: `Lỗi tạo tài khoản: Thiếu key admin service role. (${authCreateErr.message})` }, { status: 400 });
         }
       }
 
@@ -185,7 +196,7 @@ export async function PUT(request: NextRequest) {
 
     // 3. Update teachers table name if changed (this cascades automatically)
     if (trimmedNewName && trimmedNewName !== trimmedOld) {
-      const { data: existingTeacher } = await adminClient
+      const { data: existingTeacher } = await userClient
         .from('teachers')
         .select('name')
         .eq('name', trimmedNewName)
@@ -194,7 +205,7 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json({ error: 'Tên giáo viên này đã tồn tại!' }, { status: 400 });
       }
 
-      const { error: renameError } = await adminClient
+      const { error: renameError } = await userClient
         .from('teachers')
         .update({ name: trimmedNewName })
         .eq('name', trimmedOld);
@@ -206,7 +217,7 @@ export async function PUT(request: NextRequest) {
 
     // 4. Verify custom username is unique if changed
     if (trimmedNewUsername && trimmedNewUsername !== profile.username) {
-      const { data: existingUser } = await adminClient
+      const { data: existingUser } = await userClient
         .from('profiles')
         .select('id')
         .eq('username', trimmedNewUsername)
@@ -235,7 +246,7 @@ export async function PUT(request: NextRequest) {
     }
 
     if (Object.keys(profileUpdates).length > 0) {
-      const { error: profError } = await adminClient
+      const { error: profError } = await userClient
         .from('profiles')
         .update(profileUpdates)
         .eq('id', profile.id);
@@ -269,9 +280,23 @@ export async function PUT(request: NextRequest) {
     }
 
     if (Object.keys(authUpdates).length > 0) {
-      const { error: authUpdError } = await adminClient.auth.admin.updateUserById(profile.id, authUpdates);
-      if (authUpdError) {
-        return NextResponse.json({ error: `Lỗi cập nhật tài khoản: ${authUpdError.message}` }, { status: 400 });
+      try {
+        const { error: authUpdError } = await adminClient.auth.admin.updateUserById(profile.id, authUpdates);
+        if (authUpdError) {
+          console.warn('Auth admin updates failed, probably missing service role key:', authUpdError.message);
+          if (newPassword && newPassword.trim()) {
+            return NextResponse.json({ 
+              error: `Không thể đổi mật khẩu đăng nhập: ${authUpdError.message}. (Cần cấu hình SUPABASE_SERVICE_ROLE_KEY)` 
+            }, { status: 400 });
+          }
+        }
+      } catch (authUpdErr: any) {
+        console.warn('Auth admin updateUserById failed with exception:', authUpdErr.message);
+        if (newPassword && newPassword.trim()) {
+          return NextResponse.json({ 
+            error: `Không thể đổi mật khẩu đăng nhập: Thiếu key admin service role. (${authUpdErr.message})` 
+          }, { status: 400 });
+        }
       }
     }
 
@@ -288,8 +313,8 @@ export async function PUT(request: NextRequest) {
 // 3. DELETE TEACHER
 export async function DELETE(request: NextRequest) {
   try {
-    const { error, adminClient, user } = await verifyAdmin(request);
-    if (error || !adminClient) {
+    const { error, adminClient, user, userClient } = await verifyAdmin(request);
+    if (error || !adminClient || !userClient) {
       return NextResponse.json({ error }, { status: 403 });
     }
 
@@ -300,8 +325,8 @@ export async function DELETE(request: NextRequest) {
 
     const trimmedName = name.trim();
 
-    // 1. Find the corresponding auth user ID
-    const { data: profile, error: profileError } = await adminClient
+    // 1. Find the corresponding auth user ID using userClient (RLS active)
+    const { data: profile, error: profileError } = await userClient
       .from('profiles')
       .select('id')
       .eq('teacher_name', trimmedName)
@@ -309,7 +334,7 @@ export async function DELETE(request: NextRequest) {
 
     if (profileError || !profile) {
       // If no profile exists, delete from teachers table directly
-      const { error: deleteError } = await adminClient
+      const { error: deleteError } = await userClient
         .from('teachers')
         .delete()
         .eq('name', trimmedName);
@@ -323,18 +348,40 @@ export async function DELETE(request: NextRequest) {
         return NextResponse.json({ error: 'Không thể tự xóa tài khoản của chính mình!' }, { status: 400 });
       }
 
-      // 2. Delete auth user (this will cascade delete profile via foreign key,
-      // and delete sessions since teacher is removed)
-      const { error: deleteAuthError } = await adminClient.auth.admin.deleteUser(profile.id);
-      if (deleteAuthError) {
-        return NextResponse.json({ error: deleteAuthError.message }, { status: 400 });
+      // 2. Delete auth user (requires service role key). If it fails, fall back to DB-only delete.
+      let authDeleted = false;
+      try {
+        const { error: deleteAuthError } = await adminClient.auth.admin.deleteUser(profile.id);
+        if (!deleteAuthError) {
+          authDeleted = true;
+        } else {
+          console.warn('Failed to delete auth user from Supabase, attempting database-only deletion:', deleteAuthError.message);
+        }
+      } catch (authErr: any) {
+        console.warn('Auth admin deleteUser failed with exception:', authErr.message);
       }
 
-      // Also ensure teacher row is deleted (in case cascade did not cover it)
-      await adminClient
+      // Fallback: delete database profile manually if auth user deletion failed/was skipped
+      if (!authDeleted) {
+        const { error: profileDeleteError } = await userClient
+          .from('profiles')
+          .delete()
+          .eq('id', profile.id);
+        
+        if (profileDeleteError) {
+          return NextResponse.json({ error: `Lỗi xóa hồ sơ: ${profileDeleteError.message}` }, { status: 400 });
+        }
+      }
+
+      // Also ensure teacher row is deleted (cascade deletes sessions)
+      const { error: teacherDeleteError } = await userClient
         .from('teachers')
         .delete()
         .eq('name', trimmedName);
+      
+      if (teacherDeleteError) {
+        return NextResponse.json({ error: `Lỗi xóa giáo viên: ${teacherDeleteError.message}` }, { status: 400 });
+      }
     }
 
     return NextResponse.json({

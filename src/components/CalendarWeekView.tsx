@@ -88,7 +88,7 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
                       const s = group[0];
                       const startTime = formatCleanTimeString(s.time);
                       const endTime = getEndTime(startTime, s.duration);
-                      const vStyle = getPremiumVioletStyle(s.time, s.status);
+                      const vStyle = getPremiumVioletStyle(s.time, s.status, s.student_name);
 
                       return (
                         <div
@@ -98,6 +98,7 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
                           style={{
                             backgroundColor: vStyle.bg,
                             borderColor: vStyle.border,
+                            borderLeft: vStyle.borderLeft,
                             boxShadow: vStyle.shadow
                           }}
                         >

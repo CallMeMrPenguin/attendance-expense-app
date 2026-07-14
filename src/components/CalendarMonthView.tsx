@@ -7,72 +7,87 @@ interface CalendarMonthViewProps {
   onSessionClick: (id: string) => void;
 }
 
-// Design helper to generate single-color (violet) shades based on time and status
-export function getPremiumVioletStyle(timeStr: string, status: string) {
-  if (status === 'Hủy') {
-    return {
-      bg: 'rgba(123, 97, 255, 0.02)',
-      border: 'rgba(123, 97, 255, 0.1)',
-      innerBorder: 'rgba(123, 97, 255, 0.05)',
-      color: 'rgba(123, 97, 255, 0.3)',
-      titleColor: 'rgba(123, 97, 255, 0.4)',
-      priceColor: 'rgba(123, 97, 255, 0.3)',
-      shadow: 'none'
-    };
+// Design helper to generate single-color (violet) shades based on time, student name and status
+export function getPremiumVioletStyle(timeStr: string, status: string, studentName: string = '') {
+  const isDarkMode = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+  
+  // Hash student name to get a consistent variation in hue and saturation
+  let hash = 0;
+  const nameToHash = studentName || 'class';
+  for (let i = 0; i < nameToHash.length; i++) {
+    hash = nameToHash.charCodeAt(i) + ((hash << 5) - hash);
   }
+  hash = Math.abs(hash);
 
-  if (status === 'Đã dạy') {
-    return {
-      // Muted Purple
-      bg: 'rgba(123, 97, 255, 0.05)',
-      border: 'rgba(123, 97, 255, 0.25)',
-      innerBorder: 'rgba(123, 97, 255, 0.12)',
-      color: 'rgba(123, 97, 255, 0.6)',
-      titleColor: 'rgba(123, 97, 255, 0.7)',
-      priceColor: 'rgba(123, 97, 255, 0.6)',
-      shadow: '0 2px 10px rgba(123, 97, 255, 0.02)'
-    };
-  }
-
-  // Parse time of session
+  // Accent color family: Purple/Violet (Hue ~250)
+  // Vary hue between 240 and 270 (30deg range)
+  const hue = 240 + (hash % 31);
+  
+  // Vary saturation between 60% and 85%
+  let sat = 60 + (hash % 26);
+  
+  // Vary lightness based on time of day
   let hour = 8;
   const match = timeStr.match(/^(\d+)/);
   if (match) {
     hour = parseInt(match[1]);
   }
 
+  let baseLight = 60; // Afternoon/default
   if (hour < 12) {
-    // Morning - Light Purple
+    baseLight = 75; // Morning (Lighter)
+  } else if (hour >= 18) {
+    baseLight = 45; // Evening (Deeper)
+  }
+  let lightness = baseLight - 5 + (hash % 11);
+
+  // Status adjustments
+  if (status === 'Đã dạy') {
+    // Completed: Muted Purple
+    sat = 25;
+    lightness = isDarkMode ? 45 : 70;
+  } else if (status === 'Hủy') {
+    // Cancelled: Very muted/faded
+    sat = 15;
+    lightness = isDarkMode ? 35 : 85;
+  }
+
+  if (isDarkMode) {
+    // Dark Mode Event Card styling spec:
+    // Semi-transparent bg (10-18% opacity), accent color border, soft outer glow
+    const alphaBg = status === 'Hủy' ? '0.04' : status === 'Đã dạy' ? '0.10' : '0.14';
+    const bg = `hsla(${hue}, ${sat}%, ${lightness}%, ${alphaBg})`;
+    const border = `hsla(${hue}, ${sat}%, ${lightness + 10}%, 0.65)`;
+    const color = `hsla(${hue}, 85%, 85%, 0.95)`;
+    const shadow = status === 'Hủy' ? 'none' : `0 0 20px hsla(${hue}, ${sat}%, ${lightness}%, 0.15)`;
+
     return {
-      bg: 'rgba(123, 97, 255, 0.06)',
-      border: 'rgba(123, 97, 255, 0.45)',
-      innerBorder: 'rgba(123, 97, 255, 0.25)',
-      color: '#7b61ff',
-      titleColor: 'var(--text-main)',
-      priceColor: '#7b61ff',
-      shadow: '0 4px 16px rgba(123, 97, 255, 0.04)'
-    };
-  } else if (hour < 18) {
-    // Afternoon - Medium Purple
-    return {
-      bg: 'rgba(123, 97, 255, 0.12)',
-      border: 'rgba(123, 97, 255, 0.65)',
-      innerBorder: 'rgba(123, 97, 255, 0.35)',
-      color: '#7b61ff',
-      titleColor: 'var(--text-main)',
-      priceColor: '#7b61ff',
-      shadow: '0 6px 20px rgba(123, 97, 255, 0.06)'
+      bg,
+      border,
+      innerBorder: `hsla(${hue}, ${sat}%, ${lightness}%, 0.25)`,
+      color,
+      titleColor: '#F8FAFC',
+      priceColor: color,
+      shadow
     };
   } else {
-    // Evening - Deep Purple
+    // Light Mode Event Card styling spec:
+    // White card with light tinted bg, colored left border, tiny shadow/soft glow
+    const bg = status === 'Hủy' ? 'rgba(250, 250, 251, 0.6)' : `hsla(${hue}, ${sat}%, 97%, 0.85)`;
+    const border = 'rgba(0, 0, 0, 0.05)';
+    const borderLeft = `4px solid hsla(${hue}, ${sat}%, ${lightness - 15}%, 0.95)`;
+    const color = `hsla(${hue}, ${sat}%, ${lightness - 20}%, 1)`;
+    const shadow = status === 'Hủy' ? 'none' : `0 6px 20px hsla(${hue}, ${sat}%, 70%, 0.06)`;
+
     return {
-      bg: 'rgba(123, 97, 255, 0.18)',
-      border: 'rgba(123, 97, 255, 0.85)',
-      innerBorder: 'rgba(123, 97, 255, 0.45)',
-      color: '#7b61ff',
-      titleColor: 'var(--text-main)',
-      priceColor: '#7b61ff',
-      shadow: '0 8px 24px rgba(123, 97, 255, 0.08)'
+      bg,
+      border,
+      borderLeft,
+      innerBorder: 'rgba(0, 0, 0, 0.04)',
+      color,
+      titleColor: '#111827',
+      priceColor: color,
+      shadow
     };
   }
 }
@@ -188,7 +203,7 @@ export default function CalendarMonthView({
                 {daySessions.map((s) => {
                   const startTime = formatCleanTimeString(s.time);
                   const endTime = getEndTime(startTime, s.duration);
-                  const vStyle = getPremiumVioletStyle(s.time, s.status);
+                  const vStyle = getPremiumVioletStyle(s.time, s.status, s.student_name);
 
                   return (
                     <div
@@ -198,6 +213,7 @@ export default function CalendarMonthView({
                       style={{
                         backgroundColor: vStyle.bg,
                         borderColor: vStyle.border,
+                        borderLeft: vStyle.borderLeft,
                         boxShadow: vStyle.shadow
                       }}
                     >

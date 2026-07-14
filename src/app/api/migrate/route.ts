@@ -16,15 +16,14 @@ async function verifyAdmin(request: NextRequest) {
   const { data: { user }, error: authError } = await userClient.auth.getUser();
   if (authError || !user) return null;
 
-  const adminClient = getSupabaseAdmin();
-  const { data: profile } = await adminClient
+  const { data: profile } = await userClient
     .from('profiles')
     .select('role')
     .eq('id', user.id)
     .single();
 
   if (!profile || profile.role !== 'admin') return null;
-  return adminClient;
+  return getSupabaseAdmin();
 }
 
 export async function POST(request: NextRequest) {
