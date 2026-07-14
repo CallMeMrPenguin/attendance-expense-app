@@ -100,14 +100,14 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
                 key={day}
                 className={`py-3.5 text-center text-[11px] font-extrabold uppercase tracking-widest flex flex-col items-center justify-center gap-0.5 border-r border-[#28334e] last:border-r-0 transition-all ${
                   cellIsToday 
-                    ? 'bg-[#7b61ff] text-white font-black shadow-[0_0_20px_rgba(123,97,255,0.85)] ring-2 ring-white/30 z-10' 
+                    ? 'ring-2 ring-[#5c36f5] z-10 bg-[#1c2035]/40 shadow-[inset_0_0_15px_rgba(92,54,245,0.15)] text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.9)] font-black' 
                     : isWeekend 
-                      ? 'text-rose-400' 
+                      ? 'text-rose-400 bg-rose-500/[0.01]' 
                       : 'text-slate-300'
                 }`}
               >
                 <span>{day}</span>
-                <span className={`text-[9.5px] font-bold normal-case ${cellIsToday ? 'text-white/90' : 'opacity-65'}`}>
+                <span className={`text-[9.5px] font-bold normal-case ${cellIsToday ? 'text-white/90 drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]' : 'opacity-65'}`}>
                   {getDayDateString(day)}
                 </span>
               </div>
@@ -153,7 +153,7 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
                         key={`${slot}-${day}`}
                         className={`p-2.5 border-r border-[#28334e] last:border-r-0 flex flex-col gap-2 overflow-y-auto max-h-[150px] custom-scrollbar transition-colors ${
                           cellIsToday 
-                            ? 'bg-[#212349] border-x border-[#7b61ff]/40 shadow-[inset_0_0_20px_rgba(123,97,255,0.18)]' 
+                            ? 'bg-[#1f2042]/50 border-x border-[#5c36f5]/40 shadow-[inset_0_0_20px_rgba(92,54,245,0.18)]' 
                             : 'bg-[#151b2a] hover:bg-[#1c2438]'
                         }`}
                       >

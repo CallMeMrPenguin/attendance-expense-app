@@ -303,7 +303,7 @@ export default function Dashboard() {
               <button
                 onClick={() => setTeachersModalOpen(true)}
                 title="Quản lý danh sách giáo viên"
-                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#7b61ff]/12 hover:bg-[#7b61ff]/25 border border-[#7b61ff]/30 rounded-xl text-xs font-extrabold text-indigo-300 transition-all shadow-sm cursor-pointer"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#5c36f5]/12 hover:bg-[#5c36f5]/25 border border-[#5c36f5]/30 rounded-xl text-xs font-extrabold text-indigo-300 transition-all shadow-sm cursor-pointer"
               >
                 <Settings className="h-3.5 w-3.5" />
                 <span>Quản lý</span>
@@ -488,7 +488,7 @@ export default function Dashboard() {
         <section className="flex-grow flex flex-col min-h-[480px]">
           <div className="flex flex-wrap items-center justify-between gap-4 mb-5 select-none shrink-0">
             <div className="flex items-center gap-3">
-              <div className="h-2.5 w-2.5 rounded-full bg-[#7b61ff] shadow-[0_0_10px_rgba(123,97,255,1)]"></div>
+              <div className="h-2.5 w-2.5 rounded-full bg-[#5c36f5] shadow-[0_0_10px_rgba(92,54,245,1)]"></div>
               <h3 className="text-sm font-black text-white uppercase tracking-wider">
                 Lịch Giảng Dạy & Doanh Thu
               </h3>
@@ -498,7 +498,7 @@ export default function Dashboard() {
               {/* Thêm Ca Dạy Nhanh Button */}
               <button
                 onClick={() => setAddModalOpen(true)}
-                className="flex items-center justify-center gap-2 px-4 py-1.5 bg-[#7b61ff] hover:bg-[#8e77ff] text-white font-extrabold text-[11px] rounded-xl shadow-[0_4px_12px_rgba(123,97,255,0.35)] hover:scale-[1.02] transition-all cursor-pointer border border-white/20 select-none"
+                className="flex items-center justify-center gap-2 px-4 py-1.5 bg-[#5c36f5] hover:bg-[#7351f7] text-white font-extrabold text-[11px] rounded-xl shadow-[0_4px_12px_rgba(92,54,245,0.35)] hover:scale-[1.02] transition-all cursor-pointer border border-white/20 select-none"
               >
                 <Plus className="h-3.5 w-3.5" />
                 <span>Thêm Ca Dạy Nhanh</span>
@@ -528,7 +528,7 @@ export default function Dashboard() {
                         const val=`${pickerYear}-${String(i+1).padStart(2,'0')}`;
                         const isActive=val===selectedMonth;
                         return(
-                          <button key={mn} onClick={()=>{setSelectedMonth(val);setMonthPickerOpen(false);}} className={`py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${isActive?'bg-[#7b61ff] text-white shadow-[0_0_12px_rgba(123,97,255,0.5)]':'text-slate-400 hover:bg-white/[0.06] hover:text-white'}`}>{mn}</button>
+                          <button key={mn} onClick={()=>{setSelectedMonth(val);setMonthPickerOpen(false);}} className={`py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${isActive?'bg-[#5c36f5] text-white shadow-[0_0_12px_rgba(92,54,245,0.5)]':'text-slate-400 hover:bg-white/[0.06] hover:text-white'}`}>{mn}</button>
                         );
                       })}
                     </div>
@@ -540,7 +540,7 @@ export default function Dashboard() {
               <div className="relative flex bg-[#0d1018] border border-white/10 p-1 rounded-xl">
                 {/* Sliding pill background */}
                 <div
-                  className="absolute top-1 bottom-1 rounded-[10px] bg-[#7b61ff] shadow-[0_0_16px_rgba(123,97,255,0.55)] transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] pointer-events-none"
+                  className="absolute top-1 bottom-1 rounded-[10px] bg-[#5c36f5] shadow-[0_0_16px_rgba(92,54,245,0.55)] transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] pointer-events-none"
                   style={{
                     left: '4px',
                     width: 'calc(50% - 4px)',
