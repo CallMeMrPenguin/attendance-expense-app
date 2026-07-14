@@ -58,69 +58,90 @@ export default function LoginPage() {
     try {
       const cleanInput = username.trim().toLowerCase();
       let loginEmail = cleanInput;
-
-      // 1. Resolve registered email from public profiles table or RPC if username typed
-      if (!cleanInput.includes('@')) {
-        let resolvedEmail = null;
-        try {
-          const { data, error: rpcError } = await supabase.rpc('resolve_username_email', { p_username: cleanInput });
-          if (!rpcError && data) {
-            resolvedEmail = data;
-          }
-        } catch (rpcErr) {
-          console.warn('RPC resolve_username_email failed:', rpcErr);
-        }
-
-        if (!resolvedEmail) {
-          // Fallback to direct profiles table lookup (works if RLS is relaxed/disabled)
-          try {
-            const { data: matchedProfile } = await supabase
-              .from('profiles')
-              .select('email')
-              .eq('username', cleanInput)
-              .maybeSingle();
-            
-            if (matchedProfile?.email) {
-              resolvedEmail = matchedProfile.email;
-            }
-          } catch (dbErr) {
-            console.warn('Direct profile lookup failed:', dbErr);
-          }
-        }
-
-        if (resolvedEmail) {
-          loginEmail = resolvedEmail;
-        } else {
-          // If all lookups failed, default to giasupro.com domain
-          loginEmail = `${cleanInput}@giasupro.com`;
-        }
-      }
-
       let authData: any = null;
       let authError: any = null;
 
-      // 2. Perform Supabase Sign In
-      const result = await supabase.auth.signInWithPassword({
-        email: loginEmail,
-        password: password,
-      });
+      // 1. Try to sync via server-side secure credentials sync API first
+      let syncedEmail = null;
+      try {
+        const syncRes = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: cleanInput, password })
+        });
+        if (syncRes.ok) {
+          const syncJson = await syncRes.json();
+          if (syncJson.status === 'success' && syncJson.email) {
+            syncedEmail = syncJson.email;
+          }
+        }
+      } catch (syncErr) {
+        console.warn('API credentials sync failed/unavailable:', syncErr);
+      }
 
-      if (!result.error && result.data?.user) {
+      if (syncedEmail) {
+        // Auth is synced on server, now sign in client-side using the resolved email
+        const result = await supabase.auth.signInWithPassword({
+          email: syncedEmail,
+          password: password,
+        });
         authData = result.data;
-      } else {
         authError = result.error;
-        // Fallback: If login failed and we used a resolved/assumed email ending in @giasupro.com, 
-        // try again with the common @gmail.com domain
-        if (!cleanInput.includes('@') && loginEmail.endsWith('@giasupro.com')) {
-          const secondResult = await supabase.auth.signInWithPassword({
-            email: `${cleanInput}@gmail.com`,
-            password: password,
-          });
-          if (!secondResult.error && secondResult.data?.user) {
-            authData = secondResult.data;
-            authError = null;
+      } else {
+        // 2. Fallback to client-side email resolution if API sync failed/local
+        if (!cleanInput.includes('@')) {
+          let resolvedEmail = null;
+          try {
+            const { data, error: rpcError } = await supabase.rpc('resolve_username_email', { p_username: cleanInput });
+            if (!rpcError && data) {
+              resolvedEmail = data;
+            }
+          } catch (rpcErr) {
+            console.warn('RPC resolve_username_email failed:', rpcErr);
+          }
+
+          if (!resolvedEmail) {
+            try {
+              const { data: matchedProfile } = await supabase
+                .from('profiles')
+                .select('email')
+                .eq('username', cleanInput)
+                .maybeSingle();
+              if (matchedProfile?.email) {
+                resolvedEmail = matchedProfile.email;
+              }
+            } catch (dbErr) {
+              console.warn('Direct profile lookup failed:', dbErr);
+            }
+          }
+
+          if (resolvedEmail) {
+            loginEmail = resolvedEmail;
           } else {
-            authError = secondResult.error;
+            loginEmail = `${cleanInput}@giasupro.com`;
+          }
+        }
+
+        const result = await supabase.auth.signInWithPassword({
+          email: loginEmail,
+          password: password,
+        });
+
+        if (!result.error && result.data?.user) {
+          authData = result.data;
+        } else {
+          authError = result.error;
+          if (!cleanInput.includes('@') && loginEmail.endsWith('@giasupro.com')) {
+            const secondResult = await supabase.auth.signInWithPassword({
+              email: `${cleanInput}@gmail.com`,
+              password: password,
+            });
+            if (!secondResult.error && secondResult.data?.user) {
+              authData = secondResult.data;
+              authError = null;
+            } else {
+              authError = secondResult.error;
+            }
           }
         }
       }
