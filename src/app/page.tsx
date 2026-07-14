@@ -332,7 +332,7 @@ export default function Dashboard() {
             </button>
 
             {profileMenuOpen && (
-              <div className="absolute right-0 top-full mt-2 z-[200] w-48 bg-[#0d1018] border border-white/10 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.8)] overflow-hidden backdrop-blur-xl">
+              <div className="absolute right-0 top-full mt-2 z-[200] w-48 bg-[#0d1018] border border-white/10 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.8)] overflow-hidden backdrop-blur-xl animate-mac-dropdown origin-top-right">
                 <button
                   onClick={() => { setPasswordModalOpen(true); setProfileMenuOpen(false); }}
                   className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-slate-300 hover:bg-white/[0.05] hover:text-white transition-colors cursor-pointer text-left"
@@ -391,7 +391,7 @@ export default function Dashboard() {
                   <ChevronDown className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-200 ${heroTeacherDropOpen?'rotate-180':''}`}/>
                 </button>
                 {heroTeacherDropOpen && (
-                  <div className="absolute top-full mt-2 left-0 z-[200] min-w-full w-max bg-[#0d1018] border border-white/10 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.8)] overflow-hidden backdrop-blur-xl">
+                  <div className="absolute top-full mt-2 left-0 z-[200] min-w-full w-max bg-[#0d1018] border border-white/10 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.8)] overflow-hidden backdrop-blur-xl animate-mac-dropdown origin-top-left">
                     {teachers.map(t=>(
                       <button key={t} onClick={()=>{setActiveTeacherName(t);setHeroTeacherDropOpen(false);}} className={`w-full flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-left transition-colors cursor-pointer ${t===activeTeacherName?'bg-indigo-500/20 text-indigo-300':'text-slate-300 hover:bg-white/[0.05] hover:text-white'}`}>
                         {t===activeTeacherName&&<Check className="h-3 w-3 text-indigo-400 shrink-0"/>}
@@ -406,7 +406,7 @@ export default function Dashboard() {
         </section>
 
         {/* 4. Editorial Dominating KPI Cards */}
-        <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5 mb-14 text-left">
+        <section className="grid grid-cols-2 xl:grid-cols-4 gap-4 md:gap-5 mb-14 text-left">
           
           {/* KPI 1 */}
           <div className="kpi-editorial-card p-6 flex flex-col justify-between min-h-[140px]">
@@ -525,7 +525,7 @@ export default function Dashboard() {
                   <ChevronDown className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-200 ${monthPickerOpen?'rotate-180':''}`}/>
                 </button>
                 {monthPickerOpen && (
-                  <div className="absolute top-full mt-2 right-0 z-[200] w-64 bg-[#0d1018] border border-white/10 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.8)] p-4 backdrop-blur-xl">
+                  <div className="absolute top-full mt-2 right-0 z-[200] w-64 bg-[#0d1018] border border-white/10 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.8)] p-4 backdrop-blur-xl animate-mac-dropdown origin-top-right">
                     <div className="flex items-center justify-between mb-3">
                       <button onClick={()=>setPickerYear(y=>y-1)} className="p-1.5 rounded-lg hover:bg-white/[0.06] text-slate-400 hover:text-white transition-colors cursor-pointer"><ChevronLeft className="h-4 w-4"/></button>
                       <span className="text-sm font-black text-white">{pickerYear}</span>

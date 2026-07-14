@@ -63,6 +63,28 @@ export default function AddSessionModal({
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [pendingCandidates, setPendingCandidates] = useState<any[]>([]);
 
+  // Get colors used by other students in existingSessions
+  const usedColors = React.useMemo(() => {
+    const currentTypedName = studentName.trim().toLowerCase();
+    const otherStudentsSessions = existingSessions.filter(
+      (s) => s.student_name.trim().toLowerCase() !== currentTypedName
+    );
+    const colors = otherStudentsSessions.map((s) => (s.color || '').toLowerCase()).filter(Boolean);
+    return Array.from(new Set(colors));
+  }, [existingSessions, studentName]);
+
+  const availablePalette = PALETTE.filter((c) => !usedColors.includes(c.toLowerCase()));
+
+  const handleColorChange = (newColor: string) => {
+    if (usedColors.includes(newColor.toLowerCase())) {
+      setError('Màu sắc này đã được sử dụng cho học sinh khác. Vui lòng chọn màu khác.');
+      return;
+    }
+    setError('');
+    setColor(newColor);
+    setIsColorCustomized(true);
+  };
+
   if (!isOpen) return null;
 
   const handleCheckboxChange = (day: string, checked: boolean) => {
@@ -133,6 +155,10 @@ export default function AddSessionModal({
     }
     if (!price || Number(price) <= 0) {
       setError('Vui lòng nhập giá học phí hợp lệ.');
+      return;
+    }
+    if (usedColors.includes(color.toLowerCase())) {
+      setError('Màu sắc này đã được sử dụng cho học sinh khác. Vui lòng chọn màu khác.');
       return;
     }
 
@@ -206,13 +232,13 @@ export default function AddSessionModal({
 
   return (
     <div 
-      className="fixed inset-0 bg-[#070911]/90 z-[100] flex items-center justify-center p-4 overflow-hidden pointer-events-auto select-none"
+      className="fixed inset-0 bg-[#070911]/90 z-[100] flex items-center justify-center p-4 overflow-hidden pointer-events-auto select-none animate-mac-backdrop"
       onClick={(e) => e.stopPropagation()}
     >
       {/* Overlap Warning Custom Modal */}
       {showWarningModal && (
-        <div className="fixed inset-0 bg-black/80 z-[120] flex items-center justify-center p-4">
-          <div className="bg-[#121624] border border-amber-500/40 rounded-2xl p-6 max-w-lg w-full shadow-2xl flex flex-col gap-4 text-left">
+        <div className="fixed inset-0 bg-black/80 z-[120] flex items-center justify-center p-4 animate-mac-backdrop">
+          <div className="bg-[#121624] border border-amber-500/40 rounded-2xl p-6 max-w-lg w-full shadow-2xl flex flex-col gap-4 text-left animate-mac-modal">
             <div className="flex items-center gap-2 text-amber-400 font-black text-base">
               <AlertTriangle className="h-5 w-5 shrink-0" />
               <span>Phát Hiện Trùng / Gần Lịch Dạy</span>
@@ -239,7 +265,7 @@ export default function AddSessionModal({
       )}
 
       <div 
-        className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col max-h-[90vh] pointer-events-auto"
+        className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col max-h-[90vh] pointer-events-auto animate-mac-modal"
         onClick={(e) => e.stopPropagation()}
       >
         
@@ -276,9 +302,21 @@ export default function AddSessionModal({
                 required
                 value={studentName}
                 onChange={(e) => {
-                  setStudentName(e.target.value);
+                  const val = e.target.value;
+                  setStudentName(val);
                   if (!isColorCustomized) {
-                    setColor(getStudentColor(e.target.value.trim()));
+                    const defColor = getStudentColor(val.trim());
+                    const currentTypedName = val.trim().toLowerCase();
+                    const otherStudentsSessions = existingSessions.filter(
+                      (s) => s.student_name.trim().toLowerCase() !== currentTypedName
+                    );
+                    const otherColors = new Set(otherStudentsSessions.map((s) => (s.color || '').toLowerCase()).filter(Boolean));
+                    if (otherColors.has(defColor.toLowerCase())) {
+                      const available = PALETTE.find((c) => !otherColors.has(c.toLowerCase()));
+                      setColor(available || '#7c3aed');
+                    } else {
+                      setColor(defColor);
+                    }
                   }
                 }}
                 placeholder="VD: Nguyễn Văn Nam"
@@ -292,7 +330,7 @@ export default function AddSessionModal({
                 Màu sắc hiển thị ca dạy
               </label>
               <div className="flex flex-wrap items-center gap-2.5">
-                {PALETTE.map((c) => {
+                {availablePalette.map((c) => {
                   const isActive = color.toLowerCase() === c.toLowerCase();
                   return (
                     <button
@@ -338,10 +376,7 @@ export default function AddSessionModal({
                   ref={colorInputRef}
                   type="color"
                   value={color}
-                  onChange={(e) => {
-                    setColor(e.target.value);
-                    setIsColorCustomized(true);
-                  }}
+                  onChange={(e) => handleColorChange(e.target.value)}
                   className="hidden"
                 />
               </div>

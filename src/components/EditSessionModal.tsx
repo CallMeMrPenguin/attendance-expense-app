@@ -152,6 +152,28 @@ export default function EditSessionModal({
     setRecurringCollapsed(true);
   }, [session, existingSessions]);
 
+  // Get colors used by other students in existingSessions
+  const usedColors = React.useMemo(() => {
+    const currentTypedName = studentName.trim().toLowerCase();
+    const otherStudentsSessions = existingSessions.filter(
+      (s) => s.student_name.trim().toLowerCase() !== currentTypedName
+    );
+    const colors = otherStudentsSessions.map((s) => (s.color || '').toLowerCase()).filter(Boolean);
+    return Array.from(new Set(colors));
+  }, [existingSessions, studentName]);
+
+  const availablePalette = PALETTE.filter((c) => !usedColors.includes(c.toLowerCase()));
+
+  const handleColorChange = (newColor: string) => {
+    if (usedColors.includes(newColor.toLowerCase())) {
+      setError('Màu sắc này đã được sử dụng cho học sinh khác. Vui lòng chọn màu khác.');
+      return;
+    }
+    setError('');
+    setColor(newColor);
+    setIsColorCustomized(true);
+  };
+
   if (!isOpen || !session) return null;
 
   const handleSiblingCheck = (id: string, checked: boolean) => {
@@ -250,6 +272,10 @@ export default function EditSessionModal({
     }
     if (!price || Number(price) < 0) {
       setError('Vui lòng nhập giá học phí.');
+      return;
+    }
+    if (usedColors.includes(color.toLowerCase())) {
+      setError('Màu sắc này đã được sử dụng cho học sinh khác. Vui lòng chọn màu khác.');
       return;
     }
 
@@ -412,13 +438,13 @@ export default function EditSessionModal({
 
   return (
     <div 
-      className="fixed inset-0 bg-[#070911]/90 z-[100] flex items-center justify-center p-4 overflow-hidden pointer-events-auto select-none"
+      className="fixed inset-0 bg-[#070911]/90 z-[100] flex items-center justify-center p-4 overflow-hidden pointer-events-auto select-none animate-mac-backdrop"
       onClick={(e) => e.stopPropagation()}
     >
       {/* Overlap Warning Custom Modal */}
       {showOverlapModal && (
-        <div className="fixed inset-0 bg-black/80 z-[120] flex items-center justify-center p-4">
-          <div className="bg-[#121624] border border-amber-500/40 rounded-2xl p-6 max-w-lg w-full shadow-2xl flex flex-col gap-4 text-left">
+        <div className="fixed inset-0 bg-black/80 z-[120] flex items-center justify-center p-4 animate-mac-backdrop">
+          <div className="bg-[#121624] border border-amber-500/40 rounded-2xl p-6 max-w-lg w-full shadow-2xl flex flex-col gap-4 text-left animate-mac-modal">
             <div className="flex items-center gap-2 text-amber-400 font-black text-base">
               <AlertTriangle className="h-5 w-5 shrink-0" />
               <span>Phát Hiện Trùng / Gần Lịch Dạy</span>
@@ -446,8 +472,8 @@ export default function EditSessionModal({
 
       {/* Delete Sessions Custom Modal */}
       {showDeleteConfirmModal && (
-        <div className="fixed inset-0 bg-black/80 z-[120] flex items-center justify-center p-4">
-          <div className="bg-[#121624] border border-rose-500/40 rounded-2xl p-6 max-w-md w-full shadow-2xl flex flex-col gap-4 text-left">
+        <div className="fixed inset-0 bg-black/80 z-[120] flex items-center justify-center p-4 animate-mac-backdrop">
+          <div className="bg-[#121624] border border-rose-500/40 rounded-2xl p-6 max-w-md w-full shadow-2xl flex flex-col gap-4 text-left animate-mac-modal">
             <div className="flex items-center gap-2 text-rose-400 font-black text-base">
               <Trash2 className="h-5 w-5 shrink-0" />
               <span>Xác Nhận Xóa Ca Dạy</span>
@@ -473,7 +499,7 @@ export default function EditSessionModal({
         </div>
       )}
       <div 
-        className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col max-h-[90vh] pointer-events-auto"
+        className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col max-h-[90vh] pointer-events-auto animate-mac-modal"
         onClick={(e) => e.stopPropagation()}
       >
         
@@ -540,14 +566,32 @@ export default function EditSessionModal({
             <label className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider block">
               Trạng thái ca dạy *
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="relative flex bg-slate-100 dark:bg-[#0d1018] border border-slate-200 dark:border-white/10 p-1 rounded-xl w-full">
+              {/* Sliding pill background */}
+              <div
+                className={`absolute top-1 bottom-1 rounded-[10px] transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] pointer-events-none ${
+                  status === 'Chưa dạy'
+                    ? 'bg-indigo-650 dark:bg-indigo-500 shadow-[0_0_14px_rgba(99,102,241,0.4)]'
+                    : status === 'Đã dạy'
+                    ? 'bg-emerald-650 dark:bg-emerald-500 shadow-[0_0_14px_rgba(16,185,129,0.4)]'
+                    : 'bg-rose-650 dark:bg-rose-500 shadow-[0_0_14px_rgba(244,63,94,0.4)]'
+                }`}
+                style={{
+                  left: '4px',
+                  width: 'calc(33.333% - 4px)',
+                  transform:
+                    status === 'Chưa dạy'
+                      ? 'translateX(0)'
+                      : status === 'Đã dạy'
+                      ? 'translateX(100%)'
+                      : 'translateX(200%)',
+                }}
+              />
               <button
                 type="button"
                 onClick={() => setStatus('Chưa dạy')}
-                className={`py-2.5 px-3 text-xs font-bold rounded-xl border text-center transition-all cursor-pointer ${
-                  status === 'Chưa dạy'
-                    ? 'bg-indigo-600 hover:bg-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-400 text-white border-indigo-600 dark:border-indigo-500 shadow-md font-extrabold'
-                    : 'bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-850 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-800'
+                className={`relative z-10 flex-1 py-2 text-xs font-black rounded-[10px] transition-colors duration-300 cursor-pointer ${
+                  status === 'Chưa dạy' ? 'text-white' : 'text-slate-550 dark:text-slate-455 hover:text-slate-800 dark:hover:text-slate-200'
                 }`}
               >
                 Chưa dạy
@@ -555,10 +599,8 @@ export default function EditSessionModal({
               <button
                 type="button"
                 onClick={() => setStatus('Đã dạy')}
-                className={`py-2.5 px-3 text-xs font-bold rounded-xl border text-center transition-all cursor-pointer ${
-                  status === 'Đã dạy'
-                    ? 'bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white border-emerald-600 dark:border-emerald-500 shadow-md font-extrabold'
-                    : 'bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-850 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-800'
+                className={`relative z-10 flex-1 py-2 text-xs font-black rounded-[10px] transition-colors duration-300 cursor-pointer ${
+                  status === 'Đã dạy' ? 'text-white' : 'text-slate-550 dark:text-slate-455 hover:text-slate-800 dark:hover:text-slate-200'
                 }`}
               >
                 Đã học
@@ -566,10 +608,8 @@ export default function EditSessionModal({
               <button
                 type="button"
                 onClick={() => setStatus('Hủy')}
-                className={`py-2.5 px-3 text-xs font-bold rounded-xl border text-center transition-all cursor-pointer ${
-                  status === 'Hủy'
-                    ? 'bg-rose-600 hover:bg-rose-500 dark:bg-rose-500 dark:hover:bg-rose-450 text-white border-rose-600 dark:border-rose-500 shadow-md font-extrabold'
-                    : 'bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-850 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-800'
+                className={`relative z-10 flex-1 py-2 text-xs font-black rounded-[10px] transition-colors duration-300 cursor-pointer ${
+                  status === 'Hủy' ? 'text-white' : 'text-slate-550 dark:text-slate-455 hover:text-slate-800 dark:hover:text-slate-200'
                 }`}
               >
                 Nghỉ
@@ -583,7 +623,7 @@ export default function EditSessionModal({
               Màu sắc hiển thị ca dạy
             </label>
             <div className="flex flex-wrap items-center gap-2.5">
-              {PALETTE.map((c) => {
+              {availablePalette.map((c) => {
                 const isActive = color.toLowerCase() === c.toLowerCase();
                 return (
                   <button
@@ -629,10 +669,7 @@ export default function EditSessionModal({
                 ref={colorInputRef}
                 type="color"
                 value={color}
-                onChange={(e) => {
-                  setColor(e.target.value);
-                  setIsColorCustomized(true);
-                }}
+                onChange={(e) => handleColorChange(e.target.value)}
                 className="hidden"
               />
             </div>
@@ -782,9 +819,21 @@ export default function EditSessionModal({
                 required
                 value={studentName}
                 onChange={(e) => {
-                  setStudentName(e.target.value);
+                  const val = e.target.value;
+                  setStudentName(val);
                   if (!isColorCustomized) {
-                    setColor(getStudentColor(e.target.value.trim()));
+                    const defColor = getStudentColor(val.trim());
+                    const currentTypedName = val.trim().toLowerCase();
+                    const otherStudentsSessions = existingSessions.filter(
+                      (s) => s.student_name.trim().toLowerCase() !== currentTypedName
+                    );
+                    const otherColors = new Set(otherStudentsSessions.map((s) => (s.color || '').toLowerCase()).filter(Boolean));
+                    if (otherColors.has(defColor.toLowerCase())) {
+                      const available = PALETTE.find((c) => !otherColors.has(c.toLowerCase()));
+                      setColor(available || '#7c3aed');
+                    } else {
+                      setColor(defColor);
+                    }
                   }
                 }}
                 className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500"

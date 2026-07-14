@@ -330,13 +330,13 @@ export default function ManageTeachersModal({
 
   return (
     <div 
-      className="fixed inset-0 bg-[#070911]/90 z-[100] flex items-center justify-center p-4 overflow-hidden pointer-events-auto select-none"
+      className="fixed inset-0 bg-[#070911]/90 z-[100] flex items-center justify-center p-4 overflow-hidden pointer-events-auto select-none animate-mac-backdrop"
       onClick={(e) => e.stopPropagation()}
     >
       {/* Custom Delete Confirmation Modal */}
       {showDeleteConfirmModal && (
-        <div className="fixed inset-0 bg-black/80 z-[120] flex items-center justify-center p-4">
-          <div className="bg-[#121624] border border-rose-500/40 rounded-2xl p-6 max-w-md w-full shadow-2xl flex flex-col gap-4 text-left">
+        <div className="fixed inset-0 bg-black/80 z-[120] flex items-center justify-center p-4 animate-mac-backdrop">
+          <div className="bg-[#121624] border border-rose-500/40 rounded-2xl p-6 max-w-md w-full shadow-2xl flex flex-col gap-4 text-left animate-mac-modal">
             <div className="flex items-center gap-2.5 text-rose-400 font-black text-base">
               <Trash2 className="h-5 w-5 shrink-0" />
               <span>Xác Nhận Xóa Giáo Viên</span>
@@ -362,7 +362,7 @@ export default function ManageTeachersModal({
         </div>
       )}
       <div 
-        className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col max-h-[85vh] pointer-events-auto"
+        className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col max-h-[85vh] pointer-events-auto animate-mac-modal"
         onClick={(e) => e.stopPropagation()}
       >
         
