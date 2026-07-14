@@ -409,48 +409,24 @@ export async function DELETE(request: NextRequest) {
     } else {
       // Safety check: Prevent admin from deleting their own account
       if (profile.id === user.id) {
-        return NextResponse.json({ error: 'Không thể tự xóa tài khoản của chính mình!' }, { status: 400 });
+        return NextResponse.json({ error: 'Không thể tự xóa tài khoản của chính mình!' }, { status: 403 });
       }
 
-      // 2. Delete auth user (requires service role key). If it fails, fall back to DB-only delete.
-      let authDeleted = false;
       try {
-        const { error: deleteAuthError } = await adminClient.auth.admin.deleteUser(profile.id);
-        if (!deleteAuthError) {
-          authDeleted = true;
-        } else {
-          console.warn('Failed to delete auth user from Supabase, attempting database-only deletion:', deleteAuthError.message);
-        }
+        await adminClient.auth.admin.deleteUser(profile.id);
       } catch (authErr: any) {
-        console.warn('Auth admin deleteUser failed with exception:', authErr.message);
-      }
-
-      // Fallback: delete database profile manually if auth user deletion failed/was skipped
-      if (!authDeleted) {
-        const { error: profileDeleteError } = await userClient
-          .from('profiles')
-          .delete()
-          .eq('id', profile.id);
-        
-        if (profileDeleteError) {
-          return NextResponse.json({ error: `Lỗi xóa hồ sơ: ${profileDeleteError.message}` }, { status: 400 });
-        }
-      }
-
-      // Also ensure teacher row is deleted (cascade deletes sessions)
-      const { error: teacherDeleteError } = await userClient
-        .from('teachers')
-        .delete()
-        .eq('name', trimmedName);
-      
-      if (teacherDeleteError) {
-        return NextResponse.json({ error: `Lỗi xóa giáo viên: ${teacherDeleteError.message}` }, { status: 400 });
+        console.warn('Auth admin deleteUser skipped:', authErr.message);
       }
     }
 
+    // 3. Purge from DB tables (teachers, profiles, sessions) to prevent ghost reappearance
+    await userClient.from('teachers').delete().eq('name', trimmedName);
+    await userClient.from('profiles').delete().eq('teacher_name', trimmedName);
+    await userClient.from('sessions').delete().eq('teacher_name', trimmedName);
+
     return NextResponse.json({
       status: 'success',
-      message: `Teacher "${trimmedName}" and all related data deleted successfully!`
+      message: `Đã xóa giáo viên "${trimmedName}" và toàn bộ dữ liệu thành công!`
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

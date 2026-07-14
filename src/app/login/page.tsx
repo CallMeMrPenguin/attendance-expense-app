@@ -55,14 +55,14 @@ export default function LoginPage() {
     setError('');
 
     try {
-      // Map username to mock email for Supabase Auth compatibility
-      const cleanUsername = username.trim().toLowerCase();
-      const mockEmail = `${cleanUsername}@giasupro.com`;
+      // Map username or real email for Supabase Auth compatibility
+      const cleanInput = username.trim().toLowerCase();
+      const loginEmail = cleanInput.includes('@') ? cleanInput : `${cleanInput}@giasupro.com`;
 
       let userProfile: any = null;
 
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email: mockEmail,
+        email: loginEmail,
         password: password,
       });
 
@@ -80,7 +80,7 @@ export default function LoginPage() {
         const { data: profByUsername } = await supabase
           .from('profiles')
           .select('username, teacher_name, role')
-          .eq('username', cleanUsername)
+          .eq('username', cleanInput)
           .maybeSingle();
 
         if (profByUsername) {

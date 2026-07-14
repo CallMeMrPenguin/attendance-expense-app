@@ -244,10 +244,8 @@ export default function Dashboard() {
   const efficiencyRate = totalSessions > 0 ? Math.round((completedSessions / totalSessions) * 100) : 0;  return (
     <div className="min-h-screen transition-colors duration-300 ambient-bg-dark text-slate-100 relative overflow-hidden select-none">
       
-      {/* Signature Vignette Overlay & Ambient Aurora Glow */}
+      {/* Signature Vignette Overlay */}
       <div className="vignette-overlay" />
-      <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-purple-600/10 rounded-full blur-[140px] pointer-events-none animate-aurora z-0" />
-      <div className="absolute top-1/3 -right-40 w-[550px] h-[550px] bg-cyan-600/10 rounded-full blur-[140px] pointer-events-none animate-aurora z-0" style={{ animationDelay: '-6s' }} />
 
       {/* Main Content Container - Widened Viewport (Dominating Page) */}
       <div className="relative z-10 w-full max-w-[1720px] mx-auto px-4 sm:px-8 lg:px-12 py-6 flex flex-col min-h-screen">
