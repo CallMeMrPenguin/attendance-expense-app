@@ -206,11 +206,27 @@ export default function Dashboard() {
 
     if (list.length > 0) {
       setTeachers(list);
-      if (!activeTeacherName || activeTeacherName === 'Giáo Viên 1' || !list.includes(activeTeacherName)) {
-        setActiveTeacherName(list[0]);
+      // For admins: if no teacher is selected yet, OR the currently active teacher
+      // is the admin's own account name (which typically has no sessions),
+      // default to the first teacher in the list.
+      const adminOwnName = currentUser?.teacherName;
+      const needsDefault =
+        !activeTeacherName ||
+        activeTeacherName === 'Giáo Viên 1' ||
+        !list.includes(activeTeacherName) ||
+        // If the only reason we're stuck on a name is it's the admin's own account
+        // and there are other teachers, switch to the first real teacher
+        (activeTeacherName === adminOwnName && list.length > 1 && list[0] !== adminOwnName);
+
+      if (needsDefault) {
+        // Pick the first teacher that is NOT the admin's own name (if others exist)
+        const preferred = list.find((n) => n !== adminOwnName) || list[0];
+        setActiveTeacherName(preferred);
       }
     }
   }, [currentUser, activeTeacherName]);
+
+
 
 
   // Fetch session schedule data
