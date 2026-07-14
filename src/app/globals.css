@@ -91,6 +91,19 @@ input[type=number] {
   -moz-appearance: textfield;
 }
 
+/* Hide native calendar icon on month inputs */
+input[type="month"]::-webkit-calendar-picker-indicator {
+  display: none;
+  -webkit-appearance: none;
+}
+
+/* Suppress native <select> dropdown arrow universally */
+select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;

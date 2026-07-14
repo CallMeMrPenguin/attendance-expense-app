@@ -130,16 +130,18 @@ export function checkOverlaps(
 
 // Generate color by student name deterministically
 export function getStudentColor(studentName: string): string {
-  if (!studentName) return '#4f46e5';
+  if (!studentName) return '#7c3aed';
   const palette = [
-    '#4f46e5', // Indigo Blue
-    '#059669', // Emerald Green
-    '#7c3aed', // Purple Violet
-    '#d97706', // Amber Orange
-    '#db2777', // Pink Rose
-    '#0891b2', // Cyan Teal
-    '#6366f1', // Light Indigo
-    '#475569', // Slate Gray
+    '#7c3aed', // Vivid Purple Violet
+    '#0ea5e9', // Sky Blue
+    '#10b981', // Emerald Green
+    '#f59e0b', // Amber Gold
+    '#ec4899', // Hot Pink
+    '#06b6d4', // Cyan Teal
+    '#f97316', // Bright Orange
+    '#84cc16', // Lime Green
+    '#a78bfa', // Lavender
+    '#fb7185', // Rose Red
   ];
   let hash = 0;
   for (let i = 0; i < studentName.length; i++) {
@@ -148,6 +150,7 @@ export function getStudentColor(studentName: string): string {
   const index = Math.abs(hash) % palette.length;
   return palette[index];
 }
+
 
 // Format currency
 export function formatVND(amt: number): string {
