@@ -135,6 +135,13 @@ export default function Dashboard() {
     fetchSession();
   }, [router]);
 
+  // Enforce role permission on activeTab switching
+  useEffect(() => {
+    if (currentUser && currentUser.role !== 'admin' && activeTab !== 'schedule') {
+      setActiveTab('schedule');
+    }
+  }, [currentUser, activeTab]);
+
   // Load finance data from LocalStorage
   useEffect(() => {
     if (!currentUser) return;
