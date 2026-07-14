@@ -239,7 +239,7 @@ select {
 }
 
 .animate-mac-dropdown {
-  animation: macDropdownOpen 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: macDropdownOpen 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @keyframes macModalBackdropOpen {
@@ -263,11 +263,11 @@ select {
 }
 
 .animate-mac-backdrop {
-  animation: macModalBackdropOpen 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: macModalBackdropOpen 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .animate-mac-modal {
-  animation: macModalContentOpen 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: macModalContentOpen 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 

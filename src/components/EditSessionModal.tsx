@@ -569,7 +569,7 @@ export default function EditSessionModal({
             <div className="relative flex bg-slate-100 dark:bg-[#0d1018] border border-slate-200 dark:border-white/10 p-1 rounded-xl w-full">
               {/* Sliding pill background */}
               <div
-                className={`absolute top-1 bottom-1 rounded-[10px] transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] pointer-events-none ${
+                className={`absolute top-1 bottom-1 rounded-[10px] transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] pointer-events-none ${
                   status === 'Chưa dạy'
                     ? 'bg-indigo-650 dark:bg-indigo-500 shadow-[0_0_14px_rgba(99,102,241,0.4)]'
                     : status === 'Đã dạy'
