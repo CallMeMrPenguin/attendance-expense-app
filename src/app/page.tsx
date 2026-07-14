@@ -139,25 +139,6 @@ export default function Dashboard() {
         }
       }
 
-      const customSessionStr = localStorage.getItem('custom_teacher_session');
-      if (customSessionStr) {
-        try {
-          const customSession = JSON.parse(customSessionStr);
-          if (customSession && customSession.username) {
-            setCurrentUser({
-              id: 'custom-session-id',
-              username: customSession.username,
-              teacherName: customSession.teacherName,
-              role: customSession.role,
-              token: 'custom-token',
-            });
-            setActiveTeacherName(customSession.teacherName);
-            return;
-          }
-        } catch (e) {
-          console.warn('Failed to parse custom session:', e);
-        }
-      }
 
       router.push('/login');
     };
