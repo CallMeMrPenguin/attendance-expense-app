@@ -149,17 +149,19 @@ export default function CalendarMonthView({
   };
 
   return (
-    <div className="w-full bg-slate-200/40 dark:bg-white/5 rounded-3xl smooth-rounded border border-slate-200/50 dark:border-white/5 shadow-[0_8px_32px_rgba(0,0,0,0.03)] min-w-[980px]">
+    <div className="w-full calendar-container-depth rounded-3xl overflow-hidden shadow-2xl relative select-none">
+      {/* Signature glowing top timeline accent */}
+      <div className="glowing-timeline-bar w-full" />
       
       {/* Weekday Headers */}
-      <div className="grid grid-cols-7 bg-slate-50/50 dark:bg-slate-950/20 border-b border-slate-200/40 dark:border-white/5 select-none">
+      <div className="grid grid-cols-7 bg-[#0b0d14]/70 border-b border-white/[0.04] select-none">
         {DAYS.map((day, idx) => {
           const isWeekend = idx === 5 || idx === 6;
           return (
             <div
               key={day}
-              className={`py-3.5 text-center text-[11px] font-extrabold uppercase tracking-widest ${
-                isWeekend ? 'text-rose-500/80 bg-rose-500/2' : 'text-slate-400 dark:text-slate-500'
+              className={`py-4 text-center text-[11px] font-extrabold uppercase tracking-widest ${
+                isWeekend ? 'text-rose-400/80 bg-rose-500/[0.015]' : 'text-slate-400'
               }`}
             >
               {day}
@@ -168,14 +170,14 @@ export default function CalendarMonthView({
         })}
       </div>
 
-      {/* Days Grid */}
-      <div className="grid grid-cols-7 gap-[1px] bg-slate-200/40 dark:bg-white/5">
+      {/* Days Grid - Grid lines reduced to rgba(255,255,255,0.025) */}
+      <div className="grid grid-cols-7 gap-[1px] bg-white/[0.025]">
         {cells.map((cell) => {
           if (!cell.inMonth) {
             return (
               <div 
                 key={`empty-${cell.index}`} 
-                className="bg-slate-50/20 dark:bg-slate-950/10 min-h-[140px]" 
+                className="bg-[#08090f]/60 min-h-[155px]" 
               />
             );
           }
@@ -192,29 +194,34 @@ export default function CalendarMonthView({
           return (
             <div
               key={`day-${dayNum}`}
-              className={`bg-white dark:bg-[#11131a]/80 min-h-[145px] p-3 transition-all flex flex-col gap-2 relative ${
+              className={`bg-[#0d1017]/90 min-h-[160px] p-3 transition-all flex flex-col gap-2 relative ${
                 cellIsToday 
-                  ? 'ring-1 ring-indigo-500/40 z-10 bg-indigo-500/2 dark:bg-indigo-950/5' 
+                  ? 'ring-1 ring-indigo-500/50 z-10 bg-indigo-500/[0.04]' 
                   : cell.isWeekend 
-                    ? 'bg-slate-50/20 dark:bg-[#11131a]/30' 
-                    : 'hover:bg-slate-50/30 dark:hover:bg-[#171a22]/30'
+                    ? 'bg-[#0b0d14]/40' 
+                    : 'hover:bg-[#121622]/60'
               }`}
             >
               {/* Day Number */}
               <div className="flex justify-between items-center shrink-0 select-none">
                 <span
-                  className={`text-[12px] font-extrabold font-sans rounded-full flex items-center justify-center h-5.5 w-5.5 ${
+                  className={`text-[12px] font-black font-sans rounded-full flex items-center justify-center h-6 w-6 ${
                     cellIsToday
-                      ? 'bg-[#7b61ff] text-white shadow-sm'
-                      : 'text-slate-500 dark:text-slate-400'
+                      ? 'bg-[#7b61ff] text-white shadow-[0_0_12px_rgba(123,97,255,0.6)]'
+                      : 'text-slate-400'
                   }`}
                 >
                   {dayNum}
                 </span>
+                {daySessions.length > 0 && (
+                  <span className="text-[10px] font-extrabold text-indigo-400/80 bg-indigo-500/10 px-1.5 py-0.5 rounded-full">
+                    {daySessions.length}
+                  </span>
+                )}
               </div>
               
               {/* Day Session Cards */}
-              <div className="flex-grow flex flex-col gap-1.5">
+              <div className="flex-grow flex flex-col gap-2">
                 {daySessions.map((s) => {
                   const startTime = formatCleanTimeString(s.time);
                   const endTime = getEndTime(startTime, s.duration);
@@ -224,18 +231,18 @@ export default function CalendarMonthView({
                     <div
                       key={s.id}
                       onClick={() => onSessionClick(s.id)}
-                      className="flex rounded-lg cursor-pointer hover:-translate-y-0.5 hover:scale-[1.01] hover:shadow-md transition-all active:scale-[0.98] min-h-[50px] border border-solid event-float"
+                      className="flex rounded-xl cursor-pointer transition-all active:scale-[0.98] min-h-[52px] border border-solid event-float overflow-hidden"
                       style={{
                         backgroundColor: vStyle.bg,
                         borderColor: vStyle.border,
                         boxShadow: vStyle.shadow,
-                        backdropFilter: 'blur(8px)',
-                        WebkitBackdropFilter: 'blur(8px)'
+                        backdropFilter: 'blur(12px)',
+                        WebkitBackdropFilter: 'blur(12px)'
                       }}
                     >
                       {/* Left Time Bar */}
                       <div
-                        className="flex flex-col justify-center items-center px-1.5 py-1 text-[8.5px] font-extrabold w-[46px] select-none text-center border-r border-solid"
+                        className="flex flex-col justify-center items-center px-2 py-1 text-[9px] font-black w-[48px] select-none text-center border-r border-solid"
                         style={{ 
                           borderColor: vStyle.innerBorder,
                           color: vStyle.color
@@ -246,19 +253,19 @@ export default function CalendarMonthView({
                         <span className="leading-none">{endTime}</span>
                       </div>
 
-                       {/* Right Details (Student Name & Duration, No Price) */}
-                      <div className="flex-grow p-1.5 flex flex-col justify-center overflow-hidden">
+                       {/* Right Details */}
+                      <div className="flex-grow p-2 flex flex-col justify-center overflow-hidden">
                         <h4 
-                          className="text-[11.5px] font-extrabold truncate leading-tight text-left"
+                          className="text-[12px] font-black truncate leading-tight text-left tracking-tight"
                           style={{ color: vStyle.titleColor }}
                         >
                           {s.student_name}
                         </h4>
                         <div 
-                          className="text-[9.5px] font-extrabold mt-0.5 select-none leading-none text-left opacity-75"
+                          className="text-[9.5px] font-bold mt-0.5 select-none leading-none text-left opacity-80"
                           style={{ color: vStyle.color }}
                         >
-                          {s.duration}h
+                          {s.duration} ca • {s.status}
                         </div>
                       </div>
                     </div>
@@ -272,3 +279,4 @@ export default function CalendarMonthView({
     </div>
   );
 }
+

@@ -222,304 +222,319 @@ export default function Dashboard() {
   }
 
   // Efficiency calculation
-  const efficiencyRate = totalSessions > 0 ? Math.round((completedSessions / totalSessions) * 100) : 0;
-
-  return (
-    <div className="min-h-screen flex transition-colors duration-300 grid-bg-dark text-slate-100">
+  const efficiencyRate = totalSessions > 0 ? Math.round((completedSessions / totalSessions) * 100) : 0;  return (
+    <div className="min-h-screen transition-colors duration-300 ambient-bg-dark text-slate-100 relative overflow-hidden select-none">
       
-      {/* 1. Left Sidebar Navigation */}
-      <aside className="w-64 border-r border-slate-200/50 dark:border-white/5 bg-white/40 dark:bg-[#090b10]/40 backdrop-blur-md h-screen sticky top-0 hidden lg:flex flex-col justify-between p-6 shrink-0 select-none">
+      {/* Signature Vignette Overlay & Ambient Aurora Glow */}
+      <div className="vignette-overlay" />
+      <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-purple-600/10 rounded-full blur-[140px] pointer-events-none animate-aurora z-0" />
+      <div className="absolute top-1/3 -right-40 w-[550px] h-[550px] bg-cyan-600/10 rounded-full blur-[140px] pointer-events-none animate-aurora z-0" style={{ animationDelay: '-6s' }} />
+
+      {/* Main Content Container - Widened Viewport (Dominating Page) */}
+      <div className="relative z-10 w-full max-w-[1720px] mx-auto px-4 sm:px-8 lg:px-12 py-6 flex flex-col min-h-screen">
         
-        <div>
-          {/* Logo brand wrapper */}
-          <div className="flex items-center gap-3 px-2 py-3 select-none">
-            <div className="h-10 w-10 bg-indigo-500/10 border border-indigo-500/30 rounded-lg flex items-center justify-center text-indigo-500 shadow-inner">
-              <GraduationCap className="h-6 w-6" />
+        {/* 11. Floating macOS Style Top Toolbar */}
+        <header className="macos-toolbar rounded-2xl px-6 py-3.5 mb-10 w-full flex flex-wrap items-center justify-between gap-4 sticky top-4 z-50">
+          
+          {/* Left toolbar filters */}
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Logo brand badge */}
+            <div className="flex items-center gap-2.5 pr-4 border-r border-white/10 mr-1">
+              <div className="h-8 w-8 bg-indigo-500/15 border border-indigo-500/30 rounded-lg flex items-center justify-center text-indigo-400 shadow-[0_0_12px_rgba(123,97,255,0.3)]">
+                <GraduationCap className="h-4.5 w-4.5" />
+              </div>
+              <span className="font-black text-base bg-gradient-to-r from-white via-slate-200 to-indigo-300 bg-clip-text text-transparent tracking-tight">GiaSu Pro</span>
             </div>
-            <span className="font-extrabold text-lg bg-gradient-to-r from-indigo-500 to-purple-500 bg-clip-text text-transparent">GiaSu Pro</span>
+
+            {/* Month Selector dropdown */}
+            <div className="flex items-center bg-[#090b10]/80 border border-white/[0.08] hover:border-indigo-500/40 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all shadow-inner">
+              <CalendarIcon className="h-3.5 w-3.5 text-indigo-400 mr-2" />
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="bg-transparent text-slate-200 border-none outline-none font-bold text-xs p-0 cursor-pointer"
+              />
+            </div>
+
+            {/* Teacher select dropdown */}
+            <div className="flex items-center bg-[#090b10]/80 border border-white/[0.08] hover:border-indigo-500/40 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all shadow-inner">
+              <label htmlFor="teacherSelect" className="text-slate-400 font-extrabold uppercase mr-1.5 text-[10px] tracking-wider">Giáo viên:</label>
+              <span className="h-2 w-2 rounded-full bg-emerald-400 inline-block mr-2 shadow-[0_0_8px_rgba(16,185,129,0.8)] animate-pulse"></span>
+              <select
+                id="teacherSelect"
+                value={activeTeacherName}
+                disabled={currentUser.role === 'teacher'}
+                onChange={(e) => setActiveTeacherName(e.target.value)}
+                className="bg-transparent border-none outline-none font-bold text-slate-200 focus:ring-0 p-0 text-xs cursor-pointer"
+              >
+                {teachers.map((t) => (
+                  <option key={t} value={t} className="bg-[#090b10] text-slate-200">
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Admin Manage Teachers Modal Trigger */}
+            {currentUser.role === 'admin' && (
+              <button
+                onClick={() => setTeachersModalOpen(true)}
+                title="Quản lý danh sách giáo viên"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#7b61ff]/12 hover:bg-[#7b61ff]/25 border border-[#7b61ff]/30 rounded-xl text-xs font-extrabold text-indigo-300 transition-all shadow-sm cursor-pointer"
+              >
+                <Settings className="h-3.5 w-3.5" />
+                <span>Quản lý</span>
+              </button>
+            )}
           </div>
 
-          {/* Menu items */}
-          <nav className="mt-8 space-y-1.5 text-left">
-            <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-xs font-bold bg-[#7b61ff]/10 text-[#7b61ff] border border-[#7b61ff]/15 select-none transition-all cursor-pointer">
-              <LayoutDashboard className="h-4.5 w-4.5" />
-              <span>Tổng quan</span>
+          {/* Right toolbar profile & actions */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setPasswordModalOpen(true)}
+              title="Đổi mật khẩu"
+              className="p-2 border border-white/[0.08] hover:border-white/20 hover:bg-white/[0.06] text-slate-300 transition-all rounded-xl cursor-pointer bg-[#090b10]/60"
+            >
+              <Key className="h-4 w-4" />
             </button>
-          </nav>
-        </div>
-      </aside>
-      {/* 2. Main Content Page Wrapper */}
-      <div className="flex-grow flex flex-col min-h-screen">
-        
-        {/* Top Navbar */}
-        <nav className="border-b border-slate-200/50 dark:border-white/5 bg-white/40 dark:bg-[#090b10]/40 backdrop-blur-md sticky top-0 z-50 px-6 py-4 shadow-sm select-none">
-          <div className="w-full flex items-center justify-between gap-4">
+
+            <button
+              onClick={handleLogout}
+              title="Đăng xuất"
+              className="p-2 border border-red-500/20 hover:bg-red-500/10 hover:border-red-500/40 text-rose-400 transition-all rounded-xl cursor-pointer bg-rose-950/10"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+
+            <div className="flex items-center border-l border-white/10 pl-3.5 gap-2.5">
+              <div className="h-8.5 w-8.5 bg-indigo-500/20 border border-indigo-500/40 rounded-xl flex items-center justify-center text-indigo-300 font-black text-xs shadow-[0_0_12px_rgba(123,97,255,0.2)]">
+                {currentUser.teacherName.charAt(0).toUpperCase()}
+              </div>
+              <div className="hidden sm:flex flex-col text-left">
+                <span className="text-xs font-extrabold text-white leading-tight">
+                  {currentUser.teacherName}
+                </span>
+                <span className="text-[9px] font-black text-indigo-400/80 uppercase tracking-widest leading-none">
+                  {currentUser.role === 'admin' ? 'Quản trị viên' : 'Giáo viên'}
+                </span>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* 2. & 12. Hero Area with Identity & Editorial Typography */}
+        <section className="relative mb-12 flex flex-col md:flex-row justify-between items-start md:items-end gap-6 text-left">
+          
+          <div className="space-y-2 max-w-2xl relative z-10">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-extrabold tracking-wider uppercase mb-1 shadow-sm">
+              <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(123,97,255,1)]"></span>
+              <span>Tổng quan giảng dạy</span>
+            </div>
+
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-[1.05]">
+              Xin chào, <br className="hidden sm:block" />
+              <span className="bg-gradient-to-r from-white via-indigo-100 to-purple-400 bg-clip-text text-transparent">
+                {currentUser.teacherName}
+              </span>
+            </h1>
+
+            <p className="text-slate-400 text-xs sm:text-sm font-semibold tracking-wide pt-1">
+              {totalSessions > 0 
+                ? `Tháng này bạn có ${totalSessions} ca dạy với tổng doanh thu dự kiến ${formatVND(projectedIncome)}.`
+                : 'Hiện tại chưa có lịch ca dạy nào được tạo cho tháng này.'
+              }
+            </p>
+          </div>
+
+          {/* Action button shifted right to break rigid symmetry */}
+          <div className="flex items-center gap-4 shrink-0 z-10 w-full md:w-auto">
+            <button
+              onClick={() => setAddModalOpen(true)}
+              className="w-full md:w-auto flex items-center justify-center gap-2.5 px-6 py-3 bg-[#7b61ff] hover:bg-[#8e77ff] text-white font-extrabold text-xs rounded-xl shadow-[0_8px_25px_rgba(123,97,255,0.4)] hover:shadow-[0_12px_32px_rgba(123,97,255,0.6)] hover:scale-[1.02] transition-all cursor-pointer border border-white/20 select-none"
+            >
+              <Plus className="h-4.5 w-4.5" />
+              Thêm Ca Dạy Nhanh
+            </button>
+          </div>
+        </section>
+
+        {/* 4. Editorial Dominating KPI Cards */}
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-14 text-left">
+          
+          {/* KPI 1 */}
+          <div className="kpi-editorial-card rounded-2xl p-6 flex flex-col justify-between min-h-[140px]">
+            <div className="flex justify-between items-start">
+              <span className="text-4xl lg:text-5xl font-black text-white tracking-tight leading-none">
+                {totalSessions}
+              </span>
+              <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                <CalendarIcon className="h-4.5 w-4.5" />
+              </div>
+            </div>
+            <div className="mt-4 flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Ca dạy trong tháng</span>
+              <span className="text-[10px] font-extrabold text-indigo-300 bg-indigo-500/15 px-2 py-0.5 rounded-md">
+                Tổng ca
+              </span>
+            </div>
+          </div>
+
+          {/* KPI 2 */}
+          <div className="kpi-editorial-card rounded-2xl p-6 flex flex-col justify-between min-h-[140px]">
+            <div className="flex justify-between items-start">
+              <span className="text-4xl lg:text-5xl font-black text-white tracking-tight leading-none">
+                {completedSessions}
+              </span>
+              <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <CheckCircle2 className="h-4.5 w-4.5" />
+              </div>
+            </div>
+            <div className="mt-4 flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Ca hoàn thành</span>
+              {totalSessions > 0 && (
+                <span className="text-[10px] font-black text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded-md">
+                  ↑ {Math.round((completedSessions / totalSessions) * 100)}%
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* KPI 3 */}
+          <div className="kpi-editorial-card rounded-2xl p-6 flex flex-col justify-between min-h-[140px]">
+            <div className="flex justify-between items-start">
+              <span className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight leading-none truncate max-w-[190px]">
+                {formatVND(earnedIncome)}
+              </span>
+              <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                <Coins className="h-4.5 w-4.5" />
+              </div>
+            </div>
+            <div className="mt-4 flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Thu nhập thực tế</span>
+              <span className="text-[10px] font-extrabold text-amber-300 bg-amber-500/15 px-2 py-0.5 rounded-md">
+                Đã dạy
+              </span>
+            </div>
+          </div>
+
+          {/* KPI 4 */}
+          <div className="kpi-editorial-card rounded-2xl p-6 flex flex-col justify-between min-h-[140px]">
+            <div className="flex justify-between items-start">
+              <span className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight leading-none truncate max-w-[190px]">
+                {formatVND(projectedIncome)}
+              </span>
+              <div className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                <TrendingUp className="h-4.5 w-4.5" />
+              </div>
+            </div>
+            <div className="mt-4 flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Dự kiến thu nhập</span>
+              <span className="text-[10px] font-extrabold text-cyan-300 bg-cyan-500/15 px-2 py-0.5 rounded-md">
+                Tối đa
+              </span>
+            </div>
+          </div>
+
+        </section>
+
+        {/* 1. Timetable Area - Widen Calendar Dominating Page */}
+        <section className="flex-grow flex flex-col min-h-[480px]">
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-5 select-none shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="h-2.5 w-2.5 rounded-full bg-[#7b61ff] shadow-[0_0_10px_rgba(123,97,255,1)]"></div>
+              <h3 className="text-sm font-black text-white uppercase tracking-wider">
+                Lịch Giảng Dạy & Doanh Thu
+              </h3>
+            </div>
             
-            {/* Left toolbar dropdown filters */}
-            <div className="flex flex-wrap items-center gap-3">
-              {/* Month Selector dropdown */}
-              <div className="flex items-center bg-slate-100 dark:bg-[#11131a]/60 border border-slate-200/50 dark:border-white/5 rounded-lg px-4 py-2 text-xs font-bold shadow-sm">
-                <input
-                  type="month"
-                  value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(e.target.value)}
-                  className="bg-transparent text-slate-800 dark:text-slate-200 border-none outline-none font-bold text-xs p-0 cursor-pointer"
+            {/* View Switcher Tabs */}
+            <div className="bg-[#090b10] border border-white/[0.08] p-1 rounded-xl flex gap-1 shadow-inner">
+              <button
+                onClick={() => setCurrentView('month')}
+                className={`px-4 py-1.5 text-xs font-black rounded-lg transition-all cursor-pointer ${
+                  currentView === 'month' 
+                    ? 'bg-[#7b61ff] text-white shadow-[0_2px_12px_rgba(123,97,255,0.4)]' 
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Lịch Tháng
+              </button>
+              <button
+                onClick={() => setCurrentView('week')}
+                className={`px-4 py-1.5 text-xs font-black rounded-lg transition-all cursor-pointer ${
+                  currentView === 'week' 
+                    ? 'bg-[#7b61ff] text-white shadow-[0_2px_12px_rgba(123,97,255,0.4)]' 
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Lịch Tuần
+              </button>
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="flex-grow calendar-container-depth rounded-3xl flex flex-col items-center justify-center p-16 text-slate-400 gap-3 min-h-[380px]">
+              <RefreshCw className="h-8 w-8 text-indigo-400 animate-spin" />
+              <span className="font-extrabold text-sm text-slate-300">Đang tải lịch học từ hệ thống database...</span>
+            </div>
+          ) : sessions.length === 0 ? (
+            <div className="flex-grow calendar-container-depth rounded-3xl flex flex-col items-center justify-center py-20 px-6 text-center min-h-[380px]">
+              <div className="h-16 w-16 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl flex items-center justify-center text-indigo-400 mb-4 shadow-[0_0_20px_rgba(123,97,255,0.15)]">
+                <AlertCircle className="h-8 w-8" />
+              </div>
+              <h3 className="text-lg font-black text-white">
+                Chưa có ca dạy nào trong tháng {selectedMonth}
+              </h3>
+              <p className="text-xs text-slate-400 mt-2 max-w-md font-medium">
+                Sử dụng nút "Thêm Ca Dạy Nhanh" ở trên để tạo ca dạy mới cho học sinh.
+              </p>
+            </div>
+          ) : (
+            <div className="relative w-full flex-grow">
+              {/* Month View */}
+              <div 
+                className={`transition-all duration-300 ease-in-out ${
+                  currentView === 'month' 
+                    ? 'opacity-100 scale-100 pointer-events-auto relative' 
+                    : 'opacity-0 scale-[0.99] pointer-events-none absolute inset-x-0 top-0'
+                }`}
+              >
+                <CalendarMonthView
+                  selectedMonth={selectedMonth}
+                  sessions={sessions}
+                  onSessionClick={(id) => {
+                    const sess = sessions.find((s) => s.id === id);
+                    if (sess) {
+                      setSelectedSession(sess);
+                      setEditModalOpen(true);
+                    }
+                  }}
                 />
               </div>
 
-              {/* Teacher select dropdown */}
-              <div className="flex items-center bg-slate-100 dark:bg-[#11131a]/60 border border-slate-200/50 dark:border-white/5 rounded-lg px-4 py-2 text-xs font-bold shadow-sm">
-                <label htmlFor="teacherSelect" className="text-slate-400 dark:text-slate-500 font-extrabold uppercase mr-1">Giáo viên:</label>
-                <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block mr-1.5 animate-pulse"></span>
-                <select
-                  id="teacherSelect"
-                  value={activeTeacherName}
-                  disabled={currentUser.role === 'teacher'}
-                  onChange={(e) => setActiveTeacherName(e.target.value)}
-                  className="bg-transparent border-none outline-none font-bold text-slate-800 dark:text-slate-200 focus:ring-0 p-0 text-xs cursor-pointer"
-                >
-                  {teachers.map((t) => (
-                    <option key={t} value={t} className="dark:bg-[#090b10]">
-                      {t}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Quản lý button next to Teacher selector (only for Admin) */}
-              {currentUser.role === 'admin' && (
-                <button
-                  onClick={() => setTeachersModalOpen(true)}
-                  title="Quản lý giáo viên"
-                  className="flex items-center justify-center gap-1.5 px-3 py-2 bg-[#7b61ff]/10 hover:bg-[#7b61ff]/18 border border-[#7b61ff]/20 rounded-lg text-xs font-bold text-[#7b61ff] transition-all shadow-sm cursor-pointer select-none"
-                >
-                  <Settings className="h-3.5 w-3.5" />
-                  <span>Quản lý</span>
-                </button>
-              )}
-            </div>
-
-            {/* Right toolbar controls */}
-            <div className="flex items-center gap-3">
-
-              {/* Password change security key button */}
-              <button
-                onClick={() => setPasswordModalOpen(true)}
-                title="Đổi mật khẩu"
-                className="p-2 border border-slate-200/50 dark:border-white/5 hover:bg-slate-55 dark:hover:bg-slate-850 text-slate-500 dark:text-slate-400 transition-all rounded-lg cursor-pointer shadow-sm bg-white dark:bg-[#1a1e28]"
+              {/* Week View */}
+              <div 
+                className={`transition-all duration-300 ease-in-out ${
+                  currentView === 'week' 
+                    ? 'opacity-100 scale-100 pointer-events-auto relative' 
+                    : 'opacity-0 scale-[0.99] pointer-events-none absolute inset-x-0 top-0'
+                }`}
               >
-                <Key className="h-4 w-4" />
-              </button>
-
-              {/* Log out exit button */}
-              <button
-                onClick={handleLogout}
-                title="Đăng xuất"
-                className="p-2 border border-red-200/30 dark:border-red-950/40 hover:bg-red-50 dark:hover:bg-red-950/20 hover:border-red-200 hover:text-red-650 transition-all rounded-lg text-red-550 cursor-pointer shadow-sm bg-red-50/20 dark:bg-red-950/10"
-              >
-                <LogOut className="h-4 w-4" />
-              </button>
-
-              {/* Profile Block (Initials / Display Names / Subtitles) */}
-              <div className="flex items-center border-l border-slate-200 dark:border-white/5 pl-3 gap-3">
-                <div className="h-8.5 w-8.5 bg-indigo-500/10 border border-indigo-500/25 rounded-xl flex items-center justify-center text-indigo-500 font-extrabold text-xs shadow-inner">
-                  {currentUser.teacherName.charAt(0).toUpperCase()}
-                </div>
-                <div className="hidden sm:flex flex-col text-left">
-                  <span className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
-                    {currentUser.teacherName}
-                  </span>
-                  <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none">
-                    {currentUser.role === 'admin' ? 'Quản trị viên' : 'Giáo Viên'}
-                  </span>
-                </div>
+                <CalendarWeekView
+                  sessions={sessions}
+                  onSessionClick={(id) => {
+                    const sess = sessions.find((s) => s.id === id);
+                    if (sess) {
+                      setSelectedSession(sess);
+                      setEditModalOpen(true);
+                    }
+                  }}
+                />
               </div>
             </div>
-
-          </div>
-        </nav>
-
-        {/* Dashboard Main Content Canvas */}
-        <main className="max-w-7xl w-full mx-auto px-6 md:px-12 py-12 flex-grow space-y-16">
-          
-          {/* Header section with wave aura gradients */}
-          <header className="relative flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-            <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-[350px] h-[200px] bg-purple-500/5 dark:bg-purple-500/10 blur-[90px] rounded-full pointer-events-none"></div>
-            
-            <div className="text-left select-none">
-              <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-none">
-                Xin chào, <span className="bg-gradient-to-r from-indigo-500 to-purple-650 dark:from-indigo-400 dark:to-purple-500 bg-clip-text text-transparent">{currentUser.teacherName}</span>
-              </h1>
-              <p className="text-slate-450 dark:text-slate-500 text-xs md:text-sm mt-3 font-semibold tracking-wide">
-                Tổng quan lịch dạy và doanh thu trong tuần.
-              </p>
-            </div>
-            
-            <div className="flex flex-wrap items-center gap-4 shrink-0 z-10 w-full md:w-auto">
-              {/* Add schedule button */}
-              <button
-                onClick={() => setAddModalOpen(true)}
-                className="flex items-center justify-center gap-2 px-5 py-2.5 bg-[#7b61ff] hover:bg-[#6c52ee] text-white font-bold text-xs rounded-lg shadow-md hover:scale-[1.01] transition-all cursor-pointer border border-[#7b61ff]/10 border-solid select-none"
-              >
-                <Plus className="h-4.5 w-4.5" />
-                Thêm Ca Dạy Nhanh
-              </button>
-            </div>
-          </header>
-
-          {/* Stats Information Blocks Row (4 KPI columns, no hieu suat, with Lucide icons) */}
-          <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 select-none text-left">
-            {/* KPI 1 */}
-            <div className="bg-white dark:bg-[#1a1e28] border border-slate-200 dark:border-white/5 rounded-xl p-5 flex items-center gap-4 shadow-sm hover:-translate-y-0.5 transition-all duration-200 border-solid">
-              <div className="h-11 w-11 rounded-lg flex items-center justify-center shrink-0 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-650 dark:text-indigo-400 border border-solid border-indigo-100/30 dark:border-indigo-900/10">
-                <CalendarIcon className="h-5 w-5" />
-              </div>
-              <div className="flex flex-col text-left overflow-hidden">
-                <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 dark:text-slate-500">Ca dạy trong tháng</span>
-                <span className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1 leading-none">{totalSessions}</span>
-              </div>
-            </div>
-
-            {/* KPI 2 */}
-            <div className="bg-white dark:bg-[#1a1e28] border border-slate-200 dark:border-white/5 rounded-xl p-5 flex items-center gap-4 shadow-sm hover:-translate-y-0.5 transition-all duration-200 border-solid">
-              <div className="h-11 w-11 rounded-lg flex items-center justify-center shrink-0 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-650 dark:text-emerald-400 border border-solid border-emerald-100/30 dark:border-emerald-900/10">
-                <CheckCircle2 className="h-5 w-5" />
-              </div>
-              <div className="flex flex-col text-left overflow-hidden">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 dark:text-slate-500">Ca hoàn thành</span>
-                  {totalSessions > 0 && (
-                    <span className="text-[9px] font-extrabold text-emerald-650 bg-emerald-500/10 dark:bg-emerald-500/12 px-1 py-0.5 rounded">
-                      +{Math.round((completedSessions / totalSessions) * 100)}%
-                    </span>
-                  )}
-                </div>
-                <span className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1 leading-none">{completedSessions}</span>
-              </div>
-            </div>
-
-            {/* KPI 3 */}
-            <div className="bg-white dark:bg-[#1a1e28] border border-slate-200 dark:border-white/5 rounded-xl p-5 flex items-center gap-4 shadow-sm hover:-translate-y-0.5 transition-all duration-200 border-solid">
-              <div className="h-11 w-11 rounded-lg flex items-center justify-center shrink-0 bg-amber-50 dark:bg-amber-950/40 text-amber-650 dark:text-amber-400 border border-solid border-amber-100/30 dark:border-amber-900/10">
-                <Coins className="h-5 w-5" />
-              </div>
-              <div className="flex flex-col text-left overflow-hidden">
-                <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 dark:text-slate-500">Thu nhập thực tế</span>
-                <span className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1 leading-none truncate">{formatVND(earnedIncome)}</span>
-              </div>
-            </div>
-
-            {/* KPI 4 */}
-            <div className="bg-white dark:bg-[#1a1e28] border border-slate-200 dark:border-white/5 rounded-xl p-5 flex items-center gap-4 shadow-sm hover:-translate-y-0.5 transition-all duration-200 border-solid">
-              <div className="h-11 w-11 rounded-lg flex items-center justify-center shrink-0 bg-blue-50 dark:bg-blue-950/40 text-blue-650 dark:text-blue-400 border border-solid border-blue-100/30 dark:border-blue-900/10">
-                <TrendingUp className="h-5 w-5" />
-              </div>
-              <div className="flex flex-col text-left overflow-hidden">
-                <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 dark:text-slate-500">Dự kiến thu nhập</span>
-                <span className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1 leading-none truncate">{formatVND(projectedIncome)}</span>
-              </div>
-            </div>
-          </section>
-
-          {/* Timetable Panel Area */}
-          <section className="min-h-[360px] flex flex-col">
-            {!loading && sessions.length > 0 && (
-              <div className="flex flex-wrap items-center justify-between gap-4 mb-6 select-none shrink-0">
-                <h3 className="text-sm font-extrabold text-slate-800 dark:text-white uppercase tracking-wider flex items-center gap-2">
-                  <CalendarRange className="h-4.5 w-4.5 text-indigo-500" />
-                  Lịch giảng dạy & Doanh thu
-                </h3>
-                
-                {/* Segment views toggler switches */}
-                <div className="bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-white/5 p-1 rounded-lg flex gap-1 shadow-sm border-solid">
-                  <button
-                    onClick={() => setCurrentView('month')}
-                    className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all cursor-pointer ${
-                      currentView === 'month' 
-                        ? 'bg-white text-slate-900 shadow-sm dark:bg-[#1a1e28] dark:text-white' 
-                        : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
-                    }`}
-                  >
-                    Lịch Tháng
-                  </button>
-                  <button
-                    onClick={() => setCurrentView('week')}
-                    className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all cursor-pointer ${
-                      currentView === 'week' 
-                        ? 'bg-white text-slate-900 shadow-sm dark:bg-[#1a1e28] dark:text-white' 
-                        : 'text-slate-555 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
-                    }`}
-                  >
-                    Lịch Tuần
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {loading ? (
-              <div className="flex-grow flex flex-col items-center justify-center p-12 text-slate-400 gap-3">
-                <RefreshCw className="h-8 w-8 text-indigo-500 animate-spin" />
-                <span className="font-semibold text-sm">Đang tải lịch học từ database...</span>
-              </div>
-            ) : sessions.length === 0 ? (
-              <div className="flex-grow flex flex-col items-center justify-center py-16 px-4 text-center">
-                <div className="h-16 w-16 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex items-center justify-center text-slate-400 mb-4 border-solid">
-                  <AlertCircle className="h-8 w-8" />
-                </div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                  Chưa có ca dạy nào trong tháng này
-                </h3>
-                <p className="text-xs text-slate-500 mt-1 max-w-xs">
-                  Sử dụng nút "Thêm Ca Dạy Nhanh" hoặc click chọn ngày trên lịch để tạo ca mới.
-                </p>
-              </div>
-            ) : (
-              <div className="relative w-full">
-                {/* Month View */}
-                <div 
-                  className={`transition-all duration-300 ease-in-out ${
-                    currentView === 'month' 
-                      ? 'opacity-100 scale-100 pointer-events-auto relative' 
-                      : 'opacity-0 scale-[0.99] pointer-events-none absolute inset-x-0 top-0'
-                  }`}
-                >
-                  <CalendarMonthView
-                    selectedMonth={selectedMonth}
-                    sessions={sessions}
-                    onSessionClick={(id) => {
-                      const sess = sessions.find((s) => s.id === id);
-                      if (sess) {
-                        setSelectedSession(sess);
-                        setEditModalOpen(true);
-                      }
-                    }}
-                  />
-                </div>
-
-                {/* Week View */}
-                <div 
-                  className={`transition-all duration-300 ease-in-out ${
-                    currentView === 'week' 
-                      ? 'opacity-100 scale-100 pointer-events-auto relative' 
-                      : 'opacity-0 scale-[0.99] pointer-events-none absolute inset-x-0 top-0'
-                  }`}
-                >
-                  <CalendarWeekView
-                    sessions={sessions}
-                    onSessionClick={(id) => {
-                      const sess = sessions.find((s) => s.id === id);
-                      if (sess) {
-                        setSelectedSession(sess);
-                        setEditModalOpen(true);
-                      }
-                    }}
-                  />
-                </div>
-              </div>
-            )}
-          </section>
-
-        </main>
+          )}
+        </section>
 
       </div>
 

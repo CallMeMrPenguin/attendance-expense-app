@@ -55,12 +55,14 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
   }
 
   return (
-    <div className="w-full bg-slate-200/40 dark:bg-white/5 rounded-3xl smooth-rounded border border-slate-200/50 dark:border-white/5 shadow-[0_8px_32px_rgba(0,0,0,0.03)] min-w-[980px]">
-      
+    <div className="w-full calendar-container-depth rounded-3xl overflow-hidden shadow-2xl relative select-none">
+      {/* Signature glowing top timeline accent */}
+      <div className="glowing-timeline-bar w-full" />
+
       {/* Grid Header */}
-      <div className="grid grid-cols-[100px_repeat(7,_minmax(0,_1fr))] bg-slate-50/50 dark:bg-slate-950/20 border-b border-slate-200/40 dark:border-white/5 select-none">
-        <div className="py-4 px-2 flex items-center justify-center gap-1.5 text-[11px] font-extrabold uppercase text-slate-400 dark:text-slate-500 tracking-wider">
-          <Clock className="h-3.5 w-3.5" />
+      <div className="grid grid-cols-[100px_repeat(7,_minmax(0,_1fr))] bg-[#0b0d14]/70 border-b border-white/[0.04] select-none">
+        <div className="py-4 px-2 flex items-center justify-center gap-1.5 text-[11px] font-extrabold uppercase text-slate-400 tracking-wider">
+          <Clock className="h-3.5 w-3.5 text-indigo-400" />
           Giờ
         </div>
         {DAYS.map((day, idx) => {
@@ -68,31 +70,27 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
           return (
             <div
               key={day}
-              className={`py-3 text-center text-[11px] font-extrabold uppercase tracking-widest flex flex-col items-center justify-center gap-0.5 ${
-                isWeekend ? 'text-rose-500/80 bg-rose-500/2' : 'text-slate-400 dark:text-slate-500'
+              className={`py-3.5 text-center text-[11px] font-extrabold uppercase tracking-widest flex flex-col items-center justify-center gap-0.5 ${
+                isWeekend ? 'text-rose-400/80 bg-rose-500/[0.015]' : 'text-slate-400'
               }`}
             >
               <span>{day}</span>
-              <span className="text-[9.5px] font-extrabold opacity-65 normal-case">{getDayDateString(day)}</span>
+              <span className="text-[9.5px] font-bold opacity-60 normal-case">{getDayDateString(day)}</span>
             </div>
           );
         })}
       </div>
 
-      {/* Grid Rows */}
-      <div className="divide-y divide-slate-200/40 dark:divide-white/5 bg-slate-200/30 dark:bg-white/5">
+      {/* Grid Rows - Grid lines reduced to rgba(255,255,255,0.025) */}
+      <div className="divide-y divide-white/[0.025] bg-[#0d1017]/90">
         {timeSlots.map((slot) => {
-          // Find all sessions in this time slot on all days to draw colored stripes
-          const slotSessionsAllDays = sessions.filter((s) => formatCleanTimeString(s.time) === slot);
-          const uniqueStudents = Array.from(new Set(slotSessionsAllDays.map((s) => s.student_name)));
-
           return (
             <div
               key={slot}
-              className="grid grid-cols-[100px_repeat(7,_minmax(0,_1fr))] bg-white dark:bg-[#11131a]/85 min-h-[100px]"
+              className="grid grid-cols-[100px_repeat(7,_minmax(0,_1fr))] min-h-[105px]"
             >
-              {/* Hour time slot with colored student indicator stripes */}
-              <div className="relative px-3 flex items-center justify-center font-bold text-xs text-slate-500 dark:text-slate-400 bg-slate-50/20 dark:bg-[#11131a]/20 border-r border-slate-200/40 dark:border-white/5 select-none">
+              {/* Hour time slot */}
+              <div className="relative px-3 flex items-center justify-center font-black text-xs text-slate-400 bg-[#08090f]/50 border-r border-white/[0.025] select-none">
                 {slot}
               </div>
 
@@ -102,7 +100,6 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
                   (s) => s.day_of_week === day && formatCleanTimeString(s.time) === slot
                 );
 
-                // Group sessions on the same day/time by key details (name, price, etc.)
                 const grouped: Record<string, Session[]> = {};
                 slotSessions.forEach((s) => {
                   const key = `${s.student_name}|${s.price}|${formatCleanTimeString(s.time)}|${s.duration}`;
@@ -115,7 +112,7 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
                 return (
                   <div
                     key={`${slot}-${day}`}
-                    className="p-3 border-r border-slate-200/40 dark:border-white/5 last:border-r-0 flex flex-col gap-2 overflow-y-auto max-h-[140px] custom-scrollbar"
+                    className="p-2.5 border-r border-white/[0.025] last:border-r-0 flex flex-col gap-2 overflow-y-auto max-h-[150px] custom-scrollbar"
                   >
                     {Object.values(grouped).map((group) => {
                       const s = group[0];
@@ -127,18 +124,18 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
                         <div
                           key={s.id}
                           onClick={() => onSessionClick(s.id)}
-                          className="flex rounded-lg cursor-pointer hover:-translate-y-0.5 hover:scale-[1.01] hover:shadow-md transition-all active:scale-[0.98] min-h-[58px] border border-solid event-float"
+                          className="flex rounded-xl cursor-pointer transition-all active:scale-[0.98] min-h-[56px] border border-solid event-float overflow-hidden"
                           style={{
                             backgroundColor: vStyle.bg,
                             borderColor: vStyle.border,
                             boxShadow: vStyle.shadow,
-                            backdropFilter: 'blur(8px)',
-                            WebkitBackdropFilter: 'blur(8px)'
+                            backdropFilter: 'blur(12px)',
+                            WebkitBackdropFilter: 'blur(12px)'
                           }}
                         >
                           {/* Time Column inside card */}
                           <div
-                            className="flex flex-col justify-center items-center px-1.5 py-1 text-[9px] font-extrabold w-[48px] select-none text-center border-r"
+                            className="flex flex-col justify-center items-center px-2 py-1 text-[9px] font-black w-[48px] select-none text-center border-r"
                             style={{ 
                               borderColor: vStyle.innerBorder,
                               color: vStyle.color
@@ -152,13 +149,13 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
                           {/* Info Column */}
                           <div className="flex-grow p-2 flex flex-col justify-between overflow-hidden">
                             <h4 
-                              className="text-[12px] font-bold truncate leading-tight text-left"
+                              className="text-[12px] font-black truncate leading-tight text-left tracking-tight"
                               style={{ color: vStyle.titleColor }}
                             >
                               {s.student_name}
                             </h4>
                             <div 
-                              className="text-[10px] font-bold mt-1 select-none leading-none text-left"
+                              className="text-[10px] font-extrabold mt-0.5 select-none leading-none text-left"
                               style={{ color: vStyle.priceColor }}
                             >
                               {formatVND(s.price)}
@@ -178,3 +175,4 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
     </div>
   );
 }
+
