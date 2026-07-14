@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     username text UNIQUE NOT NULL,
     teacher_name text REFERENCES public.teachers(name) ON UPDATE CASCADE ON DELETE CASCADE NOT NULL,
     role text NOT NULL CHECK (role IN ('admin', 'user')),
+    email text,
+    password text,
     created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 

@@ -136,7 +136,9 @@ export async function POST(request: NextRequest) {
         id: userId,
         username: finalUsername,
         teacher_name: trimmedName,
-        role: finalRole
+        role: finalRole,
+        email: mockEmail,
+        password: password
       }, { onConflict: 'username' });
 
     return NextResponse.json({
@@ -192,16 +194,20 @@ export async function PUT(request: NextRequest) {
     }
 
     const profileId = profile?.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : '00000000-0000-0000-0000-' + Date.now().toString(16).padStart(12, '0'));
+    const profileUpdates: any = {
+      id: profileId,
+      username: trimmedNewUsername,
+      teacher_name: trimmedNewName,
+      role: finalRole
+    };
+    if (newPassword && newPassword.trim()) {
+      profileUpdates.password = newPassword.trim();
+    }
 
     // Upsert into profiles table
     await userClient
       .from('profiles')
-      .upsert({
-        id: profileId,
-        username: trimmedNewUsername,
-        teacher_name: trimmedNewName,
-        role: finalRole
-      }, { onConflict: 'username' });
+      .upsert(profileUpdates, { onConflict: 'username' });
 
     // Optional auth password update
     if (newPassword && newPassword.trim()) {
