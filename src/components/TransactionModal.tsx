@@ -147,28 +147,63 @@ export default function TransactionModal({
         <h3 className="text-sm font-black text-indigo-400 tracking-wider uppercase mb-5">Ghi Nhận Giao Dịch</h3>
 
         {/* Tab switch inside modal */}
-        <div className="grid grid-cols-3 gap-1.5 p-1 bg-[#090b10] border border-white/5 rounded-xl mb-5">
-          {(['expense', 'income', 'saving'] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => {
-                setModalTxType(t);
-                if (t === 'saving') {
-                  setModalCategory('Khác');
-                } else {
-                  setModalCategory(t === 'income' ? (incomeCategories[0] || 'Lương') : (expenseCategories[0] || 'Ăn uống'));
-                }
-              }}
-              className={`py-1.5 text-[10px] font-black tracking-wider uppercase rounded-lg transition-all cursor-pointer ${
-                modalTxType === t
-                  ? 'bg-indigo-500 text-white shadow-sm'
-                  : 'text-slate-455 hover:bg-white/[0.03] hover:text-slate-200'
-              }`}
-            >
-              {t === 'expense' ? 'Chi tiêu' : t === 'income' ? 'Thu nhập' : 'Tiết kiệm'}
-            </button>
-          ))}
+        <div className="relative flex bg-[#090b10] border border-white/5 p-1 rounded-xl w-full mb-5">
+          {/* Sliding pill background */}
+          <div
+            className={`absolute top-1 bottom-1 rounded-[10px] transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] pointer-events-none ${
+              modalTxType === 'expense'
+                ? 'bg-rose-500 shadow-[0_0_14px_rgba(239,68,68,0.4)]'
+                : modalTxType === 'income'
+                ? 'bg-emerald-500 shadow-[0_0_14px_rgba(16,185,129,0.4)]'
+                : 'bg-blue-500 shadow-[0_0_14px_rgba(59,130,246,0.4)]'
+            }`}
+            style={{
+              left: '4px',
+              width: 'calc(33.333% - 4px)',
+              transform:
+                modalTxType === 'expense'
+                  ? 'translateX(0)'
+                  : modalTxType === 'income'
+                  ? 'translateX(100%)'
+                  : 'translateX(200%)',
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => {
+              setModalTxType('expense');
+              setModalCategory(expenseCategories[0] || 'Ăn uống');
+            }}
+            className={`relative z-10 flex-1 py-2 text-[10px] font-black tracking-wider uppercase rounded-lg transition-colors duration-300 cursor-pointer ${
+              modalTxType === 'expense' ? 'text-white' : 'text-slate-455 hover:text-slate-200'
+            }`}
+          >
+            Chi tiêu
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setModalTxType('income');
+              setModalCategory(incomeCategories[0] || 'Lương');
+            }}
+            className={`relative z-10 flex-1 py-2 text-[10px] font-black tracking-wider uppercase rounded-lg transition-colors duration-300 cursor-pointer ${
+              modalTxType === 'income' ? 'text-white' : 'text-slate-455 hover:text-slate-200'
+            }`}
+          >
+            Thu nhập
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setModalTxType('saving');
+              setModalCategory('Khác');
+            }}
+            className={`relative z-10 flex-1 py-2 text-[10px] font-black tracking-wider uppercase rounded-lg transition-colors duration-300 cursor-pointer ${
+              modalTxType === 'saving' ? 'text-white' : 'text-slate-455 hover:text-slate-200'
+            }`}
+          >
+            Tiết kiệm
+          </button>
         </div>
 
         <form onSubmit={handleSaveModalTx} className="space-y-4 text-left">

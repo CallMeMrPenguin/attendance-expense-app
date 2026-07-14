@@ -10,6 +10,7 @@ import {
   Briefcase,
   GraduationCap,
   TrendingUp,
+  TrendingDown,
   Coins,
   HelpCircle,
   Utensils,
@@ -25,7 +26,13 @@ import {
   Phone,
   Shield,
   Cpu,
-  Coffee
+  Coffee,
+  Calendar as CalendarIcon,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  Filter,
+  X
 } from 'lucide-react';
 import { formatVND, Session } from '@/lib/utils';
 
@@ -53,7 +60,51 @@ interface FlowTabProps {
   handleOpenTxModal: (type: 'income' | 'expense' | 'saving') => void;
   saveBudgets: (userId: string, budgets: Record<string, number>) => void;
   saveTransactions?: (userId: string, data: any[]) => void;
+  toggleChartMonth?: (mStr: string) => void;
 }
+
+export const formatAbbreviatedVND = (value: number): string => {
+  if (value === 0) return '0';
+  const isNegative = value < 0;
+  const absVal = Math.abs(value);
+  
+  let result = '';
+  if (absVal >= 1000000) {
+    const mil = Math.floor(absVal / 1000000);
+    const rem = absVal % 1000000;
+    if (rem === 0) {
+      result = `${mil}M`;
+    } else {
+      const cents = Math.round(rem / 10000);
+      if (cents === 0) {
+        result = `${mil}M`;
+      } else {
+        const centsStr = cents < 10 ? `0${cents}` : `${cents}`;
+        const trimmedCents = centsStr.replace(/0+$/, '');
+        result = `${mil}M${trimmedCents}`;
+      }
+    }
+  } else if (absVal >= 1000) {
+    const k = Math.floor(absVal / 1000);
+    const rem = absVal % 1000;
+    if (rem === 0) {
+      result = `${k}K`;
+    } else {
+      const cents = Math.round(rem / 10);
+      if (cents === 0) {
+        result = `${k}K`;
+      } else {
+        const centsStr = cents < 10 ? `0${cents}` : `${cents}`;
+        const trimmedCents = centsStr.replace(/0+$/, '');
+        result = `${k}K${trimmedCents}`;
+      }
+    }
+  } else {
+    result = `${absVal}`;
+  }
+  
+  return isNegative ? `-${result}` : result;
+};
 
 export default function FlowTab({
   currentUser,
@@ -65,7 +116,8 @@ export default function FlowTab({
   handleDeleteManualTx,
   handleOpenTxModal,
   saveBudgets,
-  saveTransactions
+  saveTransactions,
+  toggleChartMonth
 }: FlowTabProps) {
 
   // Dynamic custom categories lists
@@ -84,7 +136,14 @@ export default function FlowTab({
     { name: 'Khác', icon: 'MoreHorizontal' }
   ]);
 
-  // Load from localStorage or set defaults
+  // Month Selector States
+  const [monthPickerOpen, setMonthPickerOpen] = React.useState(false);
+  const [pickerYear, setPickerYear] = React.useState(() => {
+    const firstMonth = chartSelectedMonths[0] || '';
+    return firstMonth ? parseInt(firstMonth.split('-')[0]) : new Date().getFullYear();
+  });
+
+  // Load categories from localStorage or set defaults
   React.useEffect(() => {
     if (currentUser?.id) {
       const savedIncome = localStorage.getItem(`finance_income_cats_${currentUser.id}`);
@@ -102,13 +161,52 @@ export default function FlowTab({
     }
   }, [currentUser]);
 
-  // State to manage editing a category
+  // Edit category states
   const [editingCat, setEditingCat] = React.useState<{
     type: 'income' | 'expense';
     index: number;
     name: string;
     icon: string;
   } | null>(null);
+
+  // Edit manual transaction states
+  const [editingTx, setEditingTx] = React.useState<{
+    id: string;
+    desc: string;
+    amount: number;
+    type: 'income' | 'expense';
+    category: string;
+    date: string;
+  } | null>(null);
+
+  // Filter & Pagination states for Giao dịch section
+  const [filterType, setFilterType] = React.useState<'all' | 'income' | 'expense'>('all');
+  const [filterCategory, setFilterCategory] = React.useState<string>('all');
+  const [searchQuery, setSearchQuery] = React.useState<string>('');
+  const [currentPage, setCurrentPage] = React.useState<number>(1);
+  const itemsPerPage = 10;
+
+  // Filter Popover Menu toggles
+  const [typeFilterOpen, setTypeFilterOpen] = React.useState(false);
+  const [catFilterOpen, setCatFilterOpen] = React.useState(false);
+
+  // Close menus on outside click
+  React.useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('[data-picker]')) {
+        setMonthPickerOpen(false);
+      }
+      if (!target.closest('[data-filter-type]')) {
+        setTypeFilterOpen(false);
+      }
+      if (!target.closest('[data-filter-cat]')) {
+        setCatFilterOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Dynamic calculations for category actuals to adapt to renamed category names
   const getCategoryActual = (catName: string, isExpense: boolean) => {
@@ -130,6 +228,12 @@ export default function FlowTab({
       }
       return manualInc + autoInc;
     }
+  };
+
+  const getCategoryIconName = (catName: string, type: 'income' | 'expense') => {
+    const list = type === 'income' ? incomeCats : expenseCats;
+    const found = list.find(c => c.name === catName);
+    return found ? found.icon : 'HelpCircle';
   };
 
   const handleEditBudgetPrompt = (cat: string) => {
@@ -192,6 +296,31 @@ export default function FlowTab({
     alert('Đã cập nhật danh mục thành công!');
   };
 
+  const handleSaveTxEdit = () => {
+    if (!editingTx || !editingTx.desc.trim() || Number(editingTx.amount) <= 0) {
+      alert('Mô tả và số tiền không được để trống.');
+      return;
+    }
+    if (saveTransactions) {
+      const updated = manualTransactions.map(tx => {
+        if (tx.id === editingTx.id) {
+          return {
+            ...tx,
+            desc: editingTx.desc.trim(),
+            amount: Number(editingTx.amount),
+            type: editingTx.type,
+            category: editingTx.category,
+            date: editingTx.date
+          };
+        }
+        return tx;
+      });
+      saveTransactions(currentUser.id, updated);
+      setEditingTx(null);
+      alert('Đã sửa giao dịch thành công!');
+    }
+  };
+
   // Sync compute local transactions lists
   const getIncomeTransactions = () => {
     const manual = manualTransactions
@@ -238,6 +367,20 @@ export default function FlowTab({
   const expenses = getExpenseTransactions().map(t => ({ ...t, type: 'expense' as const }));
   const transactions = [...incomes, ...expenses].sort((a, b) => b.date.localeCompare(a.date));
 
+  // Filtered & Paginated Transactions
+  const filteredTransactions = transactions.filter(t => {
+    const matchesType = filterType === 'all' || t.type === filterType;
+    const matchesCategory = filterCategory === 'all' || t.category === filterCategory;
+    const matchesSearch = t.desc.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesType && matchesCategory && matchesSearch;
+  });
+
+  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage) || 1;
+  const paginatedTransactions = filteredTransactions.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
   const totalIncome = incomes.reduce((sum, t) => sum + t.amount, 0);
   const totalExpense = expenses.reduce((sum, t) => sum + t.amount, 0);
   const netValue = totalIncome - totalExpense;
@@ -251,8 +394,7 @@ export default function FlowTab({
         <table className="w-full text-[11px] font-bold text-slate-350">
           <thead>
             <tr className="border-b border-white/5 text-[9px] font-black uppercase text-slate-500 tracking-wider">
-              <th className="py-2.5 text-center w-10">Icon</th>
-              <th className="py-2.5 text-left">Tên danh mục</th>
+              <th className="py-2.5 text-left">Danh mục</th>
               <th className="py-2.5 text-right">Thực tế</th>
               <th className="py-2.5 text-right">{isIncome ? 'Mục tiêu' : 'Hạn mức'}</th>
               <th className="py-2.5 text-center w-32">Tiến độ</th>
@@ -270,23 +412,23 @@ export default function FlowTab({
 
               return (
                 <tr key={cat} className="hover:bg-white/[0.02] transition-colors group">
-                  <td className="py-3 text-center">
-                    <span className={`inline-flex p-1.5 rounded-lg border ${
-                      isIncome 
-                        ? 'bg-emerald-500/10 text-emerald-450 border-emerald-500/15' 
-                        : 'bg-rose-500/10 text-rose-450 border-rose-500/15'
-                    }`}>
-                      <CategoryIcon iconName={iconName} className="h-3.5 w-3.5" />
-                    </span>
-                  </td>
-                  <td className="py-3 text-left font-bold text-white">
-                    {cat}
+                  <td className="py-3 text-left">
+                    <div className="flex items-center gap-3">
+                      <span className={`inline-flex p-1.5 rounded-lg border ${
+                        isIncome 
+                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_8px_rgba(16,185,129,0.35)]' 
+                          : 'bg-rose-500/10 text-rose-450 border-rose-500/30 shadow-[0_0_8px_rgba(239,68,68,0.35)]'
+                      }`}>
+                        <CategoryIcon iconName={iconName} className="h-3.5 w-3.5" />
+                      </span>
+                      <span className="font-bold text-white text-xs">{cat}</span>
+                    </div>
                   </td>
                   <td className="py-3 text-right text-slate-200">
-                    {formatVND(actual)}
+                    {formatAbbreviatedVND(actual)}
                   </td>
                   <td className="py-3 text-right text-slate-450">
-                    {formatVND(budgetVal)}
+                    {formatAbbreviatedVND(budgetVal)}
                   </td>
                   <td className="py-3 text-center px-4">
                     <div className="space-y-1">
@@ -294,8 +436,8 @@ export default function FlowTab({
                         <div
                           className={`h-full transition-all duration-300 ${
                             isIncome 
-                              ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]' 
-                              : (isOver ? 'bg-rose-500 shadow-[0_0_6px_rgba(239,68,68,0.5)]' : 'bg-indigo-500')
+                              ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.65)]' 
+                              : (isOver ? 'bg-rose-500 shadow-[0_0_8px_rgba(239,68,68,0.65)]' : 'bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.65)]')
                           }`}
                           style={{ width: `${pct}%` }}
                         ></div>
@@ -342,66 +484,117 @@ export default function FlowTab({
           <p className="text-slate-400 text-xs font-semibold">Liệt kê tất cả các khoản chi tiêu và nguồn thu nhập thực tế trong bộ lọc tháng.</p>
         </div>
         
-        <button
-          onClick={() => handleOpenTxModal('expense')}
-          className="flex items-center gap-2 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white font-extrabold text-xs rounded-xl shadow-md cursor-pointer transition-all hover:scale-[1.01]"
-        >
-          <Plus className="h-4 w-4" />
-          <span>Thêm giao dịch mới</span>
-        </button>
+        <div className="flex items-center gap-3">
+          {/* Month picker using schedule view style */}
+          <div className="relative" data-picker>
+            <button
+              onClick={() => {
+                setMonthPickerOpen(o => !o);
+                const firstMonth = chartSelectedMonths[0] || '';
+                if (firstMonth) setPickerYear(parseInt(firstMonth.split('-')[0]));
+              }}
+              className="flex items-center gap-2 bg-[#121624] border border-white/10 hover:border-indigo-500/40 text-white text-[11px] font-bold rounded-xl px-3.5 py-1.5 cursor-pointer transition-all shadow-lg"
+            >
+              <CalendarIcon className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
+              <span className="font-black">
+                {chartSelectedMonths.length === 1 
+                  ? (() => {
+                      const [y, m] = chartSelectedMonths[0].split('-');
+                      return `${['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6','Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'][parseInt(m)-1]} ${y}`;
+                    })()
+                  : `${chartSelectedMonths.length} tháng đã chọn`
+                }
+              </span>
+              <ChevronDown className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-200 ${monthPickerOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {monthPickerOpen && (
+              <div className="absolute top-full mt-2 right-0 z-[200] w-64 bg-[#0d1018] border border-white/10 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.8)] p-4 backdrop-blur-xl animate-mac-dropdown origin-top-right">
+                <div className="flex items-center justify-between mb-3">
+                  <button onClick={() => setPickerYear(y => y - 1)} className="p-1.5 rounded-lg hover:bg-white/[0.06] text-slate-400 hover:text-white transition-colors cursor-pointer"><ChevronLeft className="h-4 w-4" /></button>
+                  <span className="text-sm font-black text-white">{pickerYear}</span>
+                  <button onClick={() => setPickerYear(y => y + 1)} className="p-1.5 rounded-lg hover:bg-white/[0.06] text-slate-400 hover:text-white transition-colors cursor-pointer"><ChevronRight className="h-4 w-4" /></button>
+                </div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {['Th.1','Th.2','Th.3','Th.4','Th.5','Th.6','Th.7','Th.8','Th.9','Th.10','Th.11','Th.12'].map((mn, i) => {
+                    const val = `${pickerYear}-${String(i + 1).padStart(2, '0')}`;
+                    const isActive = chartSelectedMonths.includes(val);
+                    
+                    const currentDate = new Date();
+                    const curY = currentDate.getFullYear();
+                    const curM = currentDate.getMonth() + 1;
+                    const isFuture = pickerYear > curY || (pickerYear === curY && (i + 1) > curM);
+
+                    return (
+                      <button
+                        key={mn}
+                        disabled={isFuture}
+                        onClick={() => toggleChartMonth?.(val)}
+                        className={`py-1.5 text-xs font-bold rounded-xl transition-all ${
+                          isFuture
+                            ? 'text-slate-700 bg-transparent cursor-not-allowed opacity-30'
+                            : isActive
+                              ? 'bg-[#5c36f5] text-white shadow-[0_0_12px_rgba(92,54,245,0.5)] cursor-pointer'
+                              : 'text-slate-400 hover:bg-white/[0.06] hover:text-white cursor-pointer'
+                        }`}
+                      >
+                        {mn}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={() => handleOpenTxModal('expense')}
+            className="flex items-center gap-2 px-4 py-1.5 bg-[#5c36f5] hover:bg-[#7351f7] text-white font-extrabold text-[11px] rounded-xl shadow-md cursor-pointer transition-all hover:scale-[1.01]"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span>Thêm Giao Dịch</span>
+          </button>
+        </div>
       </div>
 
       {/* Overall Value Cards (Glow UI) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Income overall card */}
-        <div className="relative group overflow-hidden bg-[#131b25]/60 border border-emerald-500/20 rounded-2xl p-5 shadow-[0_0_15px_rgba(16,185,129,0.08)] hover:shadow-[0_0_20px_rgba(16,185,129,0.15)] hover:border-emerald-500/40 transition-all duration-300">
+        <div className="relative group overflow-hidden bg-[#131b25]/60 border border-emerald-500/40 rounded-2xl p-5 shadow-[0_0_15px_rgba(16,185,129,0.15)] hover:shadow-[0_0_22px_rgba(16,185,129,0.22)] transition-all duration-300">
           <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-emerald-500/20 to-emerald-500"></div>
           <div className="flex justify-between items-start">
             <div className="space-y-1">
               <span className="text-[10px] font-black text-emerald-450 uppercase tracking-widest block">Tổng Thu Nhập</span>
               <span className="text-xl font-black text-white tracking-tight block">{formatVND(totalIncome)}</span>
             </div>
-            <div className="p-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 rounded-xl">
-              <ArrowUpRight className="h-5 w-5" />
+            <div className="p-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 rounded-xl shadow-[0_0_8px_rgba(16,185,129,0.3)]">
+              <TrendingUp className="h-5 w-5" />
             </div>
           </div>
         </div>
 
         {/* Expense overall card */}
-        <div className="relative group overflow-hidden bg-[#1b151e]/60 border border-rose-500/20 rounded-2xl p-5 shadow-[0_0_15px_rgba(239,68,68,0.08)] hover:shadow-[0_0_20px_rgba(239,68,68,0.15)] hover:border-rose-500/40 transition-all duration-300">
+        <div className="relative group overflow-hidden bg-[#1b151e]/60 border border-rose-500/40 rounded-2xl p-5 shadow-[0_0_15px_rgba(239,68,68,0.15)] hover:shadow-[0_0_22px_rgba(239,68,68,0.22)] transition-all duration-300">
           <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-rose-500/20 to-rose-500"></div>
           <div className="flex justify-between items-start">
             <div className="space-y-1">
               <span className="text-[10px] font-black text-rose-450 uppercase tracking-widest block">Tổng Chi Tiêu</span>
               <span className="text-xl font-black text-white tracking-tight block">{formatVND(totalExpense)}</span>
             </div>
-            <div className="p-2 bg-rose-500/10 text-rose-400 border border-rose-500/25 rounded-xl">
-              <ArrowDownRight className="h-5 w-5" />
+            <div className="p-2 bg-rose-500/10 text-rose-400 border border-rose-500/25 rounded-xl shadow-[0_0_8px_rgba(239,68,68,0.3)]">
+              <TrendingDown className="h-5 w-5" />
             </div>
           </div>
         </div>
 
         {/* Net overall card */}
-        <div className={`relative group overflow-hidden bg-[#15172b]/60 border rounded-2xl p-5 transition-all duration-300 ${
-          netValue >= 0 
-            ? 'border-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.08)] hover:shadow-[0_0_20px_rgba(99,102,241,0.15)] hover:border-indigo-500/40' 
-            : 'border-amber-500/20 shadow-[0_0_15px_rgba(245,158,11,0.08)] hover:shadow-[0_0_20px_rgba(245,158,11,0.15)] hover:border-amber-500/40'
-        }`}>
-          <div className={`absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r ${
-            netValue >= 0 ? 'from-indigo-500/20 to-indigo-500' : 'from-amber-500/20 to-amber-500'
-          }`}></div>
+        <div className="relative group overflow-hidden bg-[#15172b]/60 border border-indigo-500/40 rounded-2xl p-5 shadow-[0_0_15px_rgba(99,102,241,0.15)] hover:shadow-[0_0_22px_rgba(99,102,241,0.22)] transition-all duration-300">
+          <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-indigo-500/20 to-indigo-500"></div>
           <div className="flex justify-between items-start">
             <div className="space-y-1">
-              <span className={`text-[10px] font-black uppercase tracking-widest block ${
-                netValue >= 0 ? 'text-indigo-400' : 'text-amber-450'
-              }`}>Tổng Thặng Dư (Net)</span>
+              <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest block">Tổng Thặng Dư</span>
               <span className="text-xl font-black text-white tracking-tight block">{formatVND(netValue)}</span>
             </div>
-            <div className={`p-2 border rounded-xl ${
-              netValue >= 0 
-                ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/25' 
-                : 'bg-amber-500/10 text-amber-400 border-amber-500/25'
-            }`}>
+            <div className="p-2 bg-indigo-500/10 text-indigo-400 border border-indigo-500/25 rounded-xl shadow-[0_0_8px_rgba(99,102,241,0.3)]">
               <DollarSign className="h-5 w-5" />
             </div>
           </div>
@@ -428,7 +621,7 @@ export default function FlowTab({
           <div className="flex items-center justify-between border-b border-white/5 pb-2">
             <div className="flex items-center gap-2">
               <div className="h-2.5 w-2.5 rounded-full bg-rose-500 shadow-[0_0_10px_rgba(239,68,68,0.7)]"></div>
-              <h3 className="text-xs font-black text-white uppercase tracking-wider">Loại chi tiêu (Expense type)</h3>
+              <h3 className="text-xs font-black text-white uppercase tracking-wider">Loại chi tiêu</h3>
             </div>
             <span className="text-[9px] text-slate-500 font-extrabold block">Click icon sửa để đổi tên & biểu tượng.</span>
           </div>
@@ -437,7 +630,7 @@ export default function FlowTab({
 
       </div>
 
-      {/* Unified Transaction List */}
+      {/* Unified Transaction List with search, filtering and pagination */}
       <div className="calendar-container-depth p-5 bg-[#141824] space-y-4 border border-white/5 hover:border-indigo-500/20 hover:shadow-[0_0_15px_rgba(99,102,241,0.04)] transition-all duration-300">
         <div className="flex items-center justify-between border-b border-white/5 pb-2.5">
           <div className="flex items-center gap-2">
@@ -448,42 +641,112 @@ export default function FlowTab({
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto overflow-y-visible">
           <table className="w-full text-[11px] font-bold text-slate-350">
             <thead>
               <tr className="border-b border-white/5 text-[9px] font-black uppercase text-slate-500 tracking-wider">
-                <th className="py-2.5 text-center font-black w-12">Loại</th>
-                <th className="py-2.5 text-left font-black">Chi tiết giao dịch</th>
-                <th className="py-2.5 text-left font-black">Danh mục</th>
+                <th className="py-2.5 text-center font-black w-16 relative" data-filter-type>
+                  <span className="inline-flex items-center gap-1.5 justify-center">
+                    <span>Loại</span>
+                    <Filter 
+                      className={`h-3 w-3 cursor-pointer transition-colors ${filterType !== 'all' ? 'text-indigo-400' : 'text-slate-500 hover:text-slate-350'}`}
+                      onClick={() => setTypeFilterOpen(o => !o)}
+                    />
+                  </span>
+                  {typeFilterOpen && (
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1.5 z-40 bg-[#0d1018] border border-white/10 rounded-xl p-1 shadow-xl text-left font-normal normal-case w-24">
+                      {(['all', 'income', 'expense'] as const).map(option => (
+                        <button
+                          key={option}
+                          onClick={() => { setFilterType(option); setTypeFilterOpen(false); setCurrentPage(1); }}
+                          className={`w-full text-left px-2 py-1 text-[9px] font-bold rounded-lg ${
+                            filterType === option ? 'bg-indigo-500/25 text-indigo-300 border border-indigo-500/20 shadow-sm' : 'text-slate-400 hover:bg-white/5'
+                          }`}
+                        >
+                          {option === 'all' ? 'Tất cả' : option === 'income' ? 'Thu nhập' : 'Chi tiêu'}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </th>
+                <th className="py-2.5 text-left font-black">
+                  <span className="inline-flex items-center gap-1">
+                    <span>Chi tiết giao dịch</span>
+                    <input
+                      type="text"
+                      placeholder="Tìm kiếm..."
+                      value={searchQuery}
+                      onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                      className="ml-2 bg-[#0d1018] border border-white/10 rounded-lg px-2 py-0.5 text-[8.5px] font-medium text-white focus:outline-none focus:border-indigo-500/50 w-24 normal-case placeholder-slate-600"
+                    />
+                  </span>
+                </th>
+                <th className="py-2.5 text-left font-black relative w-36" data-filter-cat>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span>Danh mục</span>
+                    <Filter 
+                      className={`h-3 w-3 cursor-pointer transition-colors ${filterCategory !== 'all' ? 'text-indigo-400' : 'text-slate-500 hover:text-slate-350'}`}
+                      onClick={() => setCatFilterOpen(o => !o)}
+                    />
+                  </span>
+                  {catFilterOpen && (
+                    <div className="absolute top-full left-0 mt-1.5 z-40 bg-[#0d1018] border border-white/10 rounded-xl p-1 shadow-xl text-left font-normal normal-case w-36 max-h-48 overflow-y-auto scrollbar-thin">
+                      <button
+                        onClick={() => { setFilterCategory('all'); setCatFilterOpen(false); setCurrentPage(1); }}
+                        className={`w-full text-left px-2 py-1.5 text-[9px] font-bold rounded-lg ${
+                          filterCategory === 'all' ? 'bg-indigo-500/25 text-indigo-300 border border-indigo-500/20 shadow-sm' : 'text-slate-400 hover:bg-white/5'
+                        }`}
+                      >
+                        Tất cả
+                      </button>
+                      {Array.from(new Set(transactions.map(t => t.category))).map(catName => (
+                        <button
+                          key={catName}
+                          onClick={() => { setFilterCategory(catName); setCatFilterOpen(false); setCurrentPage(1); }}
+                          className={`w-full text-left px-2 py-1.5 text-[9px] font-bold rounded-lg ${
+                            filterCategory === catName ? 'bg-indigo-500/25 text-indigo-300 border border-indigo-500/20 shadow-sm' : 'text-slate-400 hover:bg-white/5'
+                          }`}
+                        >
+                          {catName}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </th>
                 <th className="py-2.5 text-right font-black">Số tiền</th>
-                <th className="py-2.5 text-center font-black w-10"></th>
+                <th className="py-2.5 text-center font-black w-16">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {transactions.length === 0 ? (
+              {paginatedTransactions.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-10 text-center text-slate-500 font-bold">Chưa ghi nhận giao dịch nào.</td>
                 </tr>
               ) : (
-                transactions.map((t) => {
+                paginatedTransactions.map((t) => {
                   const isIncome = t.type === 'income';
+                  const catIcon = getCategoryIconName(t.category, t.type);
+
                   return (
                     <tr key={t.id} className="hover:bg-white/[0.02] transition-colors group">
                       <td className="py-3 text-center">
                         <span className={`inline-flex p-1.5 rounded-lg border ${
                           isIncome 
-                            ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' 
-                            : 'bg-rose-500/10 text-rose-500 border-rose-500/20'
+                            ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 shadow-[0_0_8px_rgba(16,185,129,0.25)]' 
+                            : 'bg-rose-500/10 text-rose-500 border-rose-500/20 shadow-[0_0_8px_rgba(239,68,68,0.25)]'
                         }`}>
                           <DollarSign className="h-3.5 w-3.5" />
                         </span>
                       </td>
                       <td className="py-3 text-left">
                         <p className="text-white font-bold">{t.desc}</p>
-                        <span className="text-[8.5px] font-extrabold text-slate-550 block mt-0.5">{t.date}</span>
+                        <span className="text-[8.5px] font-extrabold text-slate-555 block mt-0.5">{t.date}</span>
                       </td>
                       <td className="py-3 text-left">
-                        <span className="px-1.5 py-0.5 bg-[#0d1018] rounded text-[9px] border border-white/5">{t.category}</span>
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-[#0d1018] rounded-lg text-[9px] border border-white/5">
+                          <CategoryIcon iconName={catIcon} className="h-3 w-3 text-indigo-400" />
+                          <span>{t.category}</span>
+                        </span>
                       </td>
                       <td className={`py-3 text-right font-black ${
                         isIncome ? 'text-emerald-400' : 'text-rose-455'
@@ -492,13 +755,29 @@ export default function FlowTab({
                       </td>
                       <td className="py-3 text-center">
                         {t.isManual && (
-                          <button
-                            onClick={() => handleDeleteManualTx(t.id)}
-                            className="p-1 hover:bg-rose-500/10 text-slate-500 hover:text-rose-455 rounded-lg transition-all cursor-pointer opacity-0 group-hover:opacity-100"
-                            title="Xóa giao dịch"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </button>
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              onClick={() => setEditingTx({
+                                id: t.id,
+                                desc: t.desc,
+                                amount: t.amount,
+                                type: t.type,
+                                category: t.category,
+                                date: t.date
+                              })}
+                              className="p-1 hover:bg-white/5 text-slate-500 hover:text-indigo-400 rounded-lg transition-all cursor-pointer opacity-0 group-hover:opacity-100"
+                              title="Sửa giao dịch"
+                            >
+                              <Edit2 className="h-3 w-3" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteManualTx(t.id)}
+                              className="p-1 hover:bg-rose-500/10 text-slate-500 hover:text-rose-455 rounded-lg transition-all cursor-pointer opacity-0 group-hover:opacity-100"
+                              title="Xóa giao dịch"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
                         )}
                       </td>
                     </tr>
@@ -508,6 +787,29 @@ export default function FlowTab({
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Footer */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between border-t border-white/5 pt-3 text-[10px] font-bold text-slate-450">
+            <span>Trang {currentPage} / {totalPages}</span>
+            <div className="flex gap-2">
+              <button
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                className={`px-3 py-1 rounded-lg border border-white/10 ${currentPage === 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-white/5 text-white cursor-pointer'}`}
+              >
+                Trước
+              </button>
+              <button
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                className={`px-3 py-1 rounded-lg border border-white/10 ${currentPage === totalPages ? 'opacity-30 cursor-not-allowed' : 'hover:bg-white/5 text-white cursor-pointer'}`}
+              >
+                Sau
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Category Edit Modal */}
@@ -571,6 +873,136 @@ export default function FlowTab({
                   className="flex-1 py-2.5 bg-[#5c36f5] hover:bg-[#7351f7] text-white font-extrabold text-xs rounded-xl shadow-[0_0_15px_rgba(92,54,245,0.4)] transition-all hover:scale-[1.02] cursor-pointer text-center"
                 >
                   Cập nhật
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Transaction Edit Modal */}
+      {editingTx && (
+        <div className="fixed inset-0 bg-[#090b10]/80 backdrop-blur-sm z-[999] flex items-center justify-center p-4 text-slate-100">
+          <div className="bg-[#0f1320] border border-indigo-500/20 rounded-2xl w-full max-w-md p-6 relative shadow-2xl animate-mac-dropdown">
+            <button 
+              onClick={() => setEditingTx(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-200 cursor-pointer"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <h3 className="text-sm font-black text-indigo-400 tracking-wider uppercase mb-5">Sửa Giao Dịch</h3>
+
+            {/* Sliding Pill Tab Switcher */}
+            <div className="relative flex bg-[#090b10] border border-white/5 p-1 rounded-xl w-full mb-5">
+              <div
+                className={`absolute top-1 bottom-1 rounded-[10px] transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] pointer-events-none ${
+                  editingTx.type === 'expense'
+                    ? 'bg-rose-500 shadow-[0_0_14px_rgba(239,68,68,0.4)]'
+                    : 'bg-emerald-500 shadow-[0_0_14px_rgba(16,185,129,0.4)]'
+                }`}
+                style={{
+                  left: '4px',
+                  width: 'calc(50% - 4px)',
+                  transform: editingTx.type === 'expense' ? 'translateX(0)' : 'translateX(100%)',
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingTx(prev => prev ? { ...prev, type: 'expense', category: expenseCats[0]?.name || 'Ăn uống' } : null);
+                }}
+                className={`relative z-10 flex-1 py-2 text-[10px] font-black tracking-wider uppercase rounded-lg transition-colors duration-300 cursor-pointer ${
+                  editingTx.type === 'expense' ? 'text-white' : 'text-slate-455 hover:text-slate-200'
+                }`}
+              >
+                Chi tiêu
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingTx(prev => prev ? { ...prev, type: 'income', category: incomeCats[0]?.name || 'Lương' } : null);
+                }}
+                className={`relative z-10 flex-1 py-2 text-[10px] font-black tracking-wider uppercase rounded-lg transition-colors duration-300 cursor-pointer ${
+                  editingTx.type === 'income' ? 'text-white' : 'text-slate-455 hover:text-slate-200'
+                }`}
+              >
+                Thu nhập
+              </button>
+            </div>
+
+            <div className="space-y-4 text-left">
+              {/* Description Input */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Mô tả giao dịch</label>
+                <input
+                  type="text"
+                  value={editingTx.desc}
+                  onChange={(e) => setEditingTx(prev => prev ? { ...prev, desc: e.target.value } : null)}
+                  className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500"
+                  required
+                />
+              </div>
+
+              {/* Amount & Date */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Số tiền (đ)</label>
+                  <input
+                    type="number"
+                    value={editingTx.amount}
+                    onChange={(e) => setEditingTx(prev => prev ? { ...prev, amount: Number(e.target.value) } : null)}
+                    className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Ngày ghi nhận</label>
+                  <input
+                    type="date"
+                    value={editingTx.date}
+                    onChange={(e) => setEditingTx(prev => prev ? { ...prev, date: e.target.value } : null)}
+                    className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Category dropdown selection */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Danh mục</label>
+                <div className="relative">
+                  <select
+                    value={editingTx.category}
+                    onChange={(e) => setEditingTx(prev => prev ? { ...prev, category: e.target.value } : null)}
+                    className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 cursor-pointer block"
+                  >
+                    {(editingTx.type === 'income' ? incomeCats : expenseCats).map((c) => (
+                      <option key={c.name} value={c.name} className="bg-[#0d1018] text-white">
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingTx(null)}
+                  className="flex-1 py-2.5 bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 text-slate-300 font-bold text-xs rounded-xl transition-all cursor-pointer text-center"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveTxEdit}
+                  className="flex-1 py-2.5 bg-[#5c36f5] hover:bg-[#7351f7] text-white font-extrabold text-xs rounded-xl shadow-[0_0_15px_rgba(92,54,245,0.4)] transition-all hover:scale-[1.02] cursor-pointer text-center"
+                >
+                  Lưu thay đổi
                 </button>
               </div>
             </div>

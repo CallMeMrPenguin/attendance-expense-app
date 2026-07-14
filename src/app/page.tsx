@@ -44,6 +44,7 @@ export default function Dashboard() {
   const [accumulationTarget, setAccumulationTarget] = useState<number>(150000000);
   const [savingsHistory, setSavingsHistory] = useState<any[]>([]);
   const [categoryBudgets, setCategoryBudgets] = useState<Record<string, number>>({});
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Unified pop-up Transaction Modal toggle state
   const [txModalOpen, setTxModalOpen] = useState(false);
@@ -505,7 +506,7 @@ export default function Dashboard() {
       <div className="vignette-overlay" />
 
       {/* Sidebar - Desktop view */}
-      <aside className="hidden lg:flex flex-col w-[260px] shrink-0 border-r border-white/5 bg-[#0a0d16]/90 backdrop-blur-md h-screen sticky top-0 z-50 p-5">
+      <aside className={`hidden lg:flex flex-col bg-[#0a0d16]/90 border-r border-white/5 backdrop-blur-md h-screen fixed left-0 top-0 z-50 p-5 transition-all duration-300 ${sidebarCollapsed ? 'w-[80px]' : 'w-[260px]'}`}>
         <Sidebar
           activeTab={activeTab}
           setActiveTab={setActiveTab}
@@ -514,11 +515,14 @@ export default function Dashboard() {
           currentUser={currentUser}
           handleLogout={handleLogout}
           handleOpenTxModal={handleOpenTxModal}
+          onChangePassword={() => setPasswordModalOpen(true)}
+          collapsed={sidebarCollapsed}
+          setCollapsed={setSidebarCollapsed}
         />
       </aside>
 
       {/* Mobile grid flow */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${sidebarCollapsed ? 'lg:pl-[80px]' : 'lg:pl-[260px]'}`}>
         
         {/* macOS Floating Toolbar */}
         <header className="h-16 border-b border-white/5 bg-[#0a0d16]/40 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-40 shrink-0">
@@ -530,10 +534,6 @@ export default function Dashboard() {
             >
               <Menu className="h-5 w-5" />
             </button>
-            <div className="h-2 w-2 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(92,54,245,0.8)] hidden sm:block"></div>
-            <span className="text-[10px] font-black tracking-widest text-slate-450 uppercase hidden sm:block">
-              Quản lý tài chính cá nhân
-            </span>
           </div>
 
           <div className="flex items-center gap-3 relative">
@@ -547,48 +547,6 @@ export default function Dashboard() {
                 <Users className="h-4 w-4" />
                 <span className="hidden sm:inline">Quản lý</span>
               </button>
-            )}
-
-            <button
-              onClick={() => setProfileMenuOpen(o => !o)}
-              className="flex items-center gap-2.5 p-1 px-2.5 hover:bg-white/[0.05] border border-transparent hover:border-white/10 rounded-xl transition-all cursor-pointer text-left select-none"
-            >
-              <div className="h-8.5 w-8.5 bg-indigo-500/20 border border-indigo-500/40 rounded-xl flex items-center justify-center text-indigo-300 font-black text-xs shadow-sm shrink-0">
-                {currentUser.teacherName.charAt(0).toUpperCase()}
-              </div>
-              <div className="hidden sm:flex flex-col">
-                <span className="text-xs font-extrabold text-white leading-tight">
-                  {currentUser.teacherName}
-                </span>
-                <span className="text-[9px] font-black text-indigo-400/80 uppercase tracking-widest leading-none flex items-center gap-1">
-                  {currentUser.role === 'admin' ? 'Admin' : 'User'}
-                  <ChevronDown className="h-2.5 w-2.5 text-slate-400" />
-                </span>
-              </div>
-            </button>
-
-            {/* Profile Dropdown Menu */}
-            {profileMenuOpen && (
-              <div className="absolute right-0 top-full mt-2 w-52 bg-[#0d1018] border border-white/10 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.85)] p-2 backdrop-blur-xl z-50 animate-mac-dropdown origin-top-right">
-                <div className="px-3.5 py-3 border-b border-white/5 select-none">
-                  <p className="text-xs font-extrabold text-white truncate">{currentUser.teacherName}</p>
-                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider truncate mt-0.5">{currentUser.username}</p>
-                </div>
-                <button
-                  onClick={() => { setPasswordModalOpen(true); setProfileMenuOpen(false); }}
-                  className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-bold text-slate-300 hover:bg-white/[0.05] hover:text-white rounded-xl transition-colors cursor-pointer text-left"
-                >
-                  <Key className="h-4 w-4 text-slate-400" />
-                  <span>Đổi mật khẩu</span>
-                </button>
-                <button
-                  onClick={() => { handleLogout(); setProfileMenuOpen(false); }}
-                  className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-bold text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors cursor-pointer text-left border-t border-white/5"
-                >
-                  <LogOut className="h-4 w-4 text-rose-455" />
-                  <span>Đăng xuất</span>
-                </button>
-              </div>
             )}
           </div>
         </header>
@@ -633,6 +591,7 @@ export default function Dashboard() {
               handleOpenTxModal={handleOpenTxModal}
               saveBudgets={saveBudgets}
               saveTransactions={saveTransactions}
+              toggleChartMonth={toggleChartMonth}
             />
           )}
 
