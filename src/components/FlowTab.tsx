@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Plus, 
   Trash2,
@@ -121,6 +122,11 @@ export default function FlowTab({
   toggleChartMonth
 }: FlowTabProps) {
   const { showToast } = useToast();
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Dynamic custom categories lists
   const [incomeCats, setIncomeCats] = React.useState<{name: string, icon: string, note?: string}[]>([
@@ -469,7 +475,6 @@ export default function FlowTab({
               key={cat}
               className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-3 text-left backdrop-blur-md ${cardStyle}`}
             >
-              {/* Left Column: Icon Badge + Name & Note Subtitle */}
               <div className="flex items-center gap-3 shrink-0 min-w-0 max-w-[170px] sm:max-w-[220px]">
                 <span className={`inline-flex p-2.5 rounded-full border shrink-0 transition-all ${
                   isIncome 
@@ -488,7 +493,6 @@ export default function FlowTab({
                 </div>
               </div>
 
-              {/* Middle Left: Merged Actual (Row 1) & Limit/Target (Row 2) */}
               <div className="flex flex-col text-left shrink-0 min-w-[100px]">
                 <span className="text-xs font-black text-white leading-none">
                   {formatVND(actual)}
@@ -498,7 +502,6 @@ export default function FlowTab({
                 </span>
               </div>
 
-              {/* Middle Right: Progress Bar & Percentage */}
               <div className="flex-1 max-w-[180px] hidden sm:block">
                 <div className="space-y-1">
                   <div className="h-1.5 bg-[#101420] rounded-full w-full relative overflow-hidden">
@@ -516,7 +519,6 @@ export default function FlowTab({
                 </div>
               </div>
 
-              {/* Right Column: Action icon inside a rounded-square light glass button */}
               <button
                 onClick={() => setEditingCat({ 
                   type, 
@@ -538,7 +540,6 @@ export default function FlowTab({
     );
   };
 
-  // Projected income calculation (Realized income + pending/expected items in selected months)
   const projectedIncome = React.useMemo(() => {
     const manualInc = manualTransactions
       .filter(t => t.type === 'income' && isTxInSelectedMonths(t, chartSelectedMonths))
@@ -553,7 +554,6 @@ export default function FlowTab({
 
   return (
     <div className="space-y-6 animate-mac-dropdown">
-      {/* Upper Action Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-white/5 pb-4 select-none">
         <div className="flex flex-col text-left">
           <h2 className="text-2xl font-black text-white text-glow-white tracking-tight">Sổ Nhật Ký Dòng Tiền</h2>
@@ -561,7 +561,6 @@ export default function FlowTab({
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">
-          {/* Multi-Month Picker */}
           <div className="relative" data-picker>
             <button
               onClick={() => setMonthPickerOpen(o => !o)}
@@ -640,9 +639,7 @@ export default function FlowTab({
         </div>
       </div>
 
-      {/* Overall Value Cards (Glow UI - 4 Cards: Thu Nhập Dự Kiến, Thu Nhập, Chi Tiêu, Thặng Dư) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
-        {/* Card 1: Projected Income (Purple Theme) */}
         <div className="kpi-card-purple p-6 flex flex-col justify-between min-h-[120px] text-left">
           <div className="flex justify-between items-start gap-2">
             <div className="space-y-1 flex-1 min-w-0">
@@ -660,13 +657,11 @@ export default function FlowTab({
           </div>
         </div>
 
-        {/* Card 2: Income overall card */}
         <div className="kpi-card-green p-6 flex flex-col justify-between min-h-[120px] text-left">
           <div className="flex justify-between items-start gap-2">
             <div className="space-y-1 flex-1 min-w-0">
               <span className="text-[10px] font-black text-emerald-400 text-glow-green uppercase tracking-widest block">Thu Nhập</span>
               <span className="text-xl font-black text-emerald-400 text-glow-green tracking-tight block">{formatVND(totalIncome)}</span>
-              {/* MoM Comparison */}
               <div className="flex items-center gap-1 select-none">
                 <span className={`text-[9px] font-black ${
                   incomeChange > 0 ? 'text-emerald-400' : incomeChange < 0 ? 'text-rose-500' : 'text-amber-500'
@@ -681,13 +676,11 @@ export default function FlowTab({
           </div>
         </div>
 
-        {/* Card 3: Expense overall card */}
         <div className="kpi-card-red p-6 flex flex-col justify-between min-h-[120px] text-left">
           <div className="flex justify-between items-start gap-2">
             <div className="space-y-1 flex-1 min-w-0">
               <span className="text-[10px] font-black text-rose-500 text-glow-red uppercase tracking-widest block">Chi Tiêu</span>
               <span className="text-xl font-black text-rose-500 text-glow-red tracking-tight block">{formatVND(totalExpense)}</span>
-              {/* MoM Comparison */}
               <div className="flex items-center gap-1 select-none">
                 <span className={`text-[9px] font-black ${
                   expenseChange > 0 ? 'text-rose-500' : expenseChange < 0 ? 'text-emerald-400' : 'text-amber-500'
@@ -702,13 +695,11 @@ export default function FlowTab({
           </div>
         </div>
 
-        {/* Card 4: Net overall card */}
         <div className="kpi-card-blue p-6 flex flex-col justify-between min-h-[120px] text-left">
           <div className="flex justify-between items-start gap-2">
             <div className="space-y-1 flex-1 min-w-0">
               <span className="text-[10px] font-black text-blue-400 text-glow-blue uppercase tracking-widest block">Thặng Dư</span>
               <span className="text-xl font-black text-blue-400 text-glow-blue tracking-tight block">{formatVND(netValue)}</span>
-              {/* MoM Comparison */}
               <div className="flex items-center gap-1 select-none">
                 <span className={`text-[9px] font-black ${
                   netChange > 0 ? 'text-emerald-400' : netChange < 0 ? 'text-rose-500' : 'text-amber-500'
@@ -724,11 +715,8 @@ export default function FlowTab({
         </div>
       </div>
 
-      {/* Category Tables split into 2 sections (Calendar container depth styles with darker background) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
-        {/* Income budget block */}
-        <div className="calendar-container-depth p-5 bg-[#06080e] border border-white/10 rounded-3xl space-y-4 shadow-2xl">
+        <div className="calendar-container-depth p-5 bg-[#06080e] border-2 border-emerald-500/40 shadow-[0_0_22px_rgba(16,185,129,0.22),inset_0_0_15px_rgba(16,185,129,0.06)] rounded-3xl space-y-4">
           <div className="flex flex-col items-center justify-center border-b border-white/5 pb-3">
             <div className="flex items-center justify-center gap-2">
               <div className="p-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-lg shadow-[0_0_8px_rgba(16,185,129,0.35)] shrink-0">
@@ -740,8 +728,7 @@ export default function FlowTab({
           {renderCategoryTable('income')}
         </div>
 
-        {/* Expense budget block */}
-        <div className="calendar-container-depth p-5 bg-[#06080e] border border-white/10 rounded-3xl space-y-4 shadow-2xl">
+        <div className="calendar-container-depth p-5 bg-[#06080e] border-2 border-rose-500/40 shadow-[0_0_22px_rgba(239,68,68,0.22),inset_0_0_15px_rgba(239,68,68,0.06)] rounded-3xl space-y-4">
           <div className="flex flex-col items-center justify-center border-b border-white/5 pb-3">
             <div className="flex items-center justify-center gap-2">
               <div className="p-1 bg-red-500/10 text-red-500 border border-red-500/30 rounded-lg shadow-[0_0_8px_rgba(239,68,68,0.35)] shrink-0">
@@ -752,11 +739,9 @@ export default function FlowTab({
           </div>
           {renderCategoryTable('expense')}
         </div>
-
       </div>
 
-      {/* Unified Transaction List with search, filtering and pagination */}
-      <div className="calendar-container-depth p-5 bg-[#06080e] border border-white/10 rounded-3xl space-y-4 shadow-2xl">
+      <div className="calendar-container-depth p-5 bg-[#06080e] border-2 border-indigo-500/40 shadow-[0_0_22px_rgba(99,102,241,0.22),inset_0_0_15px_rgba(99,102,241,0.06)] rounded-3xl space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-white/5 pb-3">
           <div className="flex items-center gap-2">
             <div className="p-1.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 rounded-lg shadow-[0_0_10px_rgba(99,102,241,0.55)]">
@@ -766,7 +751,6 @@ export default function FlowTab({
           </div>
 
           <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
-            {/* Search Input */}
             <input
               type="text"
               placeholder="Tìm kiếm giao dịch..."
@@ -775,7 +759,6 @@ export default function FlowTab({
               className="bg-[#0d1018] border border-white/10 rounded-xl px-3 py-1.5 text-xs font-medium text-white focus:outline-none focus:border-indigo-500/50 placeholder-slate-500 min-w-[140px]"
             />
 
-            {/* Category Filter Dropdown */}
             <div className="relative" data-filter-cat>
               <button
                 onClick={() => setCatFilterOpen(o => !o)}
@@ -813,7 +796,6 @@ export default function FlowTab({
               )}
             </div>
 
-            {/* Filter pill toggle: Tất cả / Cố định / Tạm thời */}
             <div className="relative flex bg-[#0d1018] p-1 rounded-xl border border-white/10 text-xs shrink-0 font-bold select-none min-w-[200px]">
               <div
                 className={`absolute top-1 bottom-1 rounded-lg transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] pointer-events-none ${
@@ -853,7 +835,6 @@ export default function FlowTab({
           </div>
         </div>
 
-        {/* Transaction Blocks List - Standalone Rounded Pill Blocks */}
         <div className="flex flex-col gap-2.5">
           {paginatedTransactions.length === 0 ? (
             <div className="py-10 text-center text-slate-500 font-bold bg-[#151c2d]/50 border border-white/5 rounded-2xl">
@@ -867,14 +848,13 @@ export default function FlowTab({
               return (
                 <div
                   key={t.id}
-                  className={`p-3.5 rounded-full border transition-all flex items-center justify-between gap-3 text-left backdrop-blur-md ${
+                  className={`p-3.5 rounded-2xl border transition-all grid grid-cols-[minmax(0,1.8fr)_130px_130px_36px] sm:grid-cols-[minmax(0,2fr)_160px_160px_40px] items-center gap-3 text-left backdrop-blur-md ${
                     isIncome
                       ? 'bg-[#151c2d] border-emerald-500/35 shadow-[0_0_12px_rgba(16,185,129,0.15)] hover:border-emerald-500/60 hover:bg-[#192238]'
                       : 'bg-[#151c2d] border-rose-500/35 shadow-[0_0_12px_rgba(239,68,68,0.15)] hover:border-rose-500/60 hover:bg-[#192238]'
                   }`}
                 >
-                  {/* Left: Item Title, Badge & Date */}
-                  <div className="flex flex-col text-left pl-3 min-w-0 max-w-[220px] sm:max-w-[340px]">
+                  <div className="flex flex-col text-left pl-2 min-w-0 pr-2 overflow-hidden">
                     <div className="flex items-center gap-2 truncate">
                       <span className={`font-extrabold text-xs truncate ${isIncome ? 'text-emerald-300' : 'text-rose-300'}`}>
                         {t.desc}
@@ -894,8 +874,7 @@ export default function FlowTab({
                     </span>
                   </div>
 
-                  {/* Center: Category Badge (Circle icon + Category name) */}
-                  <div className="flex items-center gap-2.5 shrink-0">
+                  <div className="flex items-center gap-2.5 shrink-0 justify-start">
                     <span className={`inline-flex p-2 rounded-full border shrink-0 ${
                       isIncome
                         ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.25)]'
@@ -903,52 +882,41 @@ export default function FlowTab({
                     }`}>
                       <CategoryIcon iconName={catIcon} className="h-4 w-4" />
                     </span>
-                    <span className={`font-black text-xs hidden sm:inline ${isIncome ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    <span className={`font-black text-xs hidden sm:inline truncate ${isIncome ? 'text-emerald-400' : 'text-rose-400'}`}>
                       {t.category}
                     </span>
                   </div>
 
-                  {/* Right: Amount */}
-                  <div className="flex-1 text-right shrink-0">
+                  <div className="text-right shrink-0">
                     <span className={`font-black text-sm tracking-wide ${isIncome ? 'text-emerald-400 text-glow-green' : 'text-rose-500 text-glow-red'}`}>
                       {isIncome ? '+' : '-'}{formatVND(t.amount)}
                     </span>
                   </div>
 
-                  {/* Far Right: Actions (Edit & Delete) */}
-                  <div className="flex items-center gap-1.5 shrink-0 pr-1">
+                  <div className="flex items-center justify-end shrink-0 pr-1">
                     {t.isManual ? (
-                      <>
-                        <button
-                          onClick={() => setEditingTx({
-                            id: t.id,
-                            desc: t.desc,
-                            amount: t.amount,
-                            type: t.type,
-                            category: t.category,
-                            date: t.date,
-                            isRecurring: !!t.isRecurring
-                          })}
-                          className="h-8 w-8 bg-white/[0.04] border border-white/10 hover:border-white/25 hover:bg-white/10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-all shadow-sm cursor-pointer"
-                          title="Sửa giao dịch"
-                        >
-                          <Edit2 className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteManualTx(t.id)}
-                          className="h-8 w-8 bg-white/[0.04] border border-white/10 hover:border-white/25 hover:bg-white/10 rounded-xl flex items-center justify-center text-slate-400 hover:text-rose-400 transition-all shadow-sm cursor-pointer"
-                          title="Xóa giao dịch"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </>
+                      <button
+                        onClick={() => setEditingTx({
+                          id: t.id,
+                          desc: t.desc,
+                          amount: t.amount,
+                          type: t.type,
+                          category: t.category,
+                          date: t.date,
+                          isRecurring: !!t.isRecurring
+                        })}
+                        className="h-8.5 w-8.5 bg-white/[0.04] border border-white/10 hover:border-indigo-500/40 hover:bg-indigo-500/10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-all shadow-sm cursor-pointer shrink-0"
+                        title="Chỉnh sửa hoặc Xóa giao dịch"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </button>
                     ) : (
                       <button
                         onClick={() => showToast('Giao dịch tự động liên kết với Lịch Trình. Vui lòng chỉnh sửa giá hoặc trạng thái ca dạy trong tab Lịch Trình để cập nhật.', 'info')}
-                        className="h-8 w-8 bg-white/[0.04] border border-white/10 hover:border-white/25 hover:bg-white/10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-all shadow-sm cursor-pointer"
+                        className="h-8.5 w-8.5 bg-white/[0.04] border border-white/10 hover:border-indigo-500/40 hover:bg-indigo-500/10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-all shadow-sm cursor-pointer shrink-0"
                         title="Thông tin giao dịch tự động"
                       >
-                        <Edit2 className="h-3.5 w-3.5" />
+                        <Edit2 className="h-4 w-4" />
                       </button>
                     )}
                   </div>
@@ -958,7 +926,6 @@ export default function FlowTab({
           )}
         </div>
 
-        {/* Page selection list pagination buttons */}
         {totalPages > 1 && (
           <div className="flex items-center justify-center gap-1.5 mt-4 pt-3 border-t border-white/5">
             {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => (
@@ -978,16 +945,14 @@ export default function FlowTab({
         )}
       </div>
 
-      {/* Category Edit Modal */}
-      {editingCat && (
-        <div className="fixed inset-0 bg-[#090b10]/80 backdrop-blur-sm z-[999] flex items-center justify-center p-4 text-slate-100">
-          <div className="bg-[#0f1320] border border-indigo-500/20 rounded-2xl w-full max-w-md p-6 relative shadow-2xl animate-mac-dropdown">
+      {mounted && editingCat && createPortal(
+        <div className="fixed inset-0 bg-[#070911]/90 backdrop-blur-md z-[99999] flex items-center justify-center p-4 text-slate-100">
+          <div className="bg-[#0f1320] border border-indigo-500/30 rounded-2xl w-full max-w-md p-6 relative shadow-[0_0_50px_rgba(0,0,0,0.9)] animate-mac-dropdown">
             <h3 className="text-sm font-black text-indigo-400 tracking-wider uppercase mb-5">
               Sửa danh mục: {editingCat.type === 'income' ? 'Thu nhập' : 'Chi tiêu'}
             </h3>
 
             <div className="space-y-4 text-left">
-              {/* Name Input */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Tên danh mục</label>
                 <input
@@ -999,7 +964,6 @@ export default function FlowTab({
                 />
               </div>
 
-              {/* Note Subtitle Input */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Mô tả phụ / Note (Hiển thị bên dưới tên)</label>
                 <input
@@ -1011,7 +975,6 @@ export default function FlowTab({
                 />
               </div>
 
-              {/* Budget/Limit Input */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">
                   {editingCat.type === 'income' ? 'Mục tiêu (đ)' : 'Hạn mức (đ)'}
@@ -1025,7 +988,6 @@ export default function FlowTab({
                 />
               </div>
 
-              {/* Icon Grid Selector */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider block">Chọn biểu tượng</label>
                 <div className="grid grid-cols-6 gap-2 bg-[#090b10] p-3 rounded-xl border border-white/5 max-h-48 overflow-y-auto">
@@ -1050,7 +1012,6 @@ export default function FlowTab({
                 </div>
               </div>
 
-              {/* Actions */}
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
@@ -1069,13 +1030,13 @@ export default function FlowTab({
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {/* Transaction Edit Modal */}
-      {editingTx && (
-        <div className="fixed inset-0 bg-[#090b10]/80 backdrop-blur-sm z-[999] flex items-center justify-center p-4 text-slate-100">
-          <div className="bg-[#0f1320] border border-indigo-500/20 rounded-2xl w-full max-w-md p-6 relative shadow-2xl animate-mac-dropdown">
+      {mounted && editingTx && createPortal(
+        <div className="fixed inset-0 bg-[#070911]/90 backdrop-blur-md z-[99999] flex items-center justify-center p-4 text-slate-100">
+          <div className="bg-[#0f1320] border border-indigo-500/30 rounded-2xl w-full max-w-md p-6 relative shadow-[0_0_50px_rgba(0,0,0,0.9)] animate-mac-dropdown">
             <button 
               onClick={() => setEditingTx(null)}
               className="absolute top-4 right-4 text-slate-400 hover:text-slate-200 cursor-pointer"
@@ -1085,7 +1046,6 @@ export default function FlowTab({
 
             <h3 className="text-sm font-black text-indigo-400 tracking-wider uppercase mb-5">Sửa Giao Dịch</h3>
 
-            {/* Sliding Pill Tab Switcher */}
             <div className="relative flex bg-[#090b10] border border-white/5 p-1 rounded-xl w-full mb-5">
               <div
                 className={`absolute top-1 bottom-1 rounded-[10px] transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] pointer-events-none ${
@@ -1124,7 +1084,6 @@ export default function FlowTab({
             </div>
 
             <div className="space-y-4 text-left">
-              {/* Description Input */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Mô tả giao dịch</label>
                 <input
@@ -1136,7 +1095,6 @@ export default function FlowTab({
                 />
               </div>
 
-              {/* Amount & Date */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Số tiền (đ)</label>
@@ -1158,7 +1116,6 @@ export default function FlowTab({
                 </div>
               </div>
 
-              {/* Category dropdown selection */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Danh mục</label>
                 <div className="relative">
@@ -1177,7 +1134,6 @@ export default function FlowTab({
                 </div>
               </div>
 
-              {/* Recurring toggle */}
               <div 
                 onClick={() => setEditingTx(prev => prev ? { ...prev, isRecurring: !prev.isRecurring } : null)}
                 className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${
@@ -1198,8 +1154,21 @@ export default function FlowTab({
                 />
               </div>
 
-              {/* Actions */}
-              <div className="flex gap-3 pt-2">
+              <div className="flex gap-2.5 pt-2">
+                {editingTx.id && manualTransactions.some(m => m.id === editingTx.id) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleDeleteManualTx(editingTx.id);
+                      setEditingTx(null);
+                    }}
+                    className="px-4 py-2.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 font-extrabold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
+                    title="Xóa giao dịch này"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span>Xóa</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setEditingTx(null)}
@@ -1217,7 +1186,8 @@ export default function FlowTab({
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

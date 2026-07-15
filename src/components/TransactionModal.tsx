@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, ChevronDown, Calendar } from 'lucide-react';
 import { formatDateVN, formatNumberDots, parseNumberDots } from '@/lib/utils';
 import CustomDatePicker from './CustomDatePicker';
+import { useToast } from '@/context/ToastContext';
 
 const INCOME_CATEGORIES = ['Lương', 'Giáo dục', 'Đầu tư', 'Khác'];
 const EXPENSE_CATEGORIES = ['Ăn uống', 'Di chuyển', 'Shopping', 'Hóa đơn', 'Giải trí', 'Khác'];
@@ -23,8 +25,6 @@ interface TransactionModalProps {
   saveSavingsHistory: (userId: string, data: any[]) => void;
 }
 
-import { useToast } from '@/context/ToastContext';
-
 export default function TransactionModal({
   isOpen,
   onClose,
@@ -40,6 +40,7 @@ export default function TransactionModal({
   saveSavingsHistory
 }: TransactionModalProps) {
   const { showToast } = useToast();
+  const [mounted, setMounted] = useState(false);
   const [modalTxType, setModalTxType] = useState<'income' | 'expense' | 'saving'>('expense');
   const [modalDesc, setModalDesc] = useState('');
   const [modalAmount, setModalAmount] = useState('');
@@ -50,6 +51,10 @@ export default function TransactionModal({
   const [isRecurring, setIsRecurring] = useState(false);
   const [incomeCategories, setIncomeCategories] = useState<string[]>(['Lương', 'Giáo dục', 'Đầu tư', 'Khác']);
   const [expenseCategories, setExpenseCategories] = useState<string[]>(['Ăn uống', 'Di chuyển', 'Shopping', 'Hóa đơn', 'Giải trí', 'Khác']);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -76,7 +81,7 @@ export default function TransactionModal({
     }
   }, [isOpen, defaultType, currentUser]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
   const handleSaveModalTx = (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,7 +113,6 @@ export default function TransactionModal({
         saveAccumulationCurrent(userId, newVal);
       }
 
-      // Add to savings history logs
       const newHist = {
         id: `sh-${Date.now()}`,
         fund: modalSavingFund,
@@ -140,8 +144,8 @@ export default function TransactionModal({
     onClose();
   };
 
-  return (
-    <div className="fixed inset-0 bg-[#070911]/90 z-[999] flex items-center justify-center p-4 overflow-hidden pointer-events-auto animate-mac-backdrop text-slate-100">
+  return createPortal(
+    <div className="fixed inset-0 bg-[#070911]/90 z-[99999] flex items-center justify-center p-4 overflow-hidden pointer-events-auto animate-mac-backdrop text-slate-100">
       <div 
         className="bg-[#0f1320] border border-white/10 rounded-2xl w-full max-w-md p-6 relative shadow-2xl animate-mac-modal"
         onClick={(e) => e.stopPropagation()}
@@ -339,6 +343,7 @@ export default function TransactionModal({
           </button>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
