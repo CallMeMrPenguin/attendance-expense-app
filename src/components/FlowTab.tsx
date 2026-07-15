@@ -458,19 +458,19 @@ export default function FlowTab({
           let barColorClass = '';
           if (isIncome) {
             if (rawPct <= 40) {
-              barColorClass = 'bg-gradient-to-r from-rose-600 via-rose-500 to-red-400 shadow-[0_0_12px_rgba(239,68,68,0.95)]';
+              barColorClass = 'bg-gradient-to-r from-rose-600 via-rose-500 to-red-400 shadow-[0_0_15px_rgba(239,68,68,0.95)] drop-shadow-[0_0_8px_#f43f5e]';
             } else if (rawPct <= 90) {
-              barColorClass = 'bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-400 shadow-[0_0_12px_rgba(245,158,11,0.95)]';
+              barColorClass = 'bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-400 shadow-[0_0_15px_rgba(245,158,11,0.95)] drop-shadow-[0_0_8px_#f59e0b]';
             } else {
-              barColorClass = 'bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-300 shadow-[0_0_12px_rgba(16,185,129,0.95)]';
+              barColorClass = 'bg-gradient-to-r from-emerald-500 via-emerald-400 to-teal-300 shadow-[0_0_15px_rgba(16,185,129,0.95)] drop-shadow-[0_0_8px_#10b981]';
             }
           } else {
             if (rawPct <= 40) {
-              barColorClass = 'bg-gradient-to-r from-blue-600 via-indigo-500 to-cyan-400 shadow-[0_0_12px_rgba(59,130,246,0.95)]';
+              barColorClass = 'bg-gradient-to-r from-blue-500 via-cyan-400 to-indigo-300 shadow-[0_0_15px_rgba(59,130,246,0.95)] drop-shadow-[0_0_8px_#3b82f6]';
             } else if (rawPct <= 90) {
-              barColorClass = 'bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-400 shadow-[0_0_12px_rgba(245,158,11,0.95)]';
+              barColorClass = 'bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-400 shadow-[0_0_15px_rgba(245,158,11,0.95)] drop-shadow-[0_0_8px_#f59e0b]';
             } else {
-              barColorClass = 'bg-gradient-to-r from-rose-600 via-rose-500 to-pink-400 shadow-[0_0_12px_rgba(239,68,68,0.95)]';
+              barColorClass = 'bg-gradient-to-r from-rose-600 via-rose-500 to-pink-400 shadow-[0_0_15px_rgba(239,68,68,0.95)] drop-shadow-[0_0_8px_#f43f5e]';
             }
           }
 
@@ -514,13 +514,13 @@ export default function FlowTab({
 
               <div className="flex-1 max-w-[180px] hidden sm:block">
                 <div className="space-y-1">
-                  <div className="h-2 bg-[#080b14] rounded-full w-full relative overflow-hidden border border-white/10 shadow-[inset_0_1px_3px_rgba(0,0,0,0.8)]">
+                  <div className="h-2.5 bg-[#070912] rounded-full w-full relative overflow-visible p-[2px] border border-white/10 shadow-[inset_0_1px_3px_rgba(0,0,0,0.8)]">
                     <div
                       className={`h-full rounded-full transition-all duration-300 ${barColorClass}`}
                       style={{ width: `${pct}%` }}
                     ></div>
                   </div>
-                  <div className="flex justify-between items-center text-[8px] font-extrabold text-slate-400">
+                  <div className="flex justify-between items-center text-[8px] font-extrabold text-slate-400 pt-0.5">
                     <span>{pct}%</span>
                     {rawPct > 100 && (
                       <span className={`${isIncome ? 'text-emerald-400' : 'text-rose-500'} font-black uppercase`}>Vượt!</span>
@@ -725,43 +725,34 @@ export default function FlowTab({
         </div>
       </div>
 
-      {/* Category Tables split into 2 sections (True Gradient Neon Outer Border) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Income budget block */}
-        <div className="relative p-[2px] rounded-[24px] bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-600 shadow-[0_0_25px_rgba(16,185,129,0.35)]">
-          <div className="calendar-container-depth p-5 bg-[#06080e] rounded-[22px] space-y-4">
-            <div className="flex flex-col items-center justify-center border-b border-white/5 pb-3">
-              <div className="flex items-center justify-center gap-2">
-                <div className="p-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-lg shadow-[0_0_8px_rgba(16,185,129,0.35)] shrink-0">
-                  <TrendingUp className="h-4 w-4" />
-                </div>
-                <h3 className="text-[15px] font-black text-emerald-400 text-glow-green uppercase tracking-wider">Loại thu nhập</h3>
+        <div className="calendar-container-depth p-5 bg-[#06080e] rounded-3xl space-y-4 border-2 border-transparent [background:linear-gradient(#06080e,#06080e)_padding-box,linear-gradient(135deg,#10b981,#34d399,#059669)_border-box] shadow-[0_0_25px_rgba(16,185,129,0.35)]">
+          <div className="flex flex-col items-center justify-center border-b border-white/5 pb-3">
+            <div className="flex items-center justify-center gap-2">
+              <div className="p-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-lg shadow-[0_0_8px_rgba(16,185,129,0.35)] shrink-0">
+                <TrendingUp className="h-4 w-4" />
               </div>
+              <h3 className="text-[15px] font-black text-emerald-400 text-glow-green uppercase tracking-wider">Loại thu nhập</h3>
             </div>
-            {renderCategoryTable('income')}
           </div>
+          {renderCategoryTable('income')}
         </div>
 
-        {/* Expense budget block */}
-        <div className="relative p-[2px] rounded-[24px] bg-gradient-to-r from-rose-500 via-pink-500 to-red-600 shadow-[0_0_25px_rgba(239,68,68,0.35)]">
-          <div className="calendar-container-depth p-5 bg-[#06080e] rounded-[22px] space-y-4">
-            <div className="flex flex-col items-center justify-center border-b border-white/5 pb-3">
-              <div className="flex items-center justify-center gap-2">
-                <div className="p-1 bg-red-500/10 text-red-500 border border-red-500/30 rounded-lg shadow-[0_0_8px_rgba(239,68,68,0.35)] shrink-0">
-                  <TrendingDown className="h-4 w-4" />
-                </div>
-                <h3 className="text-[15px] font-black text-red-500 text-glow-red uppercase tracking-wider">Loại chi tiêu</h3>
+        <div className="calendar-container-depth p-5 bg-[#06080e] rounded-3xl space-y-4 border-2 border-transparent [background:linear-gradient(#06080e,#06080e)_padding-box,linear-gradient(135deg,#f43f5e,#fb7185,#e11d48)_border-box] shadow-[0_0_25px_rgba(244,63,94,0.35)]">
+          <div className="flex flex-col items-center justify-center border-b border-white/5 pb-3">
+            <div className="flex items-center justify-center gap-2">
+              <div className="p-1 bg-red-500/10 text-red-500 border border-red-500/30 rounded-lg shadow-[0_0_8px_rgba(239,68,68,0.35)] shrink-0">
+                <TrendingDown className="h-4 w-4" />
               </div>
+              <h3 className="text-[15px] font-black text-red-500 text-glow-red uppercase tracking-wider">Loại chi tiêu</h3>
             </div>
-            {renderCategoryTable('expense')}
           </div>
+          {renderCategoryTable('expense')}
         </div>
       </div>
 
-      {/* Unified Transaction List with True Gradient Neon Outer Border */}
-      <div className="relative p-[2px] rounded-[24px] bg-gradient-to-r from-indigo-500 via-purple-500 to-cyan-500 shadow-[0_0_25px_rgba(99,102,241,0.35)]">
-        <div className="calendar-container-depth p-5 bg-[#06080e] rounded-[22px] space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-white/5 pb-3">
+      <div className="calendar-container-depth p-5 bg-[#06080e] rounded-3xl space-y-4 border-2 border-transparent [background:linear-gradient(#06080e,#06080e)_padding-box,linear-gradient(135deg,#6366f1,#a855f7,#06b6d4)_border-box] shadow-[0_0_25px_rgba(99,102,241,0.35)]">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-white/5 pb-3">
             <div className="flex items-center gap-2">
               <div className="p-1.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 rounded-lg shadow-[0_0_10px_rgba(99,102,241,0.55)]">
                 <DollarSign className="h-4 w-4" />
@@ -966,7 +957,6 @@ export default function FlowTab({
           </div>
         )}
       </div>
-    </div>
 
       {mounted && editingCat && createPortal(
         <div className="fixed inset-0 bg-[#070911]/90 backdrop-blur-md z-[99999] flex items-center justify-center p-4 text-slate-100">

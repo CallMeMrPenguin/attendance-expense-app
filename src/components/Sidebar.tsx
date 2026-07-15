@@ -68,36 +68,18 @@ export default function Sidebar({
 
   return (
     <div className="flex flex-col h-full select-none text-left relative">
-      {/* Collapse floating toggle button (Desktop only) */}
-      {!isMobile && setCollapsed && (
-        <button
-          onClick={() => {
-            setCollapsed(!collapsed);
-            setProfileOpen(false);
-          }}
-          className="absolute top-4.5 -right-3.5 z-50 bg-[#0f1322] border-2 border-indigo-400/80 text-indigo-300 hover:text-white hover:border-indigo-300 h-7 w-7 rounded-xl shadow-[0_0_18px_rgba(92,54,245,0.65),inset_0_0_8px_rgba(92,54,245,0.3)] hover:shadow-[0_0_25px_rgba(92,54,245,0.95)] hover:scale-110 transition-all cursor-pointer backdrop-blur-xl flex items-center justify-center"
-          title={collapsed ? 'Mở rộng menu' : 'Thu gọn menu'}
-        >
-          {collapsed ? (
-            <ChevronRight className="h-3.5 w-3.5 drop-shadow-[0_0_8px_rgba(255,255,255,0.9)]" />
-          ) : (
-            <ChevronLeft className="h-3.5 w-3.5 drop-shadow-[0_0_8px_rgba(255,255,255,0.9)]" />
-          )}
-        </button>
-      )}
-
-      {/* Brand */}
+      {/* Brand Header */}
       <div className={`flex items-center py-4 mb-4 border-b border-white/5 transition-all duration-300 ${collapsed ? 'px-0 justify-center' : 'px-2 gap-3.5'}`}>
-        <div className={`bg-indigo-500/25 border-2 border-indigo-400/80 rounded-2xl flex items-center justify-center text-white shadow-[0_0_25px_rgba(92,54,245,0.7),0_0_12px_rgba(129,140,248,0.5),inset_0_0_10px_rgba(92,54,245,0.3)] shrink-0 transition-all ${
-          collapsed ? 'h-9.5 w-9.5' : 'h-11 w-11'
+        <div className={`bg-indigo-500/25 border-2 border-indigo-400/80 rounded-2xl flex items-center justify-center text-white shadow-[0_0_30px_rgba(92,54,245,0.8),0_0_15px_rgba(129,140,248,0.6),inset_0_0_12px_rgba(92,54,245,0.4)] shrink-0 transition-all ${
+          collapsed ? 'h-10 w-10' : 'h-13 w-13'
         }`}>
-          <Wallet className={`text-white drop-shadow-[0_0_10px_rgba(255,255,255,1)] transition-all ${
-            collapsed ? 'h-5 w-5' : 'h-6 w-6'
+          <Wallet className={`text-white drop-shadow-[0_0_12px_rgba(255,255,255,1)] transition-all ${
+            collapsed ? 'h-5 w-5' : 'h-7 w-7'
           }`} />
         </div>
-        <div className={`flex flex-col transition-all duration-300 ease-in-out overflow-hidden whitespace-nowrap ${collapsed ? 'w-0 opacity-0 max-w-0' : 'w-auto opacity-100 max-w-40'}`}>
-          <span className="font-black text-base tracking-wide text-white uppercase leading-none text-glow-white drop-shadow-[0_0_12px_rgba(255,255,255,0.8)]">Finance</span>
-          <span className="font-extrabold text-[10px] tracking-widest text-indigo-400 uppercase text-glow-purple drop-shadow-[0_0_12px_rgba(129,140,248,0.8)] mt-0.5">Dashboard</span>
+        <div className={`flex flex-col transition-all duration-300 ease-in-out overflow-hidden whitespace-nowrap ${collapsed ? 'w-0 opacity-0 max-w-0' : 'w-auto opacity-100 max-w-44'}`}>
+          <span className="font-black text-[17px] tracking-wide text-white uppercase leading-none text-glow-white drop-shadow-[0_0_15px_rgba(255,255,255,0.9)]">Finance</span>
+          <span className="font-black text-[11px] tracking-[0.2em] text-indigo-400 uppercase text-glow-purple drop-shadow-[0_0_15px_rgba(129,140,248,0.9)] mt-0.5">Dashboard</span>
         </div>
       </div>
 

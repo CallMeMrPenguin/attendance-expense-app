@@ -15,6 +15,8 @@ interface SettingsTabProps {
   accumulationTarget: number;
   savingsHistory: any[];
   categoryBudgets: Record<string, number>;
+  isSidebarPinned?: boolean;
+  setIsSidebarPinned?: (pinned: boolean) => void;
   
   // Setters/savers to update parent state
   saveTransactions: (userId: string, data: any[]) => void;
@@ -39,6 +41,7 @@ interface SettingsTabProps {
 }
 
 import { useToast } from '@/context/ToastContext';
+import { Pin, Layout, Check } from 'lucide-react';
 
 export default function SettingsTab({
   currentUser,
@@ -49,6 +52,8 @@ export default function SettingsTab({
   accumulationTarget,
   savingsHistory,
   categoryBudgets,
+  isSidebarPinned = true,
+  setIsSidebarPinned,
   
   saveTransactions,
   saveEmergencyCurrent,
@@ -160,6 +165,46 @@ export default function SettingsTab({
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        {/* UI Layout Settings Card */}
+        <div className="calendar-container-depth p-5 space-y-4 bg-[#141824] xl:col-span-2">
+          <div className="flex items-center gap-2 border-b border-white/5 pb-3">
+            <Layout className="h-4.5 w-4.5 text-indigo-400" />
+            <h3 className="text-xs font-black text-white uppercase tracking-wider">Tùy chọn giao diện & Thanh điều hướng</h3>
+          </div>
+
+          <div className="flex items-center justify-between p-3.5 bg-[#0b0e17] border border-white/10 rounded-2xl">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 rounded-xl">
+                <Pin className="h-5 w-5" />
+              </div>
+              <div className="flex flex-col text-left">
+                <span className="font-extrabold text-sm text-white">Ghim Thanh Điều Hướng (Pin Sidebar)</span>
+                <span className="text-[11px] font-medium text-slate-400 mt-0.5">
+                  Khi mở (Bật): Sidebar luôn giữ mở rộng. Khi tắt: Sidebar tự động thu gọn khi di chuột ra ngoài.
+                </span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => {
+                if (setIsSidebarPinned) {
+                  setIsSidebarPinned(!isSidebarPinned);
+                  showToast(!isSidebarPinned ? 'Đã ghim cố định Sidebar!' : 'Đã bật chế độ tự thu gọn Sidebar!', 'info');
+                }
+              }}
+              className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors cursor-pointer focus:outline-none ${
+                isSidebarPinned ? 'bg-indigo-600' : 'bg-slate-700'
+              }`}
+            >
+              <span
+                className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                  isSidebarPinned ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+
         {/* Account Profile Card */}
         <div className="calendar-container-depth p-5 space-y-4 bg-[#141824]">
           <div className="flex items-center gap-2 border-b border-white/5 pb-3">

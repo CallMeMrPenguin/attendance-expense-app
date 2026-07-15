@@ -35,6 +35,29 @@ export default function Dashboard() {
   // Navigation states
   const [activeTab, setActiveTab] = useState<'dashboard' | 'flow' | 'saving' | 'schedule' | 'settings'>('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isSidebarPinned, setIsSidebarPinned] = useState<boolean>(true);
+
+  useEffect(() => {
+    const pinnedVal = localStorage.getItem('sidebar_pinned');
+    if (pinnedVal !== null) {
+      const isPinned = pinnedVal === 'true';
+      setIsSidebarPinned(isPinned);
+      if (!isPinned) {
+        setSidebarCollapsed(true);
+      }
+    }
+  }, []);
+
+  const handleSetSidebarPinned = (pinned: boolean) => {
+    setIsSidebarPinned(pinned);
+    localStorage.setItem('sidebar_pinned', pinned ? 'true' : 'false');
+    if (!pinned) {
+      setSidebarCollapsed(true);
+    } else {
+      setSidebarCollapsed(false);
+    }
+  };
 
   // Financial data states
   const [manualTransactions, setManualTransactions] = useState<any[]>([]);
@@ -44,7 +67,6 @@ export default function Dashboard() {
   const [accumulationTarget, setAccumulationTarget] = useState<number>(150000000);
   const [savingsHistory, setSavingsHistory] = useState<any[]>([]);
   const [categoryBudgets, setCategoryBudgets] = useState<Record<string, number>>({});
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Unified pop-up Transaction Modal toggle state
   const [txModalOpen, setTxModalOpen] = useState(false);
@@ -584,7 +606,15 @@ export default function Dashboard() {
     <div className="min-h-screen transition-colors duration-300 ambient-bg-dark text-slate-100 relative overflow-hidden select-none flex">
 
       {/* Sidebar - Desktop view - Floating square with rounded corners */}
-      <aside className={`hidden lg:flex flex-col sidebar-glass-glow fixed left-4 top-4 bottom-4 z-50 p-5 rounded-2xl transition-all duration-300 ease-in-out ${sidebarCollapsed ? 'w-[80px]' : 'w-[260px]'}`}>
+      <aside 
+        onMouseEnter={() => {
+          if (!isSidebarPinned) setSidebarCollapsed(false);
+        }}
+        onMouseLeave={() => {
+          if (!isSidebarPinned) setSidebarCollapsed(true);
+        }}
+        className={`hidden lg:flex flex-col sidebar-glass-glow fixed left-4 top-4 bottom-4 z-50 p-5 rounded-2xl transition-all duration-300 ease-in-out ${sidebarCollapsed ? 'w-[80px]' : 'w-[260px]'}`}
+      >
         <Sidebar
           activeTab={activeTab}
           setActiveTab={setActiveTab}
@@ -720,6 +750,8 @@ export default function Dashboard() {
               accumulationTarget={accumulationTarget}
               savingsHistory={savingsHistory}
               categoryBudgets={categoryBudgets}
+              isSidebarPinned={isSidebarPinned}
+              setIsSidebarPinned={handleSetSidebarPinned}
               saveTransactions={saveTransactions}
               saveEmergencyCurrent={saveEmergencyCurrent}
               saveEmergencyTarget={saveEmergencyTarget}
