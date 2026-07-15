@@ -83,6 +83,14 @@ body {
   overflow-x: hidden;
 }
 
+/* Freeze background scrolling completely when modal window is active */
+body.modal-open,
+body.modal-open main,
+html.modal-open {
+  overflow: hidden !important;
+  touch-action: none;
+}
+
 /* Hide native browser spin-buttons */
 input::-webkit-outer-spin-button,
 input::-webkit-inner-spin-button {

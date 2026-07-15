@@ -191,12 +191,15 @@ export default function FlowTab({
 
   React.useEffect(() => {
     if (editingCat || editingTx) {
-      document.body.style.overflow = 'hidden';
+      document.body.classList.add('modal-open');
+      document.documentElement.classList.add('modal-open');
     } else {
-      document.body.style.overflow = '';
+      document.body.classList.remove('modal-open');
+      document.documentElement.classList.remove('modal-open');
     }
     return () => {
-      document.body.style.overflow = '';
+      document.body.classList.remove('modal-open');
+      document.documentElement.classList.remove('modal-open');
     };
   }, [editingCat, editingTx]);
 
@@ -458,19 +461,19 @@ export default function FlowTab({
           let barColorClass = '';
           if (isIncome) {
             if (rawPct <= 40) {
-              barColorClass = 'bg-gradient-to-r from-rose-600 via-rose-500 to-red-400 shadow-[0_0_15px_rgba(239,68,68,0.95)] drop-shadow-[0_0_8px_#f43f5e]';
+              barColorClass = 'bg-gradient-to-r from-rose-500 to-red-400 shadow-[0_0_6px_rgba(239,68,68,0.5)] drop-shadow-[0_0_3px_rgba(239,68,68,0.4)]';
             } else if (rawPct <= 90) {
-              barColorClass = 'bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-400 shadow-[0_0_15px_rgba(245,158,11,0.95)] drop-shadow-[0_0_8px_#f59e0b]';
+              barColorClass = 'bg-gradient-to-r from-amber-500 to-yellow-400 shadow-[0_0_6px_rgba(245,158,11,0.5)] drop-shadow-[0_0_3px_rgba(245,158,11,0.4)]';
             } else {
-              barColorClass = 'bg-gradient-to-r from-emerald-500 via-emerald-400 to-teal-300 shadow-[0_0_15px_rgba(16,185,129,0.95)] drop-shadow-[0_0_8px_#10b981]';
+              barColorClass = 'bg-gradient-to-r from-emerald-500 to-teal-400 shadow-[0_0_6px_rgba(16,185,129,0.5)] drop-shadow-[0_0_3px_rgba(16,185,129,0.4)]';
             }
           } else {
             if (rawPct <= 40) {
-              barColorClass = 'bg-gradient-to-r from-blue-500 via-cyan-400 to-indigo-300 shadow-[0_0_15px_rgba(59,130,246,0.95)] drop-shadow-[0_0_8px_#3b82f6]';
+              barColorClass = 'bg-gradient-to-r from-blue-500 to-cyan-400 shadow-[0_0_6px_rgba(59,130,246,0.5)] drop-shadow-[0_0_3px_rgba(59,130,246,0.4)]';
             } else if (rawPct <= 90) {
-              barColorClass = 'bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-400 shadow-[0_0_15px_rgba(245,158,11,0.95)] drop-shadow-[0_0_8px_#f59e0b]';
+              barColorClass = 'bg-gradient-to-r from-amber-500 to-yellow-400 shadow-[0_0_6px_rgba(245,158,11,0.5)] drop-shadow-[0_0_3px_rgba(245,158,11,0.4)]';
             } else {
-              barColorClass = 'bg-gradient-to-r from-rose-600 via-rose-500 to-pink-400 shadow-[0_0_15px_rgba(239,68,68,0.95)] drop-shadow-[0_0_8px_#f43f5e]';
+              barColorClass = 'bg-gradient-to-r from-rose-500 to-pink-400 shadow-[0_0_6px_rgba(239,68,68,0.5)] drop-shadow-[0_0_3px_rgba(239,68,68,0.4)]';
             }
           }
 

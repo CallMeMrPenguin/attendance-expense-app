@@ -106,6 +106,22 @@ export default function Dashboard() {
     document.documentElement.classList.add('dark');
   }, []);
 
+  // Lock background scrolling completely when any modal window is open
+  useEffect(() => {
+    const isModalActive = txModalOpen || addModalOpen || editModalOpen || teachersModalOpen || passwordModalOpen;
+    if (isModalActive) {
+      document.body.classList.add('modal-open');
+      document.documentElement.classList.add('modal-open');
+    } else {
+      document.body.classList.remove('modal-open');
+      document.documentElement.classList.remove('modal-open');
+    }
+    return () => {
+      document.body.classList.remove('modal-open');
+      document.documentElement.classList.remove('modal-open');
+    };
+  }, [txModalOpen, addModalOpen, editModalOpen, teachersModalOpen, passwordModalOpen]);
+
   // Auto-reload client when a new deployment is built on Vercel
   useEffect(() => {
     let currentVersion: string | null = null;
