@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, ChevronDown, Calendar } from 'lucide-react';
-import { formatDateVN } from '@/lib/utils';
+import { formatDateVN, formatNumberDots, parseNumberDots } from '@/lib/utils';
 import CustomDatePicker from './CustomDatePicker';
 
 const INCOME_CATEGORIES = ['Lương', 'Giáo dục', 'Đầu tư', 'Khác'];
@@ -270,10 +270,10 @@ export default function TransactionModal({
             <div className="space-y-1.5">
               <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Số tiền (đ)</label>
               <input
-                type="number"
+                type="text"
                 placeholder="Nhập số tiền..."
-                value={modalAmount}
-                onChange={(e) => setModalAmount(e.target.value)}
+                value={formatNumberDots(modalAmount)}
+                onChange={(e) => setModalAmount(parseNumberDots(e.target.value) ? parseNumberDots(e.target.value).toString() : '')}
                 className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500"
                 required
               />

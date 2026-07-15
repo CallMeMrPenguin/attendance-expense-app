@@ -1,7 +1,18 @@
 import React, { useState } from 'react';
 import { X, Calendar, Plus, Clock, Loader2, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { DAYS, getDatesForWeekday, checkOverlaps, getStudentColor, formatCleanTimeString, getEndTime, formatDateVN, Session } from '@/lib/utils';
+import { 
+  DAYS, 
+  getDatesForWeekday, 
+  checkOverlaps, 
+  getStudentColor, 
+  formatCleanTimeString, 
+  getEndTime, 
+  formatDateVN, 
+  Session,
+  formatNumberDots,
+  parseNumberDots
+} from '@/lib/utils';
 
 interface AddSessionModalProps {
   isOpen: boolean;
@@ -407,13 +418,11 @@ export default function AddSessionModal({
                 </label>
                 <input
                   id="price"
-                  type="number"
+                  type="text"
                   required
-                  min="0"
-                  step="10000"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  placeholder="250000"
+                  value={formatNumberDots(price)}
+                  onChange={(e) => setPrice(parseNumberDots(e.target.value) ? parseNumberDots(e.target.value).toString() : '')}
+                  placeholder="250.000"
                   className="w-full px-4 py-2.5 bg-[#0d1018] border border-white/10 text-white rounded-xl text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                 />
               </div>

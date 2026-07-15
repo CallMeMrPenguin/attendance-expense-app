@@ -132,7 +132,7 @@ export default function Sidebar({
               }`}
               title={tab.label}
             >
-              <Icon className={`h-4.5 w-4.5 shrink-0 ${isActive ? 'text-indigo-400' : 'text-slate-400'}`} />
+              <Icon className={`h-4.5 w-4.5 shrink-0 transition-all ${isActive ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.9)]' : 'text-slate-400'}`} />
               <span className={`transition-all duration-300 ease-in-out overflow-hidden whitespace-nowrap ${
                 collapsed ? 'w-0 opacity-0 max-w-0 pointer-events-none' : 'w-auto opacity-100 max-w-40'
               }`}>

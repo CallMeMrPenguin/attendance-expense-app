@@ -32,7 +32,7 @@ import {
   X,
   Sparkles
 } from 'lucide-react';
-import { formatVND, Session, formatDateVN } from '@/lib/utils';
+import { formatVND, Session, formatDateVN, formatNumberDots, parseNumberDots } from '@/lib/utils';
 import CustomDatePicker from './CustomDatePicker';
 
 const ICON_COMPONENTS: Record<string, React.ComponentType<any>> = {
@@ -123,19 +123,19 @@ export default function FlowTab({
   const { showToast } = useToast();
 
   // Dynamic custom categories lists
-  const [incomeCats, setIncomeCats] = React.useState<{name: string, icon: string}[]>([
-    { name: 'Lương', icon: 'Briefcase' },
-    { name: 'Giáo dục', icon: 'GraduationCap' },
-    { name: 'Đầu tư', icon: 'TrendingUp' },
-    { name: 'Khác', icon: 'Coins' }
+  const [incomeCats, setIncomeCats] = React.useState<{name: string, icon: string, note?: string}[]>([
+    { name: 'Lương', icon: 'Briefcase', note: 'Thu nhập cố định hàng tháng' },
+    { name: 'Giáo dục', icon: 'GraduationCap', note: 'Giảng dạy, chấm công' },
+    { name: 'Đầu tư', icon: 'TrendingUp', note: 'Cổ tức, lợi nhuận' },
+    { name: 'Khác', icon: 'Coins', note: 'Thu nhập khác' }
   ]);
-  const [expenseCats, setExpenseCats] = React.useState<{name: string, icon: string}[]>([
-    { name: 'Ăn uống', icon: 'Utensils' },
-    { name: 'Di chuyển', icon: 'Car' },
-    { name: 'Shopping', icon: 'ShoppingBag' },
-    { name: 'Hóa đơn', icon: 'Receipt' },
-    { name: 'Giải trí', icon: 'Film' },
-    { name: 'Khác', icon: 'MoreHorizontal' }
+  const [expenseCats, setExpenseCats] = React.useState<{name: string, icon: string, note?: string}[]>([
+    { name: 'Ăn uống', icon: 'Utensils', note: 'Đồ ăn, thức uống' },
+    { name: 'Di chuyển', icon: 'Car', note: 'Xăng xe, đi lại' },
+    { name: 'Shopping', icon: 'ShoppingBag', note: 'Mua sắm' },
+    { name: 'Hóa đơn', icon: 'Receipt', note: 'Điện, nước, internet' },
+    { name: 'Giải trí', icon: 'Film', note: 'Giải trí, du lịch' },
+    { name: 'Khác', icon: 'MoreHorizontal', note: 'Chi phí khác' }
   ]);
 
   // Month Selector States
@@ -169,6 +169,7 @@ export default function FlowTab({
     index: number;
     name: string;
     icon: string;
+    note: string;
     budget: number;
   } | null>(null);
 
@@ -254,14 +255,14 @@ export default function FlowTab({
 
   const handleSaveCategoryEdit = () => {
     if (!editingCat || !editingCat.name.trim()) return;
-    const { type, index, name: newName, icon: newIcon, budget } = editingCat;
+    const { type, index, name: newName, icon: newIcon, note: newNote, budget } = editingCat;
     
     const list = type === 'income' ? incomeCats : expenseCats;
     const oldName = list[index].name;
 
     // 1. Update list
     const updatedList = list.map((item, idx) => 
-      idx === index ? { name: newName.trim(), icon: newIcon } : item
+      idx === index ? { name: newName.trim(), icon: newIcon, note: (newNote || '').trim() } : item
     );
 
     if (type === 'income') {
@@ -426,109 +427,113 @@ export default function FlowTab({
     const isIncome = type === 'income';
 
     return (
-      <div className="overflow-x-auto">
-        <table className="w-full table-fixed text-[11px] font-bold text-slate-350 min-w-[550px]">
-          <thead>
-            <tr className="border-b border-white/5 text-[11px] font-black uppercase text-slate-500 tracking-wider">
-              <th className="py-2.5 text-left pl-5 w-[20%]">Danh mục</th>
-              <th className="py-2.5 text-left w-[20%]">Thực tế</th>
-              <th className="py-2.5 text-left w-[20%]">{isIncome ? 'Mục tiêu' : 'Hạn mức'}</th>
-              <th className="py-2.5 text-center w-[20%] px-4">Tiến độ</th>
-              <th className="py-2.5 text-center w-[20%]">Thao tác</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-white/5">
-            {list.map((catItem, idx) => {
-              const cat = catItem.name;
-              const iconName = catItem.icon;
-              const actual = getCategoryActual(cat, !isIncome);
-              const budgetVal = categoryBudgets[cat] || 0;
-              const rawPct = budgetVal > 0 ? Math.round((actual / budgetVal) * 100) : 0;
-              const pct = Math.min(100, rawPct);
-              const isAchieved = isIncome && budgetVal > 0 && rawPct >= 100;
-              const isOver = !isIncome && budgetVal > 0 && rawPct >= 100;
+      <div className="flex flex-col gap-2.5">
+        {list.map((catItem, idx) => {
+          const cat = catItem.name;
+          const iconName = catItem.icon;
+          const noteText = catItem.note || (isIncome ? 'Thu nhập khác' : 'Chi phí khác');
+          const actual = getCategoryActual(cat, !isIncome);
+          const budgetVal = categoryBudgets[cat] || 0;
+          const rawPct = budgetVal > 0 ? Math.round((actual / budgetVal) * 100) : 0;
+          const pct = Math.min(100, rawPct);
+          const isAchieved = isIncome && budgetVal > 0 && rawPct >= 100;
+          const isOver = !isIncome && budgetVal > 0 && rawPct >= 100;
 
-              let barColorClass = '';
-              if (isIncome) {
-                if (rawPct <= 40) {
-                  barColorClass = 'bg-rose-500 shadow-[0_0_10px_rgba(239,68,68,0.7)]';
-                } else if (rawPct <= 90) {
-                  barColorClass = 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.7)]';
-                } else {
-                  barColorClass = 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.7)]';
-                }
-              } else {
-                if (rawPct <= 40) {
-                  barColorClass = 'bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.7)]';
-                } else if (rawPct <= 90) {
-                  barColorClass = 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.7)]';
-                } else {
-                  barColorClass = 'bg-rose-500 shadow-[0_0_10px_rgba(239,68,68,0.7)]';
-                }
-              }
+          let barColorClass = '';
+          if (isIncome) {
+            if (rawPct <= 40) {
+              barColorClass = 'bg-rose-500 shadow-[0_0_10px_rgba(239,68,68,0.7)]';
+            } else if (rawPct <= 90) {
+              barColorClass = 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.7)]';
+            } else {
+              barColorClass = 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.7)]';
+            }
+          } else {
+            if (rawPct <= 40) {
+              barColorClass = 'bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.7)]';
+            } else if (rawPct <= 90) {
+              barColorClass = 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.7)]';
+            } else {
+              barColorClass = 'bg-rose-500 shadow-[0_0_10px_rgba(239,68,68,0.7)]';
+            }
+          }
 
-              const rowClass = isOver 
-                ? 'highlight-expense-row bg-rose-500/[0.035] hover:bg-rose-500/[0.07] transition-colors group'
-                : isAchieved
-                  ? 'highlight-income-row bg-emerald-500/[0.035] hover:bg-emerald-500/[0.07] transition-colors group'
-                  : 'hover:bg-[#1c2438] transition-colors group';
+          const cardStyle = isOver
+            ? 'bg-rose-500/[0.04] border-rose-500/30 shadow-[inset_0_0_15px_rgba(239,68,68,0.15)] hover:border-rose-500/50'
+            : isAchieved
+              ? 'bg-emerald-500/[0.04] border-emerald-500/30 shadow-[inset_0_0_15px_rgba(16,185,129,0.15)] hover:border-emerald-500/50'
+              : 'bg-[#0d1018]/80 border-white/10 hover:border-white/20 shadow-sm';
 
-              return (
-                <tr key={cat} className={rowClass}>
-                  <td className="py-3 text-left pl-5">
-                    <div className="flex items-center gap-3">
-                      <span className={`inline-flex p-1.5 rounded-lg border transition-all duration-300 ${
-                        isIncome 
-                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.45)]' 
-                          : 'bg-red-500/10 text-red-500 border-red-500/30 shadow-[0_0_10px_rgba(239,68,68,0.45)]'
-                      }`}>
-                        <CategoryIcon iconName={iconName} className="h-3.5 w-3.5" />
-                      </span>
-                      <span className={`font-bold text-xs ${isIncome ? 'text-emerald-400 text-glow-green' : 'text-red-500 text-glow-red'}`}>{cat}</span>
-                    </div>
-                  </td>
-                  <td className="py-3 text-left text-slate-200">
-                    {formatVND(actual)}
-                  </td>
-                  <td className="py-3 text-left text-slate-400">
-                    {formatVND(budgetVal)}
-                  </td>
-                  <td className="py-3 text-center px-4">
-                    <div className="space-y-1">
-                      <div className="h-1.5 bg-[#101420] rounded-full w-full relative">
-                        <div
-                          className={`h-full rounded-full transition-all duration-300 ${barColorClass}`}
-                          style={{ width: `${pct}%` }}
-                        ></div>
-                      </div>
-                      <div className="flex justify-between text-[8px] font-extrabold text-slate-400">
-                        <span>{pct}%</span>
-                        {rawPct > 100 && (
-                          <span className={`${isIncome ? 'text-emerald-400' : 'text-rose-500'} font-black uppercase`}>Vượt!</span>
-                        )}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="py-3 text-center">
-                    <button
-                      onClick={() => setEditingCat({ 
-                        type, 
-                        index: idx, 
-                        name: cat, 
-                        icon: iconName, 
-                        budget: budgetVal 
-                      })}
-                      className="p-1 hover:bg-white/5 text-slate-400 hover:text-indigo-400 rounded transition-all cursor-pointer inline-flex"
-                      title="Chỉnh sửa danh mục"
-                    >
-                      <Edit2 className="h-3.5 w-3.5" />
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+          return (
+            <div
+              key={cat}
+              className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-3 text-left backdrop-blur-md ${cardStyle}`}
+            >
+              {/* Left Column: Icon Badge + Name & Note Subtitle */}
+              <div className="flex items-center gap-3 shrink-0 min-w-0 max-w-[170px] sm:max-w-[220px]">
+                <span className={`inline-flex p-2.5 rounded-full border shrink-0 transition-all ${
+                  isIncome 
+                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.35)]' 
+                    : 'bg-red-500/10 text-red-500 border-red-500/30 shadow-[0_0_12px_rgba(239,68,68,0.35)]'
+                }`}>
+                  <CategoryIcon iconName={iconName} className="h-4 w-4" />
+                </span>
+                <div className="flex flex-col text-left min-w-0 overflow-hidden">
+                  <span className={`font-black text-xs truncate ${isIncome ? 'text-emerald-400 text-glow-green' : 'text-red-500 text-glow-red'}`}>
+                    {cat}
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-semibold truncate mt-0.5">
+                    {noteText}
+                  </span>
+                </div>
+              </div>
+
+              {/* Middle Left: Merged Actual (Row 1) & Limit/Target (Row 2) */}
+              <div className="flex flex-col text-left shrink-0 min-w-[100px]">
+                <span className="text-xs font-black text-white leading-none">
+                  {formatVND(actual)}
+                </span>
+                <span className="text-[10px] font-bold text-slate-400 leading-none mt-1">
+                  / {formatVND(budgetVal)}
+                </span>
+              </div>
+
+              {/* Middle Right: Progress Bar & Percentage */}
+              <div className="flex-1 max-w-[180px] hidden sm:block">
+                <div className="space-y-1">
+                  <div className="h-1.5 bg-[#101420] rounded-full w-full relative overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ${barColorClass}`}
+                      style={{ width: `${pct}%` }}
+                    ></div>
+                  </div>
+                  <div className="flex justify-between items-center text-[8px] font-extrabold text-slate-400">
+                    <span>{pct}%</span>
+                    {rawPct > 100 && (
+                      <span className={`${isIncome ? 'text-emerald-400' : 'text-rose-500'} font-black uppercase`}>Vượt!</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Action icon inside a rounded-square light glass button */}
+              <button
+                onClick={() => setEditingCat({ 
+                  type, 
+                  index: idx, 
+                  name: cat, 
+                  icon: iconName, 
+                  note: noteText,
+                  budget: budgetVal 
+                })}
+                className="h-9 w-9 bg-white/[0.04] border border-white/10 hover:border-white/25 hover:bg-white/10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-all shadow-sm cursor-pointer shrink-0"
+                title="Chỉnh sửa danh mục"
+              >
+                <Edit2 className="h-4 w-4" />
+              </button>
+            </div>
+          );
+        })}
       </div>
     );
   };
@@ -760,22 +765,43 @@ export default function FlowTab({
             <h3 className="text-[15px] font-black text-indigo-400 text-glow-blue uppercase tracking-wider">Giao dịch</h3>
           </div>
 
-          {/* Filter pill toggle: Tất cả / Cố định / Tạm thời */}
-          <div className="flex bg-[#0d1018] p-1 rounded-xl border border-white/10 text-xs shrink-0 font-bold">
-            {(['all', 'co_dinh', 'tam_thoi'] as const).map(fVal => (
-              <button
-                key={fVal}
-                type="button"
-                onClick={() => { setFilterRecurring(fVal); setCurrentPage(1); }}
-                className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
-                  filterRecurring === fVal
-                    ? 'bg-indigo-500 text-white shadow-sm font-black'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                {fVal === 'all' ? 'Tất cả' : fVal === 'co_dinh' ? 'Cố định' : 'Tạm thời'}
-              </button>
-            ))}
+          {/* Filter pill toggle with smooth animated sliding background: Tất cả / Cố định / Tạm thời */}
+          <div className="relative flex bg-[#0d1018] p-1 rounded-xl border border-white/10 text-xs shrink-0 font-bold select-none min-w-[220px]">
+            {/* Smooth Sliding active background indicator */}
+            <div
+              className={`absolute top-1 bottom-1 rounded-lg transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] pointer-events-none ${
+                filterRecurring === 'all'
+                  ? 'bg-[#5c36f5] shadow-[0_0_14px_rgba(92,54,245,0.5)]'
+                  : filterRecurring === 'co_dinh'
+                  ? 'bg-emerald-500 shadow-[0_0_14px_rgba(16,185,129,0.5)]'
+                  : 'bg-blue-500 shadow-[0_0_14px_rgba(59,130,246,0.5)]'
+              }`}
+              style={{
+                left: filterRecurring === 'all' ? '4px' : filterRecurring === 'co_dinh' ? 'calc(33.333% + 2px)' : 'calc(66.666% + 1px)',
+                width: 'calc(33.333% - 4px)',
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => { setFilterRecurring('all'); setCurrentPage(1); }}
+              className={`flex-1 relative z-10 py-1 text-center transition-colors cursor-pointer ${filterRecurring === 'all' ? 'text-white font-black' : 'text-slate-400 hover:text-white'}`}
+            >
+              Tất cả
+            </button>
+            <button
+              type="button"
+              onClick={() => { setFilterRecurring('co_dinh'); setCurrentPage(1); }}
+              className={`flex-1 relative z-10 py-1 text-center transition-colors cursor-pointer ${filterRecurring === 'co_dinh' ? 'text-white font-black' : 'text-slate-400 hover:text-white'}`}
+            >
+              Cố định
+            </button>
+            <button
+              type="button"
+              onClick={() => { setFilterRecurring('tam_thoi'); setCurrentPage(1); }}
+              className={`flex-1 relative z-10 py-1 text-center transition-colors cursor-pointer ${filterRecurring === 'tam_thoi' ? 'text-white font-black' : 'text-slate-400 hover:text-white'}`}
+            >
+              Tạm thời
+            </button>
           </div>
         </div>
 
@@ -846,7 +872,7 @@ export default function FlowTab({
 
                   return (
                     <tr key={t.id} className={rowClass}>
-                      <td className="py-3 text-left pl-5">
+                      <td className="py-3 text-left pl-5 rounded-l-xl">
                         <div className="flex items-center gap-1.5">
                           <p className={isIncome ? 'text-emerald-300 font-bold' : 'text-rose-300 font-bold'}>{t.desc}</p>
                           {t.isRecurring ? (
@@ -874,7 +900,7 @@ export default function FlowTab({
                       }`}>
                         {isIncome ? '+' : '-'}{formatVND(t.amount)}
                       </td>
-                      <td className="py-3 text-center">
+                      <td className="py-3 text-center rounded-r-xl">
                         {t.isManual ? (
                           <div className="flex items-center justify-center gap-1.5">
                             <button
@@ -973,15 +999,27 @@ export default function FlowTab({
                 />
               </div>
 
+              {/* Note Subtitle Input */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Mô tả phụ / Note (Hiển thị bên dưới tên)</label>
+                <input
+                  type="text"
+                  value={editingCat.note || ''}
+                  onChange={(e) => setEditingCat(prev => prev ? { ...prev, note: e.target.value } : null)}
+                  placeholder="Ví dụ: Điện, nước, internet..."
+                  className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
               {/* Budget/Limit Input */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">
                   {editingCat.type === 'income' ? 'Mục tiêu (đ)' : 'Hạn mức (đ)'}
                 </label>
                 <input
-                  type="number"
-                  value={editingCat.budget}
-                  onChange={(e) => setEditingCat(prev => prev ? { ...prev, budget: Number(e.target.value) } : null)}
+                  type="text"
+                  value={formatNumberDots(editingCat.budget)}
+                  onChange={(e) => setEditingCat(prev => prev ? { ...prev, budget: parseNumberDots(e.target.value) } : null)}
                   className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500"
                   required
                 />
@@ -1103,9 +1141,9 @@ export default function FlowTab({
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Số tiền (đ)</label>
                   <input
-                    type="number"
-                    value={editingTx.amount}
-                    onChange={(e) => setEditingTx(prev => prev ? { ...prev, amount: Number(e.target.value) } : null)}
+                    type="text"
+                    value={formatNumberDots(editingTx.amount)}
+                    onChange={(e) => setEditingTx(prev => prev ? { ...prev, amount: parseNumberDots(e.target.value) } : null)}
                     className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500"
                     required
                   />

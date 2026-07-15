@@ -174,3 +174,17 @@ export function formatDateVN(dateStr: string): string {
   const dayName = weekdays[d.getDay()];
   return `${dayName}, ngày ${parts[2]}/${parts[1]}`;
 }
+
+// Helper to format number strings with thousand separators (dots) for input fields
+export function formatNumberDots(val: string | number | undefined | null): string {
+  if (val === undefined || val === null || val === '') return '';
+  const digits = String(val).replace(/\D/g, '');
+  if (!digits) return '';
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+export function parseNumberDots(val: string): number {
+  if (!val) return 0;
+  const digits = val.replace(/\D/g, '');
+  return Number(digits) || 0;
+}

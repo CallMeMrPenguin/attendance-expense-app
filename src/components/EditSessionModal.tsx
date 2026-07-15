@@ -14,14 +14,17 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import {
-  DAYS,
+  DAYS, 
   getDatesForWeekday,
-  checkOverlaps,
+  timeToMinutes, 
+  getEndTime, 
+  formatCleanTimeString, 
+  checkOverlaps, 
   getStudentColor,
-  formatCleanTimeString,
-  getEndTime,
   formatDateVN,
   Session,
+  formatNumberDots,
+  parseNumberDots
 } from '@/lib/utils';
 
 interface EditSessionModalProps {
@@ -968,15 +971,15 @@ export default function EditSessionModal({
 
               <div className="space-y-1.5">
                 <label htmlFor="editPrice" className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
-                  Học phí/buổi *
+                  Số tiền / Tiền công (đ) *
                 </label>
                 <input
                   id="editPrice"
-                  type="number"
-                  step="10000"
+                  type="text"
                   required
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
+                  value={formatNumberDots(price)}
+                  onChange={(e) => setPrice(parseNumberDots(e.target.value) ? parseNumberDots(e.target.value).toString() : '')}
+                  placeholder="250.000"
                   className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500"
                 />
               </div>

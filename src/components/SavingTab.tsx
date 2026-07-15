@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { PiggyBank, Coins, History } from 'lucide-react';
-import { formatVND } from '@/lib/utils';
+import { formatVND, formatNumberDots, parseNumberDots } from '@/lib/utils';
 
 interface SavingTabProps {
   currentUser: {
@@ -128,10 +128,10 @@ export default function SavingTab({
                 <div className="flex items-center gap-1.5">
                   <span>Mục tiêu:</span>
                   <input
-                    type="number"
-                    value={emergencyTarget}
+                    type="text"
+                    value={formatNumberDots(emergencyTarget)}
                     onChange={(e) => {
-                      saveEmergencyTarget(currentUser.id, Number(e.target.value));
+                      saveEmergencyTarget(currentUser.id, parseNumberDots(e.target.value));
                     }}
                     className="w-24 bg-[#0d1018] border border-white/10 rounded-md px-1.5 py-0.5 text-[10px] font-bold text-white text-right focus:outline-none focus:border-indigo-500 animate-transition"
                   />
@@ -147,10 +147,10 @@ export default function SavingTab({
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Giao dịch nạp / rút quỹ</span>
             <div className="flex gap-2">
               <input
-                type="number"
+                type="text"
                 placeholder="Nhập số tiền..."
-                value={emActionAmount}
-                onChange={(e) => setEmActionAmount(e.target.value)}
+                value={formatNumberDots(emActionAmount)}
+                onChange={(e) => setEmActionAmount(parseNumberDots(e.target.value) ? parseNumberDots(e.target.value).toString() : '')}
                 className="flex-1 bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 transition-colors"
               />
               <button
@@ -205,10 +205,10 @@ export default function SavingTab({
                 <div className="flex items-center gap-1.5">
                   <span>Mục tiêu:</span>
                   <input
-                    type="number"
-                    value={accumulationTarget}
+                    type="text"
+                    value={formatNumberDots(accumulationTarget)}
                     onChange={(e) => {
-                      saveAccumulationTarget(currentUser.id, Number(e.target.value));
+                      saveAccumulationTarget(currentUser.id, parseNumberDots(e.target.value));
                     }}
                     className="w-24 bg-[#0d1018] border border-white/10 rounded-md px-1.5 py-0.5 text-[10px] font-bold text-white text-right focus:outline-none focus:border-indigo-500 animate-transition"
                   />
@@ -224,10 +224,10 @@ export default function SavingTab({
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Giao dịch nạp / rút quỹ</span>
             <div className="flex gap-2">
               <input
-                type="number"
+                type="text"
                 placeholder="Nhập số tiền..."
-                value={acActionAmount}
-                onChange={(e) => setAcActionAmount(e.target.value)}
+                value={formatNumberDots(acActionAmount)}
+                onChange={(e) => setAcActionAmount(parseNumberDots(e.target.value) ? parseNumberDots(e.target.value).toString() : '')}
                 className="flex-1 bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 transition-colors"
               />
               <button
