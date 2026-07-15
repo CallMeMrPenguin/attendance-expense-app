@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Menu, Users, Key, LogOut, X, ChevronDown } from 'lucide-react';
+import { Menu, Users, Key, LogOut, X, ChevronDown, Wallet } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { Session } from '@/lib/utils';
 
@@ -646,26 +646,38 @@ export default function Dashboard() {
       </aside>
 
       {/* Mobile grid flow */}
-      <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${sidebarCollapsed ? 'lg:pl-[112px]' : 'lg:pl-[292px]'}`}>
+      <div className={`flex-1 flex flex-col min-w-0 h-screen overflow-y-auto transition-all duration-300 ${sidebarCollapsed ? 'lg:pl-[112px]' : 'lg:pl-[292px]'}`}>
         
-        {/* macOS Floating Toolbar - Mobile ONLY to eliminate empty header space on desktop */}
-        <header className="lg:hidden h-16 border-b border-white/5 bg-[#0a0d16]/40 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-40 shrink-0">
+        {/* Floating Mobile Header - Always pinned on top when scrolling on mobile */}
+        <header className="lg:hidden h-16 border-b border-white/10 bg-[#070911]/95 backdrop-blur-xl flex items-center justify-between px-4 sm:px-6 sticky top-0 z-40 shrink-0 shadow-[0_4px_25px_rgba(0,0,0,0.8)]">
           <div className="flex items-center gap-3">
             {/* Hamburger for mobile */}
             <button
               onClick={() => setMobileMenuOpen(true)}
-              className="p-2 hover:bg-white/[0.05] rounded-xl text-slate-400 hover:text-white transition-colors cursor-pointer"
+              className="p-2 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 rounded-xl text-indigo-400 hover:text-white transition-all cursor-pointer shadow-[0_0_12px_rgba(92,54,245,0.3)] shrink-0"
+              title="Mở menu"
             >
               <Menu className="h-5 w-5" />
             </button>
+            
+            <div className="flex items-center gap-2">
+              <div className="h-8.5 w-8.5 bg-indigo-500/20 border border-indigo-400/50 rounded-xl flex items-center justify-center text-indigo-300 shadow-[0_0_12px_rgba(92,54,245,0.4)] shrink-0">
+                <Wallet className="h-4.5 w-4.5" />
+              </div>
+              <div className="flex flex-col">
+                <span className="font-black text-xs tracking-wider text-white uppercase leading-none">Finance</span>
+                <span className="font-extrabold text-[9px] tracking-widest text-indigo-400 uppercase leading-none mt-0.5">Dashboard</span>
+              </div>
+            </div>
           </div>
+
           <div className="flex items-center gap-3 relative">
             {/* Quick Scheduler Manage (Admin only & Schedule view) */}
             {currentUser.role === 'admin' && activeTab === 'schedule' && (
               <button
                 onClick={() => setTeachersModalOpen(true)}
                 title="Quản lý danh sách giáo viên"
-                className="flex items-center gap-2 px-3 py-1.5 bg-[#121624] border border-white/10 hover:border-indigo-500/40 text-indigo-350 text-xs font-bold rounded-xl shadow-md transition-all hover:scale-[1.01] cursor-pointer"
+                className="flex items-center gap-2 px-3 py-1.5 bg-[#121624] border border-white/10 hover:border-indigo-500/40 text-indigo-300 text-xs font-bold rounded-xl shadow-md transition-all hover:scale-[1.01] cursor-pointer"
               >
                 <Users className="h-4 w-4" />
                 <span className="hidden sm:inline">Quản lý</span>
@@ -675,7 +687,7 @@ export default function Dashboard() {
         </header>
 
         {/* Dynamic page content content scrolling */}
-        <main className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6">
+        <main className="flex-1 p-4 sm:p-6 md:p-8 space-y-6">
           {activeTab === 'dashboard' && (
             <DashboardTab
               currentUser={currentUser}

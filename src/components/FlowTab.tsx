@@ -521,109 +521,111 @@ export default function FlowTab({
     const isIncome = type === 'income';
 
     return (
-      <div className="flex flex-col gap-2.5">
-        {list.map((catItem, idx) => {
-          const cat = catItem.name;
-          const iconName = catItem.icon;
-          const noteText = catItem.note || (isIncome ? 'Thu nhập khác' : 'Chi phí khác');
-          const actual = getCategoryActual(cat, !isIncome);
-          const budgetVal = categoryBudgets[cat] || 0;
-          const rawPct = budgetVal > 0 ? Math.round((actual / budgetVal) * 100) : 0;
-          const pct = Math.min(100, rawPct);
-          const isAchieved = isIncome && budgetVal > 0 && rawPct >= 100;
-          const isOver = !isIncome && budgetVal > 0 && rawPct >= 100;
+      <div className="overflow-x-auto scrollbar-thin pb-1.5 pt-0.5 -mx-1 px-1">
+        <div className="flex flex-col gap-2.5 min-w-[340px] sm:min-w-0">
+          {list.map((catItem, idx) => {
+            const cat = catItem.name;
+            const iconName = catItem.icon;
+            const noteText = catItem.note || (isIncome ? 'Thu nhập khác' : 'Chi phí khác');
+            const actual = getCategoryActual(cat, !isIncome);
+            const budgetVal = categoryBudgets[cat] || 0;
+            const rawPct = budgetVal > 0 ? Math.round((actual / budgetVal) * 100) : 0;
+            const pct = Math.min(100, rawPct);
+            const isAchieved = isIncome && budgetVal > 0 && rawPct >= 100;
+            const isOver = !isIncome && budgetVal > 0 && rawPct >= 100;
 
-          let barColorClass = '';
-          if (isIncome) {
-            if (rawPct <= 40) {
-              barColorClass = 'bg-gradient-to-r from-rose-500 to-red-400 shadow-[0_0_6px_rgba(239,68,68,0.5)] drop-shadow-[0_0_3px_rgba(239,68,68,0.4)]';
-            } else if (rawPct <= 90) {
-              barColorClass = 'bg-gradient-to-r from-amber-500 to-yellow-400 shadow-[0_0_6px_rgba(245,158,11,0.5)] drop-shadow-[0_0_3px_rgba(245,158,11,0.4)]';
+            let barColorClass = '';
+            if (isIncome) {
+              if (rawPct <= 40) {
+                barColorClass = 'bg-gradient-to-r from-rose-500 to-red-400 shadow-[0_0_6px_rgba(239,68,68,0.5)] drop-shadow-[0_0_3px_rgba(239,68,68,0.4)]';
+              } else if (rawPct <= 90) {
+                barColorClass = 'bg-gradient-to-r from-amber-500 to-yellow-400 shadow-[0_0_6px_rgba(245,158,11,0.5)] drop-shadow-[0_0_3px_rgba(245,158,11,0.4)]';
+              } else {
+                barColorClass = 'bg-gradient-to-r from-emerald-500 to-teal-400 shadow-[0_0_6px_rgba(16,185,129,0.5)] drop-shadow-[0_0_3px_rgba(16,185,129,0.4)]';
+              }
             } else {
-              barColorClass = 'bg-gradient-to-r from-emerald-500 to-teal-400 shadow-[0_0_6px_rgba(16,185,129,0.5)] drop-shadow-[0_0_3px_rgba(16,185,129,0.4)]';
+              if (rawPct <= 40) {
+                barColorClass = 'bg-gradient-to-r from-blue-500 to-cyan-400 shadow-[0_0_6px_rgba(59,130,246,0.5)] drop-shadow-[0_0_3px_rgba(59,130,246,0.4)]';
+              } else if (rawPct <= 90) {
+                barColorClass = 'bg-gradient-to-r from-amber-500 to-yellow-400 shadow-[0_0_6px_rgba(245,158,11,0.5)] drop-shadow-[0_0_3px_rgba(245,158,11,0.4)]';
+              } else {
+                barColorClass = 'bg-gradient-to-r from-rose-500 to-pink-400 shadow-[0_0_6px_rgba(239,68,68,0.5)] drop-shadow-[0_0_3px_rgba(239,68,68,0.4)]';
+              }
             }
-          } else {
-            if (rawPct <= 40) {
-              barColorClass = 'bg-gradient-to-r from-blue-500 to-cyan-400 shadow-[0_0_6px_rgba(59,130,246,0.5)] drop-shadow-[0_0_3px_rgba(59,130,246,0.4)]';
-            } else if (rawPct <= 90) {
-              barColorClass = 'bg-gradient-to-r from-amber-500 to-yellow-400 shadow-[0_0_6px_rgba(245,158,11,0.5)] drop-shadow-[0_0_3px_rgba(245,158,11,0.4)]';
-            } else {
-              barColorClass = 'bg-gradient-to-r from-rose-500 to-pink-400 shadow-[0_0_6px_rgba(239,68,68,0.5)] drop-shadow-[0_0_3px_rgba(239,68,68,0.4)]';
-            }
-          }
 
-          const cardStyle = isOver
-            ? 'bg-rose-500/10 border-rose-500/40 shadow-[inset_0_0_15px_rgba(239,68,68,0.2)] hover:border-rose-500/60'
-            : isAchieved
-              ? 'bg-emerald-500/10 border-emerald-500/40 shadow-[inset_0_0_15px_rgba(16,185,129,0.2)] hover:border-emerald-500/60'
-              : 'bg-[#151c2d] border-white/10 hover:border-white/20 shadow-md hover:bg-[#182238]';
+            const cardStyle = isOver
+              ? 'bg-rose-500/10 border-rose-500/40 shadow-[inset_0_0_15px_rgba(239,68,68,0.2)] hover:border-rose-500/60'
+              : isAchieved
+                ? 'bg-emerald-500/10 border-emerald-500/40 shadow-[inset_0_0_15px_rgba(16,185,129,0.2)] hover:border-emerald-500/60'
+                : 'bg-[#151c2d] border-white/10 hover:border-white/20 shadow-md hover:bg-[#182238]';
 
-          return (
-            <div
-              key={cat}
-              className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-3 text-left backdrop-blur-md ${cardStyle}`}
-            >
-              <div className="flex items-center gap-3 shrink-0 min-w-0 max-w-[170px] sm:max-w-[220px]">
-                <span className={`inline-flex p-2.5 rounded-full border shrink-0 transition-all ${
-                  isIncome 
-                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.35)]' 
-                    : 'bg-red-500/10 text-red-500 border-red-500/30 shadow-[0_0_12px_rgba(239,68,68,0.35)]'
-                }`}>
-                  <CategoryIcon iconName={iconName} className="h-4 w-4" />
-                </span>
-                <div className="flex flex-col text-left min-w-0 overflow-hidden">
-                  <span className={`font-black text-xs truncate ${isIncome ? 'text-emerald-400 text-glow-green' : 'text-red-500 text-glow-red'}`}>
-                    {cat}
-                  </span>
-                  <span className="text-[10px] text-slate-400 font-semibold truncate mt-0.5">
-                    {noteText}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex flex-col text-left shrink-0 min-w-[100px]">
-                <span className="text-xs font-black text-white leading-none">
-                  {formatVND(actual)}
-                </span>
-                <span className="text-[10px] font-bold text-slate-400 leading-none mt-1">
-                  / {formatVND(budgetVal)}
-                </span>
-              </div>
-
-              <div className="flex-1 max-w-[180px] hidden sm:block">
-                <div className="space-y-1">
-                  <div className="h-2.5 bg-[#070912] rounded-full w-full relative overflow-visible p-[2px] border border-white/10 shadow-[inset_0_1px_3px_rgba(0,0,0,0.8)]">
-                    <div
-                      className={`h-full rounded-full transition-all duration-300 ${barColorClass}`}
-                      style={{ width: `${pct}%` }}
-                    ></div>
-                  </div>
-                  <div className="flex justify-between items-center text-[8px] font-extrabold text-slate-400 pt-0.5">
-                    <span>{pct}%</span>
-                    {rawPct > 100 && (
-                      <span className={`${isIncome ? 'text-emerald-400' : 'text-rose-500'} font-black uppercase`}>Vượt!</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <button
-                onClick={() => setEditingCat({ 
-                  type, 
-                  index: idx, 
-                  name: cat, 
-                  icon: iconName, 
-                  note: noteText,
-                  budget: budgetVal 
-                })}
-                className="h-9 w-9 bg-white/[0.04] border border-white/10 hover:border-white/25 hover:bg-white/10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-all shadow-sm cursor-pointer shrink-0"
-                title="Chỉnh sửa danh mục"
+            return (
+              <div
+                key={cat}
+                className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-3 text-left backdrop-blur-md ${cardStyle}`}
               >
-                <Edit2 className="h-4 w-4" />
-              </button>
-            </div>
-          );
-        })}
+                <div className="flex items-center gap-3 shrink-0 min-w-0 max-w-[170px] sm:max-w-[220px]">
+                  <span className={`inline-flex p-2.5 rounded-full border shrink-0 transition-all ${
+                    isIncome 
+                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.35)]' 
+                      : 'bg-red-500/10 text-red-500 border-red-500/30 shadow-[0_0_12px_rgba(239,68,68,0.35)]'
+                  }`}>
+                    <CategoryIcon iconName={iconName} className="h-4 w-4" />
+                  </span>
+                  <div className="flex flex-col text-left min-w-0 overflow-hidden">
+                    <span className={`font-black text-xs truncate ${isIncome ? 'text-emerald-400 text-glow-green' : 'text-red-500 text-glow-red'}`}>
+                      {cat}
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-semibold truncate mt-0.5">
+                      {noteText}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col text-left shrink-0 min-w-[100px]">
+                  <span className="text-xs font-black text-white leading-none">
+                    {formatVND(actual)}
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-400 leading-none mt-1">
+                    / {formatVND(budgetVal)}
+                  </span>
+                </div>
+
+                <div className="flex-1 max-w-[180px] hidden sm:block">
+                  <div className="space-y-1">
+                    <div className="h-2.5 bg-[#070912] rounded-full w-full relative overflow-visible p-[2px] border border-white/10 shadow-[inset_0_1px_3px_rgba(0,0,0,0.8)]">
+                      <div
+                        className={`h-full rounded-full transition-all duration-300 ${barColorClass}`}
+                        style={{ width: `${pct}%` }}
+                      ></div>
+                    </div>
+                    <div className="flex justify-between items-center text-[8px] font-extrabold text-slate-400 pt-0.5">
+                      <span>{pct}%</span>
+                      {rawPct > 100 && (
+                        <span className={`${isIncome ? 'text-emerald-400' : 'text-rose-500'} font-black uppercase`}>Vượt!</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setEditingCat({ 
+                    type, 
+                    index: idx, 
+                    name: cat, 
+                    icon: iconName, 
+                    note: noteText,
+                    budget: budgetVal 
+                  })}
+                  className="h-9 w-9 bg-white/[0.04] border border-white/10 hover:border-white/25 hover:bg-white/10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-all shadow-sm cursor-pointer shrink-0"
+                  title="Chỉnh sửa danh mục"
+                >
+                  <Edit2 className="h-4 w-4" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
       </div>
     );
   };
@@ -956,95 +958,97 @@ export default function FlowTab({
             </div>
           </div>
 
-        <div className="flex flex-col gap-2.5">
-          {paginatedTransactions.length === 0 ? (
-            <div className="py-10 text-center text-slate-500 font-bold bg-[#151c2d]/50 border border-white/5 rounded-2xl">
-              Chưa ghi nhận giao dịch nào.
-            </div>
-          ) : (
-            paginatedTransactions.map((t) => {
-              const isIncome = t.type === 'income';
-              const catIcon = getCategoryIconName(t.category, t.type);
+        <div className="overflow-x-auto scrollbar-thin pb-1.5 pt-0.5 -mx-1 px-1">
+          <div className="flex flex-col gap-2.5 min-w-[500px] sm:min-w-0">
+            {paginatedTransactions.length === 0 ? (
+              <div className="py-10 text-center text-slate-500 font-bold bg-[#151c2d]/50 border border-white/5 rounded-2xl">
+                Chưa ghi nhận giao dịch nào.
+              </div>
+            ) : (
+              paginatedTransactions.map((t) => {
+                const isIncome = t.type === 'income';
+                const catIcon = getCategoryIconName(t.category, t.type);
 
-              return (
-                <div
-                  key={t.id}
-                  className={`p-3.5 rounded-2xl border transition-all grid grid-cols-[minmax(0,1.8fr)_130px_130px_36px] sm:grid-cols-[minmax(0,2fr)_160px_160px_40px] items-center gap-3 text-left backdrop-blur-md ${
-                    isIncome
-                      ? 'bg-[#151c2d] border-emerald-500/35 shadow-[0_0_12px_rgba(16,185,129,0.15)] hover:border-emerald-500/60 hover:bg-[#192238]'
-                      : 'bg-[#151c2d] border-rose-500/35 shadow-[0_0_12px_rgba(239,68,68,0.15)] hover:border-rose-500/60 hover:bg-[#192238]'
-                  }`}
-                >
-                  <div className="flex flex-col text-left pl-2 min-w-0 pr-2 overflow-hidden">
-                    <div className="flex items-center gap-2 truncate">
-                      <span className={`font-extrabold text-xs truncate ${isIncome ? 'text-emerald-300' : 'text-rose-300'}`}>
-                        {t.desc}
+                return (
+                  <div
+                    key={t.id}
+                    className={`p-3.5 rounded-2xl border transition-all grid grid-cols-[minmax(0,1.8fr)_130px_130px_36px] sm:grid-cols-[minmax(0,2fr)_160px_160px_40px] items-center gap-3 text-left backdrop-blur-md ${
+                      isIncome
+                        ? 'bg-[#151c2d] border-emerald-500/35 shadow-[0_0_12px_rgba(16,185,129,0.15)] hover:border-emerald-500/60 hover:bg-[#192238]'
+                        : 'bg-[#151c2d] border-rose-500/35 shadow-[0_0_12px_rgba(239,68,68,0.15)] hover:border-rose-500/60 hover:bg-[#192238]'
+                    }`}
+                  >
+                    <div className="flex flex-col text-left pl-2 min-w-0 pr-2 overflow-hidden">
+                      <div className="flex items-center gap-2 truncate">
+                        <span className={`font-extrabold text-xs truncate ${isIncome ? 'text-emerald-300' : 'text-rose-300'}`}>
+                          {t.desc}
+                        </span>
+                        {t.isRecurring ? (
+                          <span className="px-2 py-0.5 rounded-md text-[8px] font-black uppercase bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shrink-0">
+                            Cố định
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-md text-[8px] font-black uppercase bg-slate-500/15 text-slate-400 border border-slate-500/25 shrink-0">
+                            Tạm thời
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[10px] font-semibold text-slate-400 mt-0.5">
+                        {t.date}
                       </span>
-                      {t.isRecurring ? (
-                        <span className="px-2 py-0.5 rounded-md text-[8px] font-black uppercase bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shrink-0">
-                          Cố định
-                        </span>
+                    </div>
+
+                    <div className="flex items-center gap-2.5 shrink-0 justify-start">
+                      <span className={`inline-flex p-2 rounded-full border shrink-0 ${
+                        isIncome
+                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.25)]'
+                          : 'bg-rose-500/10 text-rose-400 border-rose-500/30 shadow-[0_0_10px_rgba(239,68,68,0.25)]'
+                      }`}>
+                        <CategoryIcon iconName={catIcon} className="h-4 w-4" />
+                      </span>
+                      <span className={`font-black text-xs hidden sm:inline truncate ${isIncome ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {t.category}
+                      </span>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <span className={`font-black text-sm tracking-wide ${isIncome ? 'text-emerald-400 text-glow-green' : 'text-rose-500 text-glow-red'}`}>
+                        {isIncome ? '+' : '-'}{formatVND(t.amount)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-end shrink-0 pr-1">
+                      {t.isManual ? (
+                        <button
+                          onClick={() => setEditingTx({
+                            id: t.id,
+                            desc: t.desc,
+                            amount: t.amount,
+                            type: t.type,
+                            category: t.category,
+                            date: t.date,
+                            isRecurring: !!t.isRecurring
+                          })}
+                          className="h-8.5 w-8.5 bg-white/[0.04] border border-white/10 hover:border-indigo-500/40 hover:bg-indigo-500/10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-all shadow-sm cursor-pointer shrink-0"
+                          title="Chỉnh sửa hoặc Xóa giao dịch"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </button>
                       ) : (
-                        <span className="px-2 py-0.5 rounded-md text-[8px] font-black uppercase bg-slate-500/15 text-slate-400 border border-slate-500/25 shrink-0">
-                          Tạm thời
-                        </span>
+                        <button
+                          onClick={() => showToast('Giao dịch tự động liên kết với Lịch Trình. Vui lòng chỉnh sửa giá hoặc trạng thái ca dạy trong tab Lịch Trình để cập nhật.', 'info')}
+                          className="h-8.5 w-8.5 bg-white/[0.04] border border-white/10 hover:border-indigo-500/40 hover:bg-indigo-500/10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-all shadow-sm cursor-pointer shrink-0"
+                          title="Thông tin giao dịch tự động"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </button>
                       )}
                     </div>
-                    <span className="text-[10px] font-semibold text-slate-400 mt-0.5">
-                      {t.date}
-                    </span>
                   </div>
-
-                  <div className="flex items-center gap-2.5 shrink-0 justify-start">
-                    <span className={`inline-flex p-2 rounded-full border shrink-0 ${
-                      isIncome
-                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.25)]'
-                        : 'bg-rose-500/10 text-rose-400 border-rose-500/30 shadow-[0_0_10px_rgba(239,68,68,0.25)]'
-                    }`}>
-                      <CategoryIcon iconName={catIcon} className="h-4 w-4" />
-                    </span>
-                    <span className={`font-black text-xs hidden sm:inline truncate ${isIncome ? 'text-emerald-400' : 'text-rose-400'}`}>
-                      {t.category}
-                    </span>
-                  </div>
-
-                  <div className="text-right shrink-0">
-                    <span className={`font-black text-sm tracking-wide ${isIncome ? 'text-emerald-400 text-glow-green' : 'text-rose-500 text-glow-red'}`}>
-                      {isIncome ? '+' : '-'}{formatVND(t.amount)}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-end shrink-0 pr-1">
-                    {t.isManual ? (
-                      <button
-                        onClick={() => setEditingTx({
-                          id: t.id,
-                          desc: t.desc,
-                          amount: t.amount,
-                          type: t.type,
-                          category: t.category,
-                          date: t.date,
-                          isRecurring: !!t.isRecurring
-                        })}
-                        className="h-8.5 w-8.5 bg-white/[0.04] border border-white/10 hover:border-indigo-500/40 hover:bg-indigo-500/10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-all shadow-sm cursor-pointer shrink-0"
-                        title="Chỉnh sửa hoặc Xóa giao dịch"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => showToast('Giao dịch tự động liên kết với Lịch Trình. Vui lòng chỉnh sửa giá hoặc trạng thái ca dạy trong tab Lịch Trình để cập nhật.', 'info')}
-                        className="h-8.5 w-8.5 bg-white/[0.04] border border-white/10 hover:border-indigo-500/40 hover:bg-indigo-500/10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-all shadow-sm cursor-pointer shrink-0"
-                        title="Thông tin giao dịch tự động"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })
-          )}
+                );
+              })
+            )}
+          </div>
         </div>
 
         {totalPages > 1 && (
