@@ -189,8 +189,15 @@ export default function FlowTab({
     isRecurring: boolean;
   } | null>(null);
 
+  // Add new category modal states
+  const [addingCatType, setAddingCatType] = React.useState<'income' | 'expense' | null>(null);
+  const [newCatName, setNewCatName] = React.useState('');
+  const [newCatIcon, setNewCatIcon] = React.useState('Coins');
+  const [newCatNote, setNewCatNote] = React.useState('');
+  const [newCatBudget, setNewCatBudget] = React.useState('');
+
   React.useEffect(() => {
-    if (editingCat || editingTx) {
+    if (editingCat || editingTx || addingCatType) {
       document.body.classList.add('modal-open');
       document.documentElement.classList.add('modal-open');
     } else {
@@ -201,7 +208,75 @@ export default function FlowTab({
       document.body.classList.remove('modal-open');
       document.documentElement.classList.remove('modal-open');
     };
-  }, [editingCat, editingTx]);
+  }, [editingCat, editingTx, addingCatType]);
+
+  const handleCreateCategory = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!addingCatType || !newCatName.trim()) {
+      showToast('Vui lòng nhập tên danh mục.', 'error');
+      return;
+    }
+
+    const nameTrimmed = newCatName.trim();
+    const isIncome = addingCatType === 'income';
+    const list = isIncome ? incomeCats : expenseCats;
+
+    if (list.some(c => c.name.toLowerCase() === nameTrimmed.toLowerCase())) {
+      showToast('Tên danh mục này đã tồn tại.', 'error');
+      return;
+    }
+
+    const newCategoryItem = {
+      name: nameTrimmed,
+      icon: newCatIcon,
+      note: newCatNote.trim() || (isIncome ? 'Thu nhập khác' : 'Chi phí khác')
+    };
+
+    const updatedList = [...list, newCategoryItem];
+    if (isIncome) {
+      setIncomeCats(updatedList);
+      localStorage.setItem(`finance_income_cats_${currentUser.id}`, JSON.stringify(updatedList));
+    } else {
+      setExpenseCats(updatedList);
+      localStorage.setItem(`finance_expense_cats_${currentUser.id}`, JSON.stringify(updatedList));
+    }
+
+    const bVal = parseNumberDots(newCatBudget) || 0;
+    const updatedBudgets = { ...categoryBudgets, [nameTrimmed]: bVal };
+    saveBudgets(currentUser.id, updatedBudgets);
+
+    showToast(`Đã thêm danh mục "${nameTrimmed}" mới!`, 'success');
+    setAddingCatType(null);
+    setNewCatName('');
+    setNewCatIcon('Coins');
+    setNewCatNote('');
+    setNewCatBudget('');
+  };
+
+  const handleDeleteCategory = (type: 'income' | 'expense', index: number, catName: string) => {
+    const list = type === 'income' ? incomeCats : expenseCats;
+    if (list.length <= 1) {
+      showToast('Không thể xóa danh mục cuối cùng.', 'error');
+      return;
+    }
+    if (confirm(`Bạn có chắc chắn muốn xóa danh mục "${catName}"?`)) {
+      const updatedList = list.filter((_, idx) => idx !== index);
+      if (type === 'income') {
+        setIncomeCats(updatedList);
+        localStorage.setItem(`finance_income_cats_${currentUser.id}`, JSON.stringify(updatedList));
+      } else {
+        setExpenseCats(updatedList);
+        localStorage.setItem(`finance_expense_cats_${currentUser.id}`, JSON.stringify(updatedList));
+      }
+
+      const updatedBudgets = { ...categoryBudgets };
+      delete updatedBudgets[catName];
+      saveBudgets(currentUser.id, updatedBudgets);
+
+      setEditingCat(null);
+      showToast(`Đã xóa danh mục "${catName}".`, 'info');
+    }
+  };
 
   // Filter & Pagination states for Giao dịch section
   const [filterType, setFilterType] = React.useState<'all' | 'income' | 'expense'>('all');
@@ -729,26 +804,56 @@ export default function FlowTab({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Income budget block */}
         <div className="calendar-container-depth p-5 bg-[#06080e] rounded-3xl space-y-4 border-2 border-transparent [background:linear-gradient(#06080e,#06080e)_padding-box,linear-gradient(135deg,#10b981,#34d399,#059669)_border-box] shadow-[0_0_25px_rgba(16,185,129,0.35)]">
-          <div className="flex flex-col items-center justify-center border-b border-white/5 pb-3">
-            <div className="flex items-center justify-center gap-2">
+          <div className="flex items-center justify-between border-b border-white/5 pb-3">
+            <div className="flex items-center gap-2">
               <div className="p-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-lg shadow-[0_0_8px_rgba(16,185,129,0.35)] shrink-0">
                 <TrendingUp className="h-4 w-4" />
               </div>
               <h3 className="text-[15px] font-black text-emerald-400 text-glow-green uppercase tracking-wider">Loại thu nhập</h3>
             </div>
+            <button
+              onClick={() => {
+                setAddingCatType('income');
+                setNewCatName('');
+                setNewCatIcon('Coins');
+                setNewCatNote('');
+                setNewCatBudget('');
+              }}
+              className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-black transition-all cursor-pointer shadow-[0_0_10px_rgba(16,185,129,0.2)] hover:scale-[1.02]"
+              title="Thêm danh mục thu nhập mới"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Thêm</span>
+            </button>
           </div>
           {renderCategoryTable('income')}
         </div>
 
+        {/* Expense budget block */}
         <div className="calendar-container-depth p-5 bg-[#06080e] rounded-3xl space-y-4 border-2 border-transparent [background:linear-gradient(#06080e,#06080e)_padding-box,linear-gradient(135deg,#f43f5e,#fb7185,#e11d48)_border-box] shadow-[0_0_25px_rgba(244,63,94,0.35)]">
-          <div className="flex flex-col items-center justify-center border-b border-white/5 pb-3">
-            <div className="flex items-center justify-center gap-2">
+          <div className="flex items-center justify-between border-b border-white/5 pb-3">
+            <div className="flex items-center gap-2">
               <div className="p-1 bg-red-500/10 text-red-500 border border-red-500/30 rounded-lg shadow-[0_0_8px_rgba(239,68,68,0.35)] shrink-0">
                 <TrendingDown className="h-4 w-4" />
               </div>
               <h3 className="text-[15px] font-black text-red-500 text-glow-red uppercase tracking-wider">Loại chi tiêu</h3>
             </div>
+            <button
+              onClick={() => {
+                setAddingCatType('expense');
+                setNewCatName('');
+                setNewCatIcon('Utensils');
+                setNewCatNote('');
+                setNewCatBudget('');
+              }}
+              className="flex items-center gap-1.5 px-3 py-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-xl text-xs font-black transition-all cursor-pointer shadow-[0_0_10px_rgba(239,68,68,0.2)] hover:scale-[1.02]"
+              title="Thêm danh mục chi tiêu mới"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Thêm</span>
+            </button>
           </div>
           {renderCategoryTable('expense')}
         </div>
@@ -1028,7 +1133,16 @@ export default function FlowTab({
                 </div>
               </div>
 
-              <div className="flex gap-3 pt-2">
+              <div className="flex gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => handleDeleteCategory(editingCat.type, editingCat.index, editingCat.name)}
+                  className="px-3.5 py-2.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 font-extrabold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
+                  title="Xóa danh mục này"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  <span>Xóa</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => setEditingCat(null)}
@@ -1045,6 +1159,104 @@ export default function FlowTab({
                 </button>
               </div>
             </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Modal: Thêm danh mục mới (Income / Expense) */}
+      {mounted && addingCatType && createPortal(
+        <div className="fixed inset-0 bg-[#070911]/90 backdrop-blur-md z-[99999] flex items-center justify-center p-4 text-slate-100">
+          <div className="bg-[#0f1320] border border-indigo-500/30 rounded-2xl w-full max-w-md p-6 relative shadow-[0_0_50px_rgba(0,0,0,0.9)] animate-mac-dropdown">
+            <button 
+              onClick={() => setAddingCatType(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-200 cursor-pointer"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <h3 className="text-sm font-black text-indigo-400 tracking-wider uppercase mb-5">
+              Thêm Danh Mục {addingCatType === 'income' ? 'Thu Nhập' : 'Chi Tiêu'} Mới
+            </h3>
+
+            <form onSubmit={handleCreateCategory} className="space-y-4 text-left">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Tên danh mục mới *</label>
+                <input
+                  type="text"
+                  placeholder="Ví dụ: Thưởng dự án, Tiền điện..."
+                  value={newCatName}
+                  onChange={(e) => setNewCatName(e.target.value)}
+                  className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 placeholder-slate-600"
+                  required
+                  autoFocus
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Mô tả ngắn / Note</label>
+                <input
+                  type="text"
+                  placeholder="Mô tả phụ hiển thị bên dưới..."
+                  value={newCatNote}
+                  onChange={(e) => setNewCatNote(e.target.value)}
+                  className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 placeholder-slate-600"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">
+                  {addingCatType === 'income' ? 'Mục tiêu tháng (VND)' : 'Hạn mức ngân sách tháng (VND)'}
+                </label>
+                <input
+                  type="text"
+                  placeholder="0"
+                  value={newCatBudget}
+                  onChange={(e) => setNewCatBudget(formatNumberDots(parseNumberDots(e.target.value)))}
+                  className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 placeholder-slate-600"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider block">Chọn biểu tượng</label>
+                <div className="grid grid-cols-6 gap-2 bg-[#090b10] p-3 rounded-xl border border-white/5 max-h-40 overflow-y-auto">
+                  {Object.keys(ICON_COMPONENTS).map((iconKey) => {
+                    const Icon = ICON_COMPONENTS[iconKey];
+                    const isSelected = newCatIcon === iconKey;
+                    return (
+                      <button
+                        type="button"
+                        key={iconKey}
+                        onClick={() => setNewCatIcon(iconKey)}
+                        className={`p-2 rounded-lg border transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-indigo-500/20 border-indigo-500 text-indigo-400 shadow-[0_0_10px_rgba(92,54,245,0.3)]'
+                            : 'bg-[#0d1018] border-white/5 text-slate-455 hover:text-slate-200'
+                        }`}
+                      >
+                        <Icon className="h-4.5 w-4.5 mx-auto" />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setAddingCatType(null)}
+                  className="flex-1 py-2.5 bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 text-slate-300 font-bold text-xs rounded-xl transition-all cursor-pointer text-center"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 bg-[#5c36f5] hover:bg-[#7351f7] text-white font-extrabold text-xs rounded-xl shadow-[0_0_15px_rgba(92,54,245,0.4)] transition-all hover:scale-[1.02] cursor-pointer text-center"
+                >
+                  Tạo Danh Mục
+                </button>
+              </div>
+            </form>
           </div>
         </div>,
         document.body
