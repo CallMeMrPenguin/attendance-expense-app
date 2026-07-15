@@ -127,7 +127,6 @@ export default function FlowTab({
   React.useEffect(() => {
     setMounted(true);
   }, []);
-
   // Dynamic custom categories lists
   const [incomeCats, setIncomeCats] = React.useState<{name: string, icon: string, note?: string}[]>([
     { name: 'Lương', icon: 'Briefcase', note: 'Thu nhập cố định hàng tháng' },
@@ -189,6 +188,17 @@ export default function FlowTab({
     date: string;
     isRecurring: boolean;
   } | null>(null);
+
+  React.useEffect(() => {
+    if (editingCat || editingTx) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [editingCat, editingTx]);
 
   // Filter & Pagination states for Giao dịch section
   const [filterType, setFilterType] = React.useState<'all' | 'income' | 'expense'>('all');
@@ -448,19 +458,19 @@ export default function FlowTab({
           let barColorClass = '';
           if (isIncome) {
             if (rawPct <= 40) {
-              barColorClass = 'bg-rose-500 shadow-[0_0_10px_rgba(239,68,68,0.7)]';
+              barColorClass = 'bg-gradient-to-r from-rose-600 via-rose-500 to-red-400 shadow-[0_0_12px_rgba(239,68,68,0.95)]';
             } else if (rawPct <= 90) {
-              barColorClass = 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.7)]';
+              barColorClass = 'bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-400 shadow-[0_0_12px_rgba(245,158,11,0.95)]';
             } else {
-              barColorClass = 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.7)]';
+              barColorClass = 'bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-300 shadow-[0_0_12px_rgba(16,185,129,0.95)]';
             }
           } else {
             if (rawPct <= 40) {
-              barColorClass = 'bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.7)]';
+              barColorClass = 'bg-gradient-to-r from-blue-600 via-indigo-500 to-cyan-400 shadow-[0_0_12px_rgba(59,130,246,0.95)]';
             } else if (rawPct <= 90) {
-              barColorClass = 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.7)]';
+              barColorClass = 'bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-400 shadow-[0_0_12px_rgba(245,158,11,0.95)]';
             } else {
-              barColorClass = 'bg-rose-500 shadow-[0_0_10px_rgba(239,68,68,0.7)]';
+              barColorClass = 'bg-gradient-to-r from-rose-600 via-rose-500 to-pink-400 shadow-[0_0_12px_rgba(239,68,68,0.95)]';
             }
           }
 
@@ -504,7 +514,7 @@ export default function FlowTab({
 
               <div className="flex-1 max-w-[180px] hidden sm:block">
                 <div className="space-y-1">
-                  <div className="h-1.5 bg-[#101420] rounded-full w-full relative overflow-hidden">
+                  <div className="h-2 bg-[#080b14] rounded-full w-full relative overflow-hidden border border-white/10 shadow-[inset_0_1px_3px_rgba(0,0,0,0.8)]">
                     <div
                       className={`h-full rounded-full transition-all duration-300 ${barColorClass}`}
                       style={{ width: `${pct}%` }}
@@ -715,125 +725,137 @@ export default function FlowTab({
         </div>
       </div>
 
+      {/* Category Tables split into 2 sections (True Gradient Neon Outer Border) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="calendar-container-depth p-5 bg-[#06080e] border-2 border-emerald-500/40 shadow-[0_0_22px_rgba(16,185,129,0.22),inset_0_0_15px_rgba(16,185,129,0.06)] rounded-3xl space-y-4">
-          <div className="flex flex-col items-center justify-center border-b border-white/5 pb-3">
-            <div className="flex items-center justify-center gap-2">
-              <div className="p-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-lg shadow-[0_0_8px_rgba(16,185,129,0.35)] shrink-0">
-                <TrendingUp className="h-4 w-4" />
+        {/* Income budget block */}
+        <div className="relative p-[2px] rounded-[24px] bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-600 shadow-[0_0_25px_rgba(16,185,129,0.35)]">
+          <div className="calendar-container-depth p-5 bg-[#06080e] rounded-[22px] space-y-4">
+            <div className="flex flex-col items-center justify-center border-b border-white/5 pb-3">
+              <div className="flex items-center justify-center gap-2">
+                <div className="p-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-lg shadow-[0_0_8px_rgba(16,185,129,0.35)] shrink-0">
+                  <TrendingUp className="h-4 w-4" />
+                </div>
+                <h3 className="text-[15px] font-black text-emerald-400 text-glow-green uppercase tracking-wider">Loại thu nhập</h3>
               </div>
-              <h3 className="text-[15px] font-black text-emerald-400 text-glow-green uppercase tracking-wider">Loại thu nhập</h3>
             </div>
+            {renderCategoryTable('income')}
           </div>
-          {renderCategoryTable('income')}
         </div>
 
-        <div className="calendar-container-depth p-5 bg-[#06080e] border-2 border-rose-500/40 shadow-[0_0_22px_rgba(239,68,68,0.22),inset_0_0_15px_rgba(239,68,68,0.06)] rounded-3xl space-y-4">
-          <div className="flex flex-col items-center justify-center border-b border-white/5 pb-3">
-            <div className="flex items-center justify-center gap-2">
-              <div className="p-1 bg-red-500/10 text-red-500 border border-red-500/30 rounded-lg shadow-[0_0_8px_rgba(239,68,68,0.35)] shrink-0">
-                <TrendingDown className="h-4 w-4" />
+        {/* Expense budget block */}
+        <div className="relative p-[2px] rounded-[24px] bg-gradient-to-r from-rose-500 via-pink-500 to-red-600 shadow-[0_0_25px_rgba(239,68,68,0.35)]">
+          <div className="calendar-container-depth p-5 bg-[#06080e] rounded-[22px] space-y-4">
+            <div className="flex flex-col items-center justify-center border-b border-white/5 pb-3">
+              <div className="flex items-center justify-center gap-2">
+                <div className="p-1 bg-red-500/10 text-red-500 border border-red-500/30 rounded-lg shadow-[0_0_8px_rgba(239,68,68,0.35)] shrink-0">
+                  <TrendingDown className="h-4 w-4" />
+                </div>
+                <h3 className="text-[15px] font-black text-red-500 text-glow-red uppercase tracking-wider">Loại chi tiêu</h3>
               </div>
-              <h3 className="text-[15px] font-black text-red-500 text-glow-red uppercase tracking-wider">Loại chi tiêu</h3>
             </div>
+            {renderCategoryTable('expense')}
           </div>
-          {renderCategoryTable('expense')}
         </div>
       </div>
 
-      <div className="calendar-container-depth p-5 bg-[#06080e] border-2 border-indigo-500/40 shadow-[0_0_22px_rgba(99,102,241,0.22),inset_0_0_15px_rgba(99,102,241,0.06)] rounded-3xl space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-white/5 pb-3">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 rounded-lg shadow-[0_0_10px_rgba(99,102,241,0.55)]">
-              <DollarSign className="h-4 w-4" />
+      {/* Unified Transaction List with True Gradient Neon Outer Border */}
+      <div className="relative p-[2px] rounded-[24px] bg-gradient-to-r from-indigo-500 via-purple-500 to-cyan-500 shadow-[0_0_25px_rgba(99,102,241,0.35)]">
+        <div className="calendar-container-depth p-5 bg-[#06080e] rounded-[22px] space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-white/5 pb-3">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 rounded-lg shadow-[0_0_10px_rgba(99,102,241,0.55)]">
+                <DollarSign className="h-4 w-4" />
+              </div>
+              <h3 className="text-[15px] font-black text-indigo-400 text-glow-blue uppercase tracking-wider">Giao dịch</h3>
             </div>
-            <h3 className="text-[15px] font-black text-indigo-400 text-glow-blue uppercase tracking-wider">Giao dịch</h3>
-          </div>
 
-          <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
-            <input
-              type="text"
-              placeholder="Tìm kiếm giao dịch..."
-              value={searchQuery}
-              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-              className="bg-[#0d1018] border border-white/10 rounded-xl px-3 py-1.5 text-xs font-medium text-white focus:outline-none focus:border-indigo-500/50 placeholder-slate-500 min-w-[140px]"
-            />
+            <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
+              {/* Search Input */}
+              <input
+                type="text"
+                placeholder="Tìm kiếm giao dịch..."
+                value={searchQuery}
+                onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                className="bg-[#0d1018] border border-white/10 rounded-xl px-3 py-1.5 text-xs font-medium text-white focus:outline-none focus:border-indigo-500/50 placeholder-slate-500 min-w-[140px]"
+              />
 
-            <div className="relative" data-filter-cat>
-              <button
-                onClick={() => setCatFilterOpen(o => !o)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                  filterCategory !== 'all' 
-                    ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-300' 
-                    : 'bg-[#0d1018] border-white/10 text-slate-400 hover:text-white'
-                }`}
-              >
-                <Filter className="h-3.5 w-3.5" />
-                <span>{filterCategory === 'all' ? 'Tất cả danh mục' : filterCategory}</span>
-              </button>
-              {catFilterOpen && (
-                <div className="absolute top-full right-0 mt-1.5 z-40 bg-[#0d1018]/95 border border-white/10 rounded-[14px] p-1.5 shadow-2xl text-left font-normal normal-case w-40 max-h-48 overflow-y-auto scrollbar-thin animate-mac-dropdown origin-top">
-                  <button
-                    onClick={() => { setFilterCategory('all'); setCatFilterOpen(false); setCurrentPage(1); }}
-                    className={`w-full text-left px-2.5 py-1.5 text-xs font-bold rounded-lg ${
-                      filterCategory === 'all' ? 'bg-indigo-500/25 text-indigo-300 border border-indigo-500/20 shadow-sm' : 'text-slate-400 hover:bg-white/5'
-                    }`}
-                  >
-                    Tất cả danh mục
-                  </button>
-                  {Array.from(new Set(transactions.map(t => t.category))).map(catName => (
+              {/* Category Filter Dropdown */}
+              <div className="relative" data-filter-cat>
+                <button
+                  onClick={() => setCatFilterOpen(o => !o)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                    filterCategory !== 'all' 
+                      ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-300' 
+                      : 'bg-[#0d1018] border-white/10 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Filter className="h-3.5 w-3.5" />
+                  <span>{filterCategory === 'all' ? 'Tất cả danh mục' : filterCategory}</span>
+                </button>
+                {catFilterOpen && (
+                  <div className="absolute top-full right-0 mt-1.5 z-40 bg-[#0d1018]/95 border border-white/10 rounded-[14px] p-1.5 shadow-2xl text-left font-normal normal-case w-40 max-h-48 overflow-y-auto scrollbar-thin animate-mac-dropdown origin-top">
                     <button
-                      key={catName}
-                      onClick={() => { setFilterCategory(catName); setCatFilterOpen(false); setCurrentPage(1); }}
+                      onClick={() => { setFilterCategory('all'); setCatFilterOpen(false); setCurrentPage(1); }}
                       className={`w-full text-left px-2.5 py-1.5 text-xs font-bold rounded-lg ${
-                        filterCategory === catName ? 'bg-indigo-500/25 text-indigo-300 border border-indigo-500/20 shadow-sm' : 'text-slate-400 hover:bg-white/5'
+                        filterCategory === 'all' ? 'bg-indigo-500/25 text-indigo-300 border border-indigo-500/20 shadow-sm' : 'text-slate-400 hover:bg-white/5'
                       }`}
                     >
-                      {catName}
+                      Tất cả danh mục
                     </button>
-                  ))}
-                </div>
-              )}
-            </div>
+                    {Array.from(new Set(transactions.map(t => t.category))).map(catName => (
+                      <button
+                        key={catName}
+                        onClick={() => { setFilterCategory(catName); setCatFilterOpen(false); setCurrentPage(1); }}
+                        className={`w-full text-left px-2.5 py-1.5 text-xs font-bold rounded-lg ${
+                          filterCategory === catName ? 'bg-indigo-500/25 text-indigo-300 border border-indigo-500/20 shadow-sm' : 'text-slate-400 hover:bg-white/5'
+                        }`}
+                      >
+                        {catName}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
 
-            <div className="relative flex bg-[#0d1018] p-1 rounded-xl border border-white/10 text-xs shrink-0 font-bold select-none min-w-[200px]">
-              <div
-                className={`absolute top-1 bottom-1 rounded-lg transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] pointer-events-none ${
-                  filterRecurring === 'all'
-                    ? 'bg-[#5c36f5] shadow-[0_0_14px_rgba(92,54,245,0.5)]'
-                    : filterRecurring === 'co_dinh'
-                    ? 'bg-emerald-500 shadow-[0_0_14px_rgba(16,185,129,0.5)]'
-                    : 'bg-blue-500 shadow-[0_0_14px_rgba(59,130,246,0.5)]'
-                }`}
-                style={{
-                  left: filterRecurring === 'all' ? '4px' : filterRecurring === 'co_dinh' ? 'calc(33.333% + 2px)' : 'calc(66.666% + 1px)',
-                  width: 'calc(33.333% - 4px)',
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => { setFilterRecurring('all'); setCurrentPage(1); }}
-                className={`flex-1 relative z-10 py-1 text-center transition-colors cursor-pointer ${filterRecurring === 'all' ? 'text-white font-black' : 'text-slate-400 hover:text-white'}`}
-              >
-                Tất cả
-              </button>
-              <button
-                type="button"
-                onClick={() => { setFilterRecurring('co_dinh'); setCurrentPage(1); }}
-                className={`flex-1 relative z-10 py-1 text-center transition-colors cursor-pointer ${filterRecurring === 'co_dinh' ? 'text-white font-black' : 'text-slate-400 hover:text-white'}`}
-              >
-                Cố định
-              </button>
-              <button
-                type="button"
-                onClick={() => { setFilterRecurring('tam_thoi'); setCurrentPage(1); }}
-                className={`flex-1 relative z-10 py-1 text-center transition-colors cursor-pointer ${filterRecurring === 'tam_thoi' ? 'text-white font-black' : 'text-slate-400 hover:text-white'}`}
-              >
-                Tạm thời
-              </button>
+              {/* Filter pill toggle */}
+              <div className="relative flex bg-[#0d1018] p-1 rounded-xl border border-white/10 text-xs shrink-0 font-bold select-none min-w-[200px]">
+                <div
+                  className={`absolute top-1 bottom-1 rounded-lg transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] pointer-events-none ${
+                    filterRecurring === 'all'
+                      ? 'bg-[#5c36f5] shadow-[0_0_14px_rgba(92,54,245,0.5)]'
+                      : filterRecurring === 'co_dinh'
+                      ? 'bg-emerald-500 shadow-[0_0_14px_rgba(16,185,129,0.5)]'
+                      : 'bg-blue-500 shadow-[0_0_14px_rgba(59,130,246,0.5)]'
+                  }`}
+                  style={{
+                    left: filterRecurring === 'all' ? '4px' : filterRecurring === 'co_dinh' ? 'calc(33.333% + 2px)' : 'calc(66.666% + 1px)',
+                    width: 'calc(33.333% - 4px)',
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => { setFilterRecurring('all'); setCurrentPage(1); }}
+                  className={`flex-1 relative z-10 py-1 text-center transition-colors cursor-pointer ${filterRecurring === 'all' ? 'text-white font-black' : 'text-slate-400 hover:text-white'}`}
+                >
+                  Tất cả
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setFilterRecurring('co_dinh'); setCurrentPage(1); }}
+                  className={`flex-1 relative z-10 py-1 text-center transition-colors cursor-pointer ${filterRecurring === 'co_dinh' ? 'text-white font-black' : 'text-slate-400 hover:text-white'}`}
+                >
+                  Cố định
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setFilterRecurring('tam_thoi'); setCurrentPage(1); }}
+                  className={`flex-1 relative z-10 py-1 text-center transition-colors cursor-pointer ${filterRecurring === 'tam_thoi' ? 'text-white font-black' : 'text-slate-400 hover:text-white'}`}
+                >
+                  Tạm thời
+                </button>
+              </div>
             </div>
           </div>
-        </div>
 
         <div className="flex flex-col gap-2.5">
           {paginatedTransactions.length === 0 ? (
@@ -944,6 +966,7 @@ export default function FlowTab({
           </div>
         )}
       </div>
+    </div>
 
       {mounted && editingCat && createPortal(
         <div className="fixed inset-0 bg-[#070911]/90 backdrop-blur-md z-[99999] flex items-center justify-center p-4 text-slate-100">
