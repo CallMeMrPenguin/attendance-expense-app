@@ -459,10 +459,10 @@ export default function FlowTab({
           }
 
           const cardStyle = isOver
-            ? 'bg-rose-500/[0.04] border-rose-500/30 shadow-[inset_0_0_15px_rgba(239,68,68,0.15)] hover:border-rose-500/50'
+            ? 'bg-rose-500/10 border-rose-500/40 shadow-[inset_0_0_15px_rgba(239,68,68,0.2)] hover:border-rose-500/60'
             : isAchieved
-              ? 'bg-emerald-500/[0.04] border-emerald-500/30 shadow-[inset_0_0_15px_rgba(16,185,129,0.15)] hover:border-emerald-500/50'
-              : 'bg-[#0d1018]/80 border-white/10 hover:border-white/20 shadow-sm';
+              ? 'bg-emerald-500/10 border-emerald-500/40 shadow-[inset_0_0_15px_rgba(16,185,129,0.2)] hover:border-emerald-500/60'
+              : 'bg-[#151c2d] border-white/10 hover:border-white/20 shadow-md hover:bg-[#182238]';
 
           return (
             <div
@@ -724,11 +724,11 @@ export default function FlowTab({
         </div>
       </div>
 
-      {/* Category Tables split into 2 sections (Calendar container depth styles) */}
+      {/* Category Tables split into 2 sections (Calendar container depth styles with darker background) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
         {/* Income budget block */}
-        <div className="calendar-container-depth p-5 bg-[#141824] space-y-4">
+        <div className="calendar-container-depth p-5 bg-[#06080e] border border-white/10 rounded-3xl space-y-4 shadow-2xl">
           <div className="flex flex-col items-center justify-center border-b border-white/5 pb-3">
             <div className="flex items-center justify-center gap-2">
               <div className="p-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-lg shadow-[0_0_8px_rgba(16,185,129,0.35)] shrink-0">
@@ -741,7 +741,7 @@ export default function FlowTab({
         </div>
 
         {/* Expense budget block */}
-        <div className="calendar-container-depth p-5 bg-[#141824] space-y-4">
+        <div className="calendar-container-depth p-5 bg-[#06080e] border border-white/10 rounded-3xl space-y-4 shadow-2xl">
           <div className="flex flex-col items-center justify-center border-b border-white/5 pb-3">
             <div className="flex items-center justify-center gap-2">
               <div className="p-1 bg-red-500/10 text-red-500 border border-red-500/30 rounded-lg shadow-[0_0_8px_rgba(239,68,68,0.35)] shrink-0">
@@ -756,7 +756,7 @@ export default function FlowTab({
       </div>
 
       {/* Unified Transaction List with search, filtering and pagination */}
-      <div className="calendar-container-depth p-5 bg-[#141824] space-y-4">
+      <div className="calendar-container-depth p-5 bg-[#06080e] border border-white/10 rounded-3xl space-y-4 shadow-2xl">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-white/5 pb-3">
           <div className="flex items-center gap-2">
             <div className="p-1.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 rounded-lg shadow-[0_0_10px_rgba(99,102,241,0.55)]">
@@ -765,197 +765,197 @@ export default function FlowTab({
             <h3 className="text-[15px] font-black text-indigo-400 text-glow-blue uppercase tracking-wider">Giao dịch</h3>
           </div>
 
-          {/* Filter pill toggle with smooth animated sliding background: Tất cả / Cố định / Tạm thời */}
-          <div className="relative flex bg-[#0d1018] p-1 rounded-xl border border-white/10 text-xs shrink-0 font-bold select-none min-w-[220px]">
-            {/* Smooth Sliding active background indicator */}
-            <div
-              className={`absolute top-1 bottom-1 rounded-lg transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] pointer-events-none ${
-                filterRecurring === 'all'
-                  ? 'bg-[#5c36f5] shadow-[0_0_14px_rgba(92,54,245,0.5)]'
-                  : filterRecurring === 'co_dinh'
-                  ? 'bg-emerald-500 shadow-[0_0_14px_rgba(16,185,129,0.5)]'
-                  : 'bg-blue-500 shadow-[0_0_14px_rgba(59,130,246,0.5)]'
-              }`}
-              style={{
-                left: filterRecurring === 'all' ? '4px' : filterRecurring === 'co_dinh' ? 'calc(33.333% + 2px)' : 'calc(66.666% + 1px)',
-                width: 'calc(33.333% - 4px)',
-              }}
+          <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
+            {/* Search Input */}
+            <input
+              type="text"
+              placeholder="Tìm kiếm giao dịch..."
+              value={searchQuery}
+              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+              className="bg-[#0d1018] border border-white/10 rounded-xl px-3 py-1.5 text-xs font-medium text-white focus:outline-none focus:border-indigo-500/50 placeholder-slate-500 min-w-[140px]"
             />
-            <button
-              type="button"
-              onClick={() => { setFilterRecurring('all'); setCurrentPage(1); }}
-              className={`flex-1 relative z-10 py-1 text-center transition-colors cursor-pointer ${filterRecurring === 'all' ? 'text-white font-black' : 'text-slate-400 hover:text-white'}`}
-            >
-              Tất cả
-            </button>
-            <button
-              type="button"
-              onClick={() => { setFilterRecurring('co_dinh'); setCurrentPage(1); }}
-              className={`flex-1 relative z-10 py-1 text-center transition-colors cursor-pointer ${filterRecurring === 'co_dinh' ? 'text-white font-black' : 'text-slate-400 hover:text-white'}`}
-            >
-              Cố định
-            </button>
-            <button
-              type="button"
-              onClick={() => { setFilterRecurring('tam_thoi'); setCurrentPage(1); }}
-              className={`flex-1 relative z-10 py-1 text-center transition-colors cursor-pointer ${filterRecurring === 'tam_thoi' ? 'text-white font-black' : 'text-slate-400 hover:text-white'}`}
-            >
-              Tạm thời
-            </button>
+
+            {/* Category Filter Dropdown */}
+            <div className="relative" data-filter-cat>
+              <button
+                onClick={() => setCatFilterOpen(o => !o)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                  filterCategory !== 'all' 
+                    ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-300' 
+                    : 'bg-[#0d1018] border-white/10 text-slate-400 hover:text-white'
+                }`}
+              >
+                <Filter className="h-3.5 w-3.5" />
+                <span>{filterCategory === 'all' ? 'Tất cả danh mục' : filterCategory}</span>
+              </button>
+              {catFilterOpen && (
+                <div className="absolute top-full right-0 mt-1.5 z-40 bg-[#0d1018]/95 border border-white/10 rounded-[14px] p-1.5 shadow-2xl text-left font-normal normal-case w-40 max-h-48 overflow-y-auto scrollbar-thin animate-mac-dropdown origin-top">
+                  <button
+                    onClick={() => { setFilterCategory('all'); setCatFilterOpen(false); setCurrentPage(1); }}
+                    className={`w-full text-left px-2.5 py-1.5 text-xs font-bold rounded-lg ${
+                      filterCategory === 'all' ? 'bg-indigo-500/25 text-indigo-300 border border-indigo-500/20 shadow-sm' : 'text-slate-400 hover:bg-white/5'
+                    }`}
+                  >
+                    Tất cả danh mục
+                  </button>
+                  {Array.from(new Set(transactions.map(t => t.category))).map(catName => (
+                    <button
+                      key={catName}
+                      onClick={() => { setFilterCategory(catName); setCatFilterOpen(false); setCurrentPage(1); }}
+                      className={`w-full text-left px-2.5 py-1.5 text-xs font-bold rounded-lg ${
+                        filterCategory === catName ? 'bg-indigo-500/25 text-indigo-300 border border-indigo-500/20 shadow-sm' : 'text-slate-400 hover:bg-white/5'
+                      }`}
+                    >
+                      {catName}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Filter pill toggle: Tất cả / Cố định / Tạm thời */}
+            <div className="relative flex bg-[#0d1018] p-1 rounded-xl border border-white/10 text-xs shrink-0 font-bold select-none min-w-[200px]">
+              <div
+                className={`absolute top-1 bottom-1 rounded-lg transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] pointer-events-none ${
+                  filterRecurring === 'all'
+                    ? 'bg-[#5c36f5] shadow-[0_0_14px_rgba(92,54,245,0.5)]'
+                    : filterRecurring === 'co_dinh'
+                    ? 'bg-emerald-500 shadow-[0_0_14px_rgba(16,185,129,0.5)]'
+                    : 'bg-blue-500 shadow-[0_0_14px_rgba(59,130,246,0.5)]'
+                }`}
+                style={{
+                  left: filterRecurring === 'all' ? '4px' : filterRecurring === 'co_dinh' ? 'calc(33.333% + 2px)' : 'calc(66.666% + 1px)',
+                  width: 'calc(33.333% - 4px)',
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => { setFilterRecurring('all'); setCurrentPage(1); }}
+                className={`flex-1 relative z-10 py-1 text-center transition-colors cursor-pointer ${filterRecurring === 'all' ? 'text-white font-black' : 'text-slate-400 hover:text-white'}`}
+              >
+                Tất cả
+              </button>
+              <button
+                type="button"
+                onClick={() => { setFilterRecurring('co_dinh'); setCurrentPage(1); }}
+                className={`flex-1 relative z-10 py-1 text-center transition-colors cursor-pointer ${filterRecurring === 'co_dinh' ? 'text-white font-black' : 'text-slate-400 hover:text-white'}`}
+              >
+                Cố định
+              </button>
+              <button
+                type="button"
+                onClick={() => { setFilterRecurring('tam_thoi'); setCurrentPage(1); }}
+                className={`flex-1 relative z-10 py-1 text-center transition-colors cursor-pointer ${filterRecurring === 'tam_thoi' ? 'text-white font-black' : 'text-slate-400 hover:text-white'}`}
+              >
+                Tạm thời
+              </button>
+            </div>
           </div>
         </div>
 
-        <div className="overflow-x-auto overflow-y-visible">
-          <table className="w-full table-fixed text-[13px] font-bold text-slate-350">
-            <thead>
-              <tr className="border-b border-white/5 text-[11px] font-black uppercase text-slate-500 tracking-wider">
-                <th className="py-2.5 text-left font-black w-[35%]">
-                  <span className="inline-flex items-center gap-1.5">
-                    <span>Chi tiết giao dịch</span>
-                    <input
-                      type="text"
-                      placeholder="Tìm..."
-                      value={searchQuery}
-                      onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                      className="ml-2 bg-[#0d1018] border border-white/10 rounded-lg px-2 py-0.5 text-[8.5px] font-medium text-white focus:outline-none focus:border-indigo-500/50 w-24 normal-case placeholder-slate-600"
-                    />
-                  </span>
-                </th>
-                <th className="py-2.5 text-left font-black w-[25%] relative" data-filter-cat>
-                  <span className="inline-flex items-center gap-1.5">
-                    <span>Danh mục</span>
-                    <Filter 
-                      className={`h-3 w-3 cursor-pointer transition-colors ${filterCategory !== 'all' ? 'text-indigo-400' : 'text-slate-500 hover:text-slate-350'}`}
-                      onClick={() => setCatFilterOpen(o => !o)}
-                    />
-                  </span>
-                  {catFilterOpen && (
-                    <div className="absolute top-full left-0 mt-1.5 z-40 bg-[#0d1018]/95 border border-white/10 rounded-[14px] p-1.5 shadow-2xl text-left font-normal normal-case w-36 max-h-48 overflow-y-auto scrollbar-thin animate-mac-dropdown origin-top">
-                      <button
-                        onClick={() => { setFilterCategory('all'); setCatFilterOpen(false); setCurrentPage(1); }}
-                        className={`w-full text-left px-2 py-1.5 text-[9px] font-bold rounded-lg ${
-                          filterCategory === 'all' ? 'bg-indigo-500/25 text-indigo-300 border border-indigo-500/20 shadow-sm' : 'text-slate-400 hover:bg-white/5'
-                        }`}
-                      >
-                        Tất cả
-                      </button>
-                      {Array.from(new Set(transactions.map(t => t.category))).map(catName => (
-                        <button
-                          key={catName}
-                          onClick={() => { setFilterCategory(catName); setCatFilterOpen(false); setCurrentPage(1); }}
-                          className={`w-full text-left px-2 py-1.5 text-[9px] font-bold rounded-lg ${
-                            filterCategory === catName ? 'bg-indigo-500/25 text-indigo-300 border border-indigo-500/20 shadow-sm' : 'text-slate-400 hover:bg-white/5'
-                          }`}
-                        >
-                          {catName}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </th>
-                <th className="py-2.5 text-right font-black w-[20%]">Số tiền</th>
-                <th className="py-2.5 text-center font-black w-[20%]">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              {paginatedTransactions.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="py-10 text-center text-slate-500 font-bold">Chưa ghi nhận giao dịch nào.</td>
-                </tr>
-              ) : (
-                paginatedTransactions.map((t) => {
-                  const isIncome = t.type === 'income';
-                  const catIcon = getCategoryIconName(t.category, t.type);
-                  const rowClass = isIncome 
-                    ? 'highlight-income-row bg-emerald-500/[0.025] hover:bg-emerald-500/[0.055] text-emerald-450 transition-colors group' 
-                    : 'highlight-expense-row bg-rose-500/[0.025] hover:bg-rose-500/[0.055] text-red-400 transition-colors group';
+        {/* Transaction Blocks List - Standalone Rounded Pill Blocks */}
+        <div className="flex flex-col gap-2.5">
+          {paginatedTransactions.length === 0 ? (
+            <div className="py-10 text-center text-slate-500 font-bold bg-[#151c2d]/50 border border-white/5 rounded-2xl">
+              Chưa ghi nhận giao dịch nào.
+            </div>
+          ) : (
+            paginatedTransactions.map((t) => {
+              const isIncome = t.type === 'income';
+              const catIcon = getCategoryIconName(t.category, t.type);
 
-                  return (
-                    <tr key={t.id} className={rowClass}>
-                      <td className="py-3 text-left pl-5 rounded-l-xl">
-                        <div className="flex items-center gap-1.5">
-                          <p className={isIncome ? 'text-emerald-300 font-bold' : 'text-rose-300 font-bold'}>{t.desc}</p>
-                          {t.isRecurring ? (
-                            <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Cố định</span>
-                          ) : (
-                            <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-slate-500/10 text-slate-400 border border-slate-500/20">Tạm thời</span>
-                          )}
-                        </div>
-                        <span className={`text-[8.5px] font-extrabold block mt-0.5 ${isIncome ? 'text-emerald-500/60' : 'text-rose-500/60'}`}>{t.date}</span>
-                      </td>
-                      <td className="py-3 text-left">
-                        <div className="flex items-center gap-2">
-                          <span className={`inline-flex p-1.5 rounded-lg border shrink-0 ${
-                            isIncome 
-                              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.2)]' 
-                              : 'bg-rose-500/10 border-rose-500/20 text-rose-400 shadow-[0_0_8px_rgba(239,68,68,0.2)]'
-                          }`}>
-                            <CategoryIcon iconName={catIcon} className="h-3.5 w-3.5" />
-                          </span>
-                          <span className={isIncome ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>{t.category}</span>
-                        </div>
-                      </td>
-                      <td className={`py-3 text-right font-black ${
-                        isIncome ? 'text-emerald-400' : 'text-rose-500'
-                      }`}>
-                        {isIncome ? '+' : '-'}{formatVND(t.amount)}
-                      </td>
-                      <td className="py-3 text-center rounded-r-xl">
-                        {t.isManual ? (
-                          <div className="flex items-center justify-center gap-1.5">
-                            <button
-                              onClick={() => setEditingTx({
-                                id: t.id,
-                                desc: t.desc,
-                                amount: t.amount,
-                                type: t.type,
-                                category: t.category,
-                                date: t.date,
-                                isRecurring: !!t.isRecurring
-                              })}
-                              className={`p-1 rounded-lg transition-all cursor-pointer ${
-                                isIncome 
-                                  ? 'hover:bg-emerald-500/10 text-emerald-450 hover:text-emerald-300' 
-                                  : 'hover:bg-red-500/10 text-red-500 hover:text-red-300'
-                              }`}
-                              title="Sửa giao dịch"
-                            >
-                              <Edit2 className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteManualTx(t.id)}
-                              className={`p-1 rounded-lg transition-all cursor-pointer ${
-                                isIncome 
-                                  ? 'hover:bg-emerald-500/10 text-emerald-450 hover:text-emerald-300' 
-                                  : 'hover:bg-red-500/10 text-red-500 hover:text-red-300'
-                              }`}
-                              title="Xóa giao dịch"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-center">
-                            <button
-                              onClick={() => showToast('Giao dịch tự động liên kết với Lịch Trình. Vui lòng chỉnh sửa giá hoặc trạng thái ca dạy trong tab Lịch Trình để cập nhật.', 'info')}
-                              className={`p-1 rounded-lg transition-all cursor-pointer ${
-                                isIncome 
-                                  ? 'hover:bg-emerald-500/10 text-emerald-455 hover:text-emerald-300' 
-                                  : 'hover:bg-red-500/10 text-red-500 hover:text-red-300'
-                              }`}
-                              title="Thông tin giao dịch tự động"
-                            >
-                              <Edit2 className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+              return (
+                <div
+                  key={t.id}
+                  className={`p-3.5 rounded-full border transition-all flex items-center justify-between gap-3 text-left backdrop-blur-md ${
+                    isIncome
+                      ? 'bg-[#151c2d] border-emerald-500/35 shadow-[0_0_12px_rgba(16,185,129,0.15)] hover:border-emerald-500/60 hover:bg-[#192238]'
+                      : 'bg-[#151c2d] border-rose-500/35 shadow-[0_0_12px_rgba(239,68,68,0.15)] hover:border-rose-500/60 hover:bg-[#192238]'
+                  }`}
+                >
+                  {/* Left: Item Title, Badge & Date */}
+                  <div className="flex flex-col text-left pl-3 min-w-0 max-w-[220px] sm:max-w-[340px]">
+                    <div className="flex items-center gap-2 truncate">
+                      <span className={`font-extrabold text-xs truncate ${isIncome ? 'text-emerald-300' : 'text-rose-300'}`}>
+                        {t.desc}
+                      </span>
+                      {t.isRecurring ? (
+                        <span className="px-2 py-0.5 rounded-md text-[8px] font-black uppercase bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shrink-0">
+                          Cố định
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-md text-[8px] font-black uppercase bg-slate-500/15 text-slate-400 border border-slate-500/25 shrink-0">
+                          Tạm thời
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[10px] font-semibold text-slate-400 mt-0.5">
+                      {t.date}
+                    </span>
+                  </div>
+
+                  {/* Center: Category Badge (Circle icon + Category name) */}
+                  <div className="flex items-center gap-2.5 shrink-0">
+                    <span className={`inline-flex p-2 rounded-full border shrink-0 ${
+                      isIncome
+                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.25)]'
+                        : 'bg-rose-500/10 text-rose-400 border-rose-500/30 shadow-[0_0_10px_rgba(239,68,68,0.25)]'
+                    }`}>
+                      <CategoryIcon iconName={catIcon} className="h-4 w-4" />
+                    </span>
+                    <span className={`font-black text-xs hidden sm:inline ${isIncome ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {t.category}
+                    </span>
+                  </div>
+
+                  {/* Right: Amount */}
+                  <div className="flex-1 text-right shrink-0">
+                    <span className={`font-black text-sm tracking-wide ${isIncome ? 'text-emerald-400 text-glow-green' : 'text-rose-500 text-glow-red'}`}>
+                      {isIncome ? '+' : '-'}{formatVND(t.amount)}
+                    </span>
+                  </div>
+
+                  {/* Far Right: Actions (Edit & Delete) */}
+                  <div className="flex items-center gap-1.5 shrink-0 pr-1">
+                    {t.isManual ? (
+                      <>
+                        <button
+                          onClick={() => setEditingTx({
+                            id: t.id,
+                            desc: t.desc,
+                            amount: t.amount,
+                            type: t.type,
+                            category: t.category,
+                            date: t.date,
+                            isRecurring: !!t.isRecurring
+                          })}
+                          className="h-8 w-8 bg-white/[0.04] border border-white/10 hover:border-white/25 hover:bg-white/10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-all shadow-sm cursor-pointer"
+                          title="Sửa giao dịch"
+                        >
+                          <Edit2 className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteManualTx(t.id)}
+                          className="h-8 w-8 bg-white/[0.04] border border-white/10 hover:border-white/25 hover:bg-white/10 rounded-xl flex items-center justify-center text-slate-400 hover:text-rose-400 transition-all shadow-sm cursor-pointer"
+                          title="Xóa giao dịch"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => showToast('Giao dịch tự động liên kết với Lịch Trình. Vui lòng chỉnh sửa giá hoặc trạng thái ca dạy trong tab Lịch Trình để cập nhật.', 'info')}
+                        className="h-8 w-8 bg-white/[0.04] border border-white/10 hover:border-white/25 hover:bg-white/10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-all shadow-sm cursor-pointer"
+                        title="Thông tin giao dịch tự động"
+                      >
+                        <Edit2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
 
         {/* Page selection list pagination buttons */}

@@ -123,19 +123,23 @@ export default function Sidebar({
                 setActiveTab(tab.id);
                 if (isMobile) setMobileMenuOpen(false);
               }}
-              className={`flex items-center rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer text-left ${
+              className={`group flex items-center rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer text-left ${
                 collapsed ? 'justify-center p-3' : 'px-4 py-3 gap-3'
               } ${
                 isActive
-                  ? 'bg-indigo-500/20 border border-indigo-500/60 text-white shadow-[0_0_15px_rgba(92,54,245,0.3)]'
-                  : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200 border border-transparent'
+                  ? 'bg-indigo-500/20 border-2 border-indigo-400 text-white shadow-[0_0_20px_rgba(92,54,245,0.55),0_0_10px_rgba(129,140,248,0.45),inset_0_0_12px_rgba(92,54,245,0.3)]'
+                  : 'text-slate-400 hover:bg-white/[0.06] hover:text-white border border-transparent'
               }`}
               title={tab.label}
             >
-              <Icon className={`h-4.5 w-4.5 shrink-0 transition-all ${isActive ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.9)]' : 'text-slate-400'}`} />
+              <Icon className={`h-4.5 w-4.5 shrink-0 transition-all ${
+                isActive 
+                  ? 'text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.9)]' 
+                  : 'text-slate-400 group-hover:text-white group-hover:drop-shadow-[0_0_10px_rgba(255,255,255,0.9)]'
+              }`} />
               <span className={`transition-all duration-300 ease-in-out overflow-hidden whitespace-nowrap ${
                 collapsed ? 'w-0 opacity-0 max-w-0 pointer-events-none' : 'w-auto opacity-100 max-w-40'
-              }`}>
+              } ${isActive ? 'text-glow-white' : 'group-hover:text-glow-white'}`}>
                 {tab.label}
               </span>
             </button>
