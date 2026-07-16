@@ -844,19 +844,16 @@ export default function Dashboard() {
     if (isExp) {
       return manualTransactions
         .filter(t => t.type === 'expense' && t.category === cat && chartSelectedMonths.includes(t.date.substring(0, 7)))
-        .reduce((sum, t) => sum + t.amount, 0);
+        .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
     } else {
       const manualInc = manualTransactions
         .filter(t => t.type === 'income' && t.category === cat && chartSelectedMonths.includes(t.date.substring(0, 7)))
-        .reduce((sum, t) => sum + t.amount, 0);
+        .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
       
-      let sbInc = 0;
-      if (cat === 'Giáo dục') {
-        const targetSessions = currentUser?.role === 'admin' ? allSessions : sessions;
-        sbInc = targetSessions
-          .filter(s => s.status === 'Đã dạy' && chartSelectedMonths.includes(s.month_year))
-          .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
-      }
+      const targetSessions = currentUser?.role === 'admin' ? allSessions : sessions;
+      const sbInc = targetSessions
+        .filter(s => s.status === 'Đã dạy' && chartSelectedMonths.includes(s.month_year) && ((s as any).income_category || s.category || 'Giáo dục') === cat)
+        .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
       return manualInc + sbInc;
     }
   }, [manualTransactions, sessions, allSessions, chartSelectedMonths, currentUser]);

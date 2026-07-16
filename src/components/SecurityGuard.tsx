@@ -17,6 +17,21 @@ export default function SecurityGuard() {
     document.addEventListener('contextmenu', preventRightClick, true);
     window.addEventListener('contextmenu', preventRightClick, true);
 
+    // Block mousedown/mouseup on right-button (button 2) to counter "Enable Right Click" extensions
+    const handleMouseSecurity = (e: MouseEvent) => {
+      if (e.button === 2) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        return false;
+      }
+    };
+
+    window.addEventListener('mousedown', handleMouseSecurity, true);
+    window.addEventListener('mouseup', handleMouseSecurity, true);
+    document.addEventListener('mousedown', handleMouseSecurity, true);
+    document.addEventListener('mouseup', handleMouseSecurity, true);
+
     // 2. Lock down oncontextmenu property to prevent extensions from resetting it
     try {
       const lockProperty = (obj: any) => {
@@ -120,6 +135,10 @@ export default function SecurityGuard() {
     return () => {
       document.removeEventListener('contextmenu', preventRightClick, true);
       window.removeEventListener('contextmenu', preventRightClick, true);
+      window.removeEventListener('mousedown', handleMouseSecurity, true);
+      window.removeEventListener('mouseup', handleMouseSecurity, true);
+      document.removeEventListener('mousedown', handleMouseSecurity, true);
+      document.removeEventListener('mouseup', handleMouseSecurity, true);
       window.removeEventListener('keydown', blockShortcuts, true);
       document.removeEventListener('keydown', blockShortcuts, true);
       clearTimeout(timer);

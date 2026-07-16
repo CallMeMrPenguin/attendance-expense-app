@@ -22,6 +22,7 @@ import MaterialSymbol from './MaterialSymbol';
 
 interface DashboardTabProps {
   currentUser: {
+    id?: string;
     teacherName: string;
   };
   manualTransactions: any[];
@@ -404,8 +405,22 @@ export default function DashboardTab({
     }
   };
 
-  // Donut Chart Expense Categories
-  const expenseCatsList = ['Ăn uống', 'Di chuyển', 'Shopping', 'Hóa đơn', 'Giải trí', 'Khác'];
+  // Donut Chart Expense Categories list with local storage check
+  const expenseCatsList = useMemo(() => {
+    const defaultCats = ['Ăn uống', 'Di chuyển', 'Shopping', 'Hóa đơn', 'Giải trí', 'Khác'];
+    if (typeof window === 'undefined' || !currentUser?.id) return defaultCats;
+    const stored = localStorage.getItem(`finance_expense_cats_${currentUser.id}`);
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((c: any) => c.name || String(c)).filter(Boolean);
+        }
+      } catch (e) { console.error(e); }
+    }
+    return defaultCats;
+  }, [currentUser?.id]);
+
   const expenseTotals = expenseCatsList.map(cat => ({
     name: cat,
     value: getActualCategoryAmount(cat)
@@ -422,6 +437,28 @@ export default function DashboardTab({
     'Khác': '#64748b'
   };
 
+  const getCategoryColor = (name: string, isExpense: boolean) => {
+    if (isExpense) {
+      if (expenseColorsMap[name]) return expenseColorsMap[name];
+      const colors = ['#f59e0b', '#3b82f6', '#ec4899', '#a855f7', '#f43f5e', '#64748b', '#e11d48', '#0ea5e9', '#0d9488'];
+      let hash = 0;
+      for (let i = 0; i < name.length; i++) {
+        hash = name.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      const index = Math.abs(hash) % colors.length;
+      return colors[index];
+    } else {
+      if (incomeColorsMap[name]) return incomeColorsMap[name];
+      const colors = ['#10b981', '#06b6d4', '#8b5cf6', '#f59e0b', '#14b8a6', '#6366f1', '#ec4899', '#f43f5e'];
+      let hash = 0;
+      for (let i = 0; i < name.length; i++) {
+        hash = name.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      const index = Math.abs(hash) % colors.length;
+      return colors[index];
+    }
+  };
+
   let accExpDash = 0;
   const expenseSlices = expenseTotals
     .filter(e => e.value > 0)
@@ -434,14 +471,28 @@ export default function DashboardTab({
         name: e.name,
         value: e.value,
         pct: Math.round(pct),
-        color: expenseColorsMap[e.name] || '#64748b',
+        color: getCategoryColor(e.name, true),
         dashArray: `${len} ${C}`,
         dashOffset: -offset
       };
     });
 
-  // Donut Chart Income Categories
-  const incomeCatsList = ['Lương', 'Giáo dục', 'Đầu tư', 'Khác'];
+  // Donut Chart Income Categories list with local storage check
+  const incomeCatsList = useMemo(() => {
+    const defaultCats = ['Lương', 'Giáo dục', 'Đầu tư', 'Khác'];
+    if (typeof window === 'undefined' || !currentUser?.id) return defaultCats;
+    const stored = localStorage.getItem(`finance_income_cats_${currentUser.id}`);
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((c: any) => c.name || String(c)).filter(Boolean);
+        }
+      } catch (e) { console.error(e); }
+    }
+    return defaultCats;
+  }, [currentUser?.id]);
+
   const incomeTotals = incomeCatsList.map(cat => ({
     name: cat,
     value: getActualCategoryAmount(cat)
@@ -467,7 +518,7 @@ export default function DashboardTab({
         name: e.name,
         value: e.value,
         pct: Math.round(pct),
-        color: incomeColorsMap[e.name] || '#10b981',
+        color: getCategoryColor(e.name, false),
         dashArray: `${len} ${C}`,
         dashOffset: -offset
       };
