@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import { 
   Shield, 
-  TrendingUp,
-  Target, 
-  ChevronRight, 
+  TrendingUp, 
   Filter,
   Activity
 } from 'lucide-react';
@@ -67,7 +65,7 @@ const RadialProgress = ({ percentage, color }: { percentage: number; color: 'eme
   );
 };
 
-// Sleek Donut / Pie Chart Component
+// Sleek Donut / Pie Chart Component (Clean Ratio Text without 'TỈ LỆ')
 const SleekDonutChart = ({ emergencyAmount, accumulationAmount }: { emergencyAmount: number; accumulationAmount: number }) => {
   const total = emergencyAmount + accumulationAmount;
   const emShare = total > 0 ? Math.round((emergencyAmount / total) * 100) : 50;
@@ -140,10 +138,9 @@ const SleekDonutChart = ({ emergencyAmount, accumulationAmount }: { emergencyAmo
           />
         </svg>
 
-        {/* Center Label inside Donut */}
-        <div className="absolute flex flex-col items-center justify-center text-center">
-          <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">TỈ LỆ</span>
-          <span className="text-lg font-black text-white leading-none mt-0.5">{emShare}% / {acShare}%</span>
+        {/* Center Ratio Display (without 'TỈ LỆ' text) */}
+        <div className="absolute flex items-center justify-center text-center">
+          <span className="text-xl font-black text-white leading-none">{emShare}% / {acShare}%</span>
         </div>
       </div>
 
@@ -222,134 +219,108 @@ export default function SavingTab({
         </div>
       </div>
 
-      {/* Top 2 Main Cards */}
+      {/* Top 2 Main Cards - Styled like FlowTab KPI Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
-        {/* Card 1: Quỹ Dự Phòng (Green / Emerald Theme) */}
-        <div className="bg-[#0c1914] border border-emerald-500/25 shadow-[0_0_30px_rgba(16,185,129,0.12)] p-6 rounded-3xl flex flex-col justify-between space-y-5 text-left relative overflow-hidden group hover:border-emerald-500/40 transition-all">
-          <div className="space-y-5">
-            
-            {/* Header info */}
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 rounded-2xl shadow-[0_0_15px_rgba(16,185,129,0.3)] shrink-0">
-                  <Shield className="h-5 w-5" />
-                </div>
+        {/* Card 1: Quỹ Dự Phòng (Green KPI Style) */}
+        <div className="kpi-card-green p-6 flex flex-col justify-between space-y-5 text-left relative overflow-hidden group transition-all">
+          <div className="flex justify-between items-start gap-3">
+            <div className="space-y-2 flex-1 min-w-0">
+              <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-black text-white uppercase tracking-wider">Quỹ Dự Phòng</h3>
-                  <p className="text-[10px] text-slate-400 font-medium leading-none mt-1">Dành cho tình huống khẩn cấp bất ngờ.</p>
-                </div>
-              </div>
-              <span className="text-[10px] font-black px-2.5 py-1 bg-emerald-500/15 text-emerald-300 border border-emerald-500/25 rounded-full shrink-0 shadow-sm">
-                Đạt {emPercent}%
-              </span>
-            </div>
-
-            {/* Current Balance & Radial Circle */}
-            <div className="flex items-center justify-between gap-4 pt-1">
-              <div className="space-y-1">
-                <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">SỐ DƯ HIỆN TẠI</span>
-                <p className="text-2xl sm:text-3xl font-black text-white leading-none tracking-tight">
-                  {formatVND(emergencyCurrent)}
-                </p>
-              </div>
-
-              {/* Radial SVG Circle Progress (Emerald) */}
-              <RadialProgress percentage={emPercent} color="emerald" />
-            </div>
-
-            {/* Target & Progress display */}
-            <div className="pt-2 border-t border-white/5 space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-bold">
-                <div className="flex items-center gap-1.5 text-emerald-300">
-                  <div className="p-1 rounded-lg bg-emerald-500/15 text-emerald-400">
-                    <Target className="h-3.5 w-3.5" />
-                  </div>
-                  <span className="uppercase text-[9px] font-black text-slate-400">MỤC TIÊU:</span>
-                  <input
-                    type="text"
-                    value={formatNumberDots(emergencyTarget)}
-                    onChange={(e) => {
-                      saveEmergencyTarget(currentUser.id, parseNumberDots(e.target.value));
-                    }}
-                    className="w-28 bg-[#10231d] border border-emerald-500/30 rounded-lg px-2 py-0.5 text-xs font-black text-white text-right focus:outline-none focus:border-emerald-400 transition-colors"
-                  />
-                  <span className="text-slate-400 text-[10px]">VND</span>
-                </div>
-
-                <div className="flex flex-col text-right">
-                  <span className="text-[9px] font-black text-slate-400 uppercase">TIẾN ĐỘ MỤC TIÊU</span>
-                  <span className="text-xs font-black text-white mt-0.5">
-                    {formatVND(emergencyCurrent)} / {formatVND(emergencyTarget)}
+                  <span className="text-xs font-black text-emerald-400 text-glow-green uppercase tracking-widest block">
+                    Quỹ Dự Phòng
                   </span>
+                  <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Dành cho tình huống khẩn cấp bất ngờ.</p>
                 </div>
+                <span className="text-[10px] font-black px-2.5 py-1 bg-emerald-500/15 text-emerald-300 border border-emerald-500/25 rounded-full shrink-0 shadow-sm">
+                  Đạt {emPercent}%
+                </span>
+              </div>
+
+              {/* Balance & Target money directly below actual money */}
+              <div className="pt-2 flex items-center justify-between gap-4">
+                <div className="space-y-1 min-w-0">
+                  <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">SỐ DƯ HIỆN TẠI</span>
+                  <p className="text-2xl sm:text-3xl font-black text-emerald-400 text-glow-green leading-none tracking-tight">
+                    {formatVND(emergencyCurrent)}
+                  </p>
+                  
+                  {/* Target money under actual money (smaller font size, no target icon) */}
+                  <div className="flex items-center gap-1 text-slate-400 pt-1.5">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Mục tiêu:</span>
+                    <input
+                      type="text"
+                      value={formatNumberDots(emergencyTarget)}
+                      onChange={(e) => {
+                        saveEmergencyTarget(currentUser.id, parseNumberDots(e.target.value));
+                      }}
+                      className="w-28 bg-white/[0.06] border border-white/10 rounded-md px-2 py-0.5 text-xs sm:text-sm font-extrabold text-emerald-300 text-right focus:outline-none focus:border-emerald-400 transition-colors"
+                    />
+                    <span className="text-[10px] font-extrabold text-slate-400">VND</span>
+                  </div>
+                </div>
+
+                {/* Radial Progress Circle */}
+                <RadialProgress percentage={emPercent} color="emerald" />
               </div>
             </div>
 
+            {/* Top Right Icon Badge */}
+            <div className="p-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-xl shadow-[0_0_12px_rgba(16,185,129,0.35)] shrink-0">
+              <Shield className="h-5 w-5" />
+            </div>
           </div>
         </div>
 
-        {/* Card 2: Quỹ Tích Lũy (Cyan Theme with Lucide TrendingUp Icon) */}
-        <div className="bg-[#09151e] border border-cyan-500/20 shadow-[0_0_30px_rgba(6,182,212,0.12)] p-6 rounded-3xl flex flex-col justify-between space-y-5 text-left relative overflow-hidden group hover:border-cyan-500/40 transition-all">
-          <div className="space-y-5">
-            
-            {/* Header info */}
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 rounded-2xl shadow-[0_0_15px_rgba(6,182,212,0.3)] shrink-0">
-                  <TrendingUp className="h-5 w-5" />
-                </div>
+        {/* Card 2: Quỹ Tích Lũy (Blue/Cyan KPI Style) */}
+        <div className="kpi-card-blue p-6 flex flex-col justify-between space-y-5 text-left relative overflow-hidden group transition-all">
+          <div className="flex justify-between items-start gap-3">
+            <div className="space-y-2 flex-1 min-w-0">
+              <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-black text-white uppercase tracking-wider">Quỹ Tích Lũy</h3>
-                  <p className="text-[10px] text-slate-400 font-medium leading-none mt-1">Dành cho mục tiêu lớn đầu tư dài hạn.</p>
-                </div>
-              </div>
-              <span className="text-[10px] font-black px-2.5 py-1 bg-cyan-500/15 text-cyan-300 border border-cyan-500/25 rounded-full shrink-0 shadow-sm">
-                Đạt {acPercent}%
-              </span>
-            </div>
-
-            {/* Current Balance & Radial Circle */}
-            <div className="flex items-center justify-between gap-4 pt-1">
-              <div className="space-y-1">
-                <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">SỐ DƯ HIỆN TẠI</span>
-                <p className="text-2xl sm:text-3xl font-black text-white leading-none tracking-tight">
-                  {formatVND(accumulationCurrent)}
-                </p>
-              </div>
-
-              {/* Radial SVG Circle Progress (Cyan) */}
-              <RadialProgress percentage={acPercent} color="cyan" />
-            </div>
-
-            {/* Target & Progress display */}
-            <div className="pt-2 border-t border-white/5 space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-bold">
-                <div className="flex items-center gap-1.5 text-cyan-300">
-                  <div className="p-1 rounded-lg bg-cyan-500/15 text-cyan-400">
-                    <Target className="h-3.5 w-3.5" />
-                  </div>
-                  <span className="uppercase text-[9px] font-black text-slate-400">MỤC TIÊU:</span>
-                  <input
-                    type="text"
-                    value={formatNumberDots(accumulationTarget)}
-                    onChange={(e) => {
-                      saveAccumulationTarget(currentUser.id, parseNumberDots(e.target.value));
-                    }}
-                    className="w-28 bg-[#0e1d29] border border-cyan-500/30 rounded-lg px-2 py-0.5 text-xs font-black text-white text-right focus:outline-none focus:border-cyan-400 transition-colors"
-                  />
-                  <span className="text-slate-400 text-[10px]">VND</span>
-                </div>
-
-                <div className="flex flex-col text-right">
-                  <span className="text-[9px] font-black text-slate-400 uppercase">TIẾN ĐỘ MỤC TIÊU</span>
-                  <span className="text-xs font-black text-white mt-0.5">
-                    {formatVND(accumulationCurrent)} / {formatVND(accumulationTarget)}
+                  <span className="text-xs font-black text-cyan-400 text-glow-blue uppercase tracking-widest block">
+                    Quỹ Tích Lũy
                   </span>
+                  <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Dành cho mục tiêu lớn đầu tư dài hạn.</p>
                 </div>
+                <span className="text-[10px] font-black px-2.5 py-1 bg-cyan-500/15 text-cyan-300 border border-cyan-500/25 rounded-full shrink-0 shadow-sm">
+                  Đạt {acPercent}%
+                </span>
+              </div>
+
+              {/* Balance & Target money directly below actual money */}
+              <div className="pt-2 flex items-center justify-between gap-4">
+                <div className="space-y-1 min-w-0">
+                  <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">SỐ DƯ HIỆN TẠI</span>
+                  <p className="text-2xl sm:text-3xl font-black text-cyan-400 text-glow-blue leading-none tracking-tight">
+                    {formatVND(accumulationCurrent)}
+                  </p>
+                  
+                  {/* Target money under actual money (smaller font size, no target icon) */}
+                  <div className="flex items-center gap-1 text-slate-400 pt-1.5">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Mục tiêu:</span>
+                    <input
+                      type="text"
+                      value={formatNumberDots(accumulationTarget)}
+                      onChange={(e) => {
+                        saveAccumulationTarget(currentUser.id, parseNumberDots(e.target.value));
+                      }}
+                      className="w-28 bg-white/[0.06] border border-white/10 rounded-md px-2 py-0.5 text-xs sm:text-sm font-extrabold text-cyan-300 text-right focus:outline-none focus:border-cyan-400 transition-colors"
+                    />
+                    <span className="text-[10px] font-extrabold text-slate-400">VND</span>
+                  </div>
+                </div>
+
+                {/* Radial Progress Circle */}
+                <RadialProgress percentage={acPercent} color="cyan" />
               </div>
             </div>
 
+            {/* Top Right Icon Badge */}
+            <div className="p-2 bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 rounded-xl shadow-[0_0_12px_rgba(6,182,212,0.35)] shrink-0">
+              <TrendingUp className="h-5 w-5" />
+            </div>
           </div>
         </div>
 
@@ -417,7 +388,7 @@ export default function SavingTab({
             </div>
           </div>
 
-          {/* History Item Rows (Clean without far-right arrow icons) */}
+          {/* History Item Rows */}
           <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1 scrollbar-thin">
             {filteredHistory.length === 0 ? (
               <div className="py-12 text-center text-slate-500 font-extrabold text-xs bg-[#101324]/50 border border-white/5 rounded-2xl">
@@ -465,11 +436,10 @@ export default function SavingTab({
           </div>
         </div>
 
-        {/* Right Column (1/3 Width): Tổng quan tài sản tiết kiệm (With Sleek Donut Pie Chart) */}
+        {/* Right Column (1/3 Width): Tổng quan tài sản tiết kiệm */}
         <div className="bg-[#0a0d18] border border-white/10 rounded-3xl p-6 flex flex-col justify-between space-y-5 shadow-xl relative overflow-hidden">
           
           <div className="space-y-4">
-            {/* Header without clock icon */}
             <div>
               <h3 className="text-xs font-black uppercase tracking-wider text-white">
                 Tổng quan tài sản tiết kiệm
@@ -488,15 +458,6 @@ export default function SavingTab({
 
           {/* Sleek Donut Pie Chart */}
           <SleekDonutChart emergencyAmount={emergencyCurrent} accumulationAmount={accumulationCurrent} />
-
-          {/* Action trigger button */}
-          <button
-            onClick={() => showToast(`Tổng tài sản tích lũy hiện tại: ${formatVND(totalSavingsBalance)}.`, 'info')}
-            className="w-full py-3 px-4 bg-[#121629] hover:bg-[#171c35] border border-white/10 hover:border-purple-500/40 text-xs font-extrabold text-white rounded-2xl flex items-center justify-between transition-all cursor-pointer shadow-md group mt-auto"
-          >
-            <span>Xem báo cáo chi tiết</span>
-            <ChevronRight className="h-4 w-4 text-purple-400 group-hover:translate-x-0.5 transition-transform" />
-          </button>
 
         </div>
 
