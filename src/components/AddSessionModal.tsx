@@ -21,6 +21,11 @@ interface AddSessionModalProps {
   selectedMonth: string; // "YYYY-MM"
   existingSessions: Session[];
   onSave: () => void;
+  teachers?: string[];
+  currentUser?: {
+    role: 'admin' | 'teacher' | 'user';
+    teacherName: string;
+  };
 }
 
 interface DayConfig {
@@ -49,7 +54,10 @@ export default function AddSessionModal({
   selectedMonth,
   existingSessions,
   onSave,
+  teachers = [],
+  currentUser
 }: AddSessionModalProps) {
+  const [assignedTeacherName, setAssignedTeacherName] = useState(activeTeacherName);
   const [studentName, setStudentName] = useState('');
   const [price, setPrice] = useState('');
   const [status, setStatus] = useState('Chưa dạy');
@@ -204,7 +212,7 @@ export default function AddSessionModal({
         }
         dates.forEach((dStr) => {
           candidates.push({
-            teacher_name: activeTeacherName,
+            teacher_name: assignedTeacherName,
             student_name: studentName.trim(),
             day_of_week: day,
             time: formatCleanTimeString(config.time),
@@ -318,6 +326,23 @@ export default function AddSessionModal({
             {error && (
               <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-xl text-red-600 dark:text-red-400 text-xs">
                 {error}
+              </div>
+            )}
+
+            {currentUser?.role === 'admin' && teachers.length > 0 && (
+              <div className="space-y-1.5">
+                <label className="text-indigo-400 dark:text-indigo-300 text-xs font-bold uppercase tracking-wider block">
+                  Giáo Viên Phụ Trách (Admin Mode)
+                </label>
+                <select
+                  value={assignedTeacherName}
+                  onChange={(e) => setAssignedTeacherName(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-indigo-500/30 rounded-xl text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
+                >
+                  {teachers.map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
               </div>
             )}
 

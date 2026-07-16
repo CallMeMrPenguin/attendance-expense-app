@@ -34,6 +34,11 @@ interface EditSessionModalProps {
   existingSessions: Session[];
   onSave: () => void;
   onSwitchSession?: (id: string) => void;
+  teachers?: string[];
+  currentUser?: {
+    role: 'admin' | 'teacher' | 'user';
+    teacherName: string;
+  };
 }
 
 interface SiblingCheck {
@@ -70,7 +75,10 @@ export default function EditSessionModal({
   existingSessions,
   onSave,
   onSwitchSession,
+  teachers = [],
+  currentUser
 }: EditSessionModalProps) {
+  const [assignedTeacherName, setAssignedTeacherName] = useState(session?.teacher_name || '');
   const [studentName, setStudentName] = useState('');
   const [price, setPrice] = useState('');
   const [status, setStatus] = useState('Chưa dạy');
@@ -107,6 +115,7 @@ export default function EditSessionModal({
   useEffect(() => {
     if (!session) return;
 
+    setAssignedTeacherName(session.teacher_name || '');
     setStudentName(session.student_name || '');
     setPrice(String(session.price || ''));
     setStatus(session.status || 'Chưa dạy');
@@ -330,6 +339,7 @@ export default function EditSessionModal({
               // Current edited session: update everything
               newSiblingSessions.push({
                 ...matchOld,
+                teacher_name: assignedTeacherName,
                 student_name: studentName.trim(),
                 day_of_week: day,
                 time: time,
@@ -349,6 +359,7 @@ export default function EditSessionModal({
               // Sibling session is checked: update general fields, preserve status, grade, note
               newSiblingSessions.push({
                 ...matchOld,
+                teacher_name: assignedTeacherName,
                 student_name: studentName.trim(),
                 day_of_week: day,
                 time: time,
@@ -373,7 +384,7 @@ export default function EditSessionModal({
           } else {
             // New sibling session created by recurring config: default status to 'Chưa dạy'
             newSiblingSessions.push({
-              teacher_name: session.teacher_name,
+              teacher_name: assignedTeacherName,
               student_name: studentName.trim(),
               day_of_week: day,
               time: time,
@@ -584,6 +595,24 @@ export default function EditSessionModal({
           {error && (
             <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-xl text-red-600 dark:text-red-400 text-xs">
               {error}
+            </div>
+          )}
+
+          {/* Admin Mode Teacher Selector */}
+          {currentUser?.role === 'admin' && teachers.length > 0 && (
+            <div className="space-y-1.5 pb-2 border-b border-slate-100 dark:border-slate-800">
+              <label className="text-indigo-400 dark:text-indigo-300 text-xs font-bold uppercase tracking-wider block">
+                Giáo Viên Phụ Trách (Admin Mode)
+              </label>
+              <select
+                value={assignedTeacherName}
+                onChange={(e) => setAssignedTeacherName(e.target.value)}
+                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-indigo-500/30 rounded-xl text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
+              >
+                {teachers.map(t => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
             </div>
           )}
 

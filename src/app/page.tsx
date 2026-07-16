@@ -1148,6 +1148,8 @@ export default function Dashboard() {
           activeTeacherName={activeTeacherName}
           selectedMonth={selectedMonth}
           existingSessions={sessions}
+          teachers={teachers}
+          currentUser={currentUser}
         />
       )}
 
@@ -1162,6 +1164,8 @@ export default function Dashboard() {
           onSave={fetchSessions}
           session={selectedSession}
           existingSessions={sessions}
+          teachers={teachers}
+          currentUser={currentUser}
         />
       )}
 
