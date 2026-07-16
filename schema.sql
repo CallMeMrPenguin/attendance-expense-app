@@ -163,3 +163,69 @@ BEGIN
   );
 END;
 $$ LANGUAGE plpgsql;
+
+-- 13. Create manual_transactions table
+CREATE TABLE IF NOT EXISTS public.manual_transactions (
+    id text PRIMARY KEY,
+    user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    teacher_name text NOT NULL,
+    desc_text text NOT NULL,
+    amount numeric NOT NULL,
+    type text NOT NULL CHECK (type IN ('income', 'expense')),
+    category text NOT NULL,
+    date date NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+-- 14. Create savings_funds table
+CREATE TABLE IF NOT EXISTS public.savings_funds (
+    user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    teacher_name text NOT NULL,
+    emergency_current numeric DEFAULT 0 NOT NULL,
+    emergency_target numeric DEFAULT 30000000 NOT NULL,
+    accumulation_current numeric DEFAULT 0 NOT NULL,
+    accumulation_target numeric DEFAULT 150000000 NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+-- 15. Create category_budgets table
+CREATE TABLE IF NOT EXISTS public.category_budgets (
+    id text PRIMARY KEY,
+    user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    teacher_name text NOT NULL,
+    category text NOT NULL,
+    amount numeric NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+-- 16. Create savings_history table
+CREATE TABLE IF NOT EXISTS public.savings_history (
+    id text PRIMARY KEY,
+    user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    teacher_name text NOT NULL,
+    fund text NOT NULL CHECK (fund IN ('emergency', 'accumulation')),
+    type text NOT NULL CHECK (type IN ('deposit', 'withdraw')),
+    amount numeric NOT NULL,
+    date date NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+-- Enable RLS for all financial tables
+ALTER TABLE public.manual_transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.savings_funds ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.category_budgets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.savings_history ENABLE ROW LEVEL SECURITY;
+
+-- Add permissive RLS policies for authenticated users
+DROP POLICY IF EXISTS all_manual_transactions ON public.manual_transactions;
+CREATE POLICY all_manual_transactions ON public.manual_transactions FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS all_savings_funds ON public.savings_funds;
+CREATE POLICY all_savings_funds ON public.savings_funds FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS all_category_budgets ON public.category_budgets;
+CREATE POLICY all_category_budgets ON public.category_budgets FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS all_savings_history ON public.savings_history;
+CREATE POLICY all_savings_history ON public.savings_history FOR ALL TO authenticated USING (true) WITH CHECK (true);
+

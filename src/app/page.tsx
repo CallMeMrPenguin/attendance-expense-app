@@ -213,112 +213,137 @@ export default function Dashboard() {
     }
   }, [currentUser, activeTab]);
 
-  // Load finance data from LocalStorage
+  // Load financial data from Supabase DB via /api/finance
   useEffect(() => {
     if (!currentUser) return;
     const userId = currentUser.id;
-    
-    // Load transactions
-    const storedTrans = localStorage.getItem(`finance_trans_${userId}`);
-    if (storedTrans) {
-      try {
-        setManualTransactions(JSON.parse(storedTrans));
-      } catch (e) {
-        console.error(e);
-      }
-    } else {
-      setManualTransactions([]);
+    const token = currentUser.token;
+
+    // Purge legacy local storage financial data to ensure Supabase is the sole source of truth
+    try {
+      localStorage.removeItem(`finance_trans_${userId}`);
+      localStorage.removeItem(`finance_em_curr_${userId}`);
+      localStorage.removeItem(`finance_em_tar_${userId}`);
+      localStorage.removeItem(`finance_ac_curr_${userId}`);
+      localStorage.removeItem(`finance_ac_tar_${userId}`);
+      localStorage.removeItem(`finance_sav_hist_${userId}`);
+      localStorage.removeItem(`finance_budgets_${userId}`);
+    } catch (e) {
+      // Ignore storage clear errors
     }
 
-    // Load savings
-    const storedEmCurr = localStorage.getItem(`finance_em_curr_${userId}`);
-    const storedEmTar = localStorage.getItem(`finance_em_tar_${userId}`);
-    const storedAcCurr = localStorage.getItem(`finance_ac_curr_${userId}`);
-    const storedAcTar = localStorage.getItem(`finance_ac_tar_${userId}`);
-    const storedSavHist = localStorage.getItem(`finance_sav_hist_${userId}`);
+    // Fetch financial data from Supabase
+    fetch('/api/finance', {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.error) {
+          console.error('Supabase finance sync error:', data.error);
+          return;
+        }
+        setManualTransactions(data.manualTransactions || []);
+        setEmergencyCurrent(data.emergencyCurrent || 0);
+        setEmergencyTarget(data.emergencyTarget || 30000000);
+        setAccumulationCurrent(data.accumulationCurrent || 0);
+        setAccumulationTarget(data.accumulationTarget || 150000000);
+        setSavingsHistory(data.savingsHistory || []);
 
-    if (storedEmCurr) setEmergencyCurrent(Number(storedEmCurr));
-    else setEmergencyCurrent(0);
-
-    if (storedEmTar) setEmergencyTarget(Number(storedEmTar));
-    else setEmergencyTarget(30000000);
-
-    if (storedAcCurr) setAccumulationCurrent(Number(storedAcCurr));
-    else setAccumulationCurrent(0);
-
-    if (storedAcTar) setAccumulationTarget(Number(storedAcTar));
-    else setAccumulationTarget(150000000);
-
-    if (storedSavHist) {
-      try {
-        setSavingsHistory(JSON.parse(storedSavHist));
-      } catch (e) {
-        console.error(e);
-      }
-    } else {
-      setSavingsHistory([]);
-    }
-
-    // Load category budgets
-    const storedBudgets = localStorage.getItem(`finance_budgets_${userId}`);
-    if (storedBudgets) {
-      try {
-        setCategoryBudgets(JSON.parse(storedBudgets));
-      } catch (e) {
-        console.error(e);
-      }
-    } else {
-      const defaultBudgets = {
-        'Lương': 15000000,
-        'Giáo dục': 10000000,
-        'Đầu tư': 5000000,
-        'Khác': 1000000,
-        'Ăn uống': 4000000,
-        'Di chuyển': 1500000,
-        'Shopping': 3000000,
-        'Hóa đơn': 3000000,
-        'Giải trí': 2000000
-      };
-      setCategoryBudgets(defaultBudgets);
-      localStorage.setItem(`finance_budgets_${userId}`, JSON.stringify(defaultBudgets));
-    }
+        const defaultBudgets = {
+          'Lương': 15000000,
+          'Giáo dục': 10000000,
+          'Đầu tư': 5000000,
+          'Khác': 1000000,
+          'Ăn uống': 4000000,
+          'Di chuyển': 1500000,
+          'Shopping': 3000000,
+          'Hóa đơn': 3000000,
+          'Giải trí': 2000000
+        };
+        setCategoryBudgets({ ...defaultBudgets, ...(data.categoryBudgets || {}) });
+      })
+      .catch(err => console.error('Fetch finance failed:', err));
   }, [currentUser]);
 
-  // Save helpers
+  // Supabase Sync Save Helpers
+  const syncFinanceToSupabase = useCallback((payload: any) => {
+    if (!currentUser?.token) return;
+    fetch('/api/finance', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${currentUser.token}`
+      },
+      body: JSON.stringify(payload)
+    }).catch(e => console.error('Sync to Supabase error:', e));
+  }, [currentUser]);
+
   const saveTransactions = useCallback((userId: string, data: any[]) => {
     setManualTransactions(data);
-    localStorage.setItem(`finance_trans_${userId}`, JSON.stringify(data));
-  }, []);
+    syncFinanceToSupabase({ type: 'transactions', transactions: data });
+  }, [syncFinanceToSupabase]);
 
   const saveEmergencyCurrent = (userId: string, val: number) => {
     setEmergencyCurrent(val);
-    localStorage.setItem(`finance_em_curr_${userId}`, String(val));
+    syncFinanceToSupabase({
+      type: 'savings_funds',
+      savingsFunds: {
+        emergencyCurrent: val,
+        emergencyTarget,
+        accumulationCurrent,
+        accumulationTarget
+      }
+    });
   };
 
   const saveEmergencyTarget = (userId: string, val: number) => {
     setEmergencyTarget(val);
-    localStorage.setItem(`finance_em_tar_${userId}`, String(val));
+    syncFinanceToSupabase({
+      type: 'savings_funds',
+      savingsFunds: {
+        emergencyCurrent,
+        emergencyTarget: val,
+        accumulationCurrent,
+        accumulationTarget
+      }
+    });
   };
 
   const saveAccumulationCurrent = (userId: string, val: number) => {
     setAccumulationCurrent(val);
-    localStorage.setItem(`finance_ac_curr_${userId}`, String(val));
+    syncFinanceToSupabase({
+      type: 'savings_funds',
+      savingsFunds: {
+        emergencyCurrent,
+        emergencyTarget,
+        accumulationCurrent: val,
+        accumulationTarget
+      }
+    });
   };
 
   const saveAccumulationTarget = (userId: string, val: number) => {
     setAccumulationTarget(val);
-    localStorage.setItem(`finance_ac_tar_${userId}`, String(val));
+    syncFinanceToSupabase({
+      type: 'savings_funds',
+      savingsFunds: {
+        emergencyCurrent,
+        emergencyTarget,
+        accumulationCurrent,
+        accumulationTarget: val
+      }
+    });
   };
 
   const saveSavingsHistory = (userId: string, data: any[]) => {
     setSavingsHistory(data);
-    localStorage.setItem(`finance_sav_hist_${userId}`, JSON.stringify(data));
+    syncFinanceToSupabase({ type: 'savings_history', savingsHistory: data });
   };
 
   const saveBudgets = useCallback((userId: string, budgets: Record<string, number>) => {
     setCategoryBudgets(budgets);
-    localStorage.setItem(`finance_budgets_${userId}`, JSON.stringify(budgets));
-  }, []);
+    syncFinanceToSupabase({ type: 'category_budgets', categoryBudgets: budgets });
+  }, [syncFinanceToSupabase]);
 
   // Fetch teachers list
   const fetchTeachers = useCallback(async () => {
@@ -522,31 +547,65 @@ export default function Dashboard() {
   };
 
   // Finance calculations
-  const getSupabaseIncome = useCallback(() => {
-    let earned = 0;
+  // Preceding Roll-Over Surplus calculation (leftover money from previous months)
+  const getPrecedingRollOverBalance = useCallback((targetMonthStr: string) => {
+    if (!targetMonthStr) return 0;
     const targetSessions = currentUser?.role === 'admin' ? allSessions : sessions;
-    targetSessions.forEach(s => {
-      if (s.status === 'Đã dạy') {
-        earned += Number(s.price) || 0;
-      }
-    });
-    return earned;
-  }, [sessions, allSessions, currentUser]);
+
+    const prevManualInc = manualTransactions
+      .filter(t => t.type === 'income' && t.date && t.date.substring(0, 7) < targetMonthStr)
+      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+
+    const prevAutoInc = targetSessions
+      .filter(s => s.status === 'Đã dạy' && s.date && s.date.substring(0, 7) < targetMonthStr)
+      .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+
+    const prevManualExp = manualTransactions
+      .filter(t => t.type === 'expense' && t.date && t.date.substring(0, 7) < targetMonthStr)
+      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+
+    const prevNetSurplus = (prevManualInc + prevAutoInc) - prevManualExp;
+    return Math.max(0, prevNetSurplus);
+  }, [sessions, allSessions, manualTransactions, currentUser]);
 
   const getTotalIncome = useCallback(() => {
+    const targetSessions = currentUser?.role === 'admin' ? allSessions : sessions;
+    const sbInc = targetSessions
+      .filter(s => s.status === 'Đã dạy')
+      .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
     const manualInc = manualTransactions
       .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + t.amount, 0);
-    return manualInc + getSupabaseIncome();
-  }, [manualTransactions, getSupabaseIncome]);
+      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+    return sbInc + manualInc;
+  }, [sessions, allSessions, manualTransactions, currentUser]);
 
   const getTotalExpense = useCallback(() => {
     return manualTransactions
       .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + t.amount, 0);
+      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
   }, [manualTransactions]);
 
-  // Filtered values by selected months
+  const getMonthlyIncome = useCallback((monthStr: string) => {
+    const targetSessions = currentUser?.role === 'admin' ? allSessions : sessions;
+    const sbEarned = targetSessions
+      .filter(s => s.status === 'Đã dạy' && s.month_year === monthStr)
+      .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+      
+    const manualInc = manualTransactions
+      .filter(t => t.type === 'income' && t.date.startsWith(monthStr))
+      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+
+    const rollOver = getPrecedingRollOverBalance(monthStr);
+    return sbEarned + manualInc + rollOver;
+  }, [sessions, allSessions, manualTransactions, currentUser, getPrecedingRollOverBalance]);
+
+  const getMonthlyExpense = useCallback((monthStr: string) => {
+    return manualTransactions
+      .filter(t => t.type === 'expense' && t.date.startsWith(monthStr))
+      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+  }, [manualTransactions]);
+
+  // Filtered values by selected months (including previous month roll-over balance)
   const getSelectedMonthsIncome = useCallback(() => {
     const targetSessions = currentUser?.role === 'admin' ? allSessions : sessions;
     const sbEarned = targetSessions
@@ -556,9 +615,13 @@ export default function Dashboard() {
     const manualInc = manualTransactions
       .filter(t => t.type === 'income' && chartSelectedMonths.includes(t.date.substring(0, 7)))
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+
+    const sortedMonths = [...chartSelectedMonths].sort();
+    const earliestMonth = sortedMonths[0];
+    const rollOver = earliestMonth ? getPrecedingRollOverBalance(earliestMonth) : 0;
       
-    return sbEarned + manualInc;
-  }, [sessions, allSessions, manualTransactions, chartSelectedMonths, currentUser]);
+    return sbEarned + manualInc + rollOver;
+  }, [sessions, allSessions, manualTransactions, chartSelectedMonths, currentUser, getPrecedingRollOverBalance]);
 
   const getSelectedMonthsExpense = useCallback(() => {
     return manualTransactions
@@ -598,24 +661,7 @@ export default function Dashboard() {
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
   }, [manualTransactions]);
 
-  const getMonthlyIncome = useCallback((monthStr: string) => {
-    const targetSessions = currentUser?.role === 'admin' ? allSessions : sessions;
-    const sbEarned = targetSessions
-      .filter(s => s.month_year === monthStr && s.status === 'Đã dạy')
-      .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
-      
-    const manualInc = manualTransactions
-      .filter(t => t.type === 'income' && t.date.startsWith(monthStr))
-      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-      
-    return sbEarned + manualInc;
-  }, [sessions, allSessions, manualTransactions, currentUser]);
 
-  const getMonthlyExpense = useCallback((monthStr: string) => {
-    return manualTransactions
-      .filter(t => t.type === 'expense' && t.date.startsWith(monthStr))
-      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-  }, [manualTransactions]);
 
   // Actual total per category for selected months
   const getActualCategoryAmount = useCallback((cat: string) => {
@@ -777,6 +823,7 @@ export default function Dashboard() {
               getTotalIncome={getTotalIncome}
               getTotalExpense={getTotalExpense}
               getActualCategoryAmount={getActualCategoryAmount}
+              getPrecedingRollOverBalance={getPrecedingRollOverBalance}
               handleOpenTxModal={handleOpenTxModal}
               setActiveTab={setActiveTab}
             />

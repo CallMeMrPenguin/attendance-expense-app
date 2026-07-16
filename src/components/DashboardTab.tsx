@@ -44,6 +44,7 @@ interface DashboardTabProps {
   getTotalIncome: () => number;
   getTotalExpense: () => number;
   getActualCategoryAmount: (cat: string) => number;
+  getPrecedingRollOverBalance?: (monthStr: string) => number;
   
   handleOpenTxModal: (type: 'income' | 'expense' | 'saving') => void;
   setActiveTab: (tab: 'dashboard' | 'flow' | 'saving' | 'schedule' | 'settings') => void;
@@ -86,6 +87,7 @@ export default function DashboardTab({
   getTotalIncome,
   getTotalExpense,
   getActualCategoryAmount,
+  getPrecedingRollOverBalance,
   
   handleOpenTxModal,
   setActiveTab
@@ -499,6 +501,8 @@ export default function DashboardTab({
     return list.sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 4);
   }, [manualTransactions]);
 
+  const rollOverVal = getPrecedingRollOverBalance ? getPrecedingRollOverBalance(chartSelectedMonths[0] || '') : 0;
+
   return (
     <div className="space-y-6 animate-mac-dropdown select-none">
       
@@ -546,7 +550,7 @@ export default function DashboardTab({
 
           <div className="mt-4 pt-3 border-t border-emerald-500/20 flex items-center justify-between">
             <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-1 rounded-md text-[10px] font-extrabold">
-              Kỳ báo cáo
+              Kỳ báo cáo {rollOverVal > 0 ? `(+${formatVND(rollOverVal)} dồn)` : ''}
             </span>
           </div>
         </div>
@@ -592,7 +596,7 @@ export default function DashboardTab({
 
           <div className="mt-4 pt-3 border-t border-cyan-500/20 flex items-center justify-between">
             <span className="bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-2.5 py-1 rounded-md text-[10px] font-extrabold">
-              Thu – Chi thực tế
+              Thu – Chi thực tế {rollOverVal > 0 ? `(bao gồm dư dồn)` : ''}
             </span>
           </div>
         </div>
