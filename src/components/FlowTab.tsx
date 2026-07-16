@@ -944,7 +944,7 @@ function FlowTab({
             <div className="flex flex-col sm:flex-row items-center gap-5">
               {/* SVG Donut */}
               <div className="relative shrink-0 w-32 h-32">
-                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 120 120">
+                <svg className="w-full h-full transform -rotate-90 overflow-visible" viewBox="-12 -12 144 144">
                   <circle cx="60" cy="60" r="50" fill="transparent" stroke="rgba(255,255,255,0.03)" strokeWidth="12" />
                   {incomeSlices.map((s, idx) => (
                     <circle
@@ -964,7 +964,7 @@ function FlowTab({
                   ))}
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-[9px] font-extrabold text-emerald-400 uppercase leading-none">Thu Nhập</span>
+                  <span className="text-[9px] font-extrabold text-emerald-400 uppercase leading-none text-glow-green">Thu Nhập</span>
                   <span className="text-xs font-black text-white leading-none mt-1 truncate max-w-[85px]" title={formatVND(totalPieInc)}>
                     {totalPieInc >= 1000000 ? `${(totalPieInc / 1000000).toFixed(1)}M` : formatVND(totalPieInc)}
                   </span>
@@ -999,7 +999,7 @@ function FlowTab({
         <div className="calendar-container-depth p-5 bg-[#0e1222] space-y-4 rounded-3xl border border-rose-500/30 shadow-[0_0_20px_rgba(239,68,68,0.15)]">
           <div className="flex items-center justify-between border-b border-white/5 pb-2">
             <div className="flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-rose-500/15 text-rose-400 border border-rose-500/30">
+              <div className="p-1.5 rounded-lg bg-rose-500/15 text-rose-400 border border-rose-500/30 shadow-[0_0_10px_rgba(239,68,68,0.3)]">
                 <TrendingDown className="h-4 w-4" />
               </div>
               <h3 className="text-xs font-black text-rose-400 text-glow-red uppercase tracking-wider">Phân Bổ Chi Tiêu Theo Danh Mục</h3>
@@ -1017,7 +1017,7 @@ function FlowTab({
             <div className="flex flex-col sm:flex-row items-center gap-5">
               {/* SVG Donut */}
               <div className="relative shrink-0 w-32 h-32">
-                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 120 120">
+                <svg className="w-full h-full transform -rotate-90 overflow-visible" viewBox="-12 -12 144 144">
                   <circle cx="60" cy="60" r="50" fill="transparent" stroke="rgba(255,255,255,0.03)" strokeWidth="12" />
                   {expenseSlices.map((s, idx) => (
                     <circle

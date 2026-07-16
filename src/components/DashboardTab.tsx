@@ -96,7 +96,7 @@ export default function DashboardTab({
   // Multi-Year selection support
   const [selectedYears, setSelectedYears] = useState<number[]>([chartYear]);
 
-  // Precision Hover state
+  // Precision Hover state: set when hovering near any line segment or point
   const [hoveredNodeInfo, setHoveredNodeInfo] = useState<{
     pointIndex: number;
     svgX: number;
@@ -318,7 +318,7 @@ export default function DashboardTab({
     }
   }, [viewMode, selectedYears, chartSelectedMonths, chartYear, manualTransactions, sessions, getMonthlyIncome, getMonthlyExpense, getWeeklyIncome, getWeeklyExpense]);
 
-  // Extended SVG Dimensions (900 x 420 for long, tall graph)
+  // Extended Canvas Dimensions (900 x 420 for long, tall graph)
   const SVG_WIDTH = 900;
   const SVG_HEIGHT = 420;
   const MARGIN_LEFT = 25;
@@ -355,7 +355,7 @@ export default function DashboardTab({
     return `${linePath} L ${pts[pts.length - 1].x} ${BASE_Y} L ${pts[0].x} ${BASE_Y} Z`;
   };
 
-  // Precision Mouse Move Handler: Only shows tooltip when hovering within 30px proximity of actual line node
+  // Precision Mouse Move Handler: Only shows tooltip when hovering within 32px proximity of an active line/node
   const handleSvgMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
     if (!svgRef.current || numXPoints === 0 || chartDataModel.series.length === 0) return;
     const rect = svgRef.current.getBoundingClientRect();
@@ -391,7 +391,7 @@ export default function DashboardTab({
       });
     });
 
-    if (minDistance <= 30 && closestIndex !== -1) {
+    if (minDistance <= 32 && closestIndex !== -1) {
       setHoveredNodeInfo({
         pointIndex: closestIndex,
         svgX: closestPtX,
@@ -502,7 +502,7 @@ export default function DashboardTab({
   return (
     <div className="space-y-6 animate-mac-dropdown select-none">
       
-      {/* 4 Summary Metric Cards (EXACT same UI styling as Dòng Tiền tab) */}
+      {/* 4 Summary Metric Cards (Matching FlowTab UI exactly with Section Title & Icon Glows) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-5 text-left">
         
         {/* Card 1: Cumulative Net Worth */}
@@ -512,7 +512,7 @@ export default function DashboardTab({
               <span className="text-[11px] font-black text-purple-400 text-glow-purple uppercase tracking-widest block">
                 TỔNG TÀI SẢN
               </span>
-              <span className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-none block pt-1.5" title={formatVND(netWorth)}>
+              <span className="text-2xl font-black text-white tracking-tight leading-none block pt-1.5" title={formatVND(netWorth)}>
                 {formatVND(netWorth)}
               </span>
             </div>
@@ -535,7 +535,7 @@ export default function DashboardTab({
               <span className="text-[11px] font-black text-emerald-400 text-glow-green uppercase tracking-widest block">
                 THU NHẬP
               </span>
-              <span className="text-2xl sm:text-3xl font-black text-emerald-400 text-glow-green tracking-tight leading-none block pt-1.5" title={formatVND(income)}>
+              <span className="text-2xl font-black text-emerald-400 text-glow-green tracking-tight leading-none block pt-1.5" title={formatVND(income)}>
                 {formatVND(income)}
               </span>
             </div>
@@ -546,7 +546,7 @@ export default function DashboardTab({
 
           <div className="mt-4 pt-3 border-t border-emerald-500/20 flex items-center justify-between">
             <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-1 rounded-md text-[10px] font-extrabold">
-              Tháng đã chọn
+              Kỳ báo cáo
             </span>
           </div>
         </div>
@@ -558,7 +558,7 @@ export default function DashboardTab({
               <span className="text-[11px] font-black text-rose-400 text-glow-red uppercase tracking-widest block">
                 CHI TIÊU
               </span>
-              <span className="text-2xl sm:text-3xl font-black text-rose-400 text-glow-red tracking-tight leading-none block pt-1.5" title={formatVND(expense)}>
+              <span className="text-2xl font-black text-rose-400 text-glow-red tracking-tight leading-none block pt-1.5" title={formatVND(expense)}>
                 {formatVND(expense)}
               </span>
             </div>
@@ -569,19 +569,19 @@ export default function DashboardTab({
 
           <div className="mt-4 pt-3 border-t border-rose-500/20 flex items-center justify-between">
             <span className="bg-rose-500/20 text-rose-300 border border-rose-500/30 px-2.5 py-1 rounded-md text-[10px] font-extrabold">
-              Tháng đã chọn
+              Kỳ báo cáo
             </span>
           </div>
         </div>
 
-        {/* Card 4: Net Surplus */}
+        {/* Card 4: Net Surplus (Renamed to THẶNG DƯ RÒNG) */}
         <div className="kpi-card-blue p-6 flex flex-col justify-between min-h-[145px] relative overflow-hidden group hover:scale-[1.01] transition-all cursor-default">
           <div className="flex justify-between items-start gap-2">
             <div className="space-y-1">
               <span className="text-[11px] font-black text-cyan-400 text-glow-blue uppercase tracking-widest block">
-                NET (THU – CHI)
+                THẶNG DƯ RÒNG
               </span>
-              <span className={`text-2xl sm:text-3xl font-black tracking-tight leading-none block pt-1.5 ${net >= 0 ? 'text-cyan-400 text-glow-blue' : 'text-rose-400 text-glow-red'}`} title={formatVND(net)}>
+              <span className={`text-2xl font-black tracking-tight leading-none block pt-1.5 ${net >= 0 ? 'text-cyan-400 text-glow-blue' : 'text-rose-400 text-glow-red'}`} title={formatVND(net)}>
                 {formatVND(net)}
               </span>
             </div>
@@ -592,34 +592,49 @@ export default function DashboardTab({
 
           <div className="mt-4 pt-3 border-t border-cyan-500/20 flex items-center justify-between">
             <span className="bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-2.5 py-1 rounded-md text-[10px] font-extrabold">
-              Thặng dư ròng
+              Thu – Chi thực tế
             </span>
           </div>
         </div>
 
       </div>
 
-      {/* --- MAIN SECTION: Merged Control Header & Long Expanded SVG Chart --- */}
+      {/* --- MAIN SECTION: Trend Graph Card Header with Glowing Title & Icons, Smooth Animated Slider Pill --- */}
       <div className="calendar-container-depth p-6 bg-[#111422] flex flex-col justify-between space-y-5 text-left rounded-3xl border border-indigo-500/30 shadow-[0_0_30px_rgba(92,54,245,0.15)]">
         
-        {/* MERGED CONTROL HEADER: Title + 4 View Modes (Theo Ngày / Theo Tuần / Theo Tháng / Theo Năm) + Zoom controls + Month buttons */}
+        {/* MERGED CONTROL HEADER */}
         <div className="space-y-4 border-b border-white/5 pb-4 select-none">
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
+              <div className="p-2 rounded-xl bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 shadow-[0_0_12px_rgba(92,54,245,0.4)]">
                 <BarChart3 className="h-5 w-5" />
               </div>
               <div>
-                <h3 className="text-sm font-black text-white uppercase tracking-wider">Xu Hướng Thu Nhập & Chi Tiêu Multiline</h3>
+                <h3 className="text-sm font-black text-white text-glow-purple uppercase tracking-wider">Xu Hướng Thu Nhập & Chi Tiêu Multiline</h3>
                 <p className="text-[10px] text-slate-400 font-semibold">Đối chiếu đường thu chi qua 4 chế độ xem</p>
               </div>
             </div>
 
-            {/* 4 View Modes Segmented Control + Multi-Year + Zoom Controls */}
+            {/* 4 View Modes Animated Sliding Pill Background Switcher */}
             <div className="flex items-center gap-2 flex-wrap">
               
-              {/* 4 View Modes Toggle Pill with Smooth Transitions */}
-              <div className="flex items-center bg-[#090b14] border border-white/10 rounded-xl p-1 text-[10px] font-extrabold">
+              <div className="relative flex bg-[#090b14] border border-white/10 p-1 rounded-xl w-full sm:w-auto min-w-[320px]">
+                {/* Smooth Animated Sliding Pill Background */}
+                <div
+                  className="absolute top-1 bottom-1 rounded-[10px] bg-gradient-to-r from-indigo-500 to-indigo-600 shadow-[0_0_14px_rgba(92,54,245,0.6)] transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] pointer-events-none"
+                  style={{
+                    left: '4px',
+                    width: 'calc(25% - 2px)',
+                    transform:
+                      viewMode === 'days'
+                        ? 'translateX(0)'
+                        : viewMode === 'weeks'
+                        ? 'translateX(100%)'
+                        : viewMode === 'months'
+                        ? 'translateX(200%)'
+                        : 'translateX(300%)',
+                  }}
+                />
                 {(['days', 'weeks', 'months', 'years'] as const).map(mode => {
                   const labels: Record<string, string> = {
                     days: 'Theo Ngày',
@@ -627,15 +642,13 @@ export default function DashboardTab({
                     months: 'Theo Tháng',
                     years: 'Theo Năm'
                   };
-                  const isActive = viewMode === mode;
                   return (
                     <button
                       key={mode}
+                      type="button"
                       onClick={() => setViewMode(mode)}
-                      className={`px-3 py-1.5 rounded-lg transition-all duration-300 cursor-pointer ${
-                        isActive
-                          ? 'bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-[0_0_12px_rgba(92,54,245,0.6)] font-black scale-105'
-                          : 'text-slate-400 hover:text-white'
+                      className={`relative z-10 flex-1 py-1.5 text-[10px] font-black tracking-wider uppercase rounded-lg transition-colors duration-300 cursor-pointer ${
+                        viewMode === mode ? 'text-white' : 'text-slate-400 hover:text-white'
                       }`}
                     >
                       {labels[mode]}
@@ -644,7 +657,7 @@ export default function DashboardTab({
                 })}
               </div>
 
-              {/* Multi-Year Selection Chips (Visible in Months or Years Mode) */}
+              {/* Multi-Year Selection Chips */}
               {(viewMode === 'months' || viewMode === 'years') && (
                 <div className="flex items-center gap-1.5 border border-white/10 rounded-xl p-1 bg-[#090b14]">
                   <button 
@@ -682,19 +695,19 @@ export default function DashboardTab({
                 </div>
               )}
 
-              {/* Interactive Zoom Buttons Linked to View Mode Switching */}
+              {/* Zoom Buttons */}
               <div className="flex items-center gap-1 bg-[#090b14] border border-white/10 rounded-xl p-1">
                 <button
                   onClick={handleZoomIn}
                   className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
-                  title="Phóng to (Chuyển sang chế độ thời gian chi tiết hơn)"
+                  title="Phóng to"
                 >
                   <ZoomIn className="h-4 w-4" />
                 </button>
                 <button
                   onClick={handleZoomOut}
                   className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
-                  title="Thu nhỏ (Chuyển sang chế độ thời gian mở rộng)"
+                  title="Thu nhỏ"
                 >
                   <ZoomOut className="h-4 w-4" />
                 </button>
@@ -741,7 +754,7 @@ export default function DashboardTab({
           )}
         </div>
 
-        {/* Long Taller SVG Visual Canvas (900 x 420 Canvas with Refined Precision Proximity Hover) */}
+        {/* Long Taller SVG Visual Canvas (900 x 420 Canvas with Invisible Point Hover in non-day modes) */}
         <div className="w-full overflow-x-auto scrollbar-thin relative py-2">
           {chartDataModel.series.length === 0 ? (
             <div className="h-[420px] flex items-center justify-center text-xs text-slate-500 font-bold bg-[#0b0e18] rounded-2xl border border-white/5">
@@ -857,9 +870,10 @@ export default function DashboardTab({
                         style={{ filter: `drop-shadow(0 0 6px ${seriesItem.expenseColor})` }}
                       />
 
-                      {/* Node Circles */}
+                      {/* Node Circles: Visible in Day mode or when precision hovered */}
                       {incPoints.map((pt, pIdx) => {
                         const isNodeHovered = hoveredNodeInfo?.pointIndex === pIdx;
+                        const showVisibleCircle = viewMode === 'days' || isNodeHovered;
                         return (
                           <g key={pIdx}>
                             <circle
@@ -869,6 +883,7 @@ export default function DashboardTab({
                               fill={seriesItem.incomeColor}
                               stroke="#0b0e18"
                               strokeWidth="2"
+                              opacity={showVisibleCircle ? 1 : 0}
                               style={{ filter: isNodeHovered ? `drop-shadow(0 0 6px ${seriesItem.incomeColor})` : undefined }}
                             />
                             <circle
@@ -878,6 +893,7 @@ export default function DashboardTab({
                               fill={seriesItem.expenseColor}
                               stroke="#0b0e18"
                               strokeWidth="2"
+                              opacity={showVisibleCircle ? 1 : 0}
                               style={{ filter: isNodeHovered ? `drop-shadow(0 0 6px ${seriesItem.expenseColor})` : undefined }}
                             />
                           </g>
@@ -946,11 +962,11 @@ export default function DashboardTab({
       {/* --- SECTION 2: Income & Expense Distribution Pie Charts Grid --- */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 text-left">
         
-        {/* Income Distribution Pie Chart (With Neon Glow Added Back) */}
+        {/* Income Distribution Pie Chart (Unclipped Glow ViewBox) */}
         <div className="calendar-container-depth p-5 bg-[#111422] space-y-4 rounded-3xl border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.15)]">
           <div className="flex items-center justify-between border-b border-white/5 pb-2">
             <div className="flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+              <div className="p-1.5 rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.3)]">
                 <TrendingUp className="h-4 w-4" />
               </div>
               <h3 className="text-xs font-black text-emerald-400 text-glow-green uppercase tracking-wider">Phân Bổ Thu Nhập</h3>
@@ -967,7 +983,7 @@ export default function DashboardTab({
           ) : (
             <div className="flex flex-col sm:flex-row items-center gap-5">
               <div className="relative shrink-0 w-32 h-32">
-                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 120 120">
+                <svg className="w-full h-full transform -rotate-90 overflow-visible" viewBox="-12 -12 144 144">
                   <circle cx="60" cy="60" r="50" fill="transparent" stroke="rgba(255,255,255,0.03)" strokeWidth="12" />
                   {incomeSlices.map((s, idx) => (
                     <circle
@@ -987,7 +1003,7 @@ export default function DashboardTab({
                   ))}
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-[9px] font-extrabold text-emerald-400 uppercase leading-none">Thu Nhập</span>
+                  <span className="text-[9px] font-extrabold text-emerald-400 uppercase leading-none text-glow-green">Thu Nhập</span>
                   <span className="text-xs font-black text-white leading-none mt-1 truncate max-w-[85px]" title={formatVND(totalSelectedInc)}>
                     {totalSelectedInc >= 1000000 ? `${(totalSelectedInc / 1000000).toFixed(1)}M` : formatVND(totalSelectedInc)}
                   </span>
@@ -1017,11 +1033,11 @@ export default function DashboardTab({
           )}
         </div>
 
-        {/* Expense Distribution Pie Chart (With Neon Glow Added Back) */}
+        {/* Expense Distribution Pie Chart (Unclipped Glow ViewBox) */}
         <div className="calendar-container-depth p-5 bg-[#111422] space-y-4 rounded-3xl border border-rose-500/30 shadow-[0_0_20px_rgba(239,68,68,0.15)]">
           <div className="flex items-center justify-between border-b border-white/5 pb-2">
             <div className="flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-rose-500/15 text-rose-400 border border-rose-500/30">
+              <div className="p-1.5 rounded-lg bg-rose-500/15 text-rose-400 border border-rose-500/30 shadow-[0_0_10px_rgba(239,68,68,0.3)]">
                 <TrendingDown className="h-4 w-4" />
               </div>
               <h3 className="text-xs font-black text-rose-400 text-glow-red uppercase tracking-wider">Phân Bổ Chi Tiêu</h3>
@@ -1038,7 +1054,7 @@ export default function DashboardTab({
           ) : (
             <div className="flex flex-col sm:flex-row items-center gap-5">
               <div className="relative shrink-0 w-32 h-32">
-                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 120 120">
+                <svg className="w-full h-full transform -rotate-90 overflow-visible" viewBox="-12 -12 144 144">
                   <circle cx="60" cy="60" r="50" fill="transparent" stroke="rgba(255,255,255,0.03)" strokeWidth="12" />
                   {expenseSlices.map((s, idx) => (
                     <circle
@@ -1058,7 +1074,7 @@ export default function DashboardTab({
                   ))}
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-[9px] font-extrabold text-rose-400 uppercase leading-none">Chi Tiêu</span>
+                  <span className="text-[9px] font-extrabold text-rose-400 uppercase leading-none text-glow-red">Chi Tiêu</span>
                   <span className="text-xs font-black text-white leading-none mt-1 truncate max-w-[85px]" title={formatVND(totalSelectedExp)}>
                     {totalSelectedExp >= 1000000 ? `${(totalSelectedExp / 1000000).toFixed(1)}M` : formatVND(totalSelectedExp)}
                   </span>
@@ -1097,7 +1113,7 @@ export default function DashboardTab({
         <div className="calendar-container-depth p-5 bg-[#111422] space-y-4 rounded-3xl border border-cyan-500/30 shadow-[0_0_20px_rgba(6,182,212,0.15)]">
           <div className="flex items-center justify-between border-b border-white/5 pb-2">
             <div className="flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
+              <div className="p-1.5 rounded-lg bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 shadow-[0_0_10px_rgba(6,182,212,0.3)]">
                 <MaterialSymbol icon="finance_mode" size={18} className="text-cyan-400" />
               </div>
               <h3 className="text-xs font-black text-cyan-400 text-glow-blue uppercase tracking-wider">Phân Bổ Tỉ Lệ Tích Lũy Tiết Kiệm</h3>
@@ -1113,7 +1129,7 @@ export default function DashboardTab({
 
           <div className="flex flex-col sm:flex-row items-center gap-5">
             <div className="relative shrink-0 w-32 h-32">
-              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 120 120">
+              <svg className="w-full h-full transform -rotate-90 overflow-visible" viewBox="-12 -12 144 144">
                 <circle cx="60" cy="60" r="50" fill="transparent" stroke="rgba(255,255,255,0.03)" strokeWidth="12" />
                 <circle
                   cx="60"
@@ -1152,7 +1168,7 @@ export default function DashboardTab({
                 <div className="flex items-center gap-2">
                   <Shield className="h-4 w-4 text-emerald-400 shrink-0" />
                   <div>
-                    <span className="text-[10px] font-black text-emerald-300 uppercase block leading-none">Quỹ Dự Phòng</span>
+                    <span className="text-[10px] font-black text-emerald-300 text-glow-green uppercase block leading-none">Quỹ Dự Phòng</span>
                     <span className="text-xs font-black text-white block mt-1">{formatVND(emergencyCurrent)}</span>
                   </div>
                 </div>
@@ -1163,7 +1179,7 @@ export default function DashboardTab({
                 <div className="flex items-center gap-2">
                   <MaterialSymbol icon="finance_mode" size={18} className="text-cyan-400 shrink-0" />
                   <div>
-                    <span className="text-[10px] font-black text-cyan-300 uppercase block leading-none">Quỹ Tích Lũy</span>
+                    <span className="text-[10px] font-black text-cyan-300 text-glow-blue uppercase block leading-none">Quỹ Tích Lũy</span>
                     <span className="text-xs font-black text-white block mt-1">{formatVND(accumulationCurrent)}</span>
                   </div>
                 </div>
@@ -1177,10 +1193,10 @@ export default function DashboardTab({
         <div className="calendar-container-depth p-5 bg-[#111422] space-y-3 rounded-3xl border border-indigo-500/30 shadow-[0_0_20px_rgba(92,54,245,0.15)]">
           <div className="flex items-center justify-between border-b border-white/5 pb-2">
             <div className="flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
+              <div className="p-1.5 rounded-lg bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 shadow-[0_0_10px_rgba(92,54,245,0.3)]">
                 {isOverBudget ? <AlertCircle className="h-4 w-4 text-rose-400" /> : <CheckCircle2 className="h-4 w-4 text-emerald-400" />}
               </div>
-              <h3 className="text-xs font-black text-white uppercase tracking-wider">Hạn Mức Ngân Sách Tổng</h3>
+              <h3 className="text-xs font-black text-white text-glow-purple uppercase tracking-wider">Hạn Mức Ngân Sách Tổng</h3>
             </div>
             <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${isOverBudget ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'}`}>
               {budgetPercent}%
@@ -1216,10 +1232,10 @@ export default function DashboardTab({
         <div className="calendar-container-depth p-5 bg-[#111422] space-y-3 text-left rounded-3xl border border-white/10">
           <div className="flex items-center justify-between border-b border-white/5 pb-2">
             <div className="flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
+              <div className="p-1.5 rounded-lg bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 shadow-[0_0_10px_rgba(92,54,245,0.3)]">
                 <Clock className="h-4 w-4" />
               </div>
-              <h3 className="text-xs font-black text-white uppercase tracking-wider">Giao Dịch Gần Đây</h3>
+              <h3 className="text-xs font-black text-white text-glow-purple uppercase tracking-wider">Giao Dịch Gần Đây</h3>
             </div>
             <button 
               onClick={() => setActiveTab('flow')}
