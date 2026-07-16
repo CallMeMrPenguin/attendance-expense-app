@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { 
   Wallet, 
   TrendingUp, 
@@ -12,7 +12,10 @@ import {
   BarChart3,
   Clock,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw
 } from 'lucide-react';
 import { formatVND, Session, formatDateVN } from '@/lib/utils';
 import MaterialSymbol from './MaterialSymbol';
@@ -46,20 +49,20 @@ interface DashboardTabProps {
   setActiveTab: (tab: 'dashboard' | 'flow' | 'saving' | 'schedule' | 'settings') => void;
 }
 
-// 24 Vibrant Neon Color Choices for up to 12 Month Pairs
-const MONTH_COLOR_PAIRS = [
-  { income: '#10b981', expense: '#ef4444' }, // Month 1: Green / Red
-  { income: '#06b6d4', expense: '#f59e0b' }, // Month 2: Cyan / Amber
-  { income: '#a855f7', expense: '#ec4899' }, // Month 3: Purple / Pink
-  { income: '#3b82f6', expense: '#f43f5e' }, // Month 4: Blue / Rose
-  { income: '#34d399', expense: '#ff7849' }, // Month 5: Emerald / Orange
-  { income: '#8b5cf6', expense: '#fb7185' }, // Month 6: Indigo / Coral
-  { income: '#0ea5e9', expense: '#e11d48' }, // Month 7: Sky / Crimson
-  { income: '#2dd4bf', expense: '#d97706' }, // Month 8: Teal / Gold
-  { income: '#6366f1', expense: '#f43f5e' }, // Month 9: Violet / Magenta
-  { income: '#14b8a6', expense: '#e11d48' }, // Month 10: Jade / Ruby
-  { income: '#84cc16', expense: '#c084fc' }, // Month 11: Lime / Lavender
-  { income: '#0284c7', expense: '#ff5252' }  // Month 12: DeepSky / BrightRed
+// 24 Vibrant Neon Color Choices for up to 12 Pairs (Multi-month or Multi-year comparison)
+const COLOR_PAIRS = [
+  { income: '#10b981', expense: '#ef4444', label: 'Xanh Lá / Đỏ' },
+  { income: '#06b6d4', expense: '#f59e0b', label: 'Xanh Lam / Vàng Cam' },
+  { income: '#a855f7', expense: '#ec4899', label: 'Tím / Hồng' },
+  { income: '#3b82f6', expense: '#f43f5e', label: 'Xanh Dương / Hồng Đỏ' },
+  { income: '#34d399', expense: '#ff7849', label: 'Ngọc Bích / Cam Bright' },
+  { income: '#8b5cf6', expense: '#fb7185', label: 'Chàm / San Hô' },
+  { income: '#0ea5e9', expense: '#e11d48', label: 'Sky Blue / Crimson' },
+  { income: '#2dd4bf', expense: '#d97706', label: 'Teal / Vàng Đậm' },
+  { income: '#6366f1', expense: '#f43f5e', label: 'Violet / Magenta' },
+  { income: '#14b8a6', expense: '#e11d48', label: 'Jade / Ruby' },
+  { income: '#84cc16', expense: '#c084fc', label: 'Lime / Oải Hương' },
+  { income: '#0284c7', expense: '#ff5252', label: 'Deep Sky / Bright Red' }
 ];
 
 export default function DashboardTab({
@@ -87,9 +90,18 @@ export default function DashboardTab({
   handleOpenTxModal,
   setActiveTab
 }: DashboardTabProps) {
-  // Granularity for single month mode: 'weeks' (4 points) vs 'days' (28-31 points)
+  // Single month mode granularity: 'weeks' vs 'days' (Clean buttons without '(DIEM)')
   const [singleMonthGranularity, setSingleMonthGranularity] = useState<'weeks' | 'days'>('weeks');
-  const [hoveredNode, setHoveredNode] = useState<{ month: string, label: string, income: number, expense: number } | null>(null);
+
+  // Multi-Year selection support: array of selected years
+  const [selectedYears, setSelectedYears] = useState<number[]>([chartYear]);
+
+  // Zoom controls for SVG graph: zoomLevel (1 to 3)
+  const [zoomLevel, setZoomLevel] = useState<number>(1);
+
+  // Smooth jitter-free X index tracking on whole SVG hover
+  const [hoveredXIndex, setHoveredXIndex] = useState<number | null>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
 
   const income = getSelectedMonthsIncome();
   const expense = getSelectedMonthsExpense();
@@ -130,9 +142,55 @@ export default function DashboardTab({
     return new Date(y, m, 0).getDate();
   };
 
-  // Multi-Month Multi-Line Chart Data Model
+  // Toggle year selection in multi-year mode
+  const toggleYearSelection = (yearNum: number) => {
+    setChartYear(yearNum);
+    setSelectedYears(prev => {
+      if (prev.includes(yearNum)) {
+        if (prev.length === 1) return prev; // keep at least 1 year
+        return prev.filter(y => y !== yearNum);
+      }
+      return [...prev, yearNum].sort((a, b) => a - b);
+    });
+  };
+
+  // Advanced Multi-Line Data Model (Handles Single Month, Multi-Month, and Multi-Year Modes)
   const chartDataModel = useMemo(() => {
-    if (chartSelectedMonths.length === 0) return { xLabels: [], series: [], maxVal: 1000000 };
+    // Mode A: Multi-Year Mode (Selected multiple years)
+    if (selectedYears.length > 1) {
+      const xLabels = ['Th.1', 'Th.2', 'Th.3', 'Th.4', 'Th.5', 'Th.6', 'Th.7', 'Th.8', 'Th.9', 'Th.10', 'Th.11', 'Th.12'];
+      const seriesList = selectedYears.map((yr, yIdx) => {
+        const colors = COLOR_PAIRS[yIdx % COLOR_PAIRS.length];
+        const points = Array.from({ length: 12 }, (_, mIdx) => {
+          const mNum = String(mIdx + 1).padStart(2, '0');
+          const mStr = `${yr}-${mNum}`;
+          return {
+            label: `Th.${mIdx + 1}/${yr}`,
+            income: getMonthlyIncome(mStr),
+            expense: getMonthlyExpense(mStr)
+          };
+        });
+
+        return {
+          title: `Năm ${yr}`,
+          colorIndex: yIdx,
+          incomeColor: colors.income,
+          expenseColor: colors.expense,
+          points
+        };
+      });
+
+      const maxVal = Math.max(1000000, ...seriesList.flatMap(s => s.points.flatMap(p => [p.income, p.expense])));
+      return {
+        modeName: 'multi-year',
+        xLabels,
+        maxVal,
+        series: seriesList
+      };
+    }
+
+    // Mode B: Single Year View (Check selected months)
+    if (chartSelectedMonths.length === 0) return { modeName: 'empty', xLabels: [], series: [], maxVal: 1000000 };
 
     const sortedMonths = [...chartSelectedMonths].sort((a, b) => a.localeCompare(b));
 
@@ -144,11 +202,11 @@ export default function DashboardTab({
 
       if (singleMonthGranularity === 'days') {
         const numDays = getDaysInMonth(targetMonth);
-        const xLabels = Array.from({ length: numDays }, (_, i) => `N. ${i + 1}`);
+        const xLabels = Array.from({ length: numDays }, (_, i) => `N.${i + 1}`);
         const points = Array.from({ length: numDays }, (_, i) => {
           const d = i + 1;
           return {
-            label: `Ng. ${d}`,
+            label: `Ng. ${d}/${mStr}`,
             income: getDailyIncome(targetMonth, d),
             expense: getDailyExpense(targetMonth, d)
           };
@@ -156,21 +214,21 @@ export default function DashboardTab({
 
         const maxVal = Math.max(1000000, ...points.flatMap(p => [p.income, p.expense]));
         return {
+          modeName: 'single-month-days',
           xLabels,
           maxVal,
           series: [
             {
-              month: monthFormatted,
-              rawMonth: targetMonth,
+              title: monthFormatted,
               colorIndex: 0,
-              incomeColor: MONTH_COLOR_PAIRS[0].income,
-              expenseColor: MONTH_COLOR_PAIRS[0].expense,
+              incomeColor: COLOR_PAIRS[0].income,
+              expenseColor: COLOR_PAIRS[0].expense,
               points
             }
           ]
         };
       } else {
-        // Week mode for single month (4 points)
+        // Week Mode for Single Month (4 points)
         const xLabels = ['Tuần 1', 'Tuần 2', 'Tuần 3', 'Tuần 4'];
         const points = [
           { label: 'Tuần 1', income: getWeeklyIncome(targetMonth, 1, 7), expense: getWeeklyExpense(targetMonth, 1, 7) },
@@ -181,15 +239,15 @@ export default function DashboardTab({
 
         const maxVal = Math.max(1000000, ...points.flatMap(p => [p.income, p.expense]));
         return {
+          modeName: 'single-month-weeks',
           xLabels,
           maxVal,
           series: [
             {
-              month: monthFormatted,
-              rawMonth: targetMonth,
+              title: monthFormatted,
               colorIndex: 0,
-              incomeColor: MONTH_COLOR_PAIRS[0].income,
-              expenseColor: MONTH_COLOR_PAIRS[0].expense,
+              incomeColor: COLOR_PAIRS[0].income,
+              expenseColor: COLOR_PAIRS[0].expense,
               points
             }
           ]
@@ -197,12 +255,12 @@ export default function DashboardTab({
       }
     }
 
-    // Multi-Month Mode (Overlay 4 weeks per month with 2 lines for each selected month)
+    // Multi-Month Mode (Overlay 4 weeks for each selected month with 2 lines per month)
     const xLabels = ['Tuần 1', 'Tuần 2', 'Tuần 3', 'Tuần 4'];
     const seriesList = sortedMonths.map((m, idx) => {
       const [yStr, mStr] = m.split('-');
       const monthFormatted = `Th.${Number(mStr)}/${yStr.substring(2)}`;
-      const colors = MONTH_COLOR_PAIRS[idx % MONTH_COLOR_PAIRS.length];
+      const colors = COLOR_PAIRS[idx % COLOR_PAIRS.length];
 
       const points = [
         { label: 'Tuần 1', income: getWeeklyIncome(m, 1, 7), expense: getWeeklyExpense(m, 1, 7) },
@@ -212,8 +270,7 @@ export default function DashboardTab({
       ];
 
       return {
-        month: monthFormatted,
-        rawMonth: m,
+        title: monthFormatted,
         colorIndex: idx,
         incomeColor: colors.income,
         expenseColor: colors.expense,
@@ -223,18 +280,19 @@ export default function DashboardTab({
 
     const maxVal = Math.max(1000000, ...seriesList.flatMap(s => s.points.flatMap(p => [p.income, p.expense])));
     return {
+      modeName: 'multi-month',
       xLabels,
       maxVal,
       series: seriesList
     };
-  }, [chartSelectedMonths, singleMonthGranularity, manualTransactions, sessions]);
+  }, [selectedYears, chartSelectedMonths, singleMonthGranularity, manualTransactions, sessions, getMonthlyIncome, getMonthlyExpense, getWeeklyIncome, getWeeklyExpense]);
 
-  // SVG Curvy Path Generator (Canvas dimensions: 720 x 300)
-  const SVG_WIDTH = 720;
-  const SVG_HEIGHT = 300;
+  // SVG Curvy Path Canvas Parameters (Enlarged 760 x 360)
+  const SVG_WIDTH = 760;
+  const SVG_HEIGHT = 360;
   const MARGIN_LEFT = 75;
-  const MARGIN_RIGHT = 685;
-  const BASE_Y = 260;
+  const MARGIN_RIGHT = 725;
+  const BASE_Y = 310;
   const TOP_Y = 35;
 
   const numXPoints = chartDataModel.xLabels.length;
@@ -245,7 +303,7 @@ export default function DashboardTab({
   };
 
   const getYCoordinate = (val: number, maxVal: number) => {
-    return BASE_Y - (val / maxVal) * (BASE_Y - TOP_Y);
+    return BASE_Y - (val / Math.max(1, maxVal)) * (BASE_Y - TOP_Y);
   };
 
   const getCurvyPath = (pts: { x: number, y: number }[]) => {
@@ -264,6 +322,26 @@ export default function DashboardTab({
     const linePath = getCurvyPath(pts);
     if (!linePath) return '';
     return `${linePath} L ${pts[pts.length - 1].x} ${BASE_Y} L ${pts[0].x} ${BASE_Y} Z`;
+  };
+
+  // Smooth Mouse Hover Handler on SVG (calculates nearest index without dot flickering)
+  const handleSvgMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!svgRef.current || numXPoints === 0) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const svgX = (mouseX / rect.width) * (SVG_WIDTH / zoomLevel);
+
+    let closestIndex = 0;
+    let minDistance = Infinity;
+    for (let i = 0; i < numXPoints; i++) {
+      const px = getXCoordinate(i);
+      const dist = Math.abs(px - svgX);
+      if (dist < minDistance) {
+        minDistance = dist;
+        closestIndex = i;
+      }
+    }
+    setHoveredXIndex(closestIndex);
   };
 
   // Donut Chart Expense Categories
@@ -366,7 +444,7 @@ export default function DashboardTab({
   return (
     <div className="space-y-6 animate-mac-dropdown select-none">
       
-      {/* 4 Glowing Metric Summary Cards (Cleaned subtext without arrow icons) */}
+      {/* 4 Glowing Metric Summary Cards (Subtext clean without arrow icons) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-5 text-left">
         
         {/* Card 1: Cumulative Net Worth */}
@@ -468,7 +546,7 @@ export default function DashboardTab({
       {/* --- MAIN SECTION: Merged Filter Bar & Enlarged Multi-Line SVG Trend Chart --- */}
       <div className="calendar-container-depth p-6 bg-[#111422] flex flex-col justify-between space-y-5 text-left rounded-3xl border border-indigo-500/30 shadow-[0_0_30px_rgba(92,54,245,0.15)]">
         
-        {/* MERGED CONTROL HEADER: Graph title + Year switcher + Granularity controls + Month buttons */}
+        {/* MERGED CONTROL HEADER: Graph title + Multi-Year selector + Granularity + Zoom controls + Month buttons */}
         <div className="space-y-4 border-b border-white/5 pb-4 select-none">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
@@ -477,14 +555,14 @@ export default function DashboardTab({
               </div>
               <div>
                 <h3 className="text-sm font-black text-white uppercase tracking-wider">Xu Hướng Thu Nhập & Chi Tiêu Multiline</h3>
-                <p className="text-[10px] text-slate-400 font-semibold">Đối chiếu đường thu chi qua 4 tuần hoặc từng ngày theo các tháng</p>
+                <p className="text-[10px] text-slate-400 font-semibold">Đối chiếu đường thu chi qua 4 tuần hoặc từng ngày theo các tháng & năm</p>
               </div>
             </div>
 
-            {/* Granularity & Year Switcher Controls */}
+            {/* Granularity & Multi-Year & Zoom Controls */}
             <div className="flex items-center gap-2 flex-wrap">
-              {/* Day/Week toggle ONLY available in single month view mode */}
-              {chartSelectedMonths.length === 1 && (
+              {/* Day/Week toggle (Clean text: 'Theo Tuần' / 'Theo Ngày' without (DIEM)) */}
+              {chartSelectedMonths.length === 1 && selectedYears.length === 1 && (
                 <div className="flex items-center bg-[#090b14] border border-white/10 rounded-xl p-1 text-[10px] font-extrabold">
                   <button
                     onClick={() => setSingleMonthGranularity('weeks')}
@@ -494,7 +572,7 @@ export default function DashboardTab({
                         : 'text-slate-400 hover:text-white'
                     }`}
                   >
-                    Theo Tuần (4 Điểm)
+                    Theo Tuần
                   </button>
                   <button
                     onClick={() => setSingleMonthGranularity('days')}
@@ -504,28 +582,72 @@ export default function DashboardTab({
                         : 'text-slate-400 hover:text-white'
                     }`}
                   >
-                    Theo Ngày ({getDaysInMonth(chartSelectedMonths[0])} Điểm)
+                    Theo Ngày
                   </button>
                 </div>
               )}
 
-              {/* Year Switcher */}
+              {/* Multi-Year Selection Chips */}
               <div className="flex items-center gap-1.5 border border-white/10 rounded-xl p-1 bg-[#090b14]">
                 <button 
-                  onClick={() => setChartYear(y => y - 1)} 
+                  onClick={() => toggleYearSelection(chartYear - 1)}
                   className="p-1 rounded-lg hover:bg-white/[0.08] text-slate-400 hover:text-white transition-colors cursor-pointer"
-                  title="Năm trước"
+                  title="Thêm năm trước"
                 >
                   <ChevronLeft className="h-3.5 w-3.5" />
                 </button>
-                <span className="text-xs font-black px-1.5 text-indigo-300">{chartYear}</span>
+                
+                {[2024, 2025, 2026, 2027].map(yr => {
+                  const isYrActive = selectedYears.includes(yr);
+                  return (
+                    <button
+                      key={yr}
+                      onClick={() => toggleYearSelection(yr)}
+                      className={`px-2 py-0.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
+                        isYrActive 
+                          ? 'bg-indigo-500 text-white shadow-[0_0_8px_rgba(92,54,245,0.6)]' 
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {yr}
+                    </button>
+                  );
+                })}
+
                 <button 
-                  onClick={() => setChartYear(y => y + 1)} 
+                  onClick={() => toggleYearSelection(chartYear + 1)}
                   className="p-1 rounded-lg hover:bg-white/[0.08] text-slate-400 hover:text-white transition-colors cursor-pointer"
-                  title="Năm sau"
+                  title="Thêm năm sau"
                 >
                   <ChevronRight className="h-3.5 w-3.5" />
                 </button>
+              </div>
+
+              {/* Interactive Zoom In / Zoom Out Controls */}
+              <div className="flex items-center gap-1 bg-[#090b14] border border-white/10 rounded-xl p-1">
+                <button
+                  onClick={() => setZoomLevel(z => Math.min(3, z + 0.35))}
+                  className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+                  title="Phóng to (Zoom In)"
+                >
+                  <ZoomIn className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={() => setZoomLevel(z => Math.max(1, z - 0.35))}
+                  className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+                  title="Thu nhỏ (Zoom Out)"
+                >
+                  <ZoomOut className="h-3.5 w-3.5" />
+                </button>
+                {zoomLevel > 1 && (
+                  <button
+                    onClick={() => setZoomLevel(1)}
+                    className="p-1 text-indigo-400 hover:text-white rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+                    title="Đặt lại zoom"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -551,16 +673,16 @@ export default function DashboardTab({
             })}
           </div>
 
-          {/* Dynamic Month Legend (For multi-month comparison) */}
+          {/* Dynamic Month/Year Legend */}
           {chartDataModel.series.length > 0 && (
             <div className="flex flex-wrap items-center gap-3 pt-2 text-[11px] font-extrabold border-t border-white/5">
-              <span className="text-slate-400 uppercase tracking-wider text-[10px]">Chú thích màu tháng ({chartDataModel.series.length} tháng):</span>
+              <span className="text-slate-400 uppercase tracking-wider text-[10px]">Chú thích màu ({chartDataModel.series.length} đối tượng):</span>
               {chartDataModel.series.map((s, idx) => (
-                <div key={idx} className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-[#080a14] border border-white/10">
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: s.incomeColor, boxShadow: `0 0 6px ${s.incomeColor}` }}></span>
-                  <span className="text-slate-200">{s.month} (Thu)</span>
-                  <span className="text-slate-500">|</span>
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: s.expenseColor, boxShadow: `0 0 6px ${s.expenseColor}` }}></span>
+                <div key={idx} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#080a14] border border-white/10 shadow-sm">
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: s.incomeColor, boxShadow: `0 0 8px ${s.incomeColor}` }}></span>
+                  <span className="text-slate-200">{s.title} (Thu)</span>
+                  <span className="text-slate-600">|</span>
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: s.expenseColor, boxShadow: `0 0 8px ${s.expenseColor}` }}></span>
                   <span className="text-slate-200">(Chi)</span>
                 </div>
               ))}
@@ -568,24 +690,30 @@ export default function DashboardTab({
           )}
         </div>
 
-        {/* SVG Multi-Line Visual Canvas (Taller 300px Height Canvas for Grand View) */}
+        {/* SVG Multi-Line Visual Canvas (Enlarged 360px Height Canvas with Smooth Mouse Move Hover Tracking) */}
         <div className="w-full overflow-x-auto scrollbar-thin relative py-2">
-          {chartSelectedMonths.length === 0 ? (
-            <div className="h-[300px] flex items-center justify-center text-xs text-slate-500 font-bold bg-[#0b0e18] rounded-2xl border border-white/5">
-              Vui lòng chọn ít nhất một tháng ở bộ lọc ở trên để hiển thị biểu đồ multiline.
+          {chartDataModel.series.length === 0 ? (
+            <div className="h-[360px] flex items-center justify-center text-xs text-slate-500 font-bold bg-[#0b0e18] rounded-2xl border border-white/5">
+              Vui lòng chọn ít nhất một tháng hoặc năm ở bộ lọc ở trên để hiển thị biểu đồ.
             </div>
           ) : (
             <div className="relative">
-              <svg className="w-full min-w-[700px] h-[300px]" viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}>
+              <svg 
+                ref={svgRef}
+                className="w-full min-w-[720px] h-[360px] transition-transform duration-300" 
+                viewBox={`0 0 ${SVG_WIDTH / zoomLevel} ${SVG_HEIGHT}`}
+                onMouseMove={handleSvgMouseMove}
+                onMouseLeave={() => setHoveredXIndex(null)}
+              >
                 <defs>
                   {chartDataModel.series.map((s, idx) => (
                     <React.Fragment key={idx}>
                       <linearGradient id={`incGrad-${idx}`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={s.incomeColor} stopOpacity="0.25" />
+                        <stop offset="0%" stopColor={s.incomeColor} stopOpacity="0.3" />
                         <stop offset="100%" stopColor={s.incomeColor} stopOpacity="0.0" />
                       </linearGradient>
                       <linearGradient id={`expGrad-${idx}`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={s.expenseColor} stopOpacity="0.25" />
+                        <stop offset="0%" stopColor={s.expenseColor} stopOpacity="0.3" />
                         <stop offset="100%" stopColor={s.expenseColor} stopOpacity="0.0" />
                       </linearGradient>
                     </React.Fragment>
@@ -593,7 +721,7 @@ export default function DashboardTab({
                 </defs>
 
                 {/* Horizontal Guidelines */}
-                {[35, 110, 185, 260].map((y, idx) => (
+                {[35, 110, 185, BASE_Y].map((y, idx) => (
                   <line
                     key={idx}
                     x1={MARGIN_LEFT}
@@ -607,7 +735,7 @@ export default function DashboardTab({
 
                 {/* Y-Axis Value Labels */}
                 {[chartDataModel.maxVal, chartDataModel.maxVal * 0.66, chartDataModel.maxVal * 0.33, 0].map((val, idx) => {
-                  const yPoints = [35, 110, 185, 260];
+                  const yPoints = [35, 110, 185, BASE_Y];
                   return (
                     <text
                       key={idx}
@@ -623,7 +751,21 @@ export default function DashboardTab({
                   );
                 })}
 
-                {/* Render Series (Multi-Month Pairs of Income & Expense Lines) */}
+                {/* Vertical Guideline on Hover */}
+                {hoveredXIndex !== null && (
+                  <line
+                    x1={getXCoordinate(hoveredXIndex)}
+                    y1={TOP_Y}
+                    x2={getXCoordinate(hoveredXIndex)}
+                    y2={BASE_Y}
+                    stroke="rgba(129, 140, 248, 0.6)"
+                    strokeWidth="1.5"
+                    strokeDasharray="4 4"
+                    style={{ filter: 'drop-shadow(0 0 6px rgba(129, 140, 248, 0.8))' }}
+                  />
+                )}
+
+                {/* Render Series (Multi-Month / Multi-Year Pairs of Income & Expense Lines) */}
                 {chartDataModel.series.map((seriesItem, sIdx) => {
                   const incPoints = seriesItem.points.map((p, pIdx) => ({
                     x: getXCoordinate(pIdx),
@@ -637,7 +779,7 @@ export default function DashboardTab({
 
                   return (
                     <g key={sIdx}>
-                      {/* Area Fills for Single Month Mode */}
+                      {/* Area Fill for Single Series Mode */}
                       {chartDataModel.series.length === 1 && (
                         <>
                           <path d={getAreaPath(incPoints)} fill={`url(#incGrad-${sIdx})`} className="pointer-events-none" />
@@ -650,7 +792,7 @@ export default function DashboardTab({
                         d={getCurvyPath(incPoints)}
                         fill="none"
                         stroke={seriesItem.incomeColor}
-                        strokeWidth="3"
+                        strokeWidth="3.5"
                         strokeLinecap="round"
                         style={{ filter: `drop-shadow(0 0 8px ${seriesItem.incomeColor})` }}
                       />
@@ -660,48 +802,37 @@ export default function DashboardTab({
                         d={getCurvyPath(expPoints)}
                         fill="none"
                         stroke={seriesItem.expenseColor}
-                        strokeWidth="3"
+                        strokeWidth="3.5"
                         strokeLinecap="round"
                         style={{ filter: `drop-shadow(0 0 8px ${seriesItem.expenseColor})` }}
                       />
 
-                      {/* Node Circles */}
-                      {incPoints.map((pt, pIdx) => (
-                        <g key={pIdx} className="cursor-pointer">
-                          <circle
-                            cx={pt.x}
-                            cy={pt.y}
-                            r="4.5"
-                            fill={seriesItem.incomeColor}
-                            stroke="#0b0e18"
-                            strokeWidth="2"
-                            className="transition-all duration-200 hover:scale-150"
-                            onMouseEnter={() => setHoveredNode({
-                              month: seriesItem.month,
-                              label: seriesItem.points[pIdx].label,
-                              income: seriesItem.points[pIdx].income,
-                              expense: seriesItem.points[pIdx].expense
-                            })}
-                            onMouseLeave={() => setHoveredNode(null)}
-                          />
-                          <circle
-                            cx={expPoints[pIdx].x}
-                            cy={expPoints[pIdx].y}
-                            r="4.5"
-                            fill={seriesItem.expenseColor}
-                            stroke="#0b0e18"
-                            strokeWidth="2"
-                            className="transition-all duration-200 hover:scale-150"
-                            onMouseEnter={() => setHoveredNode({
-                              month: seriesItem.month,
-                              label: seriesItem.points[pIdx].label,
-                              income: seriesItem.points[pIdx].income,
-                              expense: seriesItem.points[pIdx].expense
-                            })}
-                            onMouseLeave={() => setHoveredNode(null)}
-                          />
-                        </g>
-                      ))}
+                      {/* Node Points Circles (highlighted when hoveredXIndex matches) */}
+                      {incPoints.map((pt, pIdx) => {
+                        const isHovered = hoveredXIndex === pIdx;
+                        return (
+                          <g key={pIdx}>
+                            <circle
+                              cx={pt.x}
+                              cy={pt.y}
+                              r={isHovered ? "6.5" : "4.5"}
+                              fill={seriesItem.incomeColor}
+                              stroke="#0b0e18"
+                              strokeWidth="2"
+                              style={{ filter: isHovered ? `drop-shadow(0 0 8px ${seriesItem.incomeColor})` : undefined }}
+                            />
+                            <circle
+                              cx={expPoints[pIdx].x}
+                              cy={expPoints[pIdx].y}
+                              r={isHovered ? "6.5" : "4.5"}
+                              fill={seriesItem.expenseColor}
+                              stroke="#0b0e18"
+                              strokeWidth="2"
+                              style={{ filter: isHovered ? `drop-shadow(0 0 8px ${seriesItem.expenseColor})` : undefined }}
+                            />
+                          </g>
+                        );
+                      })}
                     </g>
                   );
                 })}
@@ -712,14 +843,15 @@ export default function DashboardTab({
                 {/* X-Axis Reference Point Labels */}
                 {chartDataModel.xLabels.map((lbl, idx) => {
                   const x = getXCoordinate(idx);
+                  const isHovered = hoveredXIndex === idx;
                   return (
                     <text
                       key={idx}
                       x={x}
-                      y="285"
-                      fill="#94a3b8"
-                      fontSize={singleMonthGranularity === 'days' && numXPoints > 20 ? "8" : "10"}
-                      fontWeight="800"
+                      y="335"
+                      fill={isHovered ? "#ffffff" : "#94a3b8"}
+                      fontSize={singleMonthGranularity === 'days' && numXPoints > 20 ? "9" : "11"}
+                      fontWeight={isHovered ? "900" : "800"}
                       textAnchor="middle"
                     >
                       {lbl}
@@ -728,17 +860,31 @@ export default function DashboardTab({
                 })}
               </svg>
 
-              {/* Hover Tooltip card over SVG */}
-              {hoveredNode && (
-                <div className="absolute top-4 right-6 bg-[#0d101d]/95 border border-indigo-500/40 rounded-2xl p-3.5 shadow-2xl backdrop-blur-xl animate-mac-dropdown text-xs space-y-1.5 z-20 pointer-events-none">
-                  <span className="font-black text-indigo-300 block border-b border-white/5 pb-1">
-                    {hoveredNode.month} • {hoveredNode.label}
+              {/* Smooth Jitter-Free Tooltip card overlay on Hover */}
+              {hoveredXIndex !== null && chartDataModel.series.length > 0 && (
+                <div className="absolute top-4 right-6 bg-[#0d101d]/95 border border-indigo-500/40 rounded-2xl p-4 shadow-2xl backdrop-blur-xl animate-mac-dropdown text-xs space-y-2 z-20 pointer-events-none max-w-xs">
+                  <span className="font-black text-indigo-300 block border-b border-white/5 pb-1 uppercase tracking-wider text-[11px]">
+                    Điểm đối chiếu: {chartDataModel.xLabels[hoveredXIndex]}
                   </span>
-                  <div className="flex items-center justify-between gap-4 pt-1">
-                    <span className="text-emerald-400 font-extrabold">Thu nhập: {formatVND(hoveredNode.income)}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-rose-400 font-extrabold">Chi tiêu: {formatVND(hoveredNode.expense)}</span>
+
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto scrollbar-thin pr-1">
+                    {chartDataModel.series.map((sItem, sIdx) => {
+                      const pt = sItem.points[hoveredXIndex];
+                      if (!pt) return null;
+                      return (
+                        <div key={sIdx} className="space-y-0.5 bg-[#080a14] p-2 rounded-xl border border-white/5">
+                          <span className="text-[10px] font-black text-slate-400 block">{sItem.title}</span>
+                          <div className="flex items-center justify-between gap-3 text-emerald-400 font-black">
+                            <span>Thu:</span>
+                            <span>{formatVND(pt.income)}</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-3 text-rose-400 font-black">
+                            <span>Chi:</span>
+                            <span>{formatVND(pt.expense)}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -747,7 +893,7 @@ export default function DashboardTab({
         </div>
       </div>
 
-      {/* --- SECTION 2: Income & Expense Distribution Pie Charts Grid (With matching TrendingUp/TrendingDown icons & titles) --- */}
+      {/* --- SECTION 2: Income & Expense Distribution Pie Charts Grid (Titles: Phân Bổ Thu Nhập & Phân Bổ Chi Tiêu, matching TrendingUp/TrendingDown icons) --- */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 text-left">
         
         {/* Income Distribution Pie Chart */}
@@ -770,6 +916,7 @@ export default function DashboardTab({
             </div>
           ) : (
             <div className="flex flex-col sm:flex-row items-center gap-5">
+              {/* Neon Glow Pie Chart Circle */}
               <div className="relative shrink-0 w-32 h-32">
                 <svg className="w-full h-full transform -rotate-90" viewBox="0 0 120 120">
                   <circle cx="60" cy="60" r="50" fill="transparent" stroke="rgba(255,255,255,0.03)" strokeWidth="12" />
@@ -786,7 +933,7 @@ export default function DashboardTab({
                       strokeDashoffset={s.dashOffset}
                       strokeLinecap={incomeSlices.length > 1 ? 'butt' : 'round'}
                       className="transition-all duration-300 hover:opacity-80 cursor-pointer"
-                      style={{ filter: `drop-shadow(0 0 6px ${s.color})` }}
+                      style={{ filter: `drop-shadow(0 0 8px ${s.color})` }}
                     />
                   ))}
                 </svg>
@@ -798,12 +945,13 @@ export default function DashboardTab({
                 </div>
               </div>
 
+              {/* Neon Glow Progress Bars Legend */}
               <div className="flex-1 space-y-2 w-full">
                 {incomeSlices.map((s, idx) => (
                   <div key={idx} className="space-y-1">
                     <div className="flex items-center justify-between text-xs font-bold">
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ backgroundColor: s.color, boxShadow: `0 0 8px ${s.color}` }} />
+                        <span className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ backgroundColor: s.color, boxShadow: `0 0 10px ${s.color}` }} />
                         <span className="text-slate-200 truncate">{s.name}</span>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
@@ -811,8 +959,8 @@ export default function DashboardTab({
                         <span className="text-white font-black">{s.pct}%</span>
                       </div>
                     </div>
-                    <div className="h-1.5 bg-[#0b0e18] rounded-full overflow-hidden w-full border border-white/5">
-                      <div className="h-full transition-all duration-300" style={{ width: `${s.pct}%`, backgroundColor: s.color, boxShadow: `0 0 8px ${s.color}` }}></div>
+                    <div className="h-2 bg-[#0b0e18] rounded-full overflow-hidden w-full border border-white/5 p-[1px]">
+                      <div className="h-full rounded-full transition-all duration-300" style={{ width: `${s.pct}%`, backgroundColor: s.color, boxShadow: `0 0 12px ${s.color}, 0 0 24px ${s.color}` }}></div>
                     </div>
                   </div>
                 ))}
@@ -841,6 +989,7 @@ export default function DashboardTab({
             </div>
           ) : (
             <div className="flex flex-col sm:flex-row items-center gap-5">
+              {/* Neon Glow Pie Chart Circle */}
               <div className="relative shrink-0 w-32 h-32">
                 <svg className="w-full h-full transform -rotate-90" viewBox="0 0 120 120">
                   <circle cx="60" cy="60" r="50" fill="transparent" stroke="rgba(255,255,255,0.03)" strokeWidth="12" />
@@ -857,7 +1006,7 @@ export default function DashboardTab({
                       strokeDashoffset={s.dashOffset}
                       strokeLinecap={expenseSlices.length > 1 ? 'butt' : 'round'}
                       className="transition-all duration-300 hover:opacity-80 cursor-pointer"
-                      style={{ filter: `drop-shadow(0 0 6px ${s.color})` }}
+                      style={{ filter: `drop-shadow(0 0 8px ${s.color})` }}
                     />
                   ))}
                 </svg>
@@ -869,12 +1018,13 @@ export default function DashboardTab({
                 </div>
               </div>
 
+              {/* Neon Glow Progress Bars Legend */}
               <div className="flex-1 space-y-2 w-full">
                 {expenseSlices.map((s, idx) => (
                   <div key={idx} className="space-y-1">
                     <div className="flex items-center justify-between text-xs font-bold">
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ backgroundColor: s.color, boxShadow: `0 0 8px ${s.color}` }} />
+                        <span className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ backgroundColor: s.color, boxShadow: `0 0 10px ${s.color}` }} />
                         <span className="text-slate-200 truncate">{s.name}</span>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
@@ -882,8 +1032,8 @@ export default function DashboardTab({
                         <span className="text-white font-black">{s.pct}%</span>
                       </div>
                     </div>
-                    <div className="h-1.5 bg-[#0b0e18] rounded-full overflow-hidden w-full border border-white/5">
-                      <div className="h-full transition-all duration-300" style={{ width: `${s.pct}%`, backgroundColor: s.color, boxShadow: `0 0 8px ${s.color}` }}></div>
+                    <div className="h-2 bg-[#0b0e18] rounded-full overflow-hidden w-full border border-white/5 p-[1px]">
+                      <div className="h-full rounded-full transition-all duration-300" style={{ width: `${s.pct}%`, backgroundColor: s.color, boxShadow: `0 0 12px ${s.color}, 0 0 24px ${s.color}` }}></div>
                     </div>
                   </div>
                 ))}
@@ -916,11 +1066,10 @@ export default function DashboardTab({
           </div>
 
           <div className="flex flex-col sm:flex-row items-center gap-5">
-            {/* Donut Ring */}
+            {/* Donut Ring with Neon Drop Shadows */}
             <div className="relative shrink-0 w-32 h-32">
               <svg className="w-full h-full transform -rotate-90" viewBox="0 0 120 120">
                 <circle cx="60" cy="60" r="50" fill="transparent" stroke="rgba(255,255,255,0.03)" strokeWidth="12" />
-                {/* Segment 1: Quỹ Dự Phòng (Green) */}
                 <circle
                   cx="60"
                   cy="60"
@@ -931,9 +1080,8 @@ export default function DashboardTab({
                   strokeDasharray={`${emLen} ${C}`}
                   strokeDashoffset={0}
                   className="transition-all duration-500"
-                  style={{ filter: 'drop-shadow(0 0 6px #10b981)' }}
+                  style={{ filter: 'drop-shadow(0 0 8px #10b981)' }}
                 />
-                {/* Segment 2: Quỹ Tích Lũy (Cyan) */}
                 <circle
                   cx="60"
                   cy="60"
@@ -944,7 +1092,7 @@ export default function DashboardTab({
                   strokeDasharray={`${C - emLen} ${C}`}
                   strokeDashoffset={-emLen}
                   className="transition-all duration-500"
-                  style={{ filter: 'drop-shadow(0 0 6px #06b6d4)' }}
+                  style={{ filter: 'drop-shadow(0 0 8px #06b6d4)' }}
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
@@ -1004,7 +1152,7 @@ export default function DashboardTab({
 
             <div className="h-3 bg-[#121626] rounded-full overflow-hidden p-[1px] border border-white/5">
               <div
-                className={`h-full rounded-full transition-all duration-500 ${isOverBudget ? 'bg-gradient-to-r from-rose-500 to-red-400 shadow-[0_0_12px_rgba(239,68,68,0.8)]' : 'bg-gradient-to-r from-indigo-500 via-cyan-400 to-emerald-400 shadow-[0_0_12px_rgba(92,54,245,0.8)]'}`}
+                className={`h-full rounded-full transition-all duration-500 ${isOverBudget ? 'bg-gradient-to-r from-rose-500 to-red-400 shadow-[0_0_15px_rgba(239,68,68,0.8)]' : 'bg-gradient-to-r from-indigo-500 via-cyan-400 to-emerald-400 shadow-[0_0_15px_rgba(92,54,245,0.8)]'}`}
                 style={{ width: `${budgetPercent}%` }}
               ></div>
             </div>

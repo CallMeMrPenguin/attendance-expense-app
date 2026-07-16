@@ -985,8 +985,8 @@ function FlowTab({
                         <span className="text-white font-black">{s.pct}%</span>
                       </div>
                     </div>
-                    <div className="h-1.5 bg-[#090c18] rounded-full overflow-hidden w-full border border-white/5">
-                      <div className="h-full transition-all duration-300" style={{ width: `${s.pct}%`, backgroundColor: s.color, boxShadow: `0 0 8px ${s.color}` }}></div>
+                    <div className="h-2 bg-[#090c18] rounded-full overflow-hidden w-full border border-white/5 p-[1px]">
+                      <div className="h-full rounded-full transition-all duration-300" style={{ width: `${s.pct}%`, backgroundColor: s.color, boxShadow: `0 0 12px ${s.color}, 0 0 24px ${s.color}` }}></div>
                     </div>
                   </div>
                 ))}
@@ -1032,7 +1032,7 @@ function FlowTab({
                       strokeDashoffset={s.dashOffset}
                       strokeLinecap={expenseSlices.length > 1 ? 'butt' : 'round'}
                       className="transition-all duration-300 hover:opacity-80 cursor-pointer"
-                      style={{ filter: `drop-shadow(0 0 6px ${s.color})` }}
+                      style={{ filter: `drop-shadow(0 0 8px ${s.color})` }}
                     />
                   ))}
                 </svg>
@@ -1050,7 +1050,7 @@ function FlowTab({
                   <div key={idx} className="space-y-1">
                     <div className="flex items-center justify-between text-xs font-bold">
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ backgroundColor: s.color, boxShadow: `0 0 8px ${s.color}` }} />
+                        <span className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ backgroundColor: s.color, boxShadow: `0 0 10px ${s.color}` }} />
                         <span className="text-slate-200 truncate">{s.name}</span>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
@@ -1058,8 +1058,8 @@ function FlowTab({
                         <span className="text-white font-black">{s.pct}%</span>
                       </div>
                     </div>
-                    <div className="h-1.5 bg-[#090c18] rounded-full overflow-hidden w-full border border-white/5">
-                      <div className="h-full transition-all duration-300" style={{ width: `${s.pct}%`, backgroundColor: s.color, boxShadow: `0 0 8px ${s.color}` }}></div>
+                    <div className="h-2 bg-[#090c18] rounded-full overflow-hidden w-full border border-white/5 p-[1px]">
+                      <div className="h-full rounded-full transition-all duration-300" style={{ width: `${s.pct}%`, backgroundColor: s.color, boxShadow: `0 0 12px ${s.color}, 0 0 24px ${s.color}` }}></div>
                     </div>
                   </div>
                 ))}
