@@ -13,6 +13,8 @@ import {
   Key
 } from 'lucide-react';
 
+import MaterialSymbol from './MaterialSymbol';
+
 interface SidebarProps {
   activeTab: 'dashboard' | 'flow' | 'saving' | 'schedule' | 'settings';
   setActiveTab: (tab: 'dashboard' | 'flow' | 'saving' | 'schedule' | 'settings') => void;
@@ -45,11 +47,11 @@ export default function Sidebar({
   setCollapsed
 }: SidebarProps) {
   const tabs = [
-    { id: 'dashboard', label: 'TỔNG QUAN', icon: LayoutDashboard },
-    { id: 'flow', label: 'DÒNG TIỀN', icon: Activity },
-    { id: 'saving', label: 'TIẾT KIỆM', icon: PiggyBank },
-    { id: 'schedule', label: 'LỊCH TRÌNH', icon: CalendarIcon },
-    { id: 'settings', label: 'CÀI ĐẶT', icon: Settings },
+    { id: 'dashboard', label: 'TỔNG QUAN', icon: LayoutDashboard, materialIcon: null },
+    { id: 'flow', label: 'DÒNG TIỀN', icon: null, materialIcon: 'currency_exchange' },
+    { id: 'saving', label: 'TIẾT KIỆM', icon: PiggyBank, materialIcon: null },
+    { id: 'schedule', label: 'LỊCH TRÌNH', icon: CalendarIcon, materialIcon: null },
+    { id: 'settings', label: 'CÀI ĐẶT', icon: Settings, materialIcon: null },
   ] as const;
 
   const [profileOpen, setProfileOpen] = useState(false);
@@ -122,11 +124,23 @@ export default function Sidebar({
               }`}
               title={tab.label}
             >
-              <Icon className={`h-4.5 w-4.5 shrink-0 transition-all ${
-                isActive 
-                  ? 'text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.9)]' 
-                  : 'text-slate-400 group-hover:text-white group-hover:drop-shadow-[0_0_10px_rgba(255,255,255,0.9)]'
-              }`} />
+              {tab.materialIcon ? (
+                <MaterialSymbol
+                  icon={tab.materialIcon}
+                  size={20}
+                  className={`shrink-0 transition-all ${
+                    isActive 
+                      ? 'text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.9)]' 
+                      : 'text-slate-400 group-hover:text-white group-hover:drop-shadow-[0_0_10px_rgba(255,255,255,0.9)]'
+                  }`}
+                />
+              ) : Icon ? (
+                <Icon className={`h-4.5 w-4.5 shrink-0 transition-all ${
+                  isActive 
+                    ? 'text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.9)]' 
+                    : 'text-slate-400 group-hover:text-white group-hover:drop-shadow-[0_0_10px_rgba(255,255,255,0.9)]'
+                }`} />
+              ) : null}
               <span className={`transition-all duration-300 ease-in-out overflow-hidden whitespace-nowrap ${
                 collapsed ? 'w-0 opacity-0 max-w-0 pointer-events-none' : 'w-auto opacity-100 max-w-40'
               } ${isActive ? 'text-glow-white' : 'group-hover:text-glow-white'}`}>

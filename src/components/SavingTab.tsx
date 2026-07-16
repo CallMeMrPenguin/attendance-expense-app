@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { formatVND, formatNumberDots, parseNumberDots } from '@/lib/utils';
 import { useToast } from '@/context/ToastContext';
+import MaterialSymbol from './MaterialSymbol';
 
 interface SavingTabProps {
   currentUser: {
@@ -307,8 +308,8 @@ export default function SavingTab({
             </div>
 
             {/* Top Right Icon Badge */}
-            <div className="p-2 bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 rounded-xl shadow-[0_0_12px_rgba(6,182,212,0.35)] shrink-0">
-              <TrendingUp className="h-5 w-5" />
+            <div className="p-2 bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 rounded-xl shadow-[0_0_12px_rgba(6,182,212,0.35)] shrink-0 flex items-center justify-center">
+              <MaterialSymbol icon="finance_mode" size={20} className="text-cyan-400" />
             </div>
           </div>
         </div>

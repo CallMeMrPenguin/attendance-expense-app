@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 import { formatVND, Session, formatDateVN, formatNumberDots, parseNumberDots } from '@/lib/utils';
 import CustomDatePicker from './CustomDatePicker';
+import MaterialSymbol from './MaterialSymbol';
 
 const ICON_COMPONENTS: Record<string, React.ComponentType<any>> = {
   Briefcase, GraduationCap, TrendingUp, Coins, HelpCircle,
@@ -776,8 +777,8 @@ function FlowTab({
                 </span>
               </div>
             </div>
-            <div className="p-2 bg-purple-500/10 text-purple-400 border border-purple-500/30 rounded-xl shadow-[0_0_12px_rgba(168,85,247,0.35)] shrink-0">
-              <Sparkles className="h-5 w-5" />
+            <div className="p-2 bg-purple-500/10 text-purple-400 border border-purple-500/30 rounded-xl shadow-[0_0_12px_rgba(168,85,247,0.35)] shrink-0 flex items-center justify-center">
+              <MaterialSymbol icon="monitoring" size={20} className="text-purple-400" />
             </div>
           </div>
         </div>
