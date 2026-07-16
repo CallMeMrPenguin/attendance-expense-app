@@ -36,31 +36,43 @@ export async function GET(request: NextRequest) {
     const admin = getSupabaseAdmin();
 
     // 1. Fetch manual_transactions
-    const { data: txData } = await admin
+    const { data: txData, error: txError } = await admin
       .from('manual_transactions')
       .select('*')
       .eq('user_id', userId)
       .order('date', { ascending: false });
 
     // 2. Fetch savings_funds
-    const { data: fundsData } = await admin
+    const { data: fundsData, error: fundsError } = await admin
       .from('savings_funds')
       .select('*')
       .eq('user_id', userId)
       .maybeSingle();
 
     // 3. Fetch category_budgets
-    const { data: budgetsData } = await admin
+    const { data: budgetsData, error: budgetsError } = await admin
       .from('category_budgets')
       .select('*')
       .eq('user_id', userId);
 
     // 4. Fetch savings_history
-    const { data: historyData } = await admin
+    const { data: historyData, error: historyError } = await admin
       .from('savings_history')
       .select('*')
       .eq('user_id', userId)
       .order('date', { ascending: false });
+
+    // Check if any table is missing in Postgres
+    const isTableMissing = [txError, fundsError, budgetsError, historyError].some(
+      err => err && (err.code === '42P01' || err.message?.includes('does not exist'))
+    );
+
+    if (isTableMissing) {
+      return NextResponse.json({
+        tablesMissing: true,
+        message: 'Financial tables do not exist in Supabase yet. Please execute schema.sql in Supabase SQL Editor.'
+      });
+    }
 
     // Format category budgets object
     const formattedBudgets: Record<string, number> = {};
@@ -90,13 +102,15 @@ export async function GET(request: NextRequest) {
     }));
 
     return NextResponse.json({
+      success: true,
       manualTransactions: formattedTx,
       emergencyCurrent: Number(fundsData?.emergency_current) || 0,
       emergencyTarget: Number(fundsData?.emergency_target) || 30000000,
       accumulationCurrent: Number(fundsData?.accumulation_current) || 0,
       accumulationTarget: Number(fundsData?.accumulation_target) || 150000000,
       categoryBudgets: formattedBudgets,
-      savingsHistory: formattedHistory
+      savingsHistory: formattedHistory,
+      hasData: (txData && txData.length > 0) || !!fundsData || (historyData && historyData.length > 0)
     });
 
   } catch (err: any) {

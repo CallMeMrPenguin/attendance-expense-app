@@ -213,59 +213,130 @@ export default function Dashboard() {
     }
   }, [currentUser, activeTab]);
 
-  // Load financial data from Supabase DB via /api/finance
+  // Load financial data from LocalStorage first (for instant offline safety), then sync with Supabase DB
   useEffect(() => {
     if (!currentUser) return;
     const userId = currentUser.id;
     const token = currentUser.token;
 
-    // Purge legacy local storage financial data to ensure Supabase is the sole source of truth
-    try {
-      localStorage.removeItem(`finance_trans_${userId}`);
-      localStorage.removeItem(`finance_em_curr_${userId}`);
-      localStorage.removeItem(`finance_em_tar_${userId}`);
-      localStorage.removeItem(`finance_ac_curr_${userId}`);
-      localStorage.removeItem(`finance_ac_tar_${userId}`);
-      localStorage.removeItem(`finance_sav_hist_${userId}`);
-      localStorage.removeItem(`finance_budgets_${userId}`);
-    } catch (e) {
-      // Ignore storage clear errors
-    }
+    // Step 1: Initial LocalStorage Load (Prevents data loss under all conditions)
+    let localTx: any[] = [];
+    let localSavHist: any[] = [];
+    let localBudgets: Record<string, number> = {};
+    let localEmCurr = 0;
+    let localEmTar = 30000000;
+    let localAcCurr = 0;
+    let localAcTar = 150000000;
 
-    // Fetch financial data from Supabase
+    const storedTrans = localStorage.getItem(`finance_trans_${userId}`);
+    if (storedTrans) {
+      try { localTx = JSON.parse(storedTrans); } catch (e) { console.error(e); }
+    }
+    const storedSavHist = localStorage.getItem(`finance_sav_hist_${userId}`);
+    if (storedSavHist) {
+      try { localSavHist = JSON.parse(storedSavHist); } catch (e) { console.error(e); }
+    }
+    const storedBudgets = localStorage.getItem(`finance_budgets_${userId}`);
+    if (storedBudgets) {
+      try { localBudgets = JSON.parse(storedBudgets); } catch (e) { console.error(e); }
+    }
+    const sEmCurr = localStorage.getItem(`finance_em_curr_${userId}`);
+    if (sEmCurr) localEmCurr = Number(sEmCurr);
+    const sEmTar = localStorage.getItem(`finance_em_tar_${userId}`);
+    if (sEmTar) localEmTar = Number(sEmTar);
+    const sAcCurr = localStorage.getItem(`finance_ac_curr_${userId}`);
+    if (sAcCurr) localAcCurr = Number(sAcCurr);
+    const sAcTar = localStorage.getItem(`finance_ac_tar_${userId}`);
+    if (sAcTar) localAcTar = Number(sAcTar);
+
+    const defaultBudgets = {
+      'Lương': 15000000,
+      'Giáo dục': 10000000,
+      'Đầu tư': 5000000,
+      'Khác': 1000000,
+      'Ăn uống': 4000000,
+      'Di chuyển': 1500000,
+      'Shopping': 3000000,
+      'Hóa đơn': 3000000,
+      'Giải trí': 2000000
+    };
+
+    setManualTransactions(localTx);
+    setEmergencyCurrent(localEmCurr);
+    setEmergencyTarget(localEmTar);
+    setAccumulationCurrent(localAcCurr);
+    setAccumulationTarget(localAcTar);
+    setSavingsHistory(localSavHist);
+    setCategoryBudgets({ ...defaultBudgets, ...localBudgets });
+
+    // Step 2: Background Supabase Cloud Synchronization & Auto-Migration
     fetch('/api/finance', {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(res => res.json())
       .then(data => {
-        if (data.error) {
-          console.error('Supabase finance sync error:', data.error);
+        if (data.tablesMissing) {
+          console.warn('Supabase tables missing. Operating in LocalStorage backup mode.');
           return;
         }
-        setManualTransactions(data.manualTransactions || []);
-        setEmergencyCurrent(data.emergencyCurrent || 0);
-        setEmergencyTarget(data.emergencyTarget || 30000000);
-        setAccumulationCurrent(data.accumulationCurrent || 0);
-        setAccumulationTarget(data.accumulationTarget || 150000000);
-        setSavingsHistory(data.savingsHistory || []);
 
-        const defaultBudgets = {
-          'Lương': 15000000,
-          'Giáo dục': 10000000,
-          'Đầu tư': 5000000,
-          'Khác': 1000000,
-          'Ăn uống': 4000000,
-          'Di chuyển': 1500000,
-          'Shopping': 3000000,
-          'Hóa đơn': 3000000,
-          'Giải trí': 2000000
-        };
-        setCategoryBudgets({ ...defaultBudgets, ...(data.categoryBudgets || {}) });
+        if (data.success) {
+          if (data.hasData) {
+            // Supabase cloud has data: update local state & refresh local storage backup
+            setManualTransactions(data.manualTransactions || []);
+            setEmergencyCurrent(data.emergencyCurrent || 0);
+            setEmergencyTarget(data.emergencyTarget || 30000000);
+            setAccumulationCurrent(data.accumulationCurrent || 0);
+            setAccumulationTarget(data.accumulationTarget || 150000000);
+            setSavingsHistory(data.savingsHistory || []);
+            setCategoryBudgets({ ...defaultBudgets, ...(data.categoryBudgets || {}) });
+
+            // Refresh LocalStorage backup cache
+            localStorage.setItem(`finance_trans_${userId}`, JSON.stringify(data.manualTransactions || []));
+            localStorage.setItem(`finance_em_curr_${userId}`, String(data.emergencyCurrent || 0));
+            localStorage.setItem(`finance_em_tar_${userId}`, String(data.emergencyTarget || 30000000));
+            localStorage.setItem(`finance_ac_curr_${userId}`, String(data.accumulationCurrent || 0));
+            localStorage.setItem(`finance_ac_tar_${userId}`, String(data.accumulationTarget || 150000000));
+            localStorage.setItem(`finance_sav_hist_${userId}`, JSON.stringify(data.savingsHistory || []));
+            localStorage.setItem(`finance_budgets_${userId}`, JSON.stringify({ ...defaultBudgets, ...(data.categoryBudgets || {}) }));
+          } else if (localTx.length > 0 || localSavHist.length > 0 || Object.keys(localBudgets).length > 0) {
+            // Supabase table is empty BUT LocalStorage has existing local data -> Auto-migrate UP to Supabase cloud!
+            console.log('Auto-migrating local financial data up to Supabase database...');
+            fetch('/api/finance', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({ type: 'transactions', transactions: localTx })
+            });
+            fetch('/api/finance', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({
+                type: 'savings_funds',
+                savingsFunds: {
+                  emergencyCurrent: localEmCurr,
+                  emergencyTarget: localEmTar,
+                  accumulationCurrent: localAcCurr,
+                  accumulationTarget: localAcTar
+                }
+              })
+            });
+            fetch('/api/finance', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({ type: 'savings_history', savingsHistory: localSavHist })
+            });
+            fetch('/api/finance', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({ type: 'category_budgets', categoryBudgets: { ...defaultBudgets, ...localBudgets } })
+            });
+          }
+        }
       })
-      .catch(err => console.error('Fetch finance failed:', err));
+      .catch(err => console.error('Fetch finance background sync error:', err));
   }, [currentUser]);
 
-  // Supabase Sync Save Helpers
+  // Dual Sync Save Helpers (Updates React State, LocalStorage Backup & Supabase Cloud simultaneously)
   const syncFinanceToSupabase = useCallback((payload: any) => {
     if (!currentUser?.token) return;
     fetch('/api/finance', {
@@ -275,16 +346,18 @@ export default function Dashboard() {
         Authorization: `Bearer ${currentUser.token}`
       },
       body: JSON.stringify(payload)
-    }).catch(e => console.error('Sync to Supabase error:', e));
+    }).catch(e => console.error('Sync to Supabase background error:', e));
   }, [currentUser]);
 
   const saveTransactions = useCallback((userId: string, data: any[]) => {
     setManualTransactions(data);
+    localStorage.setItem(`finance_trans_${userId}`, JSON.stringify(data));
     syncFinanceToSupabase({ type: 'transactions', transactions: data });
   }, [syncFinanceToSupabase]);
 
   const saveEmergencyCurrent = (userId: string, val: number) => {
     setEmergencyCurrent(val);
+    localStorage.setItem(`finance_em_curr_${userId}`, String(val));
     syncFinanceToSupabase({
       type: 'savings_funds',
       savingsFunds: {
@@ -298,6 +371,7 @@ export default function Dashboard() {
 
   const saveEmergencyTarget = (userId: string, val: number) => {
     setEmergencyTarget(val);
+    localStorage.setItem(`finance_em_tar_${userId}`, String(val));
     syncFinanceToSupabase({
       type: 'savings_funds',
       savingsFunds: {
@@ -311,6 +385,7 @@ export default function Dashboard() {
 
   const saveAccumulationCurrent = (userId: string, val: number) => {
     setAccumulationCurrent(val);
+    localStorage.setItem(`finance_ac_curr_${userId}`, String(val));
     syncFinanceToSupabase({
       type: 'savings_funds',
       savingsFunds: {
@@ -324,6 +399,7 @@ export default function Dashboard() {
 
   const saveAccumulationTarget = (userId: string, val: number) => {
     setAccumulationTarget(val);
+    localStorage.setItem(`finance_ac_tar_${userId}`, String(val));
     syncFinanceToSupabase({
       type: 'savings_funds',
       savingsFunds: {
@@ -337,11 +413,13 @@ export default function Dashboard() {
 
   const saveSavingsHistory = (userId: string, data: any[]) => {
     setSavingsHistory(data);
+    localStorage.setItem(`finance_sav_hist_${userId}`, JSON.stringify(data));
     syncFinanceToSupabase({ type: 'savings_history', savingsHistory: data });
   };
 
   const saveBudgets = useCallback((userId: string, budgets: Record<string, number>) => {
     setCategoryBudgets(budgets);
+    localStorage.setItem(`finance_budgets_${userId}`, JSON.stringify(budgets));
     syncFinanceToSupabase({ type: 'category_budgets', categoryBudgets: budgets });
   }, [syncFinanceToSupabase]);
 
