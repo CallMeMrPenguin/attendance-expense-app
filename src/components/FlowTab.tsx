@@ -354,6 +354,84 @@ function FlowTab({
     return categoryActualsMap[catName] || 0;
   }, [categoryActualsMap]);
 
+  // Memoized Income and Expense Donut Chart Slices for FlowTab
+  const { incomeSlices, expenseSlices, totalPieInc, totalPieExp } = React.useMemo(() => {
+    const incomePieTotals = incomeCats.map(cat => ({
+      name: cat.name,
+      value: categoryActualsMap[cat.name] || 0
+    }));
+
+    const expensePieTotals = expenseCats.map(cat => ({
+      name: cat.name,
+      value: categoryActualsMap[cat.name] || 0
+    }));
+
+    const totInc = incomePieTotals.reduce((sum, e) => sum + e.value, 0);
+    const totExp = expensePieTotals.reduce((sum, e) => sum + e.value, 0);
+    const C_PIE = 314.16;
+
+    const incomeColors: Record<string, string> = {
+      'Lương': '#10b981',
+      'Giáo dục': '#06b6d4',
+      'Đầu tư': '#8b5cf6',
+      'Khác': '#f59e0b'
+    };
+
+    const expenseColors: Record<string, string> = {
+      'Ăn uống': '#f59e0b',
+      'Di chuyển': '#3b82f6',
+      'Shopping': '#ec4899',
+      'Hóa đơn': '#a855f7',
+      'Giải trí': '#f43f5e',
+      'Khác': '#64748b'
+    };
+
+    let accInc = 0;
+    const incSlices = incomePieTotals
+      .filter(e => e.value > 0)
+      .map((e, idx) => {
+        const pct = totInc > 0 ? (e.value / totInc) * 100 : 0;
+        const len = totInc > 0 ? (e.value / totInc) * C_PIE : 0;
+        const offset = accInc;
+        accInc += len;
+        const fallbackColors = ['#10b981', '#06b6d4', '#8b5cf6', '#f59e0b', '#3b82f6', '#ec4899'];
+        return {
+          name: e.name,
+          value: e.value,
+          pct: Math.round(pct),
+          color: incomeColors[e.name] || fallbackColors[idx % fallbackColors.length],
+          dashArray: `${len} ${C_PIE}`,
+          dashOffset: -offset
+        };
+      });
+
+    let accExp = 0;
+    const expSlices = expensePieTotals
+      .filter(e => e.value > 0)
+      .map((e, idx) => {
+        const pct = totExp > 0 ? (e.value / totExp) * 100 : 0;
+        const len = totExp > 0 ? (e.value / totExp) * C_PIE : 0;
+        const offset = accExp;
+        accExp += len;
+        const fallbackColors = ['#f59e0b', '#3b82f6', '#ec4899', '#a855f7', '#f43f5e', '#64748b'];
+        return {
+          name: e.name,
+          value: e.value,
+          pct: Math.round(pct),
+          color: expenseColors[e.name] || fallbackColors[idx % fallbackColors.length],
+          dashArray: `${len} ${C_PIE}`,
+          dashOffset: -offset
+        };
+      });
+
+    return {
+      incomeSlices: incSlices,
+      expenseSlices: expSlices,
+      totalPieInc: totInc,
+      totalPieExp: totExp
+    };
+  }, [incomeCats, expenseCats, categoryActualsMap]);
+
   const getCategoryIconName = (catName: string, type: 'income' | 'expense') => {
     const list = type === 'income' ? incomeCats : expenseCats;
     const found = list.find(c => c.name === catName);
@@ -839,6 +917,155 @@ function FlowTab({
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Row 2: 2 Donut/Pie Charts for Income & Expense (4x2x2x1 layout) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 text-left">
+        
+        {/* Income Distribution Pie Chart */}
+        <div className="calendar-container-depth p-5 bg-[#0e1222] space-y-4 rounded-3xl border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.15)]">
+          <div className="flex items-center justify-between border-b border-white/5 pb-2">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                <TrendingUp className="h-4 w-4" />
+              </div>
+              <h3 className="text-xs font-black text-emerald-400 text-glow-green uppercase tracking-wider">Phân Bổ Thu Nhập Theo Danh Mục</h3>
+            </div>
+            <span className="text-[10px] font-extrabold text-slate-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+              Tổng: {formatVND(totalPieInc)}
+            </span>
+          </div>
+
+          {totalPieInc === 0 ? (
+            <div className="py-8 text-center text-xs text-slate-500 font-extrabold bg-[#090c18] rounded-2xl border border-white/5">
+              Chưa ghi nhận thu nhập phát sinh trong khoảng thời gian này.
+            </div>
+          ) : (
+            <div className="flex flex-col sm:flex-row items-center gap-5">
+              {/* SVG Donut */}
+              <div className="relative shrink-0 w-32 h-32">
+                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 120 120">
+                  <circle cx="60" cy="60" r="50" fill="transparent" stroke="rgba(255,255,255,0.03)" strokeWidth="12" />
+                  {incomeSlices.map((s, idx) => (
+                    <circle
+                      key={idx}
+                      cx="60"
+                      cy="60"
+                      r="50"
+                      fill="transparent"
+                      stroke={s.color}
+                      strokeWidth="12"
+                      strokeDasharray={s.dashArray}
+                      strokeDashoffset={s.dashOffset}
+                      strokeLinecap={incomeSlices.length > 1 ? 'butt' : 'round'}
+                      className="transition-all duration-300 hover:opacity-80 cursor-pointer"
+                    />
+                  ))}
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-[9px] font-extrabold text-emerald-400 uppercase leading-none">Thu Nhập</span>
+                  <span className="text-xs font-black text-white leading-none mt-1 truncate max-w-[85px]" title={formatVND(totalPieInc)}>
+                    {totalPieInc >= 1000000 ? `${(totalPieInc / 1000000).toFixed(1)}M` : formatVND(totalPieInc)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Legend Badges */}
+              <div className="flex-1 space-y-2 w-full">
+                {incomeSlices.map((s, idx) => (
+                  <div key={idx} className="space-y-1">
+                    <div className="flex items-center justify-between text-xs font-bold">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ backgroundColor: s.color }} />
+                        <span className="text-slate-200 truncate">{s.name}</span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-slate-400 text-[10px] font-semibold">{formatVND(s.value)}</span>
+                        <span className="text-white font-black">{s.pct}%</span>
+                      </div>
+                    </div>
+                    <div className="h-1.5 bg-[#090c18] rounded-full overflow-hidden w-full">
+                      <div className="h-full transition-all duration-300" style={{ width: `${s.pct}%`, backgroundColor: s.color }}></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Expense Distribution Pie Chart */}
+        <div className="calendar-container-depth p-5 bg-[#0e1222] space-y-4 rounded-3xl border border-rose-500/30 shadow-[0_0_20px_rgba(239,68,68,0.15)]">
+          <div className="flex items-center justify-between border-b border-white/5 pb-2">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-rose-500/15 text-rose-400 border border-rose-500/30">
+                <TrendingDown className="h-4 w-4" />
+              </div>
+              <h3 className="text-xs font-black text-rose-400 text-glow-red uppercase tracking-wider">Phân Bổ Chi Tiêu Theo Danh Mục</h3>
+            </div>
+            <span className="text-[10px] font-extrabold text-slate-400 bg-rose-500/10 px-2 py-0.5 rounded-md border border-rose-500/20">
+              Tổng: {formatVND(totalPieExp)}
+            </span>
+          </div>
+
+          {totalPieExp === 0 ? (
+            <div className="py-8 text-center text-xs text-slate-500 font-extrabold bg-[#090c18] rounded-2xl border border-white/5">
+              Chưa phát sinh chi tiêu trong khoảng thời gian này.
+            </div>
+          ) : (
+            <div className="flex flex-col sm:flex-row items-center gap-5">
+              {/* SVG Donut */}
+              <div className="relative shrink-0 w-32 h-32">
+                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 120 120">
+                  <circle cx="60" cy="60" r="50" fill="transparent" stroke="rgba(255,255,255,0.03)" strokeWidth="12" />
+                  {expenseSlices.map((s, idx) => (
+                    <circle
+                      key={idx}
+                      cx="60"
+                      cy="60"
+                      r="50"
+                      fill="transparent"
+                      stroke={s.color}
+                      strokeWidth="12"
+                      strokeDasharray={s.dashArray}
+                      strokeDashoffset={s.dashOffset}
+                      strokeLinecap={expenseSlices.length > 1 ? 'butt' : 'round'}
+                      className="transition-all duration-300 hover:opacity-80 cursor-pointer"
+                    />
+                  ))}
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-[9px] font-extrabold text-rose-400 uppercase leading-none">Chi Tiêu</span>
+                  <span className="text-xs font-black text-white leading-none mt-1 truncate max-w-[85px]" title={formatVND(totalPieExp)}>
+                    {totalPieExp >= 1000000 ? `${(totalPieExp / 1000000).toFixed(1)}M` : formatVND(totalPieExp)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Legend Badges */}
+              <div className="flex-1 space-y-2 w-full">
+                {expenseSlices.map((s, idx) => (
+                  <div key={idx} className="space-y-1">
+                    <div className="flex items-center justify-between text-xs font-bold">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ backgroundColor: s.color }} />
+                        <span className="text-slate-200 truncate">{s.name}</span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-slate-400 text-[10px] font-semibold">{formatVND(s.value)}</span>
+                        <span className="text-white font-black">{s.pct}%</span>
+                      </div>
+                    </div>
+                    <div className="h-1.5 bg-[#090c18] rounded-full overflow-hidden w-full">
+                      <div className="h-full transition-all duration-300" style={{ width: `${s.pct}%`, backgroundColor: s.color }}></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
