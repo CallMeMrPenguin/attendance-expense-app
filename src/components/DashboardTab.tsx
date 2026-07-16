@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
-  Plus, 
   Wallet, 
   TrendingUp, 
   TrendingDown, 
@@ -47,6 +46,22 @@ interface DashboardTabProps {
   setActiveTab: (tab: 'dashboard' | 'flow' | 'saving' | 'schedule' | 'settings') => void;
 }
 
+// 24 Vibrant Neon Color Choices for up to 12 Month Pairs
+const MONTH_COLOR_PAIRS = [
+  { income: '#10b981', expense: '#ef4444' }, // Month 1: Green / Red
+  { income: '#06b6d4', expense: '#f59e0b' }, // Month 2: Cyan / Amber
+  { income: '#a855f7', expense: '#ec4899' }, // Month 3: Purple / Pink
+  { income: '#3b82f6', expense: '#f43f5e' }, // Month 4: Blue / Rose
+  { income: '#34d399', expense: '#ff7849' }, // Month 5: Emerald / Orange
+  { income: '#8b5cf6', expense: '#fb7185' }, // Month 6: Indigo / Coral
+  { income: '#0ea5e9', expense: '#e11d48' }, // Month 7: Sky / Crimson
+  { income: '#2dd4bf', expense: '#d97706' }, // Month 8: Teal / Gold
+  { income: '#6366f1', expense: '#f43f5e' }, // Month 9: Violet / Magenta
+  { income: '#14b8a6', expense: '#e11d48' }, // Month 10: Jade / Ruby
+  { income: '#84cc16', expense: '#c084fc' }, // Month 11: Lime / Lavender
+  { income: '#0284c7', expense: '#ff5252' }  // Month 12: DeepSky / BrightRed
+];
+
 export default function DashboardTab({
   currentUser,
   manualTransactions,
@@ -72,7 +87,9 @@ export default function DashboardTab({
   handleOpenTxModal,
   setActiveTab
 }: DashboardTabProps) {
-  const [hoveredPointIndex, setHoveredPointIndex] = useState<number | null>(null);
+  // Granularity for single month mode: 'weeks' (4 points) vs 'days' (28-31 points)
+  const [singleMonthGranularity, setSingleMonthGranularity] = useState<'weeks' | 'days'>('weeks');
+  const [hoveredNode, setHoveredNode] = useState<{ month: string, label: string, income: number, expense: number } | null>(null);
 
   const income = getSelectedMonthsIncome();
   const expense = getSelectedMonthsExpense();
@@ -86,50 +103,150 @@ export default function DashboardTab({
   const netWorth = walletCash + savings;
   const savingsMargin = income > 0 ? Math.round((net / income) * 100) : 0;
 
-  // Helper for trend line graph data
-  const getLineData = () => {
-    if (chartSelectedMonths.length === 0) return [];
-    
-    if (chartSelectedMonths.length === 1) {
-      const targetMonth = chartSelectedMonths[0];
-      return [
-        { label: 'Tuần 1', income: getWeeklyIncome(targetMonth, 1, 7), expense: getWeeklyExpense(targetMonth, 1, 7) },
-        { label: 'Tuần 2', income: getWeeklyIncome(targetMonth, 8, 14), expense: getWeeklyExpense(targetMonth, 8, 14) },
-        { label: 'Tuần 3', income: getWeeklyIncome(targetMonth, 15, 21), expense: getWeeklyExpense(targetMonth, 15, 21) },
-        { label: 'Tuần 4', income: getWeeklyIncome(targetMonth, 22, 31), expense: getWeeklyExpense(targetMonth, 22, 31) }
-      ];
-    }
-
-    // Sort chronologically
-    const sorted = [...chartSelectedMonths].sort((a, b) => a.localeCompare(b));
-    return sorted.map(m => {
-      const [y, mn] = m.split('-');
-      return {
-        label: `Th.${Number(mn)}/${y.substring(2)}`,
-        income: getMonthlyIncome(m),
-        expense: getMonthlyExpense(m),
-        rawMonth: m
-      };
-    });
+  // Helper for daily income calculation
+  const getDailyIncome = (monthStr: string, day: number) => {
+    const dayStr = `${monthStr}-${String(day).padStart(2, '0')}`;
+    const manual = manualTransactions
+      .filter(t => t.type === 'income' && t.date === dayStr)
+      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+    const auto = sessions
+      .filter(s => s.status === 'Đã dạy' && s.date === dayStr)
+      .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+    return manual + auto;
   };
 
-  // Curvy SVG path calculations (Taller 320px SVG Canvas for Grand Amplitude)
-  const lineData = getLineData();
-  const maxVal = Math.max(1000000, ...lineData.flatMap(d => [d.income, d.expense]));
-  const N = lineData.length;
+  // Helper for daily expense calculation
+  const getDailyExpense = (monthStr: string, day: number) => {
+    const dayStr = `${monthStr}-${String(day).padStart(2, '0')}`;
+    return manualTransactions
+      .filter(t => t.type === 'expense' && t.date === dayStr)
+      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+  };
 
-  // SVG Y mapping (Y base=260, max altitude Y=35)
-  const incomePts = lineData.map((d, idx) => {
-    const x = N > 1 ? 95 + idx * (570 / (N - 1)) : 95;
-    const y = 260 - (d.income / maxVal) * 225;
-    return { x, y };
-  });
+  // Days count helper
+  const getDaysInMonth = (monthStr: string) => {
+    if (!monthStr) return 30;
+    const [y, m] = monthStr.split('-').map(Number);
+    return new Date(y, m, 0).getDate();
+  };
 
-  const expensePts = lineData.map((d, idx) => {
-    const x = N > 1 ? 95 + idx * (570 / (N - 1)) : 95;
-    const y = 260 - (d.expense / maxVal) * 225;
-    return { x, y };
-  });
+  // Multi-Month Multi-Line Chart Data Model
+  const chartDataModel = useMemo(() => {
+    if (chartSelectedMonths.length === 0) return { xLabels: [], series: [], maxVal: 1000000 };
+
+    const sortedMonths = [...chartSelectedMonths].sort((a, b) => a.localeCompare(b));
+
+    // Single Month Mode
+    if (sortedMonths.length === 1) {
+      const targetMonth = sortedMonths[0];
+      const [yStr, mStr] = targetMonth.split('-');
+      const monthFormatted = `Th.${Number(mStr)}/${yStr.substring(2)}`;
+
+      if (singleMonthGranularity === 'days') {
+        const numDays = getDaysInMonth(targetMonth);
+        const xLabels = Array.from({ length: numDays }, (_, i) => `N. ${i + 1}`);
+        const points = Array.from({ length: numDays }, (_, i) => {
+          const d = i + 1;
+          return {
+            label: `Ng. ${d}`,
+            income: getDailyIncome(targetMonth, d),
+            expense: getDailyExpense(targetMonth, d)
+          };
+        });
+
+        const maxVal = Math.max(1000000, ...points.flatMap(p => [p.income, p.expense]));
+        return {
+          xLabels,
+          maxVal,
+          series: [
+            {
+              month: monthFormatted,
+              rawMonth: targetMonth,
+              colorIndex: 0,
+              incomeColor: MONTH_COLOR_PAIRS[0].income,
+              expenseColor: MONTH_COLOR_PAIRS[0].expense,
+              points
+            }
+          ]
+        };
+      } else {
+        // Week mode for single month (4 points)
+        const xLabels = ['Tuần 1', 'Tuần 2', 'Tuần 3', 'Tuần 4'];
+        const points = [
+          { label: 'Tuần 1', income: getWeeklyIncome(targetMonth, 1, 7), expense: getWeeklyExpense(targetMonth, 1, 7) },
+          { label: 'Tuần 2', income: getWeeklyIncome(targetMonth, 8, 14), expense: getWeeklyExpense(targetMonth, 8, 14) },
+          { label: 'Tuần 3', income: getWeeklyIncome(targetMonth, 15, 21), expense: getWeeklyExpense(targetMonth, 15, 21) },
+          { label: 'Tuần 4', income: getWeeklyIncome(targetMonth, 22, 31), expense: getWeeklyExpense(targetMonth, 22, 31) }
+        ];
+
+        const maxVal = Math.max(1000000, ...points.flatMap(p => [p.income, p.expense]));
+        return {
+          xLabels,
+          maxVal,
+          series: [
+            {
+              month: monthFormatted,
+              rawMonth: targetMonth,
+              colorIndex: 0,
+              incomeColor: MONTH_COLOR_PAIRS[0].income,
+              expenseColor: MONTH_COLOR_PAIRS[0].expense,
+              points
+            }
+          ]
+        };
+      }
+    }
+
+    // Multi-Month Mode (Overlay 4 weeks per month with 2 lines for each selected month)
+    const xLabels = ['Tuần 1', 'Tuần 2', 'Tuần 3', 'Tuần 4'];
+    const seriesList = sortedMonths.map((m, idx) => {
+      const [yStr, mStr] = m.split('-');
+      const monthFormatted = `Th.${Number(mStr)}/${yStr.substring(2)}`;
+      const colors = MONTH_COLOR_PAIRS[idx % MONTH_COLOR_PAIRS.length];
+
+      const points = [
+        { label: 'Tuần 1', income: getWeeklyIncome(m, 1, 7), expense: getWeeklyExpense(m, 1, 7) },
+        { label: 'Tuần 2', income: getWeeklyIncome(m, 8, 14), expense: getWeeklyExpense(m, 8, 14) },
+        { label: 'Tuần 3', income: getWeeklyIncome(m, 15, 21), expense: getWeeklyExpense(m, 15, 21) },
+        { label: 'Tuần 4', income: getWeeklyIncome(m, 22, 31), expense: getWeeklyExpense(m, 22, 31) }
+      ];
+
+      return {
+        month: monthFormatted,
+        rawMonth: m,
+        colorIndex: idx,
+        incomeColor: colors.income,
+        expenseColor: colors.expense,
+        points
+      };
+    });
+
+    const maxVal = Math.max(1000000, ...seriesList.flatMap(s => s.points.flatMap(p => [p.income, p.expense])));
+    return {
+      xLabels,
+      maxVal,
+      series: seriesList
+    };
+  }, [chartSelectedMonths, singleMonthGranularity, manualTransactions, sessions]);
+
+  // SVG Curvy Path Generator (Canvas dimensions: 720 x 300)
+  const SVG_WIDTH = 720;
+  const SVG_HEIGHT = 300;
+  const MARGIN_LEFT = 75;
+  const MARGIN_RIGHT = 685;
+  const BASE_Y = 260;
+  const TOP_Y = 35;
+
+  const numXPoints = chartDataModel.xLabels.length;
+
+  const getXCoordinate = (pointIndex: number) => {
+    if (numXPoints <= 1) return MARGIN_LEFT;
+    return MARGIN_LEFT + pointIndex * ((MARGIN_RIGHT - MARGIN_LEFT) / (numXPoints - 1));
+  };
+
+  const getYCoordinate = (val: number, maxVal: number) => {
+    return BASE_Y - (val / maxVal) * (BASE_Y - TOP_Y);
+  };
 
   const getCurvyPath = (pts: { x: number, y: number }[]) => {
     if (pts.length === 0) return '';
@@ -146,7 +263,7 @@ export default function DashboardTab({
   const getAreaPath = (pts: { x: number, y: number }[]) => {
     const linePath = getCurvyPath(pts);
     if (!linePath) return '';
-    return `${linePath} L ${pts[pts.length - 1].x} 260 L ${pts[0].x} 260 Z`;
+    return `${linePath} L ${pts[pts.length - 1].x} ${BASE_Y} L ${pts[0].x} ${BASE_Y} Z`;
   };
 
   // Donut Chart Expense Categories
@@ -171,8 +288,8 @@ export default function DashboardTab({
   const expenseSlices = expenseTotals
     .filter(e => e.value > 0)
     .map(e => {
-      const pct = (e.value / totalSelectedExp) * 100;
-      const len = (e.value / totalSelectedExp) * C;
+      const pct = totalSelectedExp > 0 ? (e.value / totalSelectedExp) * 100 : 0;
+      const len = totalSelectedExp > 0 ? (e.value / totalSelectedExp) * C : 0;
       const offset = accExpDash;
       accExpDash += len;
       return {
@@ -204,8 +321,8 @@ export default function DashboardTab({
   const incomeSlices = incomeTotals
     .filter(e => e.value > 0)
     .map(e => {
-      const pct = (e.value / totalSelectedInc) * 100;
-      const len = (e.value / totalSelectedInc) * C;
+      const pct = totalSelectedInc > 0 ? (e.value / totalSelectedInc) * 100 : 0;
+      const len = totalSelectedInc > 0 ? (e.value / totalSelectedInc) * C : 0;
       const offset = accIncDash;
       accIncDash += len;
       return {
@@ -234,7 +351,7 @@ export default function DashboardTab({
   const isOverBudget = expense > totalExpBudget;
 
   // Recent transactions preview
-  const recentTransactions = React.useMemo(() => {
+  const recentTransactions = useMemo(() => {
     const list = manualTransactions.map(t => ({
       id: t.id,
       desc: t.desc,
@@ -249,7 +366,7 @@ export default function DashboardTab({
   return (
     <div className="space-y-6 animate-mac-dropdown select-none">
       
-      {/* 4 Glowing Metric Summary Cards (Without ArrowUpRight & ArrowDownRight icons next to subtext) */}
+      {/* 4 Glowing Metric Summary Cards (Cleaned subtext without arrow icons) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-5 text-left">
         
         {/* Card 1: Cumulative Net Worth */}
@@ -274,7 +391,7 @@ export default function DashboardTab({
           </div>
         </div>
 
-        {/* Card 2: Income for Selected Period (Icon next to subtext removed) */}
+        {/* Card 2: Income for Selected Period */}
         <div className="kpi-card-green p-6 flex flex-col justify-between min-h-[145px] relative overflow-hidden group hover:scale-[1.01] transition-all cursor-default">
           <div className="flex justify-between items-start gap-2">
             <div className="space-y-1">
@@ -298,7 +415,7 @@ export default function DashboardTab({
           </div>
         </div>
 
-        {/* Card 3: Expenses for Selected Period (Icon next to subtext removed) */}
+        {/* Card 3: Expenses for Selected Period */}
         <div className="kpi-card-red p-6 flex flex-col justify-between min-h-[145px] relative overflow-hidden group hover:scale-[1.01] transition-all cursor-default">
           <div className="flex justify-between items-start gap-2">
             <div className="space-y-1">
@@ -348,113 +465,140 @@ export default function DashboardTab({
 
       </div>
 
-      {/* Multi-Month Selector Filter Bar */}
-      <div className="calendar-container-depth p-4 bg-[#111422] text-left">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mb-3.5 select-none">
-          <div className="flex items-center gap-2.5">
-            <div className="p-1.5 rounded-xl bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
-              <CalendarIcon className="h-4 w-4" />
+      {/* --- MAIN SECTION: Merged Filter Bar & Enlarged Multi-Line SVG Trend Chart --- */}
+      <div className="calendar-container-depth p-6 bg-[#111422] flex flex-col justify-between space-y-5 text-left rounded-3xl border border-indigo-500/30 shadow-[0_0_30px_rgba(92,54,245,0.15)]">
+        
+        {/* MERGED CONTROL HEADER: Graph title + Year switcher + Granularity controls + Month buttons */}
+        <div className="space-y-4 border-b border-white/5 pb-4 select-none">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
+                <BarChart3 className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-white uppercase tracking-wider">Xu Hướng Thu Nhập & Chi Tiêu Multiline</h3>
+                <p className="text-[10px] text-slate-400 font-semibold">Đối chiếu đường thu chi qua 4 tuần hoặc từng ngày theo các tháng</p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-xs font-black uppercase text-white tracking-wider">Bộ Lọc Xem Biểu Đồ (Chọn Nhiều Tháng)</h3>
-              <p className="text-[10px] text-slate-400 font-semibold">Tự động đồng bộ tất cả biểu đồ báo cáo bên dưới</p>
+
+            {/* Granularity & Year Switcher Controls */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Day/Week toggle ONLY available in single month view mode */}
+              {chartSelectedMonths.length === 1 && (
+                <div className="flex items-center bg-[#090b14] border border-white/10 rounded-xl p-1 text-[10px] font-extrabold">
+                  <button
+                    onClick={() => setSingleMonthGranularity('weeks')}
+                    className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                      singleMonthGranularity === 'weeks'
+                        ? 'bg-indigo-500 text-white shadow-[0_0_10px_rgba(92,54,245,0.5)]'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Theo Tuần (4 Điểm)
+                  </button>
+                  <button
+                    onClick={() => setSingleMonthGranularity('days')}
+                    className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                      singleMonthGranularity === 'days'
+                        ? 'bg-indigo-500 text-white shadow-[0_0_10px_rgba(92,54,245,0.5)]'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Theo Ngày ({getDaysInMonth(chartSelectedMonths[0])} Điểm)
+                  </button>
+                </div>
+              )}
+
+              {/* Year Switcher */}
+              <div className="flex items-center gap-1.5 border border-white/10 rounded-xl p-1 bg-[#090b14]">
+                <button 
+                  onClick={() => setChartYear(y => y - 1)} 
+                  className="p-1 rounded-lg hover:bg-white/[0.08] text-slate-400 hover:text-white transition-colors cursor-pointer"
+                  title="Năm trước"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </button>
+                <span className="text-xs font-black px-1.5 text-indigo-300">{chartYear}</span>
+                <button 
+                  onClick={() => setChartYear(y => y + 1)} 
+                  className="p-1 rounded-lg hover:bg-white/[0.08] text-slate-400 hover:text-white transition-colors cursor-pointer"
+                  title="Năm sau"
+                >
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Year Switcher */}
-          <div className="flex items-center gap-2 border border-white/10 rounded-xl p-1 bg-[#090b14]">
-            <button 
-              onClick={() => setChartYear(y => y - 1)} 
-              className="p-1 rounded-lg hover:bg-white/[0.08] text-slate-400 hover:text-white transition-colors cursor-pointer"
-              title="Năm trước"
-            >
-              <ChevronLeft className="h-3.5 w-3.5" />
-            </button>
-            <span className="text-xs font-black px-2 text-indigo-300">{chartYear}</span>
-            <button 
-              onClick={() => setChartYear(y => y + 1)} 
-              className="p-1 rounded-lg hover:bg-white/[0.08] text-slate-400 hover:text-white transition-colors cursor-pointer"
-              title="Năm sau"
-            >
-              <ChevronRight className="h-3.5 w-3.5" />
-            </button>
+          {/* Integrated 12-Month Selector Buttons */}
+          <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-12 gap-1.5 pt-1">
+            {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => {
+              const mStr = `${chartYear}-${String(m).padStart(2, '0')}`;
+              const isSelected = chartSelectedMonths.includes(mStr);
+              return (
+                <button
+                  key={m}
+                  onClick={() => toggleChartMonth(mStr)}
+                  className={`py-2 rounded-xl text-xs font-black tracking-wider transition-all cursor-pointer ${
+                    isSelected
+                      ? 'bg-gradient-to-b from-[#6440f6] to-[#4b25e3] text-white shadow-[0_0_16px_rgba(92,54,245,0.5)] border border-indigo-400/50 scale-[1.02]'
+                      : 'bg-[#0a0d17] text-slate-400 hover:bg-white/[0.06] hover:text-white border border-white/5'
+                  }`}
+                >
+                  T.{m}
+                </button>
+              );
+            })}
           </div>
+
+          {/* Dynamic Month Legend (For multi-month comparison) */}
+          {chartDataModel.series.length > 0 && (
+            <div className="flex flex-wrap items-center gap-3 pt-2 text-[11px] font-extrabold border-t border-white/5">
+              <span className="text-slate-400 uppercase tracking-wider text-[10px]">Chú thích màu tháng ({chartDataModel.series.length} tháng):</span>
+              {chartDataModel.series.map((s, idx) => (
+                <div key={idx} className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-[#080a14] border border-white/10">
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: s.incomeColor, boxShadow: `0 0 6px ${s.incomeColor}` }}></span>
+                  <span className="text-slate-200">{s.month} (Thu)</span>
+                  <span className="text-slate-500">|</span>
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: s.expenseColor, boxShadow: `0 0 6px ${s.expenseColor}` }}></span>
+                  <span className="text-slate-200">(Chi)</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* 12 Month Grid Selector */}
-        <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-12 gap-2">
-          {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => {
-            const mStr = `${chartYear}-${String(m).padStart(2, '0')}`;
-            const isSelected = chartSelectedMonths.includes(mStr);
-            return (
-              <button
-                key={m}
-                onClick={() => toggleChartMonth(mStr)}
-                className={`py-2.5 rounded-xl text-xs font-black tracking-wider transition-all cursor-pointer ${
-                  isSelected
-                    ? 'bg-gradient-to-b from-[#6440f6] to-[#4b25e3] text-white shadow-[0_0_16px_rgba(92,54,245,0.5)] border border-indigo-400/50 scale-[1.02]'
-                    : 'bg-[#0a0d17] text-slate-400 hover:bg-white/[0.06] hover:text-white border border-white/5'
-                }`}
-              >
-                T.{m}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* --- SECTION 1: Grand Prominent Trend Graph (Enlarged 320px SVG Canvas) --- */}
-      <div className="calendar-container-depth p-6 bg-[#111422] flex flex-col justify-between space-y-4 text-left">
-        <div className="flex items-center justify-between border-b border-white/5 pb-3 select-none">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
-              <BarChart3 className="h-5 w-5" />
-            </div>
-            <div>
-              <h3 className="text-sm font-black text-white uppercase tracking-wider">Xu Hướng Thu Nhập & Chi Tiêu</h3>
-              <p className="text-[10px] text-slate-400 font-semibold">Biểu đồ đường cong Bézier đối chiếu thu chi theo thời gian</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4 text-xs font-extrabold">
-            <div className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></span>
-              <span className="text-slate-300">Thu nhập</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-rose-400 shadow-[0_0_8px_rgba(239,68,68,0.8)]"></span>
-              <span className="text-slate-300">Chi tiêu</span>
-            </div>
-          </div>
-        </div>
-
-        {/* SVG Visual Canvas (Enlarged 320px Height for Taller Amplitude) */}
+        {/* SVG Multi-Line Visual Canvas (Taller 300px Height Canvas for Grand View) */}
         <div className="w-full overflow-x-auto scrollbar-thin relative py-2">
           {chartSelectedMonths.length === 0 ? (
             <div className="h-[300px] flex items-center justify-center text-xs text-slate-500 font-bold bg-[#0b0e18] rounded-2xl border border-white/5">
-              Vui lòng chọn ít nhất một tháng từ bộ lọc ở trên.
+              Vui lòng chọn ít nhất một tháng ở bộ lọc ở trên để hiển thị biểu đồ multiline.
             </div>
           ) : (
             <div className="relative">
-              <svg className="w-full min-w-[650px] h-[300px]" viewBox="0 0 700 300">
+              <svg className="w-full min-w-[700px] h-[300px]" viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}>
                 <defs>
-                  <linearGradient id="dashboardIncomeArea" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#10b981" stopOpacity="0.35" />
-                    <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
-                  </linearGradient>
-                  <linearGradient id="dashboardExpenseArea" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#ef4444" stopOpacity="0.35" />
-                    <stop offset="100%" stopColor="#ef4444" stopOpacity="0.0" />
-                  </linearGradient>
+                  {chartDataModel.series.map((s, idx) => (
+                    <React.Fragment key={idx}>
+                      <linearGradient id={`incGrad-${idx}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={s.incomeColor} stopOpacity="0.25" />
+                        <stop offset="100%" stopColor={s.incomeColor} stopOpacity="0.0" />
+                      </linearGradient>
+                      <linearGradient id={`expGrad-${idx}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={s.expenseColor} stopOpacity="0.25" />
+                        <stop offset="100%" stopColor={s.expenseColor} stopOpacity="0.0" />
+                      </linearGradient>
+                    </React.Fragment>
+                  ))}
                 </defs>
 
-                {/* Horizontal Dotted Lines */}
+                {/* Horizontal Guidelines */}
                 {[35, 110, 185, 260].map((y, idx) => (
                   <line
                     key={idx}
-                    x1="75"
+                    x1={MARGIN_LEFT}
                     y1={y}
-                    x2="675"
+                    x2={MARGIN_RIGHT}
                     y2={y}
                     stroke="rgba(255, 255, 255, 0.06)"
                     strokeDasharray="5 5"
@@ -462,7 +606,7 @@ export default function DashboardTab({
                 ))}
 
                 {/* Y-Axis Value Labels */}
-                {[maxVal, maxVal * 0.66, maxVal * 0.33, 0].map((val, idx) => {
+                {[chartDataModel.maxVal, chartDataModel.maxVal * 0.66, chartDataModel.maxVal * 0.33, 0].map((val, idx) => {
                   const yPoints = [35, 110, 185, 260];
                   return (
                     <text
@@ -479,88 +623,122 @@ export default function DashboardTab({
                   );
                 })}
 
-                {/* Paths & Area Fill Rendering */}
-                {incomePts.length > 0 && (
-                  <>
-                    <path d={getAreaPath(incomePts)} fill="url(#dashboardIncomeArea)" className="pointer-events-none" />
-                    <path d={getAreaPath(expensePts)} fill="url(#dashboardExpenseArea)" className="pointer-events-none" />
+                {/* Render Series (Multi-Month Pairs of Income & Expense Lines) */}
+                {chartDataModel.series.map((seriesItem, sIdx) => {
+                  const incPoints = seriesItem.points.map((p, pIdx) => ({
+                    x: getXCoordinate(pIdx),
+                    y: getYCoordinate(p.income, chartDataModel.maxVal)
+                  }));
 
-                    <path
-                      d={getCurvyPath(incomePts)}
-                      fill="none"
-                      stroke="#10b981"
-                      strokeWidth="3.5"
-                      strokeLinecap="round"
-                      style={{ filter: 'drop-shadow(0 0 10px rgba(16,185,129,0.6))' }}
-                    />
-                    <path
-                      d={getCurvyPath(expensePts)}
-                      fill="none"
-                      stroke="#ef4444"
-                      strokeWidth="3.5"
-                      strokeLinecap="round"
-                      style={{ filter: 'drop-shadow(0 0 10px rgba(239,68,68,0.6))' }}
-                    />
+                  const expPoints = seriesItem.points.map((p, pIdx) => ({
+                    x: getXCoordinate(pIdx),
+                    y: getYCoordinate(p.expense, chartDataModel.maxVal)
+                  }));
 
-                    {/* Interactive Data Nodes */}
-                    {incomePts.map((pt, idx) => (
-                      <g key={idx} className="cursor-pointer" onMouseEnter={() => setHoveredPointIndex(idx)} onMouseLeave={() => setHoveredPointIndex(null)}>
-                        <circle
-                          cx={pt.x}
-                          cy={pt.y}
-                          r={hoveredPointIndex === idx ? "7" : "5"}
-                          fill="#10b981"
-                          stroke="#0b0e18"
-                          strokeWidth="2.5"
-                          className="transition-all duration-200"
-                        />
-                        <circle
-                          cx={expensePts[idx].x}
-                          cy={expensePts[idx].y}
-                          r={hoveredPointIndex === idx ? "7" : "5"}
-                          fill="#ef4444"
-                          stroke="#0b0e18"
-                          strokeWidth="2.5"
-                          className="transition-all duration-200"
-                        />
-                      </g>
-                    ))}
-                  </>
-                )}
+                  return (
+                    <g key={sIdx}>
+                      {/* Area Fills for Single Month Mode */}
+                      {chartDataModel.series.length === 1 && (
+                        <>
+                          <path d={getAreaPath(incPoints)} fill={`url(#incGrad-${sIdx})`} className="pointer-events-none" />
+                          <path d={getAreaPath(expPoints)} fill={`url(#expGrad-${sIdx})`} className="pointer-events-none" />
+                        </>
+                      )}
+
+                      {/* Income Line */}
+                      <path
+                        d={getCurvyPath(incPoints)}
+                        fill="none"
+                        stroke={seriesItem.incomeColor}
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        style={{ filter: `drop-shadow(0 0 8px ${seriesItem.incomeColor})` }}
+                      />
+
+                      {/* Expense Line */}
+                      <path
+                        d={getCurvyPath(expPoints)}
+                        fill="none"
+                        stroke={seriesItem.expenseColor}
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        style={{ filter: `drop-shadow(0 0 8px ${seriesItem.expenseColor})` }}
+                      />
+
+                      {/* Node Circles */}
+                      {incPoints.map((pt, pIdx) => (
+                        <g key={pIdx} className="cursor-pointer">
+                          <circle
+                            cx={pt.x}
+                            cy={pt.y}
+                            r="4.5"
+                            fill={seriesItem.incomeColor}
+                            stroke="#0b0e18"
+                            strokeWidth="2"
+                            className="transition-all duration-200 hover:scale-150"
+                            onMouseEnter={() => setHoveredNode({
+                              month: seriesItem.month,
+                              label: seriesItem.points[pIdx].label,
+                              income: seriesItem.points[pIdx].income,
+                              expense: seriesItem.points[pIdx].expense
+                            })}
+                            onMouseLeave={() => setHoveredNode(null)}
+                          />
+                          <circle
+                            cx={expPoints[pIdx].x}
+                            cy={expPoints[pIdx].y}
+                            r="4.5"
+                            fill={seriesItem.expenseColor}
+                            stroke="#0b0e18"
+                            strokeWidth="2"
+                            className="transition-all duration-200 hover:scale-150"
+                            onMouseEnter={() => setHoveredNode({
+                              month: seriesItem.month,
+                              label: seriesItem.points[pIdx].label,
+                              income: seriesItem.points[pIdx].income,
+                              expense: seriesItem.points[pIdx].expense
+                            })}
+                            onMouseLeave={() => setHoveredNode(null)}
+                          />
+                        </g>
+                      ))}
+                    </g>
+                  );
+                })}
 
                 {/* Horizontal Baseline */}
-                <line x1="75" y1="260" x2="675" y2="260" stroke="rgba(255, 255, 255, 0.15)" strokeWidth="1" />
+                <line x1={MARGIN_LEFT} y1={BASE_Y} x2={MARGIN_RIGHT} y2={BASE_Y} stroke="rgba(255, 255, 255, 0.15)" strokeWidth="1" />
 
-                {/* X-Axis Labels */}
-                {lineData.map((d, idx) => {
-                  const x = N > 1 ? 95 + idx * (570 / (N - 1)) : 95;
+                {/* X-Axis Reference Point Labels */}
+                {chartDataModel.xLabels.map((lbl, idx) => {
+                  const x = getXCoordinate(idx);
                   return (
                     <text
                       key={idx}
                       x={x}
                       y="285"
-                      fill={hoveredPointIndex === idx ? "#ffffff" : "#94a3b8"}
-                      fontSize="11"
+                      fill="#94a3b8"
+                      fontSize={singleMonthGranularity === 'days' && numXPoints > 20 ? "8" : "10"}
                       fontWeight="800"
                       textAnchor="middle"
                     >
-                      {d.label}
+                      {lbl}
                     </text>
                   );
                 })}
               </svg>
 
               {/* Hover Tooltip card over SVG */}
-              {hoveredPointIndex !== null && lineData[hoveredPointIndex] && (
+              {hoveredNode && (
                 <div className="absolute top-4 right-6 bg-[#0d101d]/95 border border-indigo-500/40 rounded-2xl p-3.5 shadow-2xl backdrop-blur-xl animate-mac-dropdown text-xs space-y-1.5 z-20 pointer-events-none">
                   <span className="font-black text-indigo-300 block border-b border-white/5 pb-1">
-                    {lineData[hoveredPointIndex].label}
+                    {hoveredNode.month} • {hoveredNode.label}
                   </span>
                   <div className="flex items-center justify-between gap-4 pt-1">
-                    <span className="text-emerald-400 font-extrabold">Thu nhập: {formatVND(lineData[hoveredPointIndex].income)}</span>
+                    <span className="text-emerald-400 font-extrabold">Thu nhập: {formatVND(hoveredNode.income)}</span>
                   </div>
                   <div className="flex items-center justify-between gap-4">
-                    <span className="text-rose-400 font-extrabold">Chi tiêu: {formatVND(lineData[hoveredPointIndex].expense)}</span>
+                    <span className="text-rose-400 font-extrabold">Chi tiêu: {formatVND(hoveredNode.expense)}</span>
                   </div>
                 </div>
               )}
@@ -569,7 +747,7 @@ export default function DashboardTab({
         </div>
       </div>
 
-      {/* --- SECTION 2: Income & Expense Distribution Pie Charts Grid --- */}
+      {/* --- SECTION 2: Income & Expense Distribution Pie Charts Grid (With matching TrendingUp/TrendingDown icons & titles) --- */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 text-left">
         
         {/* Income Distribution Pie Chart */}
@@ -577,9 +755,9 @@ export default function DashboardTab({
           <div className="flex items-center justify-between border-b border-white/5 pb-2">
             <div className="flex items-center gap-2">
               <div className="p-1.5 rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                <PieChartIcon className="h-4 w-4" />
+                <TrendingUp className="h-4 w-4" />
               </div>
-              <h3 className="text-xs font-black text-emerald-400 text-glow-green uppercase tracking-wider">Phân Bổ Thu Nhập (Dòng Tiền)</h3>
+              <h3 className="text-xs font-black text-emerald-400 text-glow-green uppercase tracking-wider">Phân Bổ Thu Nhập</h3>
             </div>
             <span className="text-[10px] font-extrabold text-slate-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
               Tổng: {formatVND(totalSelectedInc)}
@@ -608,6 +786,7 @@ export default function DashboardTab({
                       strokeDashoffset={s.dashOffset}
                       strokeLinecap={incomeSlices.length > 1 ? 'butt' : 'round'}
                       className="transition-all duration-300 hover:opacity-80 cursor-pointer"
+                      style={{ filter: `drop-shadow(0 0 6px ${s.color})` }}
                     />
                   ))}
                 </svg>
@@ -624,7 +803,7 @@ export default function DashboardTab({
                   <div key={idx} className="space-y-1">
                     <div className="flex items-center justify-between text-xs font-bold">
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ backgroundColor: s.color }} />
+                        <span className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ backgroundColor: s.color, boxShadow: `0 0 8px ${s.color}` }} />
                         <span className="text-slate-200 truncate">{s.name}</span>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
@@ -632,8 +811,8 @@ export default function DashboardTab({
                         <span className="text-white font-black">{s.pct}%</span>
                       </div>
                     </div>
-                    <div className="h-1.5 bg-[#0b0e18] rounded-full overflow-hidden w-full">
-                      <div className="h-full transition-all duration-300" style={{ width: `${s.pct}%`, backgroundColor: s.color }}></div>
+                    <div className="h-1.5 bg-[#0b0e18] rounded-full overflow-hidden w-full border border-white/5">
+                      <div className="h-full transition-all duration-300" style={{ width: `${s.pct}%`, backgroundColor: s.color, boxShadow: `0 0 8px ${s.color}` }}></div>
                     </div>
                   </div>
                 ))}
@@ -647,9 +826,9 @@ export default function DashboardTab({
           <div className="flex items-center justify-between border-b border-white/5 pb-2">
             <div className="flex items-center gap-2">
               <div className="p-1.5 rounded-lg bg-rose-500/15 text-rose-400 border border-rose-500/30">
-                <PieChartIcon className="h-4 w-4" />
+                <TrendingDown className="h-4 w-4" />
               </div>
-              <h3 className="text-xs font-black text-rose-400 text-glow-red uppercase tracking-wider">Phân Bổ Chi Tiêu (Dòng Tiền)</h3>
+              <h3 className="text-xs font-black text-rose-400 text-glow-red uppercase tracking-wider">Phân Bổ Chi Tiêu</h3>
             </div>
             <span className="text-[10px] font-extrabold text-slate-400 bg-rose-500/10 px-2 py-0.5 rounded-md border border-rose-500/20">
               Tổng: {formatVND(totalSelectedExp)}
@@ -678,6 +857,7 @@ export default function DashboardTab({
                       strokeDashoffset={s.dashOffset}
                       strokeLinecap={expenseSlices.length > 1 ? 'butt' : 'round'}
                       className="transition-all duration-300 hover:opacity-80 cursor-pointer"
+                      style={{ filter: `drop-shadow(0 0 6px ${s.color})` }}
                     />
                   ))}
                 </svg>
@@ -694,7 +874,7 @@ export default function DashboardTab({
                   <div key={idx} className="space-y-1">
                     <div className="flex items-center justify-between text-xs font-bold">
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ backgroundColor: s.color }} />
+                        <span className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ backgroundColor: s.color, boxShadow: `0 0 8px ${s.color}` }} />
                         <span className="text-slate-200 truncate">{s.name}</span>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
@@ -702,8 +882,8 @@ export default function DashboardTab({
                         <span className="text-white font-black">{s.pct}%</span>
                       </div>
                     </div>
-                    <div className="h-1.5 bg-[#0b0e18] rounded-full overflow-hidden w-full">
-                      <div className="h-full transition-all duration-300" style={{ width: `${s.pct}%`, backgroundColor: s.color }}></div>
+                    <div className="h-1.5 bg-[#0b0e18] rounded-full overflow-hidden w-full border border-white/5">
+                      <div className="h-full transition-all duration-300" style={{ width: `${s.pct}%`, backgroundColor: s.color, boxShadow: `0 0 8px ${s.color}` }}></div>
                     </div>
                   </div>
                 ))}
@@ -751,6 +931,7 @@ export default function DashboardTab({
                   strokeDasharray={`${emLen} ${C}`}
                   strokeDashoffset={0}
                   className="transition-all duration-500"
+                  style={{ filter: 'drop-shadow(0 0 6px #10b981)' }}
                 />
                 {/* Segment 2: Quỹ Tích Lũy (Cyan) */}
                 <circle
@@ -763,6 +944,7 @@ export default function DashboardTab({
                   strokeDasharray={`${C - emLen} ${C}`}
                   strokeDashoffset={-emLen}
                   className="transition-all duration-500"
+                  style={{ filter: 'drop-shadow(0 0 6px #06b6d4)' }}
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
@@ -822,7 +1004,7 @@ export default function DashboardTab({
 
             <div className="h-3 bg-[#121626] rounded-full overflow-hidden p-[1px] border border-white/5">
               <div
-                className={`h-full rounded-full transition-all duration-500 ${isOverBudget ? 'bg-gradient-to-r from-rose-500 to-red-400 shadow-[0_0_10px_rgba(239,68,68,0.7)]' : 'bg-gradient-to-r from-indigo-500 via-cyan-400 to-emerald-400 shadow-[0_0_10px_rgba(92,54,245,0.7)]'}`}
+                className={`h-full rounded-full transition-all duration-500 ${isOverBudget ? 'bg-gradient-to-r from-rose-500 to-red-400 shadow-[0_0_12px_rgba(239,68,68,0.8)]' : 'bg-gradient-to-r from-indigo-500 via-cyan-400 to-emerald-400 shadow-[0_0_12px_rgba(92,54,245,0.8)]'}`}
                 style={{ width: `${budgetPercent}%` }}
               ></div>
             </div>
