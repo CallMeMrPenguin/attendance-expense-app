@@ -21,6 +21,8 @@ export interface Session {
   auto_checkin?: boolean;
   loai_hinh_lich?: 'co_dinh' | 'tam_thoi';
   loai_hinh?: 'co_dinh' | 'tam_thoi';
+  income_category?: string;
+  category?: string;
 }
 
 // Convert "18:00" to minutes (1080)

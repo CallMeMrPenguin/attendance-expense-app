@@ -36,6 +36,7 @@ interface EditSessionModalProps {
   onSwitchSession?: (id: string) => void;
   teachers?: string[];
   currentUser?: {
+    id?: string;
     role: 'admin' | 'teacher' | 'user';
     teacherName: string;
   };
@@ -82,6 +83,23 @@ export default function EditSessionModal({
   const [studentName, setStudentName] = useState('');
   const [price, setPrice] = useState('');
   const [status, setStatus] = useState('Chưa dạy');
+  const [incomeCategory, setIncomeCategory] = useState(session?.income_category || session?.category || 'Giáo dục');
+
+  // Load custom income categories from localStorage or default
+  const incomeCategories = React.useMemo(() => {
+    const defaultCats = ['Giáo dục', 'Lương', 'Đầu tư', 'Khác'];
+    if (!currentUser?.id) return defaultCats;
+    const stored = localStorage.getItem(`finance_income_cats_${currentUser.id}`);
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((c: any) => c.name || String(c)).filter(Boolean);
+        }
+      } catch (e) { console.error(e); }
+    }
+    return defaultCats;
+  }, [currentUser?.id]);
   const [grade, setGrade] = useState('');
   const [homework, setHomework] = useState('');
   const [note, setNote] = useState('');
@@ -126,6 +144,7 @@ export default function EditSessionModal({
     setTime(formatCleanTimeString(session.time));
     setDuration(session.duration || 1.5);
     setLoaiHinh((session.loai_hinh || session.loai_hinh_lich) === 'tam_thoi' ? 'tam_thoi' : 'co_dinh');
+    setIncomeCategory(session.income_category || session.category || 'Giáo dục');
     setAutoCheckin(session.auto_checkin ?? session.auto_check_in ?? false);
     
     const studentColor = session.color || getStudentColor(session.student_name);
@@ -352,6 +371,8 @@ export default function EditSessionModal({
                 color: sessionColor,
                 loai_hinh: loaiHinh,
                 loai_hinh_lich: loaiHinh,
+                income_category: incomeCategory,
+                category: incomeCategory,
                 auto_checkin: autoCheckin,
                 auto_check_in: autoCheckin,
               });
@@ -372,6 +393,8 @@ export default function EditSessionModal({
                 color: sessionColor,
                 loai_hinh: loaiHinh,
                 loai_hinh_lich: loaiHinh,
+                income_category: incomeCategory,
+                category: incomeCategory,
                 auto_checkin: autoCheckin,
                 auto_check_in: autoCheckin,
               });
@@ -399,6 +422,8 @@ export default function EditSessionModal({
               date: dStr,
               loai_hinh: loaiHinh,
               loai_hinh_lich: loaiHinh,
+              income_category: incomeCategory,
+              category: incomeCategory,
               auto_checkin: autoCheckin,
               auto_check_in: autoCheckin,
             });
@@ -669,6 +694,22 @@ export default function EditSessionModal({
               >
                 Hủy / Nghỉ
               </button>
+            </div>
+
+            {/* Income Category Selector */}
+            <div className="space-y-1 pt-1">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
+                Danh Mục Thu Nhập (Dòng Tiền)
+              </label>
+              <select
+                value={incomeCategory}
+                onChange={(e) => setIncomeCategory(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-100 dark:bg-[#0d1018] border border-slate-200 dark:border-white/10 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
+              >
+                {incomeCategories.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
             </div>
 
             {/* Additional settings row: Loại hình & Tự động điểm danh */}

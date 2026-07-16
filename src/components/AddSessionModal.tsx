@@ -23,6 +23,7 @@ interface AddSessionModalProps {
   onSave: () => void;
   teachers?: string[];
   currentUser?: {
+    id?: string;
     role: 'admin' | 'teacher' | 'user';
     teacherName: string;
   };
@@ -61,6 +62,23 @@ export default function AddSessionModal({
   const [studentName, setStudentName] = useState('');
   const [price, setPrice] = useState('');
   const [status, setStatus] = useState('Chưa dạy');
+  const [incomeCategory, setIncomeCategory] = useState('Giáo dục');
+
+  // Load custom income categories from localStorage or default
+  const incomeCategories = React.useMemo(() => {
+    const defaultCats = ['Giáo dục', 'Lương', 'Đầu tư', 'Khác'];
+    if (!currentUser?.id) return defaultCats;
+    const stored = localStorage.getItem(`finance_income_cats_${currentUser.id}`);
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((c: any) => c.name || String(c)).filter(Boolean);
+        }
+      } catch (e) { console.error(e); }
+    }
+    return defaultCats;
+  }, [currentUser?.id]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [color, setColor] = useState('#7c3aed');
@@ -229,6 +247,8 @@ export default function AddSessionModal({
             auto_checkin: autoCheckIn,
             loai_hinh_lich: loaiHinh,
             loai_hinh: loaiHinh,
+            income_category: incomeCategory,
+            category: incomeCategory,
           });
         });
       });
@@ -378,7 +398,37 @@ export default function AddSessionModal({
               />
             </div>
 
-            {/* Custom Color Picker Row */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider block">
+                  Danh Mục Thu Nhập (Dòng Tiền)
+                </label>
+                <select
+                  value={incomeCategory}
+                  onChange={(e) => setIncomeCategory(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
+                >
+                  {incomeCategories.map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="price" className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider block">
+                  Học phí / Thù lao (VNĐ) *
+                </label>
+                <input
+                  id="price"
+                  type="text"
+                  required
+                  value={price ? formatNumberDots(price) : ''}
+                  onChange={(e) => setPrice(String(parseNumberDots(e.target.value)))}
+                  placeholder="VD: 300.000"
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+            </div>
             <div className="space-y-2">
               <label className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider block">
                 Màu sắc hiển thị ca dạy

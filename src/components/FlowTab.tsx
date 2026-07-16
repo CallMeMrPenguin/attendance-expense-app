@@ -340,13 +340,10 @@ function FlowTab({
         .filter(t => t.type === 'income' && t.category === catName && isTxInSelectedMonths(t, chartSelectedMonths))
         .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
       
-      let autoInc = 0;
-      const eduCatName = incomeCats[1]?.name || 'Giáo dục';
-      if (catName === eduCatName) {
-        autoInc = sessions
-          .filter(s => s.status === 'Đã dạy' && chartSelectedMonths.includes(s.month_year))
-          .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
-      }
+      const autoInc = sessions
+        .filter(s => s.status === 'Đã dạy' && chartSelectedMonths.includes(s.month_year) && ((s as any).income_category || s.category || incomeCats[1]?.name || 'Giáo dục') === catName)
+        .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+
       map[catName] = manualInc + autoInc;
     });
 
@@ -539,10 +536,10 @@ function FlowTab({
         id: `session-${s.id}`,
         desc: `Thu nhập chấm công: ${s.student_name}`,
         amount: Number(s.price) || 0,
-        category: 'Giáo dục',
+        category: (s as any).income_category || s.category || 'Giáo dục',
         date: s.date,
         isManual: false,
-        isRecurring: false,
+        isRecurring: (s.loai_hinh || s.loai_hinh_lich) === 'co_dinh',
         type: 'income' as const
       }));
 
