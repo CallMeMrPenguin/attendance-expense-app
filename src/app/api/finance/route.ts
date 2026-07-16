@@ -1,39 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
-import { createClient } from '@supabase/supabase-js';
-
-// Helper function to auto-create missing financial tables if they don't exist yet
-async function ensureFinancialTables() {
-  const admin = getSupabaseAdmin();
-  try {
-    await admin.rpc('create_financial_tables_if_not_exists');
-  } catch (e) {
-    // If RPC doesn't exist, execute silent table checks or raw fallback
-  }
-}
 
 // GET: Fetch all financial data for current authenticated user
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('Authorization');
     if (!authHeader) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized: Missing Authorization header' }, { status: 401 });
     }
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-      auth: { persistSession: false }
-    });
+    const token = authHeader.replace('Bearer ', '').trim();
+    const admin = getSupabaseAdmin();
 
-    const { data: { user }, error: authError } = await userClient.auth.getUser();
+    const { data: { user }, error: authError } = await admin.auth.getUser(token);
     if (authError || !user) {
-      return NextResponse.json({ error: 'Invalid user token' }, { status: 401 });
+      return NextResponse.json({ error: 'Invalid user session token' }, { status: 401 });
     }
 
     const userId = user.id;
-    const admin = getSupabaseAdmin();
 
     // 1. Fetch manual_transactions
     const { data: txData, error: txError } = await admin
@@ -62,15 +46,16 @@ export async function GET(request: NextRequest) {
       .eq('user_id', userId)
       .order('date', { ascending: false });
 
-    // Check if any table is missing in Postgres
-    const isTableMissing = [txError, fundsError, budgetsError, historyError].some(
+    // Check if tables are missing in Postgres DB (Code 42P01)
+    const tableMissingErr = [txError, fundsError, budgetsError, historyError].find(
       err => err && (err.code === '42P01' || err.message?.includes('does not exist'))
     );
 
-    if (isTableMissing) {
+    if (tableMissingErr) {
       return NextResponse.json({
         tablesMissing: true,
-        message: 'Financial tables do not exist in Supabase yet. Please execute schema.sql in Supabase SQL Editor.'
+        error: tableMissingErr.message,
+        message: 'Financial tables do not exist in Supabase DB yet. Run schema.sql in Supabase SQL Editor.'
       });
     }
 
@@ -123,22 +108,18 @@ export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get('Authorization');
     if (!authHeader) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized: Missing Authorization header' }, { status: 401 });
     }
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-      auth: { persistSession: false }
-    });
+    const token = authHeader.replace('Bearer ', '').trim();
+    const admin = getSupabaseAdmin();
 
-    const { data: { user }, error: authError } = await userClient.auth.getUser();
+    const { data: { user }, error: authError } = await admin.auth.getUser(token);
     if (authError || !user) {
-      return NextResponse.json({ error: 'Invalid user token' }, { status: 401 });
+      return NextResponse.json({ error: 'Invalid user session token' }, { status: 401 });
     }
 
-    const { data: profile } = await userClient
+    const { data: profile } = await admin
       .from('profiles')
       .select('teacher_name')
       .eq('id', user.id)
@@ -146,7 +127,6 @@ export async function POST(request: NextRequest) {
 
     const teacherName = profile?.teacher_name || 'Admin';
     const userId = user.id;
-    const admin = getSupabaseAdmin();
     const body = await request.json();
 
     const {
@@ -159,7 +139,11 @@ export async function POST(request: NextRequest) {
 
     // Type 1: Sync manual transactions
     if (type === 'transactions' && Array.isArray(transactions)) {
-      await admin.from('manual_transactions').delete().eq('user_id', userId);
+      const { error: delErr } = await admin.from('manual_transactions').delete().eq('user_id', userId);
+      if (delErr && delErr.code === '42P01') {
+        return NextResponse.json({ tablesMissing: true, error: delErr.message }, { status: 400 });
+      }
+
       if (transactions.length > 0) {
         const records = transactions.map((t: any) => ({
           id: t.id || `tx-${Date.now()}-${Math.random()}`,
@@ -171,13 +155,18 @@ export async function POST(request: NextRequest) {
           category: t.category,
           date: t.date
         }));
-        await admin.from('manual_transactions').insert(records);
+
+        const { error: insErr } = await admin.from('manual_transactions').insert(records);
+        if (insErr) {
+          console.error('Failed to insert manual_transactions into Supabase:', insErr);
+          return NextResponse.json({ error: insErr.message, code: insErr.code }, { status: 400 });
+        }
       }
     }
 
     // Type 2: Sync savings funds
     if (type === 'savings_funds' && savingsFunds) {
-      await admin.from('savings_funds').upsert({
+      const { error: fundErr } = await admin.from('savings_funds').upsert({
         user_id: userId,
         teacher_name: teacherName,
         emergency_current: Number(savingsFunds.emergencyCurrent) || 0,
@@ -186,6 +175,11 @@ export async function POST(request: NextRequest) {
         accumulation_target: Number(savingsFunds.accumulationTarget) || 150000000,
         updated_at: new Date().toISOString()
       }, { onConflict: 'user_id' });
+
+      if (fundErr) {
+        console.error('Failed to upsert savings_funds in Supabase:', fundErr);
+        return NextResponse.json({ error: fundErr.message, code: fundErr.code }, { status: 400 });
+      }
     }
 
     // Type 3: Sync category budgets
@@ -198,14 +192,23 @@ export async function POST(request: NextRequest) {
         amount: Number(categoryBudgets[cat]) || 0,
         updated_at: new Date().toISOString()
       }));
+
       if (records.length > 0) {
-        await admin.from('category_budgets').upsert(records, { onConflict: 'id' });
+        const { error: bErr } = await admin.from('category_budgets').upsert(records, { onConflict: 'id' });
+        if (bErr) {
+          console.error('Failed to upsert category_budgets in Supabase:', bErr);
+          return NextResponse.json({ error: bErr.message, code: bErr.code }, { status: 400 });
+        }
       }
     }
 
     // Type 4: Sync savings history
     if (type === 'savings_history' && Array.isArray(savingsHistory)) {
-      await admin.from('savings_history').delete().eq('user_id', userId);
+      const { error: delHistErr } = await admin.from('savings_history').delete().eq('user_id', userId);
+      if (delHistErr && delHistErr.code === '42P01') {
+        return NextResponse.json({ tablesMissing: true, error: delHistErr.message }, { status: 400 });
+      }
+
       if (savingsHistory.length > 0) {
         const records = savingsHistory.map((h: any) => ({
           id: h.id || `sh-${Date.now()}-${Math.random()}`,
@@ -216,7 +219,12 @@ export async function POST(request: NextRequest) {
           amount: Number(h.amount) || 0,
           date: h.date
         }));
-        await admin.from('savings_history').insert(records);
+
+        const { error: insHistErr } = await admin.from('savings_history').insert(records);
+        if (insHistErr) {
+          console.error('Failed to insert savings_history in Supabase:', insHistErr);
+          return NextResponse.json({ error: insHistErr.message, code: insHistErr.code }, { status: 400 });
+        }
       }
     }
 
