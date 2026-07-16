@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Menu, Users, Key, LogOut, X, ChevronDown, Wallet } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { Session } from '@/lib/utils';
+import { Session, formatCleanTimeString } from '@/lib/utils';
 
 // Import newly refactored modular components
 import Sidebar from '@/components/Sidebar';
@@ -363,6 +363,47 @@ export default function Dashboard() {
     }
   }, [currentUser]);
 
+  // Auto check-in processor for past/reached sessions
+  const processAutoCheckIn = useCallback(async (items: Session[]): Promise<Session[]> => {
+    if (!items || items.length === 0) return items;
+
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const currentTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+    const idsToUpdate: string[] = [];
+
+    const updatedSessions = items.map((s) => {
+      if (s.status === 'Chưa dạy' && s.auto_checkin !== false && s.auto_check_in !== false) {
+        const sDate = s.date;
+        const sTime = formatCleanTimeString(s.time);
+
+        const isPastDay = sDate < todayStr;
+        const isTodayDue = sDate === todayStr && currentTimeStr >= sTime;
+
+        if (isPastDay || isTodayDue) {
+          idsToUpdate.push(s.id);
+          return { ...s, status: 'Đã dạy' };
+        }
+      }
+      return s;
+    });
+
+    if (idsToUpdate.length > 0) {
+      try {
+        await supabase
+          .from('sessions')
+          .update({ status: 'Đã dạy' })
+          .in('id', idsToUpdate);
+      } catch (err) {
+        console.error('Error auto checking-in sessions:', err);
+      }
+      return updatedSessions;
+    }
+
+    return items;
+  }, []);
+
   // Fetch session schedule data
   const fetchSessions = useCallback(async () => {
     if (!selectedMonth) return;
@@ -376,8 +417,9 @@ export default function Dashboard() {
         .eq('teacher_name', activeTeacherName)
         .eq('month_year', selectedMonth);
       if (!error && data) {
-        setSessions(data as Session[]);
-        calculateStats(data as Session[]);
+        const processed = await processAutoCheckIn(data as Session[]);
+        setSessions(processed);
+        calculateStats(processed);
       } else {
         setSessions([]);
         calculateStats([]);
@@ -395,7 +437,8 @@ export default function Dashboard() {
         .select('*')
         .in('month_year', monthsToFetch);
       if (!error && data) {
-        setAllSessions(data as Session[]);
+        const processedAll = await processAutoCheckIn(data as Session[]);
+        setAllSessions(processedAll);
       } else {
         setAllSessions([]);
       }
@@ -404,7 +447,7 @@ export default function Dashboard() {
     }
 
     setLoading(false);
-  }, [activeTeacherName, selectedMonth, chartSelectedMonths, currentUser]);
+  }, [activeTeacherName, selectedMonth, chartSelectedMonths, currentUser, processAutoCheckIn]);
 
   // Sync teachers and sessions when user or parameters change
   useEffect(() => {
@@ -418,6 +461,28 @@ export default function Dashboard() {
       fetchSessions();
     }
   }, [selectedMonth, chartSelectedMonths, fetchSessions]);
+
+  // Periodic timer for live auto check-in every 30 seconds
+  useEffect(() => {
+    if (!sessions || sessions.length === 0) return;
+
+    const interval = setInterval(async () => {
+      const updatedSessions = await processAutoCheckIn(sessions);
+      if (updatedSessions !== sessions) {
+        setSessions(updatedSessions);
+        calculateStats(updatedSessions);
+      }
+
+      if (allSessions.length > 0) {
+        const updatedAll = await processAutoCheckIn(allSessions);
+        if (updatedAll !== allSessions) {
+          setAllSessions(updatedAll);
+        }
+      }
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [sessions, allSessions, processAutoCheckIn]);
 
   // Guard tab view permissions for non-admin roles
   useEffect(() => {

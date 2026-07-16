@@ -319,13 +319,12 @@ export default function FlowTab({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Dynamic calculations for category actuals to adapt to renamed category names
-  const getCategoryActual = (catName: string, isExpense: boolean) => {
-    if (isExpense) {
-      return manualTransactions
-        .filter(t => t.type === 'expense' && t.category === catName && isTxInSelectedMonths(t, chartSelectedMonths))
-        .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-    } else {
+  // Memoized calculations for category actual amounts to prevent lag during re-renders
+  const categoryActualsMap = React.useMemo(() => {
+    const map: Record<string, number> = {};
+    
+    incomeCats.forEach(catItem => {
+      const catName = catItem.name;
       const manualInc = manualTransactions
         .filter(t => t.type === 'income' && t.category === catName && isTxInSelectedMonths(t, chartSelectedMonths))
         .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
@@ -337,9 +336,22 @@ export default function FlowTab({
           .filter(s => s.status === 'Đã dạy' && chartSelectedMonths.includes(s.month_year))
           .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
       }
-      return manualInc + autoInc;
-    }
-  };
+      map[catName] = manualInc + autoInc;
+    });
+
+    expenseCats.forEach(catItem => {
+      const catName = catItem.name;
+      map[catName] = manualTransactions
+        .filter(t => t.type === 'expense' && t.category === catName && isTxInSelectedMonths(t, chartSelectedMonths))
+        .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+    });
+
+    return map;
+  }, [incomeCats, expenseCats, manualTransactions, sessions, chartSelectedMonths, isTxInSelectedMonths]);
+
+  const getCategoryActual = React.useCallback((catName: string, isExpense?: boolean) => {
+    return categoryActualsMap[catName] || 0;
+  }, [categoryActualsMap]);
 
   const getCategoryIconName = (catName: string, type: 'income' | 'expense') => {
     const list = type === 'income' ? incomeCats : expenseCats;
@@ -417,8 +429,8 @@ export default function FlowTab({
     }
   };
 
-  // Sync compute local transactions lists
-  const getIncomeTransactions = () => {
+  // Memoized transactions lists
+  const incomes = React.useMemo(() => {
     const manual = manualTransactions
       .filter(t => t.type === 'income' && isTxInSelectedMonths(t, chartSelectedMonths))
       .map(t => ({
@@ -428,7 +440,8 @@ export default function FlowTab({
         category: t.category,
         date: t.date,
         isManual: true,
-        isRecurring: !!(t.isRecurring || t.is_recurring)
+        isRecurring: !!(t.isRecurring || t.is_recurring),
+        type: 'income' as const
       }));
 
     const auto = sessions
@@ -440,13 +453,14 @@ export default function FlowTab({
         category: 'Giáo dục',
         date: s.date,
         isManual: false,
-        isRecurring: false
+        isRecurring: false,
+        type: 'income' as const
       }));
 
     return [...manual, ...auto].sort((a, b) => b.date.localeCompare(a.date));
-  };
+  }, [manualTransactions, sessions, chartSelectedMonths, isTxInSelectedMonths]);
 
-  const getExpenseTransactions = () => {
+  const expenses = React.useMemo(() => {
     return manualTransactions
       .filter(t => t.type === 'expense' && isTxInSelectedMonths(t, chartSelectedMonths))
       .map(t => ({
@@ -456,65 +470,82 @@ export default function FlowTab({
         category: t.category,
         date: t.date,
         isManual: true,
-        isRecurring: !!(t.isRecurring || t.is_recurring)
+        isRecurring: !!(t.isRecurring || t.is_recurring),
+        type: 'expense' as const
       }));
-  };
+  }, [manualTransactions, chartSelectedMonths, isTxInSelectedMonths]);
 
-  const incomes = getIncomeTransactions().map(t => ({ ...t, type: 'income' as const }));
-  const expenses = getExpenseTransactions().map(t => ({ ...t, type: 'expense' as const }));
-  const transactions = [...incomes, ...expenses].sort((a, b) => b.date.localeCompare(a.date));
+  const transactions = React.useMemo(() => {
+    return [...incomes, ...expenses].sort((a, b) => b.date.localeCompare(a.date));
+  }, [incomes, expenses]);
 
   // Filtered & Paginated Transactions
-  const filteredTransactions = transactions.filter(t => {
-    const matchesType = filterType === 'all' || t.type === filterType;
-    const matchesCategory = filterCategory === 'all' || t.category === filterCategory;
-    const matchesSearch = t.desc.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesRec = filterRecurring === 'all' || 
-      (filterRecurring === 'co_dinh' ? t.isRecurring : !t.isRecurring);
-    return matchesType && matchesCategory && matchesSearch && matchesRec;
-  });
+  const filteredTransactions = React.useMemo(() => {
+    const q = searchQuery.toLowerCase();
+    return transactions.filter(t => {
+      const matchesType = filterType === 'all' || t.type === filterType;
+      const matchesCategory = filterCategory === 'all' || t.category === filterCategory;
+      const matchesSearch = !q || t.desc.toLowerCase().includes(q);
+      const matchesRec = filterRecurring === 'all' || 
+        (filterRecurring === 'co_dinh' ? t.isRecurring : !t.isRecurring);
+      return matchesType && matchesCategory && matchesSearch && matchesRec;
+    });
+  }, [transactions, filterType, filterCategory, searchQuery, filterRecurring]);
 
-  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage) || 1;
-  const paginatedTransactions = filteredTransactions.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  const totalPages = React.useMemo(() => Math.ceil(filteredTransactions.length / itemsPerPage) || 1, [filteredTransactions.length, itemsPerPage]);
 
-  const totalIncome = incomes.reduce((sum, t) => sum + t.amount, 0);
-  const totalExpense = expenses.reduce((sum, t) => sum + t.amount, 0);
-  const netValue = totalIncome - totalExpense;
+  const paginatedTransactions = React.useMemo(() => {
+    return filteredTransactions.slice(
+      (currentPage - 1) * itemsPerPage,
+      currentPage * itemsPerPage
+    );
+  }, [filteredTransactions, currentPage, itemsPerPage]);
 
-  // Month-over-Month Comparisons
-  const getPreviousMonthStr = (monthStr: string) => {
-    if (!monthStr) return '';
-    const [y, m] = monthStr.split('-').map(Number);
-    if (m === 1) return `${y - 1}-12`;
-    return `${y}-${String(m - 1).padStart(2, '0')}`;
-  };
+  // Month-over-Month Comparison Metrics
+  const { totalIncome, totalExpense, netValue, prevIncome, prevExpense, prevNet, incomeChange, expenseChange, netChange } = React.useMemo(() => {
+    const totInc = incomes.reduce((sum, t) => sum + t.amount, 0);
+    const totExp = expenses.reduce((sum, t) => sum + t.amount, 0);
+    const net = totInc - totExp;
 
-  const prevMonths = chartSelectedMonths.map(getPreviousMonthStr).filter(Boolean);
+    const getPreviousMonthStr = (monthStr: string) => {
+      if (!monthStr) return '';
+      const [y, m] = monthStr.split('-').map(Number);
+      if (m === 1) return `${y - 1}-12`;
+      return `${y}-${String(m - 1).padStart(2, '0')}`;
+    };
 
-  const prevIncome = manualTransactions
-    .filter(t => t.type === 'income' && isTxInSelectedMonths(t, prevMonths))
-    .reduce((sum, t) => sum + (Number(t.amount) || 0), 0) +
-    sessions
-      .filter(s => s.status === 'Đã dạy' && prevMonths.includes(s.month_year))
-      .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+    const prevMonthsList = chartSelectedMonths.map(getPreviousMonthStr).filter(Boolean);
 
-  const prevExpense = manualTransactions
-    .filter(t => t.type === 'expense' && isTxInSelectedMonths(t, prevMonths))
-    .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+    const pInc = manualTransactions
+      .filter(t => t.type === 'income' && isTxInSelectedMonths(t, prevMonthsList))
+      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0) +
+      sessions
+        .filter(s => s.status === 'Đã dạy' && prevMonthsList.includes(s.month_year))
+        .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
 
-  const prevNet = prevIncome - prevExpense;
+    const pExp = manualTransactions
+      .filter(t => t.type === 'expense' && isTxInSelectedMonths(t, prevMonthsList))
+      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
 
-  const getChangePercent = (current: number, previous: number) => {
-    if (previous === 0) return 0;
-    return Math.round(((current - previous) / previous) * 100);
-  };
+    const pNet = pInc - pExp;
 
-  const incomeChange = getChangePercent(totalIncome, prevIncome);
-  const expenseChange = getChangePercent(totalExpense, prevExpense);
-  const netChange = getChangePercent(netValue, prevNet);
+    const getChangePct = (curr: number, prev: number) => {
+      if (prev === 0) return 0;
+      return Math.round(((curr - prev) / prev) * 100);
+    };
+
+    return {
+      totalIncome: totInc,
+      totalExpense: totExp,
+      netValue: net,
+      prevIncome: pInc,
+      prevExpense: pExp,
+      prevNet: pNet,
+      incomeChange: getChangePct(totInc, pInc),
+      expenseChange: getChangePct(totExp, pExp),
+      netChange: getChangePct(net, pNet)
+    };
+  }, [incomes, expenses, manualTransactions, sessions, chartSelectedMonths, isTxInSelectedMonths]);
 
   const renderCategoryTable = (type: 'income' | 'expense') => {
     const list = type === 'income' ? incomeCats : expenseCats;
