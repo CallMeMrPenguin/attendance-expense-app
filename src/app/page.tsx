@@ -806,11 +806,13 @@ export default function Dashboard() {
               accumulationCurrent={accumulationCurrent}
               accumulationTarget={accumulationTarget}
               savingsHistory={savingsHistory}
+              manualTransactions={manualTransactions}
               saveEmergencyCurrent={saveEmergencyCurrent}
               saveEmergencyTarget={saveEmergencyTarget}
               saveAccumulationCurrent={saveAccumulationCurrent}
               saveAccumulationTarget={saveAccumulationTarget}
               saveSavingsHistory={saveSavingsHistory}
+              saveTransactions={saveTransactions}
             />
           )}
 
