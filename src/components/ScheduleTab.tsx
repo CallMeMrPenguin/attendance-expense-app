@@ -74,7 +74,7 @@ export default function ScheduleTab({
 
           <p className="text-slate-400 text-xs sm:text-sm font-semibold tracking-wide pt-0.5">
             {totalSessions > 0 
-              ? `Tháng này bạn có ${totalSessions} lịch làm việc với tổng chi phí/doanh thu dự kiến ${formatVND(projectedIncome)}.`
+              ? `Tháng này bạn có ${totalSessions} lịch làm việc (đã hoàn thành ${completedSessions} buổi).`
               : 'Hiện tại chưa có lịch trình nào được tạo cho tháng này.'
             }
           </p>
@@ -108,8 +108,8 @@ export default function ScheduleTab({
         </div>
       </section>
 
-      {/* 4 Dominating KPI Cards styled like FlowTab */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5 text-left">
+      {/* 3 Dominating KPI Cards styled like FlowTab */}
+      <section className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-3 gap-4 md:gap-5 text-left">
         {/* KPI 1 */}
         <div className="kpi-card-purple p-6 flex flex-col justify-between min-h-[120px]">
           <div className="flex justify-between items-start gap-2">
@@ -165,24 +165,6 @@ export default function ScheduleTab({
             </div>
           </div>
         </div>
-
-        {/* KPI 4 */}
-        <div className="kpi-card-amber p-6 flex flex-col justify-between min-h-[120px]">
-          <div className="flex justify-between items-start gap-2">
-            <div className="space-y-1 flex-1 min-w-0">
-              <span className="text-[10px] font-black text-amber-400 text-glow-amber uppercase tracking-widest block truncate">Giá Trị Dự Kiến</span>
-              <span className="text-xl sm:text-2xl font-black text-amber-400 text-glow-amber tracking-tight block truncate">{formatVND(projectedIncome)}</span>
-              <div className="flex items-center gap-1 select-none">
-                <span className="text-[9px] font-black text-amber-300/80">
-                  Tổng giá trị dự kiến
-                </span>
-              </div>
-            </div>
-            <div className="p-2 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-xl shadow-[0_0_12px_rgba(245,158,11,0.35)] shrink-0">
-              <TrendingUp className="h-5 w-5" />
-            </div>
-          </div>
-        </div>
       </section>
 
       {/* Timetable view */}
@@ -191,7 +173,7 @@ export default function ScheduleTab({
           <div className="flex items-center gap-3">
             <div className="h-2.5 w-2.5 rounded-full bg-[#5c36f5] shadow-[0_0_10px_rgba(92,54,245,1)]"></div>
             <h3 className="text-sm font-black text-white uppercase tracking-wider">
-              Bảng Lịch Trình & Chấm Công
+              Bảng Lịch Trình
             </h3>
           </div>
           
