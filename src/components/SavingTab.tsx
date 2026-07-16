@@ -1,16 +1,9 @@
 import React, { useState } from 'react';
 import { 
   Shield, 
-  TrendingUp, 
   Target, 
-  Clock, 
   ChevronRight, 
-  PiggyBank, 
-  Coins, 
   Filter,
-  Sparkles,
-  ArrowUpRight,
-  ArrowDownRight,
   Activity
 } from 'lucide-react';
 import { formatVND, formatNumberDots, parseNumberDots } from '@/lib/utils';
@@ -34,12 +27,27 @@ interface SavingTabProps {
   saveTransactions?: (userId: string, data: any[]) => void;
 }
 
-const RadialProgress = ({ percentage, color }: { percentage: number; color: 'purple' | 'cyan' }) => {
+// Icon for Quỹ Tích Lũy: 4 Growth Bars + Arrow Rising Up (Matching Image 1)
+const GrowthChartIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="15" width="3" height="6" rx="0.5" fill="currentColor" fillOpacity="0.2" />
+    <rect x="8" y="11" width="3" height="10" rx="0.5" fill="currentColor" fillOpacity="0.2" />
+    <rect x="13" y="7" width="3" height="14" rx="0.5" fill="currentColor" fillOpacity="0.2" />
+    <rect x="18" y="3" width="3" height="18" rx="0.5" fill="currentColor" fillOpacity="0.2" />
+    <path d="M3 13 L8 8 L13 11 L21 3" strokeWidth="2.5" />
+    <path d="M16 3 H21 V8" strokeWidth="2.5" />
+  </svg>
+);
+
+// SVG Radial Progress Indicator with Amber, Cyan & Purple support
+const RadialProgress = ({ percentage, color }: { percentage: number; color: 'amber' | 'cyan' }) => {
   const radius = 34;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (circumference * percentage) / 100;
-  const strokeColor = color === 'purple' ? '#a855f7' : '#06b6d4';
-  const glowShadow = color === 'purple' ? 'drop-shadow(0 0 6px rgba(168,85,247,0.8))' : 'drop-shadow(0 0 6px rgba(6,182,212,0.8))';
+  const strokeColor = color === 'amber' ? '#f59e0b' : '#06b6d4';
+  const glowShadow = color === 'amber' 
+    ? 'drop-shadow(0 0 6px rgba(245,158,11,0.8))' 
+    : 'drop-shadow(0 0 6px rgba(6,182,212,0.8))';
 
   return (
     <div className="relative w-20 h-20 flex items-center justify-center shrink-0">
@@ -70,6 +78,119 @@ const RadialProgress = ({ percentage, color }: { percentage: number; color: 'pur
   );
 };
 
+// 3D Isometric Donut / Pie Chart Component (Matching Image 2 Infographic Style)
+const IsometricDonutChart = ({ emergencyAmount, accumulationAmount }: { emergencyAmount: number; accumulationAmount: number }) => {
+  const total = emergencyAmount + accumulationAmount;
+  const emShare = total > 0 ? Math.round((emergencyAmount / total) * 100) : 50;
+  const acShare = total > 0 ? 100 - emShare : 50;
+
+  return (
+    <div className="relative w-full py-4 flex flex-col items-center justify-center">
+      {/* SVG 3D Isometric Donut Artwork */}
+      <div className="relative w-64 h-48 flex items-center justify-center">
+        <svg className="w-full h-full overflow-visible" viewBox="0 0 300 220">
+          <defs>
+            {/* Amber / Gold to Magenta Gradient for Quỹ Dự Phòng */}
+            <linearGradient id="emGradientTop" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#f59e0b" />
+              <stop offset="50%" stopColor="#fb923c" />
+              <stop offset="100%" stopColor="#f43f5e" />
+            </linearGradient>
+            <linearGradient id="emGradientSide" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#d97706" />
+              <stop offset="100%" stopColor="#be123c" />
+            </linearGradient>
+
+            {/* Cyan / Teal to Electric Blue Gradient for Quỹ Tích Lũy */}
+            <linearGradient id="acGradientTop" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#38bdf8" />
+              <stop offset="50%" stopColor="#06b6d4" />
+              <stop offset="100%" stopColor="#6366f1" />
+            </linearGradient>
+            <linearGradient id="acGradientSide" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#0284c7" />
+              <stop offset="100%" stopColor="#4338ca" />
+            </linearGradient>
+
+            {/* Drop Shadows */}
+            <filter id="donutGlow" x="-20%" y="-20%" width="140%" height="140%">
+              <feDropShadow dx="0" dy="12" stdDeviation="10" floodColor="#000000" floodOpacity="0.6" />
+            </filter>
+          </defs>
+
+          <g filter="url(#donutGlow)">
+            {/* Base Shadow Floor */}
+            <ellipse cx="150" cy="150" rx="90" ry="40" fill="#05070f" opacity="0.8" />
+
+            {/* 3D Extruded Donut Ring Segment 1: Quỹ Dự Phòng (Left Arc - Amber/Rose) */}
+            {/* Bottom 3D depth extrusion */}
+            <path
+              d="M 60 110 A 90 42 0 0 1 150 152 V 172 A 90 42 0 0 1 60 130 Z"
+              fill="url(#emGradientSide)"
+            />
+            <path
+              d="M 150 152 A 90 42 0 0 1 240 110 V 130 A 90 42 0 0 1 150 172 Z"
+              fill="url(#emGradientSide)"
+              opacity="0.85"
+            />
+
+            {/* Top Donut Surface Segment 1 (Quỹ Dự Phòng - Amber Gradient) */}
+            <path
+              d="M 60 110 A 90 42 0 0 1 240 110 L 205 110 A 55 25 0 0 0 95 110 Z"
+              fill="url(#emGradientTop)"
+            />
+
+            {/* 3D Extruded Donut Ring Segment 2: Quỹ Tích Lũy (Back Arc - Cyan/Indigo) */}
+            <path
+              d="M 240 110 A 90 42 0 0 0 60 110 L 95 110 A 55 25 0 0 1 205 110 Z"
+              fill="url(#acGradientTop)"
+            />
+            <path
+              d="M 240 110 A 90 42 0 0 0 150 68 V 83 A 90 42 0 0 0 240 125 Z"
+              fill="url(#acGradientSide)"
+              opacity="0.9"
+            />
+          </g>
+
+          {/* Floating Callout Pointer Labels (Style matching Image 2 Infographic) */}
+          {/* Callout 1: Quỹ Dự Phòng (Amber) */}
+          <g>
+            <line x1="85" y1="85" x2="45" y2="45" stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="3 3" />
+            <circle cx="85" cy="85" r="4" fill="#f59e0b" />
+            <text x="35" y="38" textAnchor="end" fill="#f59e0b" className="text-xl font-black">{emShare}%</text>
+          </g>
+
+          {/* Callout 2: Quỹ Tích Lũy (Cyan) */}
+          <g>
+            <line x1="215" y1="85" x2="255" y2="45" stroke="#06b6d4" strokeWidth="1.5" strokeDasharray="3 3" />
+            <circle cx="215" cy="85" r="4" fill="#06b6d4" />
+            <text x="265" y="38" textAnchor="start" fill="#38bdf8" className="text-xl font-black">{acShare}%</text>
+          </g>
+        </svg>
+      </div>
+
+      {/* Category Breakdown Badges (Matching Image 2 Infographic Bottom Badges) */}
+      <div className="grid grid-cols-2 gap-3 w-full mt-2">
+        <div className="bg-gradient-to-r from-amber-500/20 to-rose-500/10 border border-amber-500/30 rounded-2xl p-2.5 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,1)]"></span>
+            <span className="text-[10px] font-black text-amber-300 uppercase">Quỹ Dự Phòng</span>
+          </div>
+          <span className="text-xs font-black text-white">{emShare}%</span>
+        </div>
+
+        <div className="bg-gradient-to-r from-cyan-500/20 to-indigo-500/10 border border-cyan-500/30 rounded-2xl p-2.5 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,1)]"></span>
+            <span className="text-[10px] font-black text-cyan-300 uppercase">Quỹ Tích Lũy</span>
+          </div>
+          <span className="text-xs font-black text-white">{acShare}%</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function SavingTab({
   currentUser,
   emergencyCurrent,
@@ -77,100 +198,12 @@ export default function SavingTab({
   accumulationCurrent,
   accumulationTarget,
   savingsHistory,
-  manualTransactions = [],
-  saveEmergencyCurrent,
   saveEmergencyTarget,
-  saveAccumulationCurrent,
-  saveAccumulationTarget,
-  saveSavingsHistory,
-  saveTransactions
+  saveAccumulationTarget
 }: SavingTabProps) {
   const { showToast } = useToast();
-  const [emActionAmount, setEmActionAmount] = useState('');
-  const [acActionAmount, setAcActionAmount] = useState('');
   const [historyFilter, setHistoryFilter] = useState<'all' | 'emergency' | 'accumulation' | 'deposit' | 'withdraw'>('all');
   const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
-
-  const handleSavingAction = (fund: 'emergency' | 'accumulation', action: 'deposit' | 'withdraw') => {
-    const userId = currentUser.id;
-    const amountStr = fund === 'emergency' ? emActionAmount : acActionAmount;
-    const amt = Number(amountStr);
-
-    if (!amt || amt <= 0) {
-      showToast('Vui lòng nhập số tiền hợp lệ lớn hơn 0.', 'error');
-      return;
-    }
-
-    let currentVal = fund === 'emergency' ? emergencyCurrent : accumulationCurrent;
-    let newVal = currentVal;
-    
-    if (action === 'deposit') {
-      newVal += amt;
-    } else {
-      if (amt > currentVal) {
-        showToast('Số dư quỹ hiện tại không đủ để thực hiện rút tiền.', 'error');
-        return;
-      }
-      newVal -= amt;
-    }
-
-    if (fund === 'emergency') {
-      saveEmergencyCurrent(userId, newVal);
-      setEmActionAmount('');
-    } else {
-      saveAccumulationCurrent(userId, newVal);
-      setAcActionAmount('');
-    }
-
-    const todayStr = new Date().toISOString().split('T')[0];
-    const fundTitle = fund === 'emergency' ? 'Quỹ Dự Phòng' : 'Quỹ Tích Lũy';
-
-    // 1. Save savings history log
-    const newHist = {
-      id: `sh-${Date.now()}`,
-      fund,
-      type: action,
-      amount: amt,
-      date: todayStr
-    };
-    saveSavingsHistory(userId, [newHist, ...savingsHistory]);
-
-    // 2. Synchronize with overall Cash Flow (manualTransactions)
-    if (saveTransactions) {
-      if (action === 'withdraw') {
-        // Rút tiền từ quỹ tiết kiệm => tăng Dòng Tiền (Thêm giao dịch Thu Nhập)
-        const newIncTx = {
-          id: `tx-sav-inc-${Date.now()}`,
-          desc: `Rút từ ${fundTitle}`,
-          amount: amt,
-          type: 'income' as const,
-          category: 'Khác',
-          date: todayStr,
-          isRecurring: false
-        };
-        saveTransactions(userId, [newIncTx, ...manualTransactions]);
-      } else if (action === 'deposit') {
-        // Nạp tiền vào quỹ tiết kiệm => giảm Dòng Tiền (Thêm giao dịch Chi Tiêu)
-        const newExpTx = {
-          id: `tx-sav-exp-${Date.now()}`,
-          desc: `Nạp vào ${fundTitle}`,
-          amount: amt,
-          type: 'expense' as const,
-          category: 'Khác',
-          date: todayStr,
-          isRecurring: false
-        };
-        saveTransactions(userId, [newExpTx, ...manualTransactions]);
-      }
-    }
-
-    showToast(
-      action === 'withdraw'
-        ? `Đã rút ${formatVND(amt)} từ ${fundTitle} (đã tự động cộng vào Dòng Tiền).`
-        : `Đã nạp ${formatVND(amt)} vào ${fundTitle} (đã tự động trừ khỏi Dòng Tiền).`,
-      'success'
-    );
-  };
 
   const emPercent = Math.min(100, Math.round((emergencyCurrent / Math.max(1, emergencyTarget)) * 100));
   const acPercent = Math.min(100, Math.round((accumulationCurrent / Math.max(1, accumulationTarget)) * 100));
@@ -199,13 +232,13 @@ export default function SavingTab({
           </p>
         </div>
 
-        {/* Decorative Graphic Asset Badge (Shield & Coins) */}
-        <div className="hidden md:flex items-center gap-3 bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-transparent border border-purple-500/20 px-4 py-2.5 rounded-2xl shadow-[0_0_20px_rgba(168,85,247,0.15)]">
-          <div className="p-2 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/30 shadow-[0_0_12px_rgba(168,85,247,0.4)]">
+        {/* Decorative Graphic Asset Badge */}
+        <div className="hidden md:flex items-center gap-3 bg-gradient-to-r from-amber-500/10 via-cyan-500/10 to-transparent border border-amber-500/20 px-4 py-2.5 rounded-2xl shadow-[0_0_20px_rgba(245,158,11,0.15)]">
+          <div className="p-2 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.4)]">
             <Shield className="h-5 w-5" />
           </div>
           <div className="flex flex-col">
-            <span className="text-xs font-black text-purple-300">Bảo Vệ Tài Sản</span>
+            <span className="text-xs font-black text-amber-300">Bảo Vệ Tài Sản</span>
             <span className="text-[10px] text-slate-400 font-bold">An toàn & Phát triển</span>
           </div>
         </div>
@@ -214,14 +247,14 @@ export default function SavingTab({
       {/* Top 2 Main Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
-        {/* Card 1: Quỹ Dự Phòng (Purple Theme) */}
-        <div className="bg-[#0e101f] border border-purple-500/20 shadow-[0_0_30px_rgba(147,51,234,0.12)] p-6 rounded-3xl flex flex-col justify-between space-y-6 text-left relative overflow-hidden group hover:border-purple-500/40 transition-all">
+        {/* Card 1: Quỹ Dự Phòng (Amber Theme) */}
+        <div className="bg-[#17130b] border border-amber-500/25 shadow-[0_0_30px_rgba(245,158,11,0.12)] p-6 rounded-3xl flex flex-col justify-between space-y-5 text-left relative overflow-hidden group hover:border-amber-500/40 transition-all">
           <div className="space-y-5">
             
             {/* Header info */}
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="p-3 bg-purple-500/15 text-purple-400 border border-purple-500/30 rounded-2xl shadow-[0_0_15px_rgba(168,85,247,0.3)] shrink-0">
+                <div className="p-3 bg-amber-500/15 text-amber-400 border border-amber-500/30 rounded-2xl shadow-[0_0_15px_rgba(245,158,11,0.3)] shrink-0">
                   <Shield className="h-5 w-5" />
                 </div>
                 <div>
@@ -229,7 +262,7 @@ export default function SavingTab({
                   <p className="text-[10px] text-slate-400 font-medium leading-none mt-1">Dành cho tình huống khẩn cấp bất ngờ.</p>
                 </div>
               </div>
-              <span className="text-[10px] font-black px-2.5 py-1 bg-purple-500/15 text-purple-300 border border-purple-500/25 rounded-full shrink-0 shadow-sm">
+              <span className="text-[10px] font-black px-2.5 py-1 bg-amber-500/15 text-amber-300 border border-amber-500/25 rounded-full shrink-0 shadow-sm">
                 Đạt {emPercent}%
               </span>
             </div>
@@ -243,15 +276,15 @@ export default function SavingTab({
                 </p>
               </div>
 
-              {/* Radial SVG Circle Progress */}
-              <RadialProgress percentage={emPercent} color="purple" />
+              {/* Radial SVG Circle Progress (Amber) */}
+              <RadialProgress percentage={emPercent} color="amber" />
             </div>
 
             {/* Target & Progress display */}
             <div className="pt-2 border-t border-white/5 space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-bold">
-                <div className="flex items-center gap-1.5 text-purple-300">
-                  <div className="p-1 rounded-lg bg-purple-500/15 text-purple-400">
+                <div className="flex items-center gap-1.5 text-amber-300">
+                  <div className="p-1 rounded-lg bg-amber-500/15 text-amber-400">
                     <Target className="h-3.5 w-3.5" />
                   </div>
                   <span className="uppercase text-[9px] font-black text-slate-400">MỤC TIÊU:</span>
@@ -261,7 +294,7 @@ export default function SavingTab({
                     onChange={(e) => {
                       saveEmergencyTarget(currentUser.id, parseNumberDots(e.target.value));
                     }}
-                    className="w-28 bg-[#13162b] border border-purple-500/30 rounded-lg px-2 py-0.5 text-xs font-black text-white text-right focus:outline-none focus:border-purple-400 transition-colors"
+                    className="w-28 bg-[#221c10] border border-amber-500/30 rounded-lg px-2 py-0.5 text-xs font-black text-white text-right focus:outline-none focus:border-amber-400 transition-colors"
                   />
                   <span className="text-slate-400 text-[10px]">VND</span>
                 </div>
@@ -276,43 +309,18 @@ export default function SavingTab({
             </div>
 
           </div>
-
-          {/* Quick Action Input & Buttons */}
-          <div className="bg-[#13162b] rounded-2xl p-3.5 border border-purple-500/20 space-y-2.5">
-            <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Thực hiện nạp / rút quỹ</span>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder="Nhập số tiền..."
-                value={formatNumberDots(emActionAmount)}
-                onChange={(e) => setEmActionAmount(parseNumberDots(e.target.value) ? parseNumberDots(e.target.value).toString() : '')}
-                className="flex-1 bg-[#090b14] border border-white/10 text-xs font-bold text-white rounded-xl px-3 py-2 focus:outline-none focus:border-purple-400 transition-colors"
-              />
-              <button
-                onClick={() => handleSavingAction('emergency', 'deposit')}
-                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs rounded-xl shadow-[0_0_12px_rgba(16,185,129,0.35)] cursor-pointer transition-all hover:scale-[1.02]"
-              >
-                Nạp
-              </button>
-              <button
-                onClick={() => handleSavingAction('emergency', 'withdraw')}
-                className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white font-black text-xs rounded-xl shadow-[0_0_12px_rgba(244,63,94,0.35)] cursor-pointer transition-all hover:scale-[1.02]"
-              >
-                Rút
-              </button>
-            </div>
-          </div>
         </div>
 
-        {/* Card 2: Quỹ Tích Lũy (Cyan Theme) */}
-        <div className="bg-[#09151e] border border-cyan-500/20 shadow-[0_0_30px_rgba(6,182,212,0.12)] p-6 rounded-3xl flex flex-col justify-between space-y-6 text-left relative overflow-hidden group hover:border-cyan-500/40 transition-all">
+        {/* Card 2: Quỹ Tích Lũy (Cyan Theme with Growth Bars + Arrow Icon) */}
+        <div className="bg-[#09151e] border border-cyan-500/20 shadow-[0_0_30px_rgba(6,182,212,0.12)] p-6 rounded-3xl flex flex-col justify-between space-y-5 text-left relative overflow-hidden group hover:border-cyan-500/40 transition-all">
           <div className="space-y-5">
             
             {/* Header info */}
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
+                {/* Growth Bars + Arrow Rising Icon (Matching Image 1) */}
                 <div className="p-3 bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 rounded-2xl shadow-[0_0_15px_rgba(6,182,212,0.3)] shrink-0">
-                  <TrendingUp className="h-5 w-5" />
+                  <GrowthChartIcon className="h-5 w-5" />
                 </div>
                 <div>
                   <h3 className="text-sm font-black text-white uppercase tracking-wider">Quỹ Tích Lũy</h3>
@@ -333,7 +341,7 @@ export default function SavingTab({
                 </p>
               </div>
 
-              {/* Radial SVG Circle Progress */}
+              {/* Radial SVG Circle Progress (Cyan) */}
               <RadialProgress percentage={acPercent} color="cyan" />
             </div>
 
@@ -366,48 +374,22 @@ export default function SavingTab({
             </div>
 
           </div>
-
-          {/* Quick Action Input & Buttons */}
-          <div className="bg-[#0e1d29] rounded-2xl p-3.5 border border-cyan-500/20 space-y-2.5">
-            <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Thực hiện nạp / rút quỹ</span>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder="Nhập số tiền..."
-                value={formatNumberDots(acActionAmount)}
-                onChange={(e) => setAcActionAmount(parseNumberDots(e.target.value) ? parseNumberDots(e.target.value).toString() : '')}
-                className="flex-1 bg-[#060e14] border border-white/10 text-xs font-bold text-white rounded-xl px-3 py-2 focus:outline-none focus:border-cyan-400 transition-colors"
-              />
-              <button
-                onClick={() => handleSavingAction('accumulation', 'deposit')}
-                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs rounded-xl shadow-[0_0_12px_rgba(16,185,129,0.35)] cursor-pointer transition-all hover:scale-[1.02]"
-              >
-                Nạp
-              </button>
-              <button
-                onClick={() => handleSavingAction('accumulation', 'withdraw')}
-                className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white font-black text-xs rounded-xl shadow-[0_0_12px_rgba(244,63,94,0.35)] cursor-pointer transition-all hover:scale-[1.02]"
-              >
-                Rút
-              </button>
-            </div>
-          </div>
         </div>
 
       </div>
 
-      {/* Bottom Split Layout: Left 2/3 (Transaction History) + Right 1/3 (Savings Overview) */}
+      {/* Bottom Split Layout: Left 2/3 (Lịch sử giao dịch) + Right 1/3 (Tổng quan tài sản tiết kiệm) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Left Column (2/3 Width): Lịch sử giao dịch quỹ tiết kiệm */}
-        <div className="lg:col-span-2 bg-[#0a0d18] border border-purple-500/20 rounded-3xl p-5 sm:p-6 space-y-4 shadow-xl">
+        {/* Left Column (2/3 Width): Lịch sử giao dịch */}
+        <div className="lg:col-span-2 bg-[#0a0d18] border border-white/10 rounded-3xl p-5 sm:p-6 space-y-4 shadow-xl">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-white/5 pb-4">
             <div className="flex items-center gap-2.5">
-              <div className="p-2 bg-purple-500/15 text-purple-400 border border-purple-500/30 rounded-xl shadow-[0_0_10px_rgba(168,85,247,0.3)] shrink-0">
+              <div className="p-2 bg-amber-500/15 text-amber-400 border border-amber-500/30 rounded-xl shadow-[0_0_10px_rgba(245,158,11,0.3)] shrink-0">
                 <Activity className="h-4.5 w-4.5" />
               </div>
               <h3 className="text-sm sm:text-base font-black text-white uppercase tracking-wider">
-                Lịch sử giao dịch quỹ tiết kiệm
+                Lịch sử giao dịch
               </h3>
             </div>
 
@@ -416,7 +398,7 @@ export default function SavingTab({
               <div className="relative">
                 <button
                   onClick={() => setFilterDropdownOpen(o => !o)}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-[#121629] border border-white/10 hover:border-purple-500/40 text-xs font-bold text-slate-300 rounded-xl cursor-pointer transition-all shadow-sm"
+                  className="flex items-center gap-2 px-3 py-1.5 bg-[#121629] border border-white/10 hover:border-amber-500/40 text-xs font-bold text-slate-300 rounded-xl cursor-pointer transition-all shadow-sm"
                 >
                   <span>
                     {historyFilter === 'all' && 'Tất cả giao dịch'}
@@ -425,7 +407,7 @@ export default function SavingTab({
                     {historyFilter === 'deposit' && 'Nạp vào quỹ'}
                     {historyFilter === 'withdraw' && 'Rút khỏi quỹ'}
                   </span>
-                  <Filter className="h-3.5 w-3.5 text-purple-400" />
+                  <Filter className="h-3.5 w-3.5 text-amber-400" />
                 </button>
 
                 {filterDropdownOpen && (
@@ -445,7 +427,7 @@ export default function SavingTab({
                         }}
                         className={`w-full text-left px-3 py-2 text-xs font-extrabold rounded-xl transition-all cursor-pointer ${
                           historyFilter === item.id 
-                            ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' 
+                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' 
                             : 'text-slate-400 hover:bg-white/5 hover:text-white'
                         }`}
                       >
@@ -458,7 +440,7 @@ export default function SavingTab({
             </div>
           </div>
 
-          {/* History Item Rows */}
+          {/* History Item Rows (Clean without far-right arrow icons) */}
           <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1 scrollbar-thin">
             {filteredHistory.length === 0 ? (
               <div className="py-12 text-center text-slate-500 font-extrabold text-xs bg-[#101324]/50 border border-white/5 rounded-2xl">
@@ -473,15 +455,15 @@ export default function SavingTab({
                 return (
                   <div
                     key={h.id}
-                    className="p-3.5 bg-[#121629]/80 border border-white/10 hover:border-purple-500/30 rounded-2xl flex items-center justify-between gap-4 transition-all hover:bg-[#161b33]"
+                    className="p-3.5 bg-[#121629]/80 border border-white/10 hover:border-amber-500/30 rounded-2xl flex items-center justify-between gap-4 transition-all hover:bg-[#161b33]"
                   >
                     <div className="flex items-center gap-3 min-w-0 pr-2">
                       <div className={`p-2.5 rounded-2xl border shrink-0 ${
                         isEmergency 
-                          ? 'bg-purple-500/15 text-purple-400 border-purple-500/30 shadow-[0_0_10px_rgba(168,85,247,0.25)]' 
+                          ? 'bg-amber-500/15 text-amber-400 border-amber-500/30 shadow-[0_0_10px_rgba(245,158,11,0.25)]' 
                           : 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30 shadow-[0_0_10px_rgba(6,182,212,0.25)]'
                       }`}>
-                        {isEmergency ? <Shield className="h-4 w-4" /> : <TrendingUp className="h-4 w-4" />}
+                        {isEmergency ? <Shield className="h-4 w-4" /> : <GrowthChartIcon className="h-4 w-4" />}
                       </div>
 
                       <div className="flex flex-col text-left min-w-0">
@@ -494,18 +476,10 @@ export default function SavingTab({
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3 shrink-0">
+                    <div className="flex items-center justify-end shrink-0 pr-2">
                       <span className={`text-xs font-black tracking-tight ${isDep ? 'text-emerald-400' : 'text-rose-400'}`}>
                         {isDep ? '+' : '-'}{formatVND(h.amount)}
                       </span>
-
-                      <div className={`p-1.5 rounded-xl border shrink-0 ${
-                        isDep 
-                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25' 
-                          : 'bg-rose-500/10 text-rose-400 border-rose-500/25'
-                      }`}>
-                        {isDep ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
-                      </div>
                     </div>
                   </div>
                 );
@@ -514,12 +488,12 @@ export default function SavingTab({
           </div>
         </div>
 
-        {/* Right Column (1/3 Width): Tổng quan tài sản tiết kiệm */}
-        <div className="bg-[#0a0d18] border border-purple-500/20 rounded-3xl p-6 flex flex-col justify-between space-y-6 shadow-xl relative overflow-hidden">
+        {/* Right Column (1/3 Width): Tổng quan tài sản tiết kiệm (Without clock icon & with 3D Donut Pie Chart) */}
+        <div className="bg-[#0a0d18] border border-white/10 rounded-3xl p-6 flex flex-col justify-between space-y-5 shadow-xl relative overflow-hidden">
           
           <div className="space-y-4">
-            <div className="flex items-center gap-2 text-purple-400">
-              <Clock className="h-4 w-4" />
+            {/* Header without clock icon */}
+            <div>
               <h3 className="text-xs font-black uppercase tracking-wider text-white">
                 Tổng quan tài sản tiết kiệm
               </h3>
@@ -535,27 +509,16 @@ export default function SavingTab({
             </div>
           </div>
 
-          {/* Decorative Glowing Asset Orb Artwork */}
-          <div className="my-2 relative flex items-center justify-center py-6">
-            <div className="absolute inset-0 bg-purple-500/15 rounded-full blur-2xl transform scale-75"></div>
-            
-            <div className="relative bg-gradient-to-b from-[#181d33] to-[#0e1122] border border-purple-500/30 p-6 rounded-3xl shadow-[0_0_30px_rgba(168,85,247,0.3)] flex flex-col items-center justify-center gap-2">
-              <div className="p-3 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-[0_0_15px_rgba(168,85,247,0.5)] animate-pulse">
-                <Sparkles className="h-8 w-8" />
-              </div>
-              <span className="text-[10px] font-black text-purple-300 uppercase tracking-widest pt-1">
-                Tăng trưởng tài sản
-              </span>
-            </div>
-          </div>
+          {/* 3D Isometric Donut / Pie Chart (Matching Image 2) */}
+          <IsometricDonutChart emergencyAmount={emergencyCurrent} accumulationAmount={accumulationCurrent} />
 
           {/* Action trigger button */}
           <button
             onClick={() => showToast(`Tổng tài sản tích lũy hiện tại: ${formatVND(totalSavingsBalance)}.`, 'info')}
-            className="w-full py-3 px-4 bg-[#121629] hover:bg-[#171c35] border border-white/10 hover:border-purple-500/40 text-xs font-extrabold text-white rounded-2xl flex items-center justify-between transition-all cursor-pointer shadow-md group"
+            className="w-full py-3 px-4 bg-[#121629] hover:bg-[#171c35] border border-white/10 hover:border-amber-500/40 text-xs font-extrabold text-white rounded-2xl flex items-center justify-between transition-all cursor-pointer shadow-md group mt-auto"
           >
             <span>Xem báo cáo chi tiết</span>
-            <ChevronRight className="h-4 w-4 text-purple-400 group-hover:translate-x-0.5 transition-transform" />
+            <ChevronRight className="h-4 w-4 text-amber-400 group-hover:translate-x-0.5 transition-transform" />
           </button>
 
         </div>
