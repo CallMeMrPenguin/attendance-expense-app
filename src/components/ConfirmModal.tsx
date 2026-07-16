@@ -35,9 +35,9 @@ export default function ConfirmModal({
   const isWarning = variant === 'warning';
 
   return createPortal(
-    <div className="fixed inset-0 bg-[#070911]/90 z-[99999] flex items-center justify-center p-4 overflow-hidden pointer-events-auto animate-mac-backdrop text-slate-100 select-none">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[999999] flex items-center justify-center p-4 overflow-hidden pointer-events-auto animate-mac-backdrop text-slate-100 select-none">
       <div 
-        className="bg-[#0f1320] border border-white/10 rounded-2xl w-full max-w-sm p-6 relative shadow-2xl animate-mac-modal text-center space-y-4"
+        className="bg-[#0f1320] border border-white/15 rounded-2xl w-full max-w-sm p-6 relative shadow-[0_25px_60px_rgba(0,0,0,0.9)] animate-mac-modal text-center space-y-4"
         onClick={(e) => e.stopPropagation()}
       >
         <button 

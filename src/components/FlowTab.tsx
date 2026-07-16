@@ -1667,7 +1667,6 @@ function FlowTab({
                     type="button"
                     onClick={() => {
                       handleDeleteManualTx(editingTx.id);
-                      setEditingTx(null);
                     }}
                     className="px-4 py-2.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 font-extrabold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
                     title="Xóa giao dịch này"
