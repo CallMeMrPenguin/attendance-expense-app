@@ -68,13 +68,8 @@ export default function ScheduleTab({
       {/* Scheduler identity */}
       <section className="relative flex flex-col md:flex-row justify-between items-start md:items-end gap-6 text-left">
         <div className="space-y-1 max-w-2xl relative z-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-extrabold tracking-wider uppercase mb-1 shadow-sm">
-            <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(123,97,255,1)]"></span>
-            <span>Tổng quan lịch trình</span>
-          </div>
-
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-none">
-            Lịch Trình & Chấm Công
+            Lịch Trình
           </h1>
 
           <p className="text-slate-400 text-xs sm:text-sm font-semibold tracking-wide pt-0.5">
@@ -113,87 +108,79 @@ export default function ScheduleTab({
         </div>
       </section>
 
-      {/* Dominating KPI Cards */}
-      <section className="grid grid-cols-2 xl:grid-cols-4 gap-4 md:gap-5 text-left">
+      {/* 4 Dominating KPI Cards styled like FlowTab */}
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5 text-left">
         {/* KPI 1 */}
-        <div className="kpi-editorial-card p-6 flex flex-col justify-between min-h-[140px]">
-          <div className="flex justify-between items-center gap-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400 truncate">Lịch trình trong tháng</span>
-            <div className="p-2 rounded-xl bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 shadow-[0_0_12px_rgba(123,97,255,0.3)] shrink-0">
-              <CalendarIcon className="h-4 w-4" />
+        <div className="kpi-card-purple p-6 flex flex-col justify-between min-h-[120px]">
+          <div className="flex justify-between items-start gap-2">
+            <div className="space-y-1 flex-1 min-w-0">
+              <span className="text-[10px] font-black text-purple-400 text-glow-purple uppercase tracking-widest block truncate">Lịch Trình Trong Tháng</span>
+              <span className="text-xl sm:text-2xl font-black text-purple-400 text-glow-purple tracking-tight block truncate">{totalSessions}</span>
+              <div className="flex items-center gap-1 select-none">
+                <span className="text-[9px] font-black text-purple-300/80">
+                  Tổng số buổi / Công việc
+                </span>
+              </div>
             </div>
-          </div>
-          <div className="mt-3">
-            <span className="text-lg sm:text-2xl font-black text-white tracking-tight leading-none block truncate" title={String(totalSessions)}>
-              {totalSessions}
-            </span>
-          </div>
-          <div className="mt-2 flex">
-            <span className="text-[10px] font-extrabold text-indigo-300 bg-indigo-500/15 px-2 py-0.5 rounded-md">
-              Tổng số buổi / Công việc
-            </span>
+            <div className="p-2 bg-purple-500/10 text-purple-400 border border-purple-500/30 rounded-xl shadow-[0_0_12px_rgba(168,85,247,0.35)] shrink-0">
+              <CalendarIcon className="h-5 w-5" />
+            </div>
           </div>
         </div>
 
         {/* KPI 2 */}
-        <div className="kpi-editorial-card p-6 flex flex-col justify-between min-h-[140px]">
-          <div className="flex justify-between items-center gap-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400 truncate">Đã hoàn thành</span>
-            <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.3)] shrink-0">
-              <CheckCircle2 className="h-4 w-4" />
+        <div className="kpi-card-green p-6 flex flex-col justify-between min-h-[120px]">
+          <div className="flex justify-between items-start gap-2">
+            <div className="space-y-1 flex-1 min-w-0">
+              <span className="text-[10px] font-black text-emerald-400 text-glow-green uppercase tracking-widest block truncate">Đã Hoàn Thành</span>
+              <span className="text-xl sm:text-2xl font-black text-emerald-400 text-glow-green tracking-tight block truncate">{completedSessions}</span>
+              <div className="flex items-center gap-1 select-none">
+                {totalSessions > 0 && (
+                  <span className="text-[9px] font-black text-emerald-400">
+                    ↑ {Math.round((completedSessions / totalSessions) * 100)}% hoàn tất
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
-          <div className="mt-3">
-            <span className="text-lg sm:text-2xl font-black text-white tracking-tight leading-none block truncate" title={String(completedSessions)}>
-              {completedSessions}
-            </span>
-          </div>
-          <div className="mt-2 flex">
-            {totalSessions > 0 && (
-              <span className="text-[10px] font-black text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded-md">
-                ↑ {Math.round((completedSessions / totalSessions) * 100)}%
-              </span>
-            )}
+            <div className="p-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-xl shadow-[0_0_12px_rgba(16,185,129,0.35)] shrink-0">
+              <CheckCircle2 className="h-5 w-5" />
+            </div>
           </div>
         </div>
 
         {/* KPI 3 */}
-        <div className="kpi-editorial-card p-6 flex flex-col justify-between min-h-[140px]">
-          <div className="flex justify-between items-center gap-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400 truncate">Giá trị thực tế</span>
-            <div className="p-2 rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.3)] shrink-0">
-              <Coins className="h-4 w-4" />
+        <div className="kpi-card-blue p-6 flex flex-col justify-between min-h-[120px]">
+          <div className="flex justify-between items-start gap-2">
+            <div className="space-y-1 flex-1 min-w-0">
+              <span className="text-[10px] font-black text-cyan-400 text-glow-blue uppercase tracking-widest block truncate">Giá Trị Thực Tế</span>
+              <span className="text-xl sm:text-2xl font-black text-cyan-400 text-glow-blue tracking-tight block truncate">{formatVND(earnedIncome)}</span>
+              <div className="flex items-center gap-1 select-none">
+                <span className="text-[9px] font-black text-cyan-300/80">
+                  Đã chấm công
+                </span>
+              </div>
             </div>
-          </div>
-          <div className="mt-3">
-            <span className="text-lg sm:text-2xl font-black text-white tracking-tight leading-none block truncate" title={formatVND(earnedIncome)}>
-              {formatVND(earnedIncome)}
-            </span>
-          </div>
-          <div className="mt-2 flex">
-            <span className="text-[10px] font-extrabold text-amber-300 bg-amber-500/15 px-2 py-0.5 rounded-md">
-              Đã chấm công
-            </span>
+            <div className="p-2 bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 rounded-xl shadow-[0_0_12px_rgba(6,182,212,0.35)] shrink-0">
+              <Coins className="h-5 w-5" />
+            </div>
           </div>
         </div>
 
         {/* KPI 4 */}
-        <div className="kpi-editorial-card p-6 flex flex-col justify-between min-h-[140px]">
-          <div className="flex justify-between items-center gap-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400 truncate">Giá trị dự kiến</span>
-            <div className="p-2 rounded-xl bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 shadow-[0_0_12px_rgba(6,182,212,0.3)] shrink-0">
-              <TrendingUp className="h-4 w-4" />
+        <div className="kpi-card-amber p-6 flex flex-col justify-between min-h-[120px]">
+          <div className="flex justify-between items-start gap-2">
+            <div className="space-y-1 flex-1 min-w-0">
+              <span className="text-[10px] font-black text-amber-400 text-glow-amber uppercase tracking-widest block truncate">Giá Trị Dự Kiến</span>
+              <span className="text-xl sm:text-2xl font-black text-amber-400 text-glow-amber tracking-tight block truncate">{formatVND(projectedIncome)}</span>
+              <div className="flex items-center gap-1 select-none">
+                <span className="text-[9px] font-black text-amber-300/80">
+                  Tổng giá trị dự kiến
+                </span>
+              </div>
             </div>
-          </div>
-          <div className="mt-3">
-            <span className="text-lg sm:text-2xl font-black text-white tracking-tight leading-none block truncate" title={formatVND(projectedIncome)}>
-              {formatVND(projectedIncome)}
-            </span>
-          </div>
-          <div className="mt-2 flex">
-            <span className="text-[10px] font-extrabold text-cyan-300 bg-cyan-500/15 px-2 py-0.5 rounded-md">
-              Tổng giá trị dự kiến
-            </span>
+            <div className="p-2 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-xl shadow-[0_0_12px_rgba(245,158,11,0.35)] shrink-0">
+              <TrendingUp className="h-5 w-5" />
+            </div>
           </div>
         </div>
       </section>

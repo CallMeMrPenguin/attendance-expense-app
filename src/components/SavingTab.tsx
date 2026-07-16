@@ -196,7 +196,7 @@ export default function SavingTab({
 
   return (
     <div className="space-y-6 animate-mac-dropdown text-left select-none">
-      {/* Header section with graphic asset */}
+      {/* Header section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/5 pb-4 relative">
         <div className="flex flex-col space-y-1">
           <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-none">
@@ -205,17 +205,6 @@ export default function SavingTab({
           <p className="text-slate-400 text-xs font-semibold pt-0.5">
             Bảo vệ nguồn tài sản dự trữ và tích lũy thông minh dài hạn.
           </p>
-        </div>
-
-        {/* Decorative Graphic Asset Badge */}
-        <div className="hidden md:flex items-center gap-3 bg-gradient-to-r from-emerald-500/10 via-cyan-500/10 to-transparent border border-emerald-500/20 px-4 py-2.5 rounded-2xl shadow-[0_0_20px_rgba(16,185,129,0.15)]">
-          <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.4)]">
-            <Shield className="h-5 w-5" />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-xs font-black text-emerald-300">Bảo Vệ Tài Sản</span>
-            <span className="text-[10px] text-slate-400 font-bold">An toàn & Phát triển</span>
-          </div>
         </div>
       </div>
 
