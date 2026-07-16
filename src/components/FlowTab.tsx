@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
+import ConfirmModal from './ConfirmModal';
 import { 
   Plus, 
   Trash2,
@@ -254,29 +255,38 @@ function FlowTab({
     setNewCatBudget('');
   };
 
+  const [confirmDeleteCatInfo, setConfirmDeleteCatInfo] = useState<{ type: 'income' | 'expense'; index: number; catName: string } | null>(null);
+
   const handleDeleteCategory = (type: 'income' | 'expense', index: number, catName: string) => {
     const list = type === 'income' ? incomeCats : expenseCats;
     if (list.length <= 1) {
       showToast('Không thể xóa danh mục cuối cùng.', 'error');
       return;
     }
-    if (confirm(`Bạn có chắc chắn muốn xóa danh mục "${catName}"?`)) {
-      const updatedList = list.filter((_, idx) => idx !== index);
-      if (type === 'income') {
-        setIncomeCats(updatedList);
-        localStorage.setItem(`finance_income_cats_${currentUser.id}`, JSON.stringify(updatedList));
-      } else {
-        setExpenseCats(updatedList);
-        localStorage.setItem(`finance_expense_cats_${currentUser.id}`, JSON.stringify(updatedList));
-      }
+    setConfirmDeleteCatInfo({ type, index, catName });
+  };
 
-      const updatedBudgets = { ...categoryBudgets };
-      delete updatedBudgets[catName];
-      saveBudgets(currentUser.id, updatedBudgets);
+  const executeDeleteCategory = () => {
+    if (!confirmDeleteCatInfo) return;
+    const { type, index, catName } = confirmDeleteCatInfo;
+    const list = type === 'income' ? incomeCats : expenseCats;
 
-      setEditingCat(null);
-      showToast(`Đã xóa danh mục "${catName}".`, 'info');
+    const updatedList = list.filter((_, idx) => idx !== index);
+    if (type === 'income') {
+      setIncomeCats(updatedList);
+      localStorage.setItem(`finance_income_cats_${currentUser.id}`, JSON.stringify(updatedList));
+    } else {
+      setExpenseCats(updatedList);
+      localStorage.setItem(`finance_expense_cats_${currentUser.id}`, JSON.stringify(updatedList));
     }
+
+    const updatedBudgets = { ...categoryBudgets };
+    delete updatedBudgets[catName];
+    saveBudgets(currentUser.id, updatedBudgets);
+
+    setEditingCat(null);
+    showToast(`Đã xóa danh mục "${catName}".`, 'info');
+    setConfirmDeleteCatInfo(null);
   };
 
   // Filter & Pagination states for Giao dịch section
@@ -1685,6 +1695,20 @@ function FlowTab({
           </div>
         </div>,
         document.body
+      )}
+
+      {/* Custom Confirm Category Deletion Modal */}
+      {confirmDeleteCatInfo && (
+        <ConfirmModal
+          isOpen={!!confirmDeleteCatInfo}
+          title="Xóa Danh Mục"
+          message={`Bạn có chắc chắn muốn xóa danh mục "${confirmDeleteCatInfo.catName}"?`}
+          confirmLabel="Xóa Danh Mục"
+          cancelLabel="Hủy Bỏ"
+          variant="danger"
+          onConfirm={executeDeleteCategory}
+          onClose={() => setConfirmDeleteCatInfo(null)}
+        />
       )}
     </div>
   );

@@ -18,6 +18,7 @@ import AddSessionModal from '@/components/AddSessionModal';
 import EditSessionModal from '@/components/EditSessionModal';
 import ManageTeachersModal from '@/components/ManageTeachersModal';
 import ChangePasswordModal from '@/components/ChangePasswordModal';
+import ConfirmModal from '@/components/ConfirmModal';
 
 interface UserProfile {
   id: string;
@@ -776,17 +777,19 @@ export default function Dashboard() {
     });
   }, []);
 
+  const [confirmDeleteTxId, setConfirmDeleteTxId] = useState<string | null>(null);
+
   const handleDeleteManualTx = useCallback((id: string) => {
-    if (!currentUser) return;
+    setConfirmDeleteTxId(id);
+  }, []);
+
+  const executeDeleteManualTx = () => {
+    if (!currentUser || !confirmDeleteTxId) return;
     const userId = currentUser.id;
-    if (confirm('Bạn có chắc chắn muốn xóa giao dịch này?')) {
-      setManualTransactions(prev => {
-        const updated = prev.filter(t => t.id !== id);
-        localStorage.setItem(`finance_trans_${userId}`, JSON.stringify(updated));
-        return updated;
-      });
-    }
-  }, [currentUser]);
+    const updated = manualTransactions.filter(t => t.id !== confirmDeleteTxId);
+    saveTransactions(userId, updated);
+    setConfirmDeleteTxId(null);
+  };
 
   const handleOpenTxModal = useCallback((type: 'income' | 'expense' | 'saving') => {
     setModalTxType(type);
@@ -1084,6 +1087,20 @@ export default function Dashboard() {
         <ChangePasswordModal
           isOpen={passwordModalOpen}
           onClose={() => setPasswordModalOpen(false)}
+        />
+      )}
+
+      {/* Transaction Deletion Confirm Modal */}
+      {confirmDeleteTxId && (
+        <ConfirmModal
+          isOpen={!!confirmDeleteTxId}
+          title="Xóa Giao Dịch"
+          message="Bạn có chắc chắn muốn xóa giao dịch này khỏi hệ thống?"
+          confirmLabel="Xóa Giao Dịch"
+          cancelLabel="Hủy Bỏ"
+          variant="danger"
+          onConfirm={executeDeleteManualTx}
+          onClose={() => setConfirmDeleteTxId(null)}
         />
       )}
     </div>

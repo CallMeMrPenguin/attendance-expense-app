@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { useToast } from '@/context/ToastContext';
 import { UserCircle, Settings, FileText } from 'lucide-react';
+import ConfirmModal from './ConfirmModal';
 
 interface SettingsTabProps {
   currentUser: {
@@ -40,7 +42,6 @@ interface SettingsTabProps {
   handleLogout: () => Promise<void>;
 }
 
-import { useToast } from '@/context/ToastContext';
 import { Pin, Layout, Check } from 'lucide-react';
 
 export default function SettingsTab({
@@ -62,7 +63,6 @@ export default function SettingsTab({
   saveAccumulationTarget,
   saveSavingsHistory,
   saveBudgets,
-  
   setManualTransactions,
   setEmergencyCurrent,
   setEmergencyTarget,
@@ -70,13 +70,14 @@ export default function SettingsTab({
   setAccumulationTarget,
   setSavingsHistory,
   setCategoryBudgets,
-  
   setPasswordModalOpen,
   handleLogout
 }: SettingsTabProps) {
   const { showToast } = useToast();
+  const [importStr, setImportStr] = useState('');
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
 
-  const getBackupJSON = () => {
+  const handleExportData = () => {
     const data = {
       transactions: manualTransactions,
       emergency: { current: emergencyCurrent, target: emergencyTarget },
@@ -84,16 +85,15 @@ export default function SettingsTab({
       history: savingsHistory,
       budgets: categoryBudgets
     };
-    return JSON.stringify(data, null, 2);
+    const jsonStr = JSON.stringify(data, null, 2);
+    navigator.clipboard.writeText(jsonStr);
+    showToast('Đã sao chép chuỗi sao lưu vào Clipboard!', 'success');
   };
 
-  const handleRestoreJSON = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleImportData = () => {
     const userId = currentUser.id;
-    const form = e.currentTarget as HTMLFormElement;
-    const text = (form.elements.namedItem('restoreArea') as HTMLTextAreaElement).value;
     try {
-      const parsed = JSON.parse(text);
+      const parsed = JSON.parse(importStr);
       if (parsed.transactions) {
         saveTransactions(userId, parsed.transactions);
         setManualTransactions(parsed.transactions);
@@ -119,41 +119,41 @@ export default function SettingsTab({
         setCategoryBudgets(parsed.budgets);
       }
       showToast('Khôi phục dữ liệu sao lưu thành công!', 'success');
+      setImportStr('');
     } catch (err) {
       showToast('Cú pháp chuỗi khôi phục lỗi. Hãy kiểm tra lại định dạng JSON.', 'error');
     }
   };
 
-  const handleResetData = () => {
+  const executeResetData = () => {
     const userId = currentUser.id;
-    if (confirm('CẢNH BÁO: Xóa bỏ vĩnh viễn toàn bộ giao dịch dòng tiền và tiết kiệm? Hành động này không thể hoàn tác.')) {
-      localStorage.removeItem(`finance_trans_${userId}`);
-      localStorage.removeItem(`finance_em_curr_${userId}`);
-      localStorage.removeItem(`finance_em_tar_${userId}`);
-      localStorage.removeItem(`finance_ac_curr_${userId}`);
-      localStorage.removeItem(`finance_ac_tar_${userId}`);
-      localStorage.removeItem(`finance_sav_hist_${userId}`);
-      localStorage.removeItem(`finance_budgets_${userId}`);
+    localStorage.removeItem(`finance_trans_${userId}`);
+    localStorage.removeItem(`finance_em_curr_${userId}`);
+    localStorage.removeItem(`finance_em_tar_${userId}`);
+    localStorage.removeItem(`finance_ac_curr_${userId}`);
+    localStorage.removeItem(`finance_ac_tar_${userId}`);
+    localStorage.removeItem(`finance_sav_hist_${userId}`);
+    localStorage.removeItem(`finance_budgets_${userId}`);
 
-      setManualTransactions([]);
-      setEmergencyCurrent(0);
-      setEmergencyTarget(30000000);
-      setAccumulationCurrent(0);
-      setAccumulationTarget(150000000);
-      setSavingsHistory([]);
-      setCategoryBudgets({
-        'Lương': 15000000,
-        'Giáo dục': 10000000,
-        'Đầu tư': 5000000,
-        'Khác': 1000000,
-        'Ăn uống': 4000000,
-        'Di chuyển': 1500000,
-        'Shopping': 3000000,
-        'Hóa đơn': 3000000,
-        'Giải trí': 2000000
-      });
-      showToast('Đã xóa dữ liệu tài chính cục bộ.', 'info');
-    }
+    setManualTransactions([]);
+    setEmergencyCurrent(0);
+    setEmergencyTarget(30000000);
+    setAccumulationCurrent(0);
+    setAccumulationTarget(150000000);
+    setSavingsHistory([]);
+    setCategoryBudgets({
+      'Lương': 15000000,
+      'Giáo dục': 10000000,
+      'Đầu tư': 5000000,
+      'Khác': 1000000,
+      'Ăn uống': 4000000,
+      'Di chuyển': 1500000,
+      'Shopping': 3000000,
+      'Hóa đơn': 3000000,
+      'Giải trí': 2000000
+    });
+    showToast('Đã xóa dữ liệu tài chính cục bộ.', 'info');
+    setResetConfirmOpen(false);
   };
 
   return (
@@ -253,7 +253,7 @@ export default function SettingsTab({
             Thực hiện xóa toàn bộ dữ liệu tài chính (giao dịch thủ công và số dư các quỹ tiết kiệm hiện có) được ghi nhớ trong trình duyệt. Thông tin về lịch dạy trên Supabase sẽ không bị ảnh hưởng.
           </p>
           <button
-            onClick={handleResetData}
+            onClick={() => setResetConfirmOpen(true)}
             className="w-full py-3 bg-rose-500 hover:bg-rose-600 text-white font-extrabold text-xs rounded-xl shadow-md transition-all hover:scale-[1.01] cursor-pointer"
           >
             Xóa Toàn Bộ Dữ Liệu Tài Chính
@@ -270,40 +270,69 @@ export default function SettingsTab({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Copy data */}
             <div className="space-y-2">
-              <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Chuỗi sao lưu hiện thời (JSON)</label>
+              <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Chuỗi sao lưu hiện thời (JSON)</label>
               <textarea
                 readOnly
-                value={getBackupJSON()}
-                className="w-full h-40 bg-[#0d1018] border border-white/10 text-[10px] font-mono text-cyan-300 rounded-xl p-3 focus:outline-none focus:border-indigo-500 scrollbar-thin resize-none"
-                onClick={(e) => {
-                  (e.target as HTMLTextAreaElement).select();
-                  document.execCommand('copy');
-                  showToast('Đã copy chuỗi sao lưu vào bộ nhớ Clipboard!', 'info');
-                }}
-                title="Click để chọn tất cả"
-              />
-              <span className="text-[9px] text-slate-500 font-extrabold block">Mẹo: Click vào hộp thoại trên để tự động copy chuỗi sao lưu.</span>
-            </div>
-
-            {/* Paste data */}
-            <form onSubmit={handleRestoreJSON} className="space-y-2 flex flex-col">
-              <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Nhập dữ liệu khôi phục (JSON)</label>
-              <textarea
-                name="restoreArea"
-                placeholder="Dán chuỗi dữ liệu JSON đã sao lưu vào đây..."
-                className="w-full h-40 bg-[#0d1018] border border-white/10 text-[10px] font-mono text-slate-400 rounded-xl p-3 focus:outline-none focus:border-indigo-500 resize-none"
-                required
+                value={JSON.stringify({
+                  transactions: manualTransactions,
+                  emergency: { current: emergencyCurrent, target: emergencyTarget },
+                  history: savingsHistory,
+                  budgets: categoryBudgets
+                }, null, 2)}
+                className="w-full h-32 bg-[#090b10] border border-white/10 rounded-xl p-3 text-[10px] font-mono text-cyan-300 focus:outline-none scrollbar-thin resize-none"
               />
               <button
-                type="submit"
-                className="w-full py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white font-extrabold text-xs rounded-xl shadow-md transition-all cursor-pointer mt-auto"
+                type="button"
+                onClick={() => {
+                  const jsonStr = JSON.stringify({
+                    transactions: manualTransactions,
+                    emergency: { current: emergencyCurrent, target: emergencyTarget },
+                    history: savingsHistory,
+                    budgets: categoryBudgets
+                  }, null, 2);
+                  navigator.clipboard.writeText(jsonStr);
+                  showToast('Đã sao chép chuỗi sao lưu vào Clipboard!', 'success');
+                }}
+                className="w-full py-2 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 font-extrabold text-xs rounded-xl border border-cyan-500/30 transition-all cursor-pointer"
               >
-                Khôi Phục Dữ Liệu
+                Sao chép chuỗi mã hóa
               </button>
-            </form>
+            </div>
+
+            {/* Restore data */}
+            <div className="space-y-2">
+              <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Dán chuỗi khôi phục vào đây</label>
+              <textarea
+                value={importStr}
+                onChange={(e) => setImportStr(e.target.value)}
+                placeholder="Dán chuỗi JSON sao lưu vào đây..."
+                className="w-full h-32 bg-[#090b10] border border-white/10 rounded-xl p-3 text-[10px] font-mono text-slate-300 focus:outline-none focus:border-cyan-400 scrollbar-thin resize-none"
+              />
+              <button
+                type="button"
+                onClick={handleImportData}
+                className="w-full py-2 bg-indigo-500 hover:bg-indigo-600 text-white font-extrabold text-xs rounded-xl shadow-md transition-all cursor-pointer"
+              >
+                Khôi phục dữ liệu
+              </button>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Confirm Data Reset Modal */}
+      {resetConfirmOpen && (
+        <ConfirmModal
+          isOpen={resetConfirmOpen}
+          title="Xóa Toàn Bộ Dữ Liệu"
+          message="CẢNH BÁO: Xóa bỏ vĩnh viễn toàn bộ giao dịch dòng tiền và tiết kiệm? Hành động này không thể hoàn tác."
+          confirmLabel="Xóa Vĩnh Viễn"
+          cancelLabel="Hủy Bỏ"
+          variant="danger"
+          onConfirm={executeResetData}
+          onClose={() => setResetConfirmOpen(false)}
+        />
+      )}
     </div>
   );
 }

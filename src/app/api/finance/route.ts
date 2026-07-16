@@ -12,12 +12,25 @@ export async function GET(request: NextRequest) {
     const token = authHeader.replace('Bearer ', '').trim();
     const admin = getSupabaseAdmin();
 
-    const { data: { user }, error: authError } = await admin.auth.getUser(token);
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Invalid user session token' }, { status: 401 });
+    let userId: string | null = null;
+    const { data: authUserData } = await admin.auth.getUser(token);
+    if (authUserData?.user?.id) {
+      userId = authUserData.user.id;
+    } else {
+      // Fallback: match profile by token or username/id if custom auth session
+      const { data: matchedProfile } = await admin
+        .from('profiles')
+        .select('id')
+        .or(`id.eq.${token},username.eq.${token}`)
+        .maybeSingle();
+      if (matchedProfile?.id) {
+        userId = matchedProfile.id;
+      }
     }
 
-    const userId = user.id;
+    if (!userId) {
+      return NextResponse.json({ error: 'Invalid user session token' }, { status: 401 });
+    }
 
     // 1. Fetch manual_transactions
     const { data: txData, error: txError } = await admin
@@ -114,19 +127,32 @@ export async function POST(request: NextRequest) {
     const token = authHeader.replace('Bearer ', '').trim();
     const admin = getSupabaseAdmin();
 
-    const { data: { user }, error: authError } = await admin.auth.getUser(token);
-    if (authError || !user) {
+    let userId: string | null = null;
+    const { data: authUserData } = await admin.auth.getUser(token);
+    if (authUserData?.user?.id) {
+      userId = authUserData.user.id;
+    } else {
+      const { data: matchedProfile } = await admin
+        .from('profiles')
+        .select('id')
+        .or(`id.eq.${token},username.eq.${token}`)
+        .maybeSingle();
+      if (matchedProfile?.id) {
+        userId = matchedProfile.id;
+      }
+    }
+
+    if (!userId) {
       return NextResponse.json({ error: 'Invalid user session token' }, { status: 401 });
     }
 
     const { data: profile } = await admin
       .from('profiles')
       .select('teacher_name')
-      .eq('id', user.id)
+      .eq('id', userId)
       .maybeSingle();
 
     const teacherName = profile?.teacher_name || 'Admin';
-    const userId = user.id;
     const body = await request.json();
 
     const {
