@@ -285,10 +285,10 @@ export default function Dashboard() {
   }, [currentUser]);
 
   // Save helpers
-  const saveTransactions = (userId: string, data: any[]) => {
+  const saveTransactions = useCallback((userId: string, data: any[]) => {
     setManualTransactions(data);
     localStorage.setItem(`finance_trans_${userId}`, JSON.stringify(data));
-  };
+  }, []);
 
   const saveEmergencyCurrent = (userId: string, val: number) => {
     setEmergencyCurrent(val);
@@ -315,10 +315,10 @@ export default function Dashboard() {
     localStorage.setItem(`finance_sav_hist_${userId}`, JSON.stringify(data));
   };
 
-  const saveBudgets = (userId: string, budgets: Record<string, number>) => {
+  const saveBudgets = useCallback((userId: string, budgets: Record<string, number>) => {
     setCategoryBudgets(budgets);
     localStorage.setItem(`finance_budgets_${userId}`, JSON.stringify(budgets));
-  };
+  }, []);
 
   // Fetch teachers list
   const fetchTeachers = useCallback(async () => {
@@ -641,7 +641,7 @@ export default function Dashboard() {
   }, [manualTransactions, sessions, allSessions, chartSelectedMonths, currentUser]);
 
   // Toggle multi-select months
-  const toggleChartMonth = (mStr: string) => {
+  const toggleChartMonth = useCallback((mStr: string) => {
     setChartSelectedMonths(prev => {
       if (prev.includes(mStr)) {
         if (prev.length === 1) return prev; // Do not empty
@@ -650,21 +650,24 @@ export default function Dashboard() {
         return [...prev, mStr];
       }
     });
-  };
+  }, []);
 
-  const handleDeleteManualTx = (id: string) => {
+  const handleDeleteManualTx = useCallback((id: string) => {
     if (!currentUser) return;
     const userId = currentUser.id;
     if (confirm('Bạn có chắc chắn muốn xóa giao dịch này?')) {
-      const updated = manualTransactions.filter(t => t.id !== id);
-      saveTransactions(userId, updated);
+      setManualTransactions(prev => {
+        const updated = prev.filter(t => t.id !== id);
+        localStorage.setItem(`finance_trans_${userId}`, JSON.stringify(updated));
+        return updated;
+      });
     }
-  };
+  }, [currentUser]);
 
-  const handleOpenTxModal = (type: 'income' | 'expense' | 'saving') => {
+  const handleOpenTxModal = useCallback((type: 'income' | 'expense' | 'saving') => {
     setModalTxType(type);
     setTxModalOpen(true);
-  };
+  }, []);
 
   const handleLogout = async () => {
     localStorage.removeItem('custom_teacher_session');

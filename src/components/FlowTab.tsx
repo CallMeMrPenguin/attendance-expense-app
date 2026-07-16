@@ -42,10 +42,10 @@ const ICON_COMPONENTS: Record<string, React.ComponentType<any>> = {
   Home, Heart, Plane, Gift, Phone, Shield, Cpu, Coffee
 };
 
-const CategoryIcon = ({ iconName, className }: { iconName: string, className?: string }) => {
+const CategoryIcon = React.memo(({ iconName, className }: { iconName: string, className?: string }) => {
   const IconComp = ICON_COMPONENTS[iconName] || HelpCircle;
   return <IconComp className={className} />;
-};
+});
 
 interface FlowTabProps {
   currentUser: {
@@ -108,7 +108,7 @@ export const formatAbbreviatedVND = (value: number): string => {
 
 import { useToast } from '@/context/ToastContext';
 
-export default function FlowTab({
+function FlowTab({
   currentUser,
   manualTransactions,
   sessions,
@@ -479,6 +479,10 @@ export default function FlowTab({
     return [...incomes, ...expenses].sort((a, b) => b.date.localeCompare(a.date));
   }, [incomes, expenses]);
 
+  const availableCategories = React.useMemo(() => {
+    return Array.from(new Set(transactions.map(t => t.category)));
+  }, [transactions]);
+
   // Filtered & Paginated Transactions
   const filteredTransactions = React.useMemo(() => {
     const q = searchQuery.toLowerCase();
@@ -593,7 +597,7 @@ export default function FlowTab({
             return (
               <div
                 key={cat}
-                className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-3 text-left backdrop-blur-md ${cardStyle}`}
+                className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-3 text-left ${cardStyle}`}
               >
                 <div className="flex items-center gap-3 shrink-0 min-w-0 max-w-[170px] sm:max-w-[220px]">
                   <span className={`inline-flex p-2.5 rounded-full border shrink-0 transition-all ${
@@ -934,7 +938,7 @@ export default function FlowTab({
                     >
                       Tất cả danh mục
                     </button>
-                    {Array.from(new Set(transactions.map(t => t.category))).map(catName => (
+                    {availableCategories.map(catName => (
                       <button
                         key={catName}
                         onClick={() => { setFilterCategory(catName); setCatFilterOpen(false); setCurrentPage(1); }}
@@ -1003,7 +1007,7 @@ export default function FlowTab({
                 return (
                   <div
                     key={t.id}
-                    className={`p-3.5 rounded-2xl border transition-all grid grid-cols-[minmax(0,1.8fr)_130px_130px_36px] sm:grid-cols-[minmax(0,2fr)_160px_160px_40px] items-center gap-3 text-left backdrop-blur-md ${
+                    className={`p-3.5 rounded-2xl border transition-all grid grid-cols-[minmax(0,1.8fr)_130px_130px_36px] sm:grid-cols-[minmax(0,2fr)_160px_160px_40px] items-center gap-3 text-left ${
                       isIncome
                         ? 'bg-[#151c2d] border-emerald-500/35 shadow-[0_0_12px_rgba(16,185,129,0.15)] hover:border-emerald-500/60 hover:bg-[#192238]'
                         : 'bg-[#151c2d] border-rose-500/35 shadow-[0_0_12px_rgba(239,68,68,0.15)] hover:border-rose-500/60 hover:bg-[#192238]'
@@ -1455,3 +1459,5 @@ export default function FlowTab({
     </div>
   );
 }
+
+export default React.memo(FlowTab);
