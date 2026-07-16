@@ -290,7 +290,7 @@ export default function EditSessionModal({
         .upsert(newSessions);
 
       if (upsertError && (upsertError.message?.includes('schema cache') || upsertError.message?.includes('Could not find'))) {
-        const cleanSessions = newSessions.map(({ auto_check_in, auto_checkin, loai_hinh_lich, loai_hinh, ...rest }) => rest);
+        const cleanSessions = newSessions.map(({ auto_check_in, auto_checkin, loai_hinh_lich, loai_hinh, category, income_category, ...rest }) => rest);
         const retryRes = await supabase.from('sessions').upsert(cleanSessions);
         upsertError = retryRes.error;
       }
@@ -372,7 +372,6 @@ export default function EditSessionModal({
                 loai_hinh: loaiHinh,
                 loai_hinh_lich: loaiHinh,
                 income_category: incomeCategory,
-                category: incomeCategory,
                 auto_checkin: autoCheckin,
                 auto_check_in: autoCheckin,
               });
@@ -394,7 +393,6 @@ export default function EditSessionModal({
                 loai_hinh: loaiHinh,
                 loai_hinh_lich: loaiHinh,
                 income_category: incomeCategory,
-                category: incomeCategory,
                 auto_checkin: autoCheckin,
                 auto_check_in: autoCheckin,
               });

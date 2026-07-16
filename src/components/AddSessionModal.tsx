@@ -156,7 +156,7 @@ export default function AddSessionModal({
         .insert(candidatesToInsert);
 
       if (insertError && (insertError.message?.includes('schema cache') || insertError.message?.includes('Could not find'))) {
-        const cleanCandidates = candidatesToInsert.map(({ auto_check_in, auto_checkin, loai_hinh_lich, loai_hinh, ...rest }) => rest);
+        const cleanCandidates = candidatesToInsert.map(({ auto_check_in, auto_checkin, loai_hinh_lich, loai_hinh, category, income_category, ...rest }) => rest);
         const retryRes = await supabase.from('sessions').insert(cleanCandidates);
         insertError = retryRes.error;
       }
@@ -248,7 +248,6 @@ export default function AddSessionModal({
             loai_hinh_lich: loaiHinh,
             loai_hinh: loaiHinh,
             income_category: incomeCategory,
-            category: incomeCategory,
           });
         });
       });
