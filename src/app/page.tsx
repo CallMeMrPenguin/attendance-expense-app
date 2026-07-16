@@ -214,11 +214,11 @@ export default function Dashboard() {
     }
   }, [currentUser, activeTab]);
 
-  // Load financial data from LocalStorage first (for instant offline safety), then sync with Supabase DB
+  // Load financial data from LocalStorage first, then sync directly with Supabase DB (matching sessions table architecture)
   useEffect(() => {
     if (!currentUser) return;
     const userId = currentUser.id;
-    const token = currentUser.token;
+    const teacherName = currentUser.teacherName || 'Admin';
 
     // Step 1: Initial LocalStorage Load (Prevents data loss under all conditions)
     let localTx: any[] = [];
@@ -270,159 +270,255 @@ export default function Dashboard() {
     setSavingsHistory(localSavHist);
     setCategoryBudgets({ ...defaultBudgets, ...localBudgets });
 
-    // Step 2: Background Supabase Cloud Synchronization & Auto-Migration
-    fetch('/api/finance', {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(res => res.json())
-      .then(data => {
-        if (data.tablesMissing) {
-          console.warn('Supabase tables missing. Operating in LocalStorage backup mode.');
+    // Step 2: Direct Supabase Cloud Synchronization & Auto-Migration
+    const fetchFinanceCloud = async () => {
+      try {
+        const [txRes, fundRes, budgetRes, histRes] = await Promise.all([
+          supabase.from('manual_transactions').select('*').eq('user_id', userId).order('date', { ascending: false }),
+          supabase.from('savings_funds').select('*').eq('user_id', userId).maybeSingle(),
+          supabase.from('category_budgets').select('*').eq('user_id', userId),
+          supabase.from('savings_history').select('*').eq('user_id', userId).order('date', { ascending: false })
+        ]);
+
+        if (txRes.error || fundRes.error || budgetRes.error || histRes.error) {
+          console.warn('Supabase financial tables not present or inaccessible. Operating in LocalStorage mode.', {
+            txErr: txRes.error?.message,
+            fundErr: fundRes.error?.message,
+            budgetErr: budgetRes.error?.message,
+            histErr: histRes.error?.message
+          });
           return;
         }
 
-        if (data.success) {
-          if (data.hasData) {
-            // Supabase cloud has data: update local state & refresh local storage backup
-            setManualTransactions(data.manualTransactions || []);
-            setEmergencyCurrent(data.emergencyCurrent || 0);
-            setEmergencyTarget(data.emergencyTarget || 30000000);
-            setAccumulationCurrent(data.accumulationCurrent || 0);
-            setAccumulationTarget(data.accumulationTarget || 150000000);
-            setSavingsHistory(data.savingsHistory || []);
-            setCategoryBudgets({ ...defaultBudgets, ...(data.categoryBudgets || {}) });
+        const cloudTx = txRes.data || [];
+        const cloudFund = fundRes.data;
+        const cloudBudgets = budgetRes.data || [];
+        const cloudHist = histRes.data || [];
 
-            // Refresh LocalStorage backup cache
-            localStorage.setItem(`finance_trans_${userId}`, JSON.stringify(data.manualTransactions || []));
-            localStorage.setItem(`finance_em_curr_${userId}`, String(data.emergencyCurrent || 0));
-            localStorage.setItem(`finance_em_tar_${userId}`, String(data.emergencyTarget || 30000000));
-            localStorage.setItem(`finance_ac_curr_${userId}`, String(data.accumulationCurrent || 0));
-            localStorage.setItem(`finance_ac_tar_${userId}`, String(data.accumulationTarget || 150000000));
-            localStorage.setItem(`finance_sav_hist_${userId}`, JSON.stringify(data.savingsHistory || []));
-            localStorage.setItem(`finance_budgets_${userId}`, JSON.stringify({ ...defaultBudgets, ...(data.categoryBudgets || {}) }));
-          } else if (localTx.length > 0 || localSavHist.length > 0 || Object.keys(localBudgets).length > 0) {
-            // Supabase table is empty BUT LocalStorage has existing local data -> Auto-migrate UP to Supabase cloud!
-            console.log('Auto-migrating local financial data up to Supabase database...');
-            fetch('/api/finance', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-              body: JSON.stringify({ type: 'transactions', transactions: localTx })
-            });
-            fetch('/api/finance', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-              body: JSON.stringify({
-                type: 'savings_funds',
-                savingsFunds: {
-                  emergencyCurrent: localEmCurr,
-                  emergencyTarget: localEmTar,
-                  accumulationCurrent: localAcCurr,
-                  accumulationTarget: localAcTar
-                }
-              })
-            });
-            fetch('/api/finance', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-              body: JSON.stringify({ type: 'savings_history', savingsHistory: localSavHist })
-            });
-            fetch('/api/finance', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-              body: JSON.stringify({ type: 'category_budgets', categoryBudgets: { ...defaultBudgets, ...localBudgets } })
-            });
+        const hasCloudData = cloudTx.length > 0 || !!cloudFund || cloudBudgets.length > 0 || cloudHist.length > 0;
+
+        if (hasCloudData) {
+          // Cloud has data: sync to state & LocalStorage
+          if (cloudTx.length > 0) {
+            const formatted = cloudTx.map((t: any) => ({
+              id: t.id,
+              desc: t.desc_text || t.desc || '',
+              amount: Number(t.amount) || 0,
+              type: t.type,
+              category: t.category,
+              date: t.date
+            }));
+            setManualTransactions(formatted);
+            localStorage.setItem(`finance_trans_${userId}`, JSON.stringify(formatted));
+          }
+
+          if (cloudFund) {
+            setEmergencyCurrent(Number(cloudFund.emergency_current) || 0);
+            setEmergencyTarget(Number(cloudFund.emergency_target) || 30000000);
+            setAccumulationCurrent(Number(cloudFund.accumulation_current) || 0);
+            setAccumulationTarget(Number(cloudFund.accumulation_target) || 150000000);
+
+            localStorage.setItem(`finance_em_curr_${userId}`, String(cloudFund.emergency_current || 0));
+            localStorage.setItem(`finance_em_tar_${userId}`, String(cloudFund.emergency_target || 30000000));
+            localStorage.setItem(`finance_ac_curr_${userId}`, String(cloudFund.accumulation_current || 0));
+            localStorage.setItem(`finance_ac_tar_${userId}`, String(cloudFund.accumulation_target || 150000000));
+          }
+
+          if (cloudBudgets.length > 0) {
+            const bMap: Record<string, number> = {};
+            cloudBudgets.forEach((b: any) => { bMap[b.category] = Number(b.amount) || 0; });
+            setCategoryBudgets({ ...defaultBudgets, ...bMap });
+            localStorage.setItem(`finance_budgets_${userId}`, JSON.stringify(bMap));
+          }
+
+          if (cloudHist.length > 0) {
+            const formatted = cloudHist.map((h: any) => ({
+              id: h.id,
+              fund: h.fund,
+              type: h.type,
+              amount: Number(h.amount) || 0,
+              date: h.date
+            }));
+            setSavingsHistory(formatted);
+            localStorage.setItem(`finance_sav_hist_${userId}`, JSON.stringify(formatted));
+          }
+        } else if (localTx.length > 0 || localSavHist.length > 0 || Object.keys(localBudgets).length > 0) {
+          // Cloud table is empty BUT LocalStorage has existing data -> Auto-migrate UP to Supabase cloud!
+          console.log('Auto-migrating local financial data up to Supabase database...');
+          if (localTx.length > 0) {
+            const txRecords = localTx.map(t => ({
+              id: t.id || `tx-${Date.now()}-${Math.random()}`,
+              user_id: userId,
+              teacher_name: teacherName,
+              desc_text: t.desc || '',
+              amount: Number(t.amount) || 0,
+              type: t.type,
+              category: t.category,
+              date: t.date
+            }));
+            await supabase.from('manual_transactions').insert(txRecords);
+          }
+
+          await supabase.from('savings_funds').upsert({
+            user_id: userId,
+            teacher_name: teacherName,
+            emergency_current: localEmCurr,
+            emergency_target: localEmTar,
+            accumulation_current: localAcCurr,
+            accumulation_target: localAcTar,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'user_id' });
+
+          if (localSavHist.length > 0) {
+            const histRecords = localSavHist.map(h => ({
+              id: h.id || `sh-${Date.now()}-${Math.random()}`,
+              user_id: userId,
+              teacher_name: teacherName,
+              fund: h.fund,
+              type: h.type,
+              amount: Number(h.amount) || 0,
+              date: h.date
+            }));
+            await supabase.from('savings_history').insert(histRecords);
+          }
+
+          const budgetRecords = Object.keys(localBudgets).map(cat => ({
+            id: `${userId}_${cat}`,
+            user_id: userId,
+            teacher_name: teacherName,
+            category: cat,
+            amount: Number(localBudgets[cat]) || 0,
+            updated_at: new Date().toISOString()
+          }));
+          if (budgetRecords.length > 0) {
+            await supabase.from('category_budgets').upsert(budgetRecords, { onConflict: 'id' });
           }
         }
-      })
-      .catch(err => console.error('Fetch finance background sync error:', err));
+      } catch (err) {
+        console.error('Direct Supabase cloud fetch error:', err);
+      }
+    };
+
+    fetchFinanceCloud();
   }, [currentUser]);
 
-  // Dual Sync Save Helpers (Updates React State, LocalStorage Backup & Supabase Cloud simultaneously)
-  const syncFinanceToSupabase = useCallback((payload: any) => {
-    if (!currentUser?.token) return;
-    fetch('/api/finance', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${currentUser.token}`
-      },
-      body: JSON.stringify(payload)
-    }).catch(e => console.error('Sync to Supabase background error:', e));
-  }, [currentUser]);
-
-  const saveTransactions = useCallback((userId: string, data: any[]) => {
+  // Direct Supabase Save Helpers (Updates React State, LocalStorage Backup & Supabase Cloud directly)
+  const saveTransactions = useCallback(async (userId: string, data: any[]) => {
     setManualTransactions(data);
     localStorage.setItem(`finance_trans_${userId}`, JSON.stringify(data));
-    syncFinanceToSupabase({ type: 'transactions', transactions: data });
-  }, [syncFinanceToSupabase]);
+
+    if (!currentUser) return;
+    const teacherName = currentUser.teacherName || 'Admin';
+    try {
+      await supabase.from('manual_transactions').delete().eq('user_id', userId);
+      if (data.length > 0) {
+        const records = data.map(t => ({
+          id: t.id || `tx-${Date.now()}-${Math.random()}`,
+          user_id: userId,
+          teacher_name: teacherName,
+          desc_text: t.desc || '',
+          amount: Number(t.amount) || 0,
+          type: t.type,
+          category: t.category,
+          date: t.date
+        }));
+        const { error } = await supabase.from('manual_transactions').insert(records);
+        if (error) console.error('Supabase manual_transactions insert error:', error);
+      }
+    } catch (err) {
+      console.error('Direct saveTransactions error:', err);
+    }
+  }, [currentUser]);
+
+  const saveSavingsFundsDirect = async (userId: string, emCurr: number, emTar: number, acCurr: number, acTar: number) => {
+    if (!currentUser) return;
+    try {
+      const { error } = await supabase.from('savings_funds').upsert({
+        user_id: userId,
+        teacher_name: currentUser.teacherName || 'Admin',
+        emergency_current: emCurr,
+        emergency_target: emTar,
+        accumulation_current: acCurr,
+        accumulation_target: acTar,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'user_id' });
+      if (error) console.error('Supabase savings_funds upsert error:', error);
+    } catch (err) {
+      console.error('Direct saveSavingsFunds error:', err);
+    }
+  };
 
   const saveEmergencyCurrent = (userId: string, val: number) => {
     setEmergencyCurrent(val);
     localStorage.setItem(`finance_em_curr_${userId}`, String(val));
-    syncFinanceToSupabase({
-      type: 'savings_funds',
-      savingsFunds: {
-        emergencyCurrent: val,
-        emergencyTarget,
-        accumulationCurrent,
-        accumulationTarget
-      }
-    });
+    saveSavingsFundsDirect(userId, val, emergencyTarget, accumulationCurrent, accumulationTarget);
   };
 
   const saveEmergencyTarget = (userId: string, val: number) => {
     setEmergencyTarget(val);
     localStorage.setItem(`finance_em_tar_${userId}`, String(val));
-    syncFinanceToSupabase({
-      type: 'savings_funds',
-      savingsFunds: {
-        emergencyCurrent,
-        emergencyTarget: val,
-        accumulationCurrent,
-        accumulationTarget
-      }
-    });
+    saveSavingsFundsDirect(userId, emergencyCurrent, val, accumulationCurrent, accumulationTarget);
   };
 
   const saveAccumulationCurrent = (userId: string, val: number) => {
     setAccumulationCurrent(val);
     localStorage.setItem(`finance_ac_curr_${userId}`, String(val));
-    syncFinanceToSupabase({
-      type: 'savings_funds',
-      savingsFunds: {
-        emergencyCurrent,
-        emergencyTarget,
-        accumulationCurrent: val,
-        accumulationTarget
-      }
-    });
+    saveSavingsFundsDirect(userId, emergencyCurrent, emergencyTarget, val, accumulationTarget);
   };
 
   const saveAccumulationTarget = (userId: string, val: number) => {
     setAccumulationTarget(val);
     localStorage.setItem(`finance_ac_tar_${userId}`, String(val));
-    syncFinanceToSupabase({
-      type: 'savings_funds',
-      savingsFunds: {
-        emergencyCurrent,
-        emergencyTarget,
-        accumulationCurrent,
-        accumulationTarget: val
-      }
-    });
+    saveSavingsFundsDirect(userId, emergencyCurrent, emergencyTarget, accumulationCurrent, val);
   };
 
-  const saveSavingsHistory = (userId: string, data: any[]) => {
+  const saveSavingsHistory = useCallback(async (userId: string, data: any[]) => {
     setSavingsHistory(data);
     localStorage.setItem(`finance_sav_hist_${userId}`, JSON.stringify(data));
-    syncFinanceToSupabase({ type: 'savings_history', savingsHistory: data });
-  };
 
-  const saveBudgets = useCallback((userId: string, budgets: Record<string, number>) => {
+    if (!currentUser) return;
+    try {
+      await supabase.from('savings_history').delete().eq('user_id', userId);
+      if (data.length > 0) {
+        const records = data.map(h => ({
+          id: h.id || `sh-${Date.now()}-${Math.random()}`,
+          user_id: userId,
+          teacher_name: currentUser.teacherName || 'Admin',
+          fund: h.fund,
+          type: h.type,
+          amount: Number(h.amount) || 0,
+          date: h.date
+        }));
+        const { error } = await supabase.from('savings_history').insert(records);
+        if (error) console.error('Supabase savings_history insert error:', error);
+      }
+    } catch (err) {
+      console.error('Direct saveSavingsHistory error:', err);
+    }
+  }, [currentUser]);
+
+  const saveBudgets = useCallback(async (userId: string, budgets: Record<string, number>) => {
     setCategoryBudgets(budgets);
     localStorage.setItem(`finance_budgets_${userId}`, JSON.stringify(budgets));
-    syncFinanceToSupabase({ type: 'category_budgets', categoryBudgets: budgets });
-  }, [syncFinanceToSupabase]);
+
+    if (!currentUser) return;
+    try {
+      const records = Object.keys(budgets).map(cat => ({
+        id: `${userId}_${cat}`,
+        user_id: userId,
+        teacher_name: currentUser.teacherName || 'Admin',
+        category: cat,
+        amount: Number(budgets[cat]) || 0,
+        updated_at: new Date().toISOString()
+      }));
+      if (records.length > 0) {
+        const { error } = await supabase.from('category_budgets').upsert(records, { onConflict: 'id' });
+        if (error) console.error('Supabase category_budgets upsert error:', error);
+      }
+    } catch (err) {
+      console.error('Direct saveBudgets error:', err);
+    }
+  }, [currentUser]);
 
   // Fetch teachers list
   const fetchTeachers = useCallback(async () => {
