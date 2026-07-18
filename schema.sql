@@ -210,11 +210,43 @@ CREATE TABLE IF NOT EXISTS public.savings_history (
     created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
+-- 17. Create bank_receipts table
+CREATE TABLE IF NOT EXISTS public.bank_receipts (
+    id text PRIMARY KEY,
+    user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+    order_number text,
+    trans_date text,
+    debit_account text,
+    remitter_name text,
+    credit_account text,
+    beneficiary_name text,
+    beneficiary_bank text,
+    amount numeric NOT NULL,
+    details text,
+    status text NOT NULL DEFAULT 'unclassified' CHECK (status IN ('unclassified', 'classified')),
+    type text CHECK (type IN ('income', 'expense')),
+    category text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+-- 18. Create receipt_rules table
+CREATE TABLE IF NOT EXISTS public.receipt_rules (
+    id text PRIMARY KEY,
+    user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+    match_field text NOT NULL CHECK (match_field IN ('remitter_name', 'beneficiary_name', 'details', 'sender')),
+    match_value text NOT NULL,
+    target_type text NOT NULL CHECK (target_type IN ('income', 'expense')),
+    target_category text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
 -- Enable RLS for all financial tables
 ALTER TABLE public.manual_transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.savings_funds ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.category_budgets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.savings_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.bank_receipts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.receipt_rules ENABLE ROW LEVEL SECURITY;
 
 -- Add permissive RLS policies for authenticated users
 DROP POLICY IF EXISTS all_manual_transactions ON public.manual_transactions;
@@ -228,4 +260,11 @@ CREATE POLICY all_category_budgets ON public.category_budgets FOR ALL TO authent
 
 DROP POLICY IF EXISTS all_savings_history ON public.savings_history;
 CREATE POLICY all_savings_history ON public.savings_history FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS all_bank_receipts ON public.bank_receipts;
+CREATE POLICY all_bank_receipts ON public.bank_receipts FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS all_receipt_rules ON public.receipt_rules;
+CREATE POLICY all_receipt_rules ON public.receipt_rules FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
 

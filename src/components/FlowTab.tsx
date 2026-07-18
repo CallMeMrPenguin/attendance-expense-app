@@ -57,12 +57,15 @@ interface FlowTabProps {
   sessions: Session[];
   categoryBudgets: Record<string, number>;
   chartSelectedMonths: string[];
+  bankReceipts?: any[];
   getActualCategoryAmount: (cat: string) => number;
   handleDeleteManualTx: (id: string) => void;
   handleOpenTxModal: (type: 'income' | 'expense' | 'saving') => void;
   saveBudgets: (userId: string, budgets: Record<string, number>) => void;
   saveTransactions?: (userId: string, data: any[]) => void;
   toggleChartMonth?: (mStr: string) => void;
+  handleClassifyReceipt?: (receiptId: string, type: 'income' | 'expense', category: string, createRule: boolean, matchField: string, matchValue: string) => Promise<void>;
+  handleSyncReceipts?: () => Promise<void>;
 }
 
 export const formatAbbreviatedVND = (value: number): string => {
@@ -116,15 +119,28 @@ function FlowTab({
   sessions,
   categoryBudgets,
   chartSelectedMonths,
+  bankReceipts = [],
   getActualCategoryAmount,
   handleDeleteManualTx,
   handleOpenTxModal,
   saveBudgets,
   saveTransactions,
-  toggleChartMonth
+  toggleChartMonth,
+  handleClassifyReceipt,
+  handleSyncReceipts
 }: FlowTabProps) {
   const { showToast } = useToast();
   const [mounted, setMounted] = React.useState(false);
+  const [isSyncing, setIsSyncing] = React.useState(false);
+
+  // Bank receipt classification modal state
+  const [classifyingReceipt, setClassifyingReceipt] = React.useState<any | null>(null);
+  const [selectedType, setSelectedType] = React.useState<'income' | 'expense'>('expense');
+  const [selectedCat, setSelectedCat] = React.useState<string>('Ăn uống');
+  const [createRule, setCreateRule] = React.useState<boolean>(true);
+  const [matchField, setMatchField] = React.useState<'remitter_name' | 'beneficiary_name' | 'details'>('remitter_name');
+  const [matchValue, setMatchValue] = React.useState<string>('');
+  const [isSavingClassification, setIsSavingClassification] = React.useState(false);
 
   React.useEffect(() => {
     setMounted(true);
@@ -292,7 +308,7 @@ function FlowTab({
   // Filter & Pagination states for Giao dịch section
   const [filterType, setFilterType] = React.useState<'all' | 'income' | 'expense'>('all');
   const [filterCategory, setFilterCategory] = React.useState<string>('all');
-  const [filterRecurring, setFilterRecurring] = React.useState<'all' | 'co_dinh' | 'tam_thoi'>('all');
+  const [filterRecurring, setFilterRecurring] = React.useState<'all' | 'co_dinh' | 'tam_thoi' | 'bien_lai'>('all');
   const [searchQuery, setSearchQuery] = React.useState<string>('');
   const [currentPage, setCurrentPage] = React.useState<number>(1);
   const itemsPerPage = 10;
@@ -1191,18 +1207,26 @@ function FlowTab({
               </div>
 
               {/* Filter pill toggle */}
-              <div className="relative flex bg-[#0d1018] p-1 rounded-xl border border-white/10 text-xs shrink-0 font-bold select-none min-w-[200px]">
+              <div className="relative flex bg-[#0d1018] p-1 rounded-xl border border-white/10 text-xs shrink-0 font-bold select-none min-w-[320px]">
                 <div
                   className={`absolute top-1 bottom-1 rounded-lg transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] pointer-events-none ${
                     filterRecurring === 'all'
                       ? 'bg-[#5c36f5] shadow-[0_0_14px_rgba(92,54,245,0.5)]'
                       : filterRecurring === 'co_dinh'
                       ? 'bg-emerald-500 shadow-[0_0_14px_rgba(16,185,129,0.5)]'
-                      : 'bg-blue-500 shadow-[0_0_14px_rgba(59,130,246,0.5)]'
+                      : filterRecurring === 'tam_thoi'
+                      ? 'bg-blue-500 shadow-[0_0_14px_rgba(59,130,246,0.5)]'
+                      : 'bg-amber-500 shadow-[0_0_14px_rgba(245,158,11,0.5)]'
                   }`}
                   style={{
-                    left: filterRecurring === 'all' ? '4px' : filterRecurring === 'co_dinh' ? 'calc(33.333% + 2px)' : 'calc(66.666% + 1px)',
-                    width: 'calc(33.333% - 4px)',
+                    left: filterRecurring === 'all' 
+                      ? '4px' 
+                      : filterRecurring === 'co_dinh' 
+                      ? 'calc(25% + 1px)' 
+                      : filterRecurring === 'tam_thoi' 
+                      ? 'calc(50% + 1px)' 
+                      : 'calc(75% + 1px)',
+                    width: 'calc(25% - 4px)',
                   }}
                 />
                 <button
@@ -1226,10 +1250,125 @@ function FlowTab({
                 >
                   Tạm thời
                 </button>
+                <button
+                  type="button"
+                  onClick={() => { setFilterRecurring('bien_lai'); setCurrentPage(1); }}
+                  className={`flex-1 relative z-10 py-1 text-center transition-colors cursor-pointer ${filterRecurring === 'bien_lai' ? 'text-white font-black' : 'text-slate-400 hover:text-white'}`}
+                >
+                  Biên lai
+                </button>
               </div>
             </div>
           </div>
 
+        {filterRecurring === 'bien_lai' ? (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between bg-[#0e1220] p-3 rounded-2xl border border-white/5">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-amber-400 animate-pulse" />
+                <span className="text-xs font-bold text-slate-300">
+                  Danh sách biên lai ngân hàng Vietcombank tự động đọc qua Gmail
+                </span>
+              </div>
+              <button
+                type="button"
+                disabled={isSyncing}
+                onClick={async () => {
+                  if (handleSyncReceipts) {
+                    setIsSyncing(true);
+                    await handleSyncReceipts();
+                    setIsSyncing(false);
+                  }
+                }}
+                className="px-3 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-xs font-black rounded-xl transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <span>{isSyncing ? 'Đang đồng bộ...' : 'Đồng bộ Gmail'}</span>
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              {bankReceipts.length === 0 ? (
+                <div className="py-12 text-center text-slate-500 font-bold bg-[#151c2d]/50 border border-white/5 rounded-2xl">
+                  Chưa có biên lai chuyển tiền nào được ghi nhận từ Gmail.
+                </div>
+              ) : (
+                bankReceipts.map((r: any) => {
+                  const isClassified = r.status === 'classified';
+
+                  return (
+                    <div
+                      key={r.id}
+                      className={`p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-left ${
+                        isClassified
+                          ? 'bg-[#121829] border-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.1)]'
+                          : 'bg-[#161320] border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.15)]'
+                      }`}
+                    >
+                      <div className="space-y-1 flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-black text-white">
+                            {r.remitter_name || 'N/A'} ➔ {r.beneficiary_name || 'N/A'}
+                          </span>
+                          {isClassified ? (
+                            <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                              Đã phân loại: {r.category} ({r.type === 'income' ? 'Thu' : 'Chi'})
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">
+                              Chưa phân loại
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="text-[11px] font-medium text-slate-400">
+                          Nội dung: <span className="text-slate-200 font-bold">{r.details}</span>
+                        </div>
+
+                        <div className="flex items-center gap-3 text-[10px] text-slate-500 font-semibold flex-wrap">
+                          <span>Mã GD: {r.order_number}</span>
+                          <span>•</span>
+                          <span>Ngày: {r.trans_date}</span>
+                          {r.beneficiary_bank && (
+                            <>
+                              <span>•</span>
+                              <span>NH: {r.beneficiary_bank}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-4 shrink-0 justify-between sm:justify-end border-t sm:border-t-0 pt-2 sm:pt-0 border-white/5">
+                        <div className="text-right">
+                          <span className="text-base font-black text-amber-400 text-glow-amber block">
+                            {formatVND(r.amount)}
+                          </span>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setClassifyingReceipt(r);
+                            setSelectedType(r.type || 'expense');
+                            setSelectedCat(r.category || (r.type === 'income' ? incomeCats[0]?.name : expenseCats[0]?.name));
+                            setMatchField('remitter_name');
+                            setMatchValue(r.remitter_name || r.details || '');
+                          }}
+                          className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer shadow-md ${
+                            isClassified
+                              ? 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10'
+                              : 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-[0_0_12px_rgba(245,158,11,0.4)]'
+                          }`}
+                        >
+                          {isClassified ? 'Sửa phân loại' : 'Phân loại'}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        ) : (
         <div className="overflow-x-auto scrollbar-thin pb-1.5 pt-0.5 -mx-1 px-1">
           <div className="flex flex-col gap-2.5 min-w-[500px] sm:min-w-0">
             {paginatedTransactions.length === 0 ? (
@@ -1322,6 +1461,7 @@ function FlowTab({
             )}
           </div>
         </div>
+        )}
 
         {totalPages > 1 && (
           <div className="flex items-center justify-center gap-1.5 mt-4 pt-3 border-t border-white/5">
@@ -1685,6 +1825,182 @@ function FlowTab({
                   className="flex-1 py-2.5 bg-[#5c36f5] hover:bg-[#7351f7] text-white font-extrabold text-xs rounded-xl shadow-[0_0_15px_rgba(92,54,245,0.4)] transition-all hover:scale-[1.02] cursor-pointer text-center"
                 >
                   Lưu thay đổi
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Modal: Phân loại Biên Lai Chuyển Tiền */}
+      {mounted && classifyingReceipt && createPortal(
+        <div className="fixed inset-0 bg-[#070911]/90 backdrop-blur-md z-[99999] flex items-center justify-center p-4 text-slate-100">
+          <div className="bg-[#0f1320] border border-amber-500/30 rounded-2xl w-full max-w-md p-6 relative shadow-[0_0_50px_rgba(245,158,11,0.2)] animate-mac-dropdown">
+            <button 
+              onClick={() => setClassifyingReceipt(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-200 cursor-pointer"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <h3 className="text-sm font-black text-amber-400 tracking-wider uppercase mb-1">
+              Phân Loại Biên Lai Ngân Hàng
+            </h3>
+            <p className="text-xs text-slate-400 font-semibold mb-4">
+              {classifyingReceipt.remitter_name || 'Biên lai'} ➔ {classifyingReceipt.beneficiary_name || 'Vietcombank'}
+            </p>
+
+            <div className="bg-[#090b10] p-3 rounded-xl border border-white/5 space-y-1 mb-4 text-xs font-semibold">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Số tiền:</span>
+                <span className="text-amber-400 font-black">{formatVND(classifyingReceipt.amount)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Nội dung:</span>
+                <span className="text-slate-200 truncate max-w-[200px]">{classifyingReceipt.details}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Mã lệnh GD:</span>
+                <span className="text-slate-300">{classifyingReceipt.order_number}</span>
+              </div>
+            </div>
+
+            <div className="space-y-4 text-left">
+              {/* Type selection */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Loại Giao Dịch</label>
+                <div className="grid grid-cols-2 gap-2 bg-[#090b10] p-1 rounded-xl border border-white/5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedType('expense');
+                      if (!expenseCats.some(c => c.name === selectedCat)) {
+                        setSelectedCat(expenseCats[0]?.name || 'Khác');
+                      }
+                    }}
+                    className={`py-2 rounded-lg font-black text-xs transition-all cursor-pointer ${
+                      selectedType === 'expense'
+                        ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40 shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Chi tiêu (Expense)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedType('income');
+                      if (!incomeCats.some(c => c.name === selectedCat)) {
+                        setSelectedCat(incomeCats[0]?.name || 'Khác');
+                      }
+                    }}
+                    className={`py-2 rounded-lg font-black text-xs transition-all cursor-pointer ${
+                      selectedType === 'income'
+                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Thu nhập (Income)
+                  </button>
+                </div>
+              </div>
+
+              {/* Category selection */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Chọn Danh Mục</label>
+                <select
+                  value={selectedCat}
+                  onChange={(e) => setSelectedCat(e.target.value)}
+                  className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-amber-500"
+                >
+                  {(selectedType === 'income' ? incomeCats : expenseCats).map(cat => (
+                    <option key={cat.name} value={cat.name}>
+                      {cat.name} {cat.note ? `(${cat.note})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Auto-classification Rule Settings */}
+              <div className="p-3 bg-[#090b10] rounded-xl border border-amber-500/20 space-y-2.5">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="chkCreateRule"
+                    checked={createRule}
+                    onChange={(e) => setCreateRule(e.target.checked)}
+                    className="h-4 w-4 accent-amber-500 rounded cursor-pointer"
+                  />
+                  <label htmlFor="chkCreateRule" className="text-xs font-bold text-amber-300 cursor-pointer select-none">
+                    Tự động phân loại biên lai tương tự sau này
+                  </label>
+                </div>
+
+                {createRule && (
+                  <div className="space-y-2 pt-1 border-t border-white/5">
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-extrabold text-slate-400 uppercase">Khớp theo trường</label>
+                      <select
+                        value={matchField}
+                        onChange={(e) => {
+                          const f = e.target.value as any;
+                          setMatchField(f);
+                          if (f === 'remitter_name') setMatchValue(classifyingReceipt.remitter_name || '');
+                          else if (f === 'beneficiary_name') setMatchValue(classifyingReceipt.beneficiary_name || '');
+                          else if (f === 'details') setMatchValue(classifyingReceipt.details || '');
+                        }}
+                        className="w-full bg-[#0d1018] border border-white/10 text-[11px] font-semibold text-white rounded-lg px-2.5 py-1.5 focus:outline-none"
+                      >
+                        <option value="remitter_name">Người chuyển (Remitter Name)</option>
+                        <option value="beneficiary_name">Người hưởng (Beneficiary Name)</option>
+                        <option value="details">Nội dung chuyển tiền (Details)</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-extrabold text-slate-400 uppercase">Từ khóa nhận diện</label>
+                      <input
+                        type="text"
+                        value={matchValue}
+                        onChange={(e) => setMatchValue(e.target.value)}
+                        placeholder="Nhập từ khóa khớp..."
+                        className="w-full bg-[#0d1018] border border-white/10 text-xs font-semibold text-white rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setClassifyingReceipt(null)}
+                  className="flex-1 py-2.5 bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 text-slate-300 font-bold text-xs rounded-xl transition-all cursor-pointer text-center"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="button"
+                  disabled={isSavingClassification}
+                  onClick={async () => {
+                    if (handleClassifyReceipt && classifyingReceipt) {
+                      setIsSavingClassification(true);
+                      await handleClassifyReceipt(
+                        classifyingReceipt.id,
+                        selectedType,
+                        selectedCat,
+                        createRule,
+                        matchField,
+                        matchValue
+                      );
+                      setIsSavingClassification(false);
+                      setClassifyingReceipt(null);
+                    }
+                  }}
+                  className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl shadow-[0_0_15px_rgba(245,158,11,0.4)] transition-all hover:scale-[1.02] cursor-pointer text-center disabled:opacity-50"
+                >
+                  {isSavingClassification ? 'Đang lưu...' : 'Lưu & Phân loại'}
                 </button>
               </div>
             </div>

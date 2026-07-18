@@ -19,6 +19,7 @@ import EditSessionModal from '@/components/EditSessionModal';
 import ManageTeachersModal from '@/components/ManageTeachersModal';
 import ChangePasswordModal from '@/components/ChangePasswordModal';
 import ConfirmModal from '@/components/ConfirmModal';
+import { useToast } from '@/context/ToastContext';
 
 interface UserProfile {
   id: string;
@@ -30,6 +31,7 @@ interface UserProfile {
 
 export default function Dashboard() {
   const router = useRouter();
+  const { showToast } = useToast();
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   
@@ -100,6 +102,93 @@ export default function Dashboard() {
   const [completedSessions, setCompletedSessions] = useState(0);
   const [earnedIncome, setEarnedIncome] = useState(0);
   const [projectedIncome, setProjectedIncome] = useState(0);
+
+  // Bank receipts state
+  const [bankReceipts, setBankReceipts] = useState<any[]>([]);
+
+  const fetchBankReceipts = useCallback(async () => {
+    try {
+      const res = await fetch('/api/bank-receipts');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.receipts)) {
+          setBankReceipts(data.receipts);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching bank receipts:', err);
+    }
+  }, []);
+
+  const handleClassifyReceipt = useCallback(async (
+    receiptId: string,
+    type: 'income' | 'expense',
+    category: string,
+    createRule: boolean,
+    matchField: string,
+    matchValue: string
+  ) => {
+    try {
+      const res = await fetch('/api/bank-receipts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          receiptId,
+          type,
+          category,
+          userId: currentUser?.id,
+          createRule,
+          matchField,
+          matchValue
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setBankReceipts(data.receipts || []);
+          // Also refresh manual transactions cloud sync
+          const txRes = await supabase.from('manual_transactions').select('*').eq('user_id', currentUser?.id).order('date', { ascending: false });
+          if (txRes.data) {
+            const formatted = txRes.data.map((t: any) => ({
+              id: t.id,
+              desc: t.desc_text || t.desc || '',
+              amount: Number(t.amount) || 0,
+              type: t.type,
+              category: t.category,
+              date: t.date
+            }));
+            setManualTransactions(formatted);
+            localStorage.setItem(`finance_trans_${currentUser?.id}`, JSON.stringify(formatted));
+          }
+          showToast('Đã phân loại biên lai và cập nhật giao dịch thành công!', 'success');
+        }
+      }
+    } catch (err) {
+      console.error('Error classifying receipt:', err);
+      showToast('Có lỗi xảy ra khi phân loại biên lai.', 'error');
+    }
+  }, [currentUser, showToast]);
+
+  const handleSyncReceipts = useCallback(async () => {
+    try {
+      const res = await fetch('/api/bank-receipts/sync', { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setBankReceipts(data.receipts || []);
+          showToast(`Đã đồng bộ Gmail! Đã đọc ${data.syncedCount || 0} biên lai mới.`, 'success');
+        }
+      }
+    } catch (err) {
+      console.error('Error syncing receipts:', err);
+      showToast('Có lỗi xảy ra khi đồng bộ Gmail.', 'error');
+    }
+  }, [showToast]);
+
+  useEffect(() => {
+    fetchBankReceipts();
+  }, [fetchBankReceipts]);
 
   // Always force dark mode (night mode)
   useEffect(() => {
@@ -1010,12 +1099,15 @@ export default function Dashboard() {
               sessions={currentUser.role === 'admin' ? allSessions : sessions}
               categoryBudgets={categoryBudgets}
               chartSelectedMonths={chartSelectedMonths}
+              bankReceipts={bankReceipts}
               getActualCategoryAmount={getActualCategoryAmount}
               handleDeleteManualTx={handleDeleteManualTx}
               handleOpenTxModal={handleOpenTxModal}
               saveBudgets={saveBudgets}
               saveTransactions={saveTransactions}
               toggleChartMonth={toggleChartMonth}
+              handleClassifyReceipt={handleClassifyReceipt}
+              handleSyncReceipts={handleSyncReceipts}
             />
           )}
 
