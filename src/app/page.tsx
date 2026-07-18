@@ -300,7 +300,7 @@ export default function Dashboard() {
               return merged;
             });
           }
-          showToast(`Đã đồng bộ Gmail! Đã đọc ${data.syncedCount || 0} biên lai mới.`, 'success');
+          showToast('Đang quét Gmail ngầm tìm biên lai mới...', 'info');
         }
       }
     } catch (err) {
@@ -309,7 +309,14 @@ export default function Dashboard() {
     }
   }, [showToast, updateReceiptsState]);
 
-  // Real-time EventSource (SSE) stream listener for instant Gmail IMAP IDLE updates & Auto-Reconnect
+  // Trigger Gmail IMAP scan automatically whenever user switches to Dòng tiền (Flow) tab
+  useEffect(() => {
+    if (activeTab === 'flow' && currentUser?.id) {
+      handleSyncReceipts();
+    }
+  }, [activeTab, currentUser?.id, handleSyncReceipts]);
+
+  // Real-time EventSource (SSE) stream listener for instant Gmail IMAP updates & Auto-Reconnect
   useEffect(() => {
     let eventSource: EventSource | null = null;
     let reconnectTimeout: NodeJS.Timeout | null = null;
@@ -327,6 +334,9 @@ export default function Dashboard() {
           const data = JSON.parse(e.data);
           if (data && Array.isArray(data.receipts) && data.receipts.length > 0) {
             updateReceiptsState(data.receipts);
+            if (data.newlyParsedCount !== undefined && data.newlyParsedCount > 0) {
+              showToast(`Đã quét Gmail! Đã đọc ${data.newlyParsedCount} biên lai mới.`, 'success');
+            }
           } else {
             fetchBankReceipts();
           }

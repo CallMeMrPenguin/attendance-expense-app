@@ -284,6 +284,7 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
   let existingMap = new Map<string, BankReceipt>();
   let ruleList: ReceiptRule[] = [];
   let categoryBudgetsList: any[] = [];
+  let newlyParsedCount = 0;
 
   // Determine user ID for manual_transactions
   let targetUserId = userIdParam || '';
@@ -438,6 +439,7 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
       }
 
       const msgIds = Array.isArray(searchResult) ? searchResult : [];
+      let newlyParsedCount = 0;
 
       if (msgIds.length > 0) {
         // Fast batch streaming IMAP fetch instead of 70 sequential roundtrips
@@ -479,7 +481,9 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
           const receiptId = `vcb-${receiptData.order_number}`;
 
           const isNewReceipt = !existingMap.has(receiptId);
-          if (!isNewReceipt) {
+          if (isNewReceipt) {
+            newlyParsedCount++;
+          } else {
             const cached = existingMap.get(receiptId);
             if (cached && cached.status === 'classified') {
               continue;
@@ -600,7 +604,7 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
 
   const finalReceiptsList = Array.from(existingMap.values()).sort((a, b) => b.trans_date.localeCompare(a.trans_date));
 
-  broadcastSseEvent('new-receipt', { receipts: finalReceiptsList });
+  broadcastSseEvent('new-receipt', { receipts: finalReceiptsList, newlyParsedCount });
   return finalReceiptsList;
 }
 
