@@ -122,6 +122,7 @@ export default function Dashboard() {
 
   // Modal open states for Scheduler & Profiles
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const [preSelectedAddDate, setPreSelectedAddDate] = useState<string | null>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [teachersModalOpen, setTeachersModalOpen] = useState(false);
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
@@ -1590,6 +1591,10 @@ export default function Dashboard() {
               setAddModalOpen={setAddModalOpen}
               setSelectedSession={setSelectedSession}
               setEditModalOpen={setEditModalOpen}
+              onAddSessionOnDate={(dateStr) => {
+                setPreSelectedAddDate(dateStr);
+                setAddModalOpen(true);
+              }}
             />
           )}
 
@@ -1674,13 +1679,17 @@ export default function Dashboard() {
       {addModalOpen && (
         <AddSessionModal
           isOpen={addModalOpen}
-          onClose={() => setAddModalOpen(false)}
+          onClose={() => {
+            setAddModalOpen(false);
+            setPreSelectedAddDate(null);
+          }}
           onSave={fetchSessions}
           activeTeacherName={activeTeacherName}
           selectedMonth={selectedMonth}
           existingSessions={sessions}
           teachers={teachers}
           currentUser={currentUser}
+          preSelectedDate={preSelectedAddDate}
         />
       )}
 

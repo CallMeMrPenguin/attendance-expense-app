@@ -1,10 +1,12 @@
 import React from 'react';
 import { DAYS, getEndTime, formatCleanTimeString, formatVND, getStudentColor, Session } from '@/lib/utils';
+import { Plus } from 'lucide-react';
 
 interface CalendarMonthViewProps {
   selectedMonth: string; // "YYYY-MM"
   sessions: Session[];
   onSessionClick: (id: string) => void;
+  onAddSessionOnDate?: (dateStr: string) => void;
 }
 
 // Helper to convert hex to HSL colors for dynamic, themed lighting effects
@@ -95,10 +97,31 @@ export default function CalendarMonthView({
   selectedMonth,
   sessions,
   onSessionClick,
+  onAddSessionOnDate,
 }: CalendarMonthViewProps) {
   const [year, month] = selectedMonth.split('-').map(Number);
   const headerRef = React.useRef<HTMLDivElement>(null);
   const bodyRef = React.useRef<HTMLDivElement>(null);
+  const [contextMenu, setContextMenu] = React.useState<{
+    x: number;
+    y: number;
+    dateStr: string;
+  } | null>(null);
+
+  React.useEffect(() => {
+    const handleCloseMenu = () => setContextMenu(null);
+    window.addEventListener('click', handleCloseMenu);
+    return () => window.removeEventListener('click', handleCloseMenu);
+  }, []);
+
+  const handleContextMenu = (e: React.MouseEvent, dateStr: string) => {
+    e.preventDefault();
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      dateStr,
+    });
+  };
 
   const handleScroll = () => {
     if (bodyRef.current && headerRef.current) {
@@ -192,6 +215,7 @@ export default function CalendarMonthView({
               return (
                 <div
                   key={`day-${dayNum}`}
+                  onContextMenu={(e) => handleContextMenu(e, dateStr)}
                   className={`min-h-[160px] p-3 transition-all flex flex-col gap-2 relative ${
                     cellIsToday 
                       ? 'bg-[#1f2042] ring-2 ring-[#5c36f5] z-10 shadow-[inset_0_0_20px_rgba(92,54,245,0.25)]' 
@@ -271,6 +295,30 @@ export default function CalendarMonthView({
           </div>
         </div>
       </div>
+
+      {/* Context Menu Overlay */}
+      {contextMenu && (
+        <div 
+          style={{ 
+            top: contextMenu.y, 
+            left: contextMenu.x 
+          }}
+          className="fixed z-[999] bg-[#0d1018] border border-white/10 rounded-xl shadow-[0_20px_60px_rgba(0,0,0,0.8)] py-1.5 min-w-[170px] backdrop-blur-xl animate-mac-dropdown"
+        >
+          <button
+            onClick={() => {
+              if (onAddSessionOnDate) {
+                onAddSessionOnDate(contextMenu.dateStr);
+              }
+              setContextMenu(null);
+            }}
+            className="w-full text-left px-4 py-2 text-xs font-bold text-slate-300 hover:text-white hover:bg-indigo-500/20 transition-colors flex items-center gap-2 cursor-pointer border-none bg-transparent"
+          >
+            <Plus className="h-3.5 w-3.5 text-indigo-400 font-black" />
+            Thêm lịch dạy
+          </button>
+        </div>
+      )}
     </div>
   );
 }

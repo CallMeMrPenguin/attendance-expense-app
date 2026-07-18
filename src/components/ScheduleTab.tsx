@@ -37,6 +37,7 @@ interface ScheduleTabProps {
   setAddModalOpen: (open: boolean) => void;
   setSelectedSession: (session: Session | null) => void;
   setEditModalOpen: (open: boolean) => void;
+  onAddSessionOnDate?: (dateStr: string) => void;
 }
 
 export default function ScheduleTab({
@@ -56,7 +57,8 @@ export default function ScheduleTab({
   sessions,
   setAddModalOpen,
   setSelectedSession,
-  setEditModalOpen
+  setEditModalOpen,
+  onAddSessionOnDate
 }: ScheduleTabProps) {
   const [heroTeacherDropOpen, setHeroTeacherDropOpen] = useState(false);
   const [monthPickerOpen, setMonthPickerOpen] = useState(false);
@@ -285,6 +287,7 @@ export default function ScheduleTab({
                     setEditModalOpen(true);
                   }
                 }}
+                onAddSessionOnDate={onAddSessionOnDate}
               />
             </div>
 

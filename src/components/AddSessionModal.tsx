@@ -27,6 +27,7 @@ interface AddSessionModalProps {
     role: 'admin' | 'teacher' | 'user';
     teacherName: string;
   };
+  preSelectedDate?: string | null;
 }
 
 interface DayConfig {
@@ -56,7 +57,8 @@ export default function AddSessionModal({
   existingSessions,
   onSave,
   teachers = [],
-  currentUser
+  currentUser,
+  preSelectedDate
 }: AddSessionModalProps) {
   const [assignedTeacherName, setAssignedTeacherName] = useState(activeTeacherName);
   const [studentName, setStudentName] = useState('');
@@ -98,6 +100,42 @@ export default function AddSessionModal({
       return acc;
     }, {} as Record<string, DayConfig>)
   );
+  const [isSingleSession, setIsSingleSession] = useState(false);
+  const [singleDate, setSingleDate] = useState('');
+  const [singleTime, setSingleTime] = useState('18:00');
+  const [singleDuration, setSingleDuration] = useState(1.5);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      if (preSelectedDate) {
+        setIsSingleSession(true);
+        setSingleDate(preSelectedDate);
+      } else {
+        setIsSingleSession(false);
+        setSingleDate(`${selectedMonth}-01`);
+      }
+      setStudentName('');
+      setPrice('');
+      setStatus('Chưa dạy');
+      setColor('#7c3aed');
+      setIsColorCustomized(false);
+      setLoaiHinh('co_dinh');
+      setAutoCheckIn(true);
+      setSingleTime('18:00');
+      setSingleDuration(1.5);
+      setDayConfigs(
+        DAYS.reduce((acc, day) => {
+          acc[day] = {
+            checked: day === 'Thứ 2',
+            time: '18:00',
+            duration: 1.5,
+          };
+          return acc;
+        }, {} as Record<string, DayConfig>)
+      );
+    }
+  }, [isOpen, preSelectedDate, selectedMonth]);
+
   const [warningMsg, setWarningMsg] = useState('');
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [pendingCandidates, setPendingCandidates] = useState<any[]>([]);
@@ -155,8 +193,12 @@ export default function AddSessionModal({
         .from('sessions')
         .insert(candidatesToInsert);
 
-      if (insertError && (insertError.message?.includes('schema cache') || insertError.message?.includes('Could not find'))) {
-        const cleanCandidates = candidatesToInsert.map(({ auto_check_in, auto_checkin, loai_hinh_lich, loai_hinh, category, income_category, ...rest }) => rest);
+      if (insertError && (
+        insertError.message?.includes('schema cache') || 
+        insertError.message?.includes('Could not find') ||
+        insertError.message?.includes('does not exist')
+      )) {
+        const cleanCandidates = candidatesToInsert.map(({ auto_check_in, auto_checkin, loai_hinh_lich, loai_hinh, category, income_category, student_name, teacher_name, ...rest }) => rest);
         const retryRes = await supabase.from('sessions').insert(cleanCandidates);
         insertError = retryRes.error;
       }
@@ -209,10 +251,12 @@ export default function AddSessionModal({
       return;
     }
 
-    const selectedDays = Object.entries(dayConfigs).filter(([_, config]) => config.checked);
-    if (selectedDays.length === 0) {
-      setError('Vui lòng chọn ít nhất 1 thứ trong tuần!');
-      return;
+    if (!isSingleSession) {
+      const selectedDays = Object.entries(dayConfigs).filter(([_, config]) => config.checked);
+      if (selectedDays.length === 0) {
+        setError('Vui lòng chọn ít nhất 1 thứ trong tuần!');
+        return;
+      }
     }
 
     setLoading(true);
@@ -222,34 +266,65 @@ export default function AddSessionModal({
       const sessionColor = color;
       const candidates: any[] = [];
 
-      selectedDays.forEach(([day, config]) => {
-        let dates = getDatesForWeekday(selectedMonth, day);
-        if (loaiHinh === 'tam_thoi' && dates.length > 0) {
-          dates.sort((a, b) => a.localeCompare(b));
-          dates = [dates[0]];
+      if (isSingleSession) {
+        if (!singleDate) {
+          throw new Error('Vui lòng chọn ngày học!');
         }
-        dates.forEach((dStr) => {
-          candidates.push({
-            user_name: assignedTeacherName,
-            job_name: studentName.trim(),
-            teacher_name: assignedTeacherName,
-            student_name: studentName.trim(),
-            day_of_week: day,
-            time: formatCleanTimeString(config.time),
-            duration: Number(config.duration),
-            price: Number(price),
-            status: status,
-            month_year: selectedMonth,
-            color: sessionColor,
-            date: dStr,
-            auto_check_in: autoCheckIn,
-            auto_checkin: autoCheckIn,
-            loai_hinh_lich: loaiHinh,
-            loai_hinh: loaiHinh,
-            income_category: incomeCategory,
+        const dateObj = new Date(singleDate);
+        const dayIndex = dateObj.getUTCDay();
+        const dayMapIndex = dayIndex === 0 ? 6 : dayIndex - 1;
+        const dayOfWeekStr = DAYS[dayMapIndex];
+
+        candidates.push({
+          user_name: assignedTeacherName,
+          job_name: studentName.trim(),
+          teacher_name: assignedTeacherName,
+          student_name: studentName.trim(),
+          day_of_week: dayOfWeekStr,
+          time: formatCleanTimeString(singleTime),
+          duration: Number(singleDuration),
+          price: Number(price),
+          status: status,
+          month_year: singleDate.substring(0, 7),
+          color: sessionColor,
+          date: singleDate,
+          auto_check_in: autoCheckIn,
+          auto_checkin: autoCheckIn,
+          loai_hinh_lich: loaiHinh,
+          loai_hinh: loaiHinh,
+          income_category: incomeCategory,
+        });
+      } else {
+        const selectedDays = Object.entries(dayConfigs).filter(([_, config]) => config.checked);
+        selectedDays.forEach(([day, config]) => {
+          let dates = getDatesForWeekday(selectedMonth, day);
+          if (loaiHinh === 'tam_thoi' && dates.length > 0) {
+            dates.sort((a, b) => a.localeCompare(b));
+            dates = [dates[0]];
+          }
+          dates.forEach((dStr) => {
+            candidates.push({
+              user_name: assignedTeacherName,
+              job_name: studentName.trim(),
+              teacher_name: assignedTeacherName,
+              student_name: studentName.trim(),
+              day_of_week: day,
+              time: formatCleanTimeString(config.time),
+              duration: Number(config.duration),
+              price: Number(price),
+              status: status,
+              month_year: selectedMonth,
+              color: sessionColor,
+              date: dStr,
+              auto_check_in: autoCheckIn,
+              auto_checkin: autoCheckIn,
+              loai_hinh_lich: loaiHinh,
+              loai_hinh: loaiHinh,
+              income_category: incomeCategory,
+            });
           });
         });
-      });
+      }
 
       const overlaps = checkOverlaps(candidates, existingSessions);
       if (overlaps.length > 0) {
@@ -549,67 +624,141 @@ export default function AddSessionModal({
               </div>
             </div>
 
-            <div className="space-y-3">
-              <div className="border-t border-slate-100 dark:border-slate-850 pt-4">
-                <label className="text-slate-900 dark:text-white font-bold text-sm block">
-                  Lịch học định kỳ
-                </label>
-                <p className="text-slate-500 dark:text-slate-400 text-xs mt-0.5">
-                  Chọn thứ và nhập giờ học tương ứng:
-                </p>
-              </div>
-
-              <div className="space-y-2 max-h-[30vh] overflow-y-auto pr-1">
-                {DAYS.map((day) => {
-                  const config = dayConfigs[day];
-                  return (
-                    <div
-                      key={day}
-                      className={`flex flex-wrap items-center gap-3 p-3 rounded-xl border transition-all ${
-                        config.checked
-                          ? 'bg-indigo-50/50 dark:bg-indigo-950/20 border-indigo-200 dark:border-indigo-900/50'
-                          : 'bg-slate-50/50 dark:bg-slate-950/30 border-slate-200/60 dark:border-slate-850'
-                      }`}
-                    >
-                      <label className="flex items-center gap-2 cursor-pointer select-none font-bold text-sm min-w-[100px]">
-                        <input
-                          type="checkbox"
-                          checked={config.checked}
-                          onChange={(e) => handleCheckboxChange(day, e.target.checked)}
-                          className="h-4 w-4 rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                        />
-                        <span className={config.checked ? 'text-indigo-900 dark:text-indigo-300' : 'text-slate-600 dark:text-slate-400'}>
-                          {day}
-                        </span>
-                      </label>
-
-                      <div className="flex items-center gap-2 flex-grow justify-end md:justify-start">
-                        <Clock className={`h-4 w-4 ${config.checked ? 'text-indigo-400' : 'text-slate-400'}`} />
-                        <input
-                          type="time"
-                          value={config.time}
-                          disabled={!config.checked}
-                          onChange={(e) => handleTimeChange(day, e.target.value)}
-                          className="px-2 py-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold disabled:opacity-50 w-[110px]"
-                        />
-
-                        <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Số giờ:</span>
-                        <input
-                          type="number"
-                          step="0.5"
-                          min="0.5"
-                          max="24"
-                          value={config.duration}
-                          disabled={!config.checked}
-                          onChange={(e) => handleDurationChange(day, parseFloat(e.target.value) || 1.5)}
-                          className="px-2 py-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold disabled:opacity-50 w-[70px] text-center"
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+            {/* Toggle Mode Segmented Control */}
+            <div className="border-t border-slate-100 dark:border-slate-850 pt-4 flex gap-4">
+              <button
+                type="button"
+                onClick={() => setIsSingleSession(false)}
+                className={`flex-1 py-2.5 text-xs font-bold rounded-xl border transition-all ${
+                  !isSingleSession
+                    ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/40 shadow-sm'
+                    : 'bg-[#0d1018] text-slate-400 border-white/10 hover:border-slate-700 hover:text-white cursor-pointer'
+                }`}
+              >
+                Lịch Định Kỳ Cả Tháng
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsSingleSession(true)}
+                className={`flex-1 py-2.5 text-xs font-bold rounded-xl border transition-all ${
+                  isSingleSession
+                    ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/40 shadow-sm'
+                    : 'bg-[#0d1018] text-slate-400 border-white/10 hover:border-slate-700 hover:text-white cursor-pointer'
+                }`}
+              >
+                Lịch Một Buổi Duy Nhất
+              </button>
             </div>
+
+            {isSingleSession ? (
+              <div className="space-y-4 bg-slate-50/50 dark:bg-slate-950/30 border border-slate-200/60 dark:border-slate-850 p-4 rounded-xl">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider block">
+                      Ngày học *
+                    </label>
+                    <input
+                      type="date"
+                      value={singleDate}
+                      required={isSingleSession}
+                      onChange={(e) => setSingleDate(e.target.value)}
+                      className="w-full px-4 py-2.5 bg-[#0d1018] border border-white/10 text-white rounded-xl text-xs focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider block">
+                      Giờ học *
+                    </label>
+                    <input
+                      type="time"
+                      value={singleTime}
+                      required={isSingleSession}
+                      onChange={(e) => setSingleTime(e.target.value)}
+                      className="w-full px-4 py-2.5 bg-[#0d1018] border border-white/10 text-white rounded-xl text-xs focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider block">
+                      Số giờ học *
+                    </label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0.5"
+                      max="10"
+                      value={singleDuration}
+                      required={isSingleSession}
+                      onChange={(e) => setSingleDuration(Number(e.target.value))}
+                      className="w-full px-4 py-2.5 bg-[#0d1018] border border-white/10 text-white rounded-xl text-xs focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="border-t border-slate-100 dark:border-slate-850 pt-1">
+                  <label className="text-slate-900 dark:text-white font-bold text-sm block">
+                    Lịch học định kỳ
+                  </label>
+                  <p className="text-slate-500 dark:text-slate-400 text-xs mt-0.5">
+                    Chọn thứ và nhập giờ học tương ứng:
+                  </p>
+                </div>
+
+                <div className="space-y-2 max-h-[30vh] overflow-y-auto pr-1">
+                  {DAYS.map((day) => {
+                    const config = dayConfigs[day];
+                    return (
+                      <div
+                        key={day}
+                        className={`flex flex-wrap items-center gap-3 p-3 rounded-xl border transition-all ${
+                          config.checked
+                            ? 'bg-indigo-50/50 dark:bg-indigo-950/20 border-indigo-200 dark:border-indigo-900/50'
+                            : 'bg-slate-50/50 dark:bg-slate-950/30 border-slate-200/60 dark:border-slate-850'
+                        }`}
+                      >
+                        <label className="flex items-center gap-2 cursor-pointer select-none font-bold text-sm min-w-[100px]">
+                          <input
+                            type="checkbox"
+                            checked={config.checked}
+                            onChange={(e) => handleCheckboxChange(day, e.target.checked)}
+                            className="h-4 w-4 rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                          />
+                          <span className={config.checked ? 'text-indigo-900 dark:text-indigo-300' : 'text-slate-600 dark:text-slate-400'}>
+                            {day}
+                          </span>
+                        </label>
+
+                        <div className="flex items-center gap-2 flex-grow justify-end md:justify-start">
+                          <Clock className={`h-4 w-4 ${config.checked ? 'text-indigo-400' : 'text-slate-400'}`} />
+                          <input
+                            type="time"
+                            value={config.time}
+                            disabled={!config.checked}
+                            onChange={(e) => handleTimeChange(day, e.target.value)}
+                            className="px-2 py-1 bg-[#0d1018] border border-white/10 text-white rounded-lg text-xs font-bold disabled:opacity-50 w-[110px]"
+                          />
+
+                          <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Số giờ:</span>
+                          <input
+                            type="number"
+                            step="0.5"
+                            min="0.5"
+                            max="24"
+                            value={config.duration}
+                            disabled={!config.checked}
+                            onChange={(e) => handleDurationChange(day, parseFloat(e.target.value) || 1.5)}
+                            className="px-2 py-1 bg-[#0d1018] border border-white/10 text-white rounded-lg text-xs font-bold disabled:opacity-50 w-[70px] text-center"
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Footer */}
