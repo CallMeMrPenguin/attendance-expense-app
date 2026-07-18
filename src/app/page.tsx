@@ -233,8 +233,23 @@ export default function Dashboard() {
     }
   }, [showToast, updateReceiptsState]);
 
+  // Automatic background polling for bank receipts every 20 seconds & on tab focus
   useEffect(() => {
     fetchBankReceipts();
+
+    const interval = setInterval(() => {
+      fetchBankReceipts();
+    }, 20000);
+
+    const onFocus = () => {
+      fetchBankReceipts();
+    };
+
+    window.addEventListener('focus', onFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
   }, [fetchBankReceipts]);
 
   // Always force dark mode (night mode)

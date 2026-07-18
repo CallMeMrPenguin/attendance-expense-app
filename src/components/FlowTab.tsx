@@ -1256,12 +1256,12 @@ function FlowTab({
                 {sortMenuOpen && (
                   <div className="absolute top-full right-0 mt-1.5 z-40 bg-[#0d1018]/95 border border-white/10 rounded-[14px] p-1.5 shadow-2xl text-left font-normal normal-case w-48 animate-mac-dropdown origin-top">
                     {[
-                      { key: 'date-desc', label: '📅 Ngày (Mới → Cũ)' },
-                      { key: 'date-asc', label: '📅 Ngày (Cũ → Mới)' },
-                      { key: 'name-asc', label: '🔤 Tên (A → Z)' },
-                      { key: 'name-desc', label: '🔤 Tên (Z → A)' },
-                      { key: 'amount-desc', label: '💵 Số tiền (Cao → Thấp)' },
-                      { key: 'amount-asc', label: '💵 Số tiền (Thấp → Cao)' }
+                      { key: 'date-desc', label: 'Ngày (Mới → Cũ)' },
+                      { key: 'date-asc', label: 'Ngày (Cũ → Mới)' },
+                      { key: 'name-asc', label: 'Tên (A → Z)' },
+                      { key: 'name-desc', label: 'Tên (Z → A)' },
+                      { key: 'amount-desc', label: 'Số tiền (Cao → Thấp)' },
+                      { key: 'amount-asc', label: 'Số tiền (Thấp → Cao)' }
                     ].map(item => (
                       <button
                         key={item.key}
@@ -1959,9 +1959,9 @@ function FlowTab({
               {/* Type selection with 3-way animated sliding tab toggle */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Loại Giao Dịch</label>
-                <div className="relative bg-[#070911]/80 p-1 rounded-2xl border border-white/10 flex items-center justify-between overflow-hidden shadow-inner">
+                <div className="relative flex bg-[#090b10] border border-white/5 p-1 rounded-xl w-full">
                   <div
-                    className={`absolute top-1 bottom-1 rounded-[10px] transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] pointer-events-none ${
+                    className={`absolute top-1 bottom-1 rounded-[10px] transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] pointer-events-none ${
                       selectedType === 'expense'
                         ? 'bg-rose-500 shadow-[0_0_14px_rgba(239,68,68,0.4)]'
                         : selectedType === 'income'
