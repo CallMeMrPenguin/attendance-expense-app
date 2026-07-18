@@ -368,7 +368,8 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
                 
                 (async () => {
                   try {
-                    await clientAdmin.from('bank_receipts').upsert(updatedReceipt, { onConflict: 'id' });
+                    const { trans_time, ...updatedPayload } = updatedReceipt;
+                    await clientAdmin.from('bank_receipts').upsert(updatedPayload, { onConflict: 'id' });
                     
                     if (targetUserId) {
                       const txRecord = {
@@ -542,7 +543,8 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
 
           // Save directly to Supabase DB
           try {
-            const receiptPayload = targetUserId ? { ...newReceipt, user_id: targetUserId } : newReceipt;
+            const { trans_time, ...payloadWithoutTime } = newReceipt;
+            const receiptPayload = targetUserId ? { ...payloadWithoutTime, user_id: targetUserId } : payloadWithoutTime;
             const { error: dbErr } = await clientAdmin.from('bank_receipts').upsert(receiptPayload, { onConflict: 'id' });
             if (dbErr) console.error('[Supabase bank_receipts upsert error]', dbErr.message);
 
