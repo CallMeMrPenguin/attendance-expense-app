@@ -183,6 +183,16 @@ export function getImapConfig() {
   return { user, pass, sender };
 }
 
+// Helper to remove accents/diacritics and normalize text for comparison
+export const cleanString = (str: string): string => {
+  return (str || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/đ/g, 'd')
+    .trim();
+};
+
 export async function syncBankReceipts(): Promise<BankReceipt[]> {
   const { user, pass, sender } = getImapConfig();
   if (!user || !pass) {
@@ -224,6 +234,62 @@ export async function syncBankReceipts(): Promise<BankReceipt[]> {
         if (budgetsRes.data) {
           categoryBudgetsList = budgetsRes.data;
           console.log('[IMAP Service] Loaded category budgets for keywords matching:', budgetsRes.data.map((b: any) => ({ category: b.category, keywords: b.keywords })));
+        }
+
+        // Re-evaluate existing unclassified receipts in DB against keywords
+        if (receiptsRes.data && budgetsRes.data) {
+          const unclassifiedReceipts = receiptsRes.data.filter((r: any) => r.status === 'unclassified');
+          if (unclassifiedReceipts.length > 0) {
+            console.log(`[IMAP Sync] Re-evaluating ${unclassifiedReceipts.length} existing unclassified receipts against keywords...`);
+            for (const receipt of unclassifiedReceipts) {
+              const cleanDetails = cleanString(receipt.details || '');
+              let matched = false;
+              for (const budget of budgetsRes.data) {
+                if (budget.keywords) {
+                  const kwList = budget.keywords.split(',').map((kw: string) => cleanString(kw)).filter(Boolean);
+                  for (const kw of kwList) {
+                    if (cleanDetails.includes(kw)) {
+                      console.log(`[IMAP Sync] Re-evaluation MATCH! Receipt "${receipt.id}" details "${cleanDetails}" matched keyword "${kw}" -> Category: "${budget.category}"`);
+                      
+                      const savingCats = ['Tiết kiệm khẩn cấp', 'Tích lũy dài hạn', 'Tiết kiệm khác', 'Tiết kiệm'];
+                      const matchedType = savingCats.includes(budget.category) ? 'saving' : 'expense';
+                      
+                      const updatedReceipt = {
+                        ...receipt,
+                        status: 'classified' as const,
+                        type: matchedType,
+                        category: budget.category
+                      };
+                      
+                      // Update cache
+                      serverReceiptCacheMap.set(receipt.id, updatedReceipt);
+                      
+                      // Update DB
+                      await clientAdmin.from('bank_receipts').upsert(updatedReceipt, { onConflict: 'id' });
+                      
+                      // Insert transaction
+                      const txRecord = {
+                        id: `tx-receipt-${receipt.id}`,
+                        desc_text: `[Biên lai Vietcombank] ${updatedReceipt.remitter_name || ''} ➔ ${updatedReceipt.beneficiary_name || ''}: ${updatedReceipt.details}`,
+                        amount: updatedReceipt.amount,
+                        type: matchedType,
+                        category: budget.category,
+                        date: updatedReceipt.trans_date,
+                        user_id: receipt.user_id || '2d3a11e1-4d71-474c-b8df-abb85394e9c8', // fallback if empty
+                        teacher_name: 'Admin',
+                        updated_at: new Date().toISOString()
+                      };
+                      await clientAdmin.from('manual_transactions').upsert(txRecord, { onConflict: 'id' });
+                      
+                      matched = true;
+                      break;
+                    }
+                  }
+                }
+                if (matched) break;
+              }
+            }
+          }
         }
       } catch (e) {}
 
@@ -274,15 +340,7 @@ export async function syncBankReceipts(): Promise<BankReceipt[]> {
           let matchedType: 'income' | 'expense' | 'saving' | undefined = undefined;
           let matchedCategory: string | undefined = undefined;
 
-          // Helper to remove accents/diacritics and normalize text for comparison
-          const cleanString = (str: string): string => {
-            return (str || '')
-              .normalize('NFD')
-              .replace(/[\u0300-\u036f]/g, '')
-              .toLowerCase()
-              .replace(/đ/g, 'd')
-              .trim();
-          };
+
 
           // 1. Match against category-specific keywords in details (Nội dung chuyển tiền)
           const cleanDetails = cleanString(receiptData.details || '');
