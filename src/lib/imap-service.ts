@@ -392,7 +392,16 @@ export async function syncBankReceipts(clientKeywords?: Record<string, string>, 
       const now = new Date();
       const firstDayOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-      const searchResult = await client.search({ since: firstDayOfCurrentMonth });
+      // 1. Try targeted IMAP search for Vietcombank sender & receipt subject
+      const targetSender = sender || 'VCBDigibank@info.vietcombank.com.vn';
+      let searchResult = await client.search({ since: firstDayOfCurrentMonth, from: targetSender });
+      if (!searchResult || searchResult.length === 0) {
+        searchResult = await client.search({ since: firstDayOfCurrentMonth });
+      }
+      if (!searchResult || searchResult.length === 0) {
+        searchResult = await client.search({ from: targetSender });
+      }
+
       const msgIds = Array.isArray(searchResult) ? searchResult : [];
 
       if (msgIds.length > 0) {
@@ -411,20 +420,18 @@ export async function syncBankReceipts(clientKeywords?: Record<string, string>, 
           const cleanText = cleanString(bodyText);
           const cleanHtml = cleanString(htmlText);
 
-          const isBankEmail = 
-            cleanSubj.includes('bien lai') ||
-            cleanSubj.includes('chuyen tien') ||
-            cleanSubj.includes('giao dich') ||
-            cleanSubj.includes('so du') ||
-            cleanFrom.includes('vietcombank') ||
-            cleanFrom.includes('vietinbank') ||
-            cleanFrom.includes('vcb') ||
-            cleanText.includes('vietcombank') ||
-            cleanText.includes('vietinbank') ||
-            cleanText.includes('cong thuong') ||
-            cleanHtml.includes('vietcombank') ||
-            cleanHtml.includes('vietinbank') ||
-            cleanHtml.includes('cong thuong');
+          // Strictly filter for sender VCBDigibank@info.vietcombank.com.vn & topic Biên lai chuyển tiền qua tài khoản
+          const isVcbSender = cleanFrom.includes('vcbdigibank@info.vietcombank.com.vn') || 
+                              cleanFrom.includes('vietcombank') || 
+                              cleanFrom.includes('vcb');
+          
+          const isReceiptSubject = cleanSubj.includes('bien lai chuyen tien qua tai khoan') || 
+                                   cleanSubj.includes('bien lai chuyen tien') || 
+                                   cleanSubj.includes('bien lai');
+
+          const isBankContent = cleanText.includes('vietcombank') || cleanHtml.includes('vietcombank');
+
+          const isBankEmail = isVcbSender || isReceiptSubject || isBankContent;
 
           if (!isBankEmail) continue;
 
