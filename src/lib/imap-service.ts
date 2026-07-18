@@ -24,7 +24,7 @@ export interface BankReceipt {
 export interface ReceiptRule {
   id: string;
   user_id?: string;
-  match_field: 'remitter_name' | 'beneficiary_name' | 'details' | 'sender';
+  match_field: 'remitter_name' | 'beneficiary_name' | 'details' | 'sender' | 'remitter_beneficiary_details';
   match_value: string;
   target_type: 'income' | 'expense' | 'saving';
   target_category: string;
@@ -125,7 +125,11 @@ export function parseVietcombankEmail(html: string, text: string): Partial<BankR
   }
 
   // 3. Trans Date & Time (Hours, minutes, seconds)
-  const transDateRaw = getFieldValue(['Ngày, giờ giao dịch', 'Trans. Date, Time']);
+  let transDateRaw = getFieldValue(['ngày, giờ giao dịch', 'ngày giờ giao dịch', 'ngày giao dịch', 'trans. date', 'trans date', 'thời gian']);
+  if (!transDateRaw) {
+    transDateRaw = cleanText;
+  }
+
   let transDate = new Date().toISOString().split('T')[0];
   let transTime = '';
 
@@ -270,6 +274,13 @@ export async function syncBankReceipts(): Promise<BankReceipt[]> {
             else if (rule.match_field === 'beneficiary_name') valToMatch = receiptData.beneficiary_name || '';
             else if (rule.match_field === 'details') valToMatch = receiptData.details || '';
             else if (rule.match_field === 'sender') valToMatch = sender;
+            else if (rule.match_field === 'remitter_beneficiary_details') {
+              const rName = (receiptData.remitter_name || '').toUpperCase();
+              const bName = (receiptData.beneficiary_name || '').toUpperCase();
+              if (rName.includes('BUI DUC HUNG') && bName.includes('PHAM THI THU TRANG')) {
+                valToMatch = receiptData.details || '';
+              }
+            }
 
             if (valToMatch && valToMatch.toLowerCase().includes(rule.match_value.toLowerCase())) {
               status = 'classified';

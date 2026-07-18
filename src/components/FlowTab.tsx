@@ -139,7 +139,7 @@ function FlowTab({
   const [selectedType, setSelectedType] = React.useState<'income' | 'expense' | 'saving'>('expense');
   const [selectedCat, setSelectedCat] = React.useState<string>('Ăn uống');
   const [createRule, setCreateRule] = React.useState<boolean>(true);
-  const [matchField, setMatchField] = React.useState<'remitter_name' | 'beneficiary_name' | 'details'>('remitter_name');
+  const [matchField, setMatchField] = React.useState<'remitter_name' | 'beneficiary_name' | 'details' | 'remitter_beneficiary_details'>('remitter_name');
   const [matchValue, setMatchValue] = React.useState<string>('');
   const [isSavingClassification, setIsSavingClassification] = React.useState(false);
 
@@ -170,8 +170,18 @@ function FlowTab({
       } else {
         setSelectedCat(classifyingReceipt.category || expenseCats[0]?.name || 'Ăn uống');
       }
-      setMatchField('remitter_name');
-      setMatchValue(classifyingReceipt.remitter_name || classifyingReceipt.details || '');
+
+      const rName = (classifyingReceipt.remitter_name || '').toUpperCase();
+      const bName = (classifyingReceipt.beneficiary_name || '').toUpperCase();
+      const isHungToTrang = rName.includes('BUI DUC HUNG') && bName.includes('PHAM THI THU TRANG');
+
+      if (isHungToTrang) {
+        setMatchField('remitter_beneficiary_details');
+        setMatchValue(classifyingReceipt.details || '');
+      } else {
+        setMatchField('remitter_name');
+        setMatchValue(classifyingReceipt.remitter_name || classifyingReceipt.details || '');
+      }
     }
   }, [classifyingReceipt, incomeCats, expenseCats]);
 
@@ -625,8 +635,11 @@ function FlowTab({
     return list.sort((a: any, b: any) => {
       const aName = a.remitter_name || a.beneficiary_name || a.details || '';
       const bName = b.remitter_name || b.beneficiary_name || b.details || '';
-      if (receiptSortBy === 'date-desc') return (b.trans_date || '').localeCompare(a.trans_date || '');
-      if (receiptSortBy === 'date-asc') return (a.trans_date || '').localeCompare(b.trans_date || '');
+      const aDateTime = `${a.trans_date || ''} ${a.trans_time || '00:00:00'}`;
+      const bDateTime = `${b.trans_date || ''} ${b.trans_time || '00:00:00'}`;
+
+      if (receiptSortBy === 'date-desc') return bDateTime.localeCompare(aDateTime);
+      if (receiptSortBy === 'date-asc') return aDateTime.localeCompare(bDateTime);
       if (receiptSortBy === 'name-asc') return aName.localeCompare(bName, 'vi');
       if (receiptSortBy === 'name-desc') return bName.localeCompare(aName, 'vi');
       if (receiptSortBy === 'amount-desc') return (Number(b.amount) || 0) - (Number(a.amount) || 0);
@@ -2076,13 +2089,14 @@ function FlowTab({
                           setMatchField(f);
                           if (f === 'remitter_name') setMatchValue(classifyingReceipt.remitter_name || '');
                           else if (f === 'beneficiary_name') setMatchValue(classifyingReceipt.beneficiary_name || '');
-                          else if (f === 'details') setMatchValue(classifyingReceipt.details || '');
+                          else if (f === 'details' || f === 'remitter_beneficiary_details') setMatchValue(classifyingReceipt.details || '');
                         }}
                         className="w-full bg-[#0d1018] border border-white/10 text-[11px] font-semibold text-white rounded-lg px-2.5 py-1.5 focus:outline-none"
                       >
+                        <option value="remitter_beneficiary_details">BÙI ĐỨC HÙNG ➔ PHẠM THỊ THU TRANG (Khớp theo Nội dung)</option>
+                        <option value="details">Nội dung chuyển tiền (Details of Payment)</option>
                         <option value="remitter_name">Người chuyển (Remitter Name)</option>
                         <option value="beneficiary_name">Người hưởng (Beneficiary Name)</option>
-                        <option value="details">Nội dung chuyển tiền (Details)</option>
                       </select>
                     </div>
 
