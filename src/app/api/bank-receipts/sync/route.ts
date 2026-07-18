@@ -14,62 +14,34 @@ export async function POST(req: Request) {
       }
     } catch (e) {}
 
-    const receipts = await syncBankReceipts(clientKeywords);
+    const receipts = await syncBankReceipts(clientKeywords, userId);
     const supabaseAdmin = getSupabaseAdmin();
-    
-    // Perform database queries
-    const queries: any[] = [
-      supabaseAdmin.from('receipt_rules').select('*').order('created_at', { ascending: false })
-    ];
 
-    if (userId) {
-      queries.push(
-        supabaseAdmin.from('manual_transactions').select('*').eq('user_id', userId).order('date', { ascending: false })
-      );
-    }
+    const [rulesRes, txsRes] = await Promise.all([
+      supabaseAdmin.from('receipt_rules').select('*').order('created_at', { ascending: false }),
+      userId 
+        ? supabaseAdmin.from('manual_transactions').select('*').eq('user_id', userId).order('date', { ascending: false })
+        : supabaseAdmin.from('manual_transactions').select('*').order('date', { ascending: false })
+    ]);
 
-    const results = await Promise.all(queries);
-    const dbRules = results[0]?.data || [];
-    const dbTxs = userId ? (results[1]?.data || []) : [];
+    const dbRules = rulesRes.data || [];
+    const dbTxs = txsRes.data || [];
 
-    // Construct in-memory transaction records for any receipts that are classified but might not be in DB
-    const memoryTransactions = receipts
-      .filter((r: any) => r.status === 'classified' && r.type && r.category)
-      .map((r: any) => {
-        const txId = r.id.startsWith('tx-receipt-') ? r.id : `tx-receipt-${r.id.startsWith('vcb-') ? '' : 'vcb-'}${r.id}`;
-        return {
-          id: txId,
-          desc: `[Biên lai] ${r.remitter_name || ''} ➔ ${r.beneficiary_name || ''}: ${r.details}`,
-          amount: Number(r.amount) || 0,
-          type: r.type,
-          category: r.category,
-          date: r.trans_date
-        };
-      });
-
-    // Format the database transactions
-    const formattedDbTxs = dbTxs.map((t: any) => ({
+    const formattedTxs = dbTxs.map((t: any) => ({
       id: t.id,
-      desc: t.desc_text || t.desc || '',
+      desc: t.desc_text || '',
       amount: Number(t.amount) || 0,
       type: t.type,
       category: t.category,
       date: t.date
     }));
 
-    // Merge them using a map to prevent duplicates, preferring DB entries
-    const txMap = new Map<string, any>();
-    memoryTransactions.forEach((tx: any) => txMap.set(tx.id, tx));
-    formattedDbTxs.forEach((tx: any) => txMap.set(tx.id, tx));
-    
-    const finalTransactions = Array.from(txMap.values());
-
     return NextResponse.json({
       success: true,
       syncedCount: receipts.length,
       receipts,
       rules: dbRules,
-      transactions: finalTransactions
+      transactions: formattedTxs
     });
   } catch (error: any) {
     console.error('POST /api/bank-receipts/sync error:', error);

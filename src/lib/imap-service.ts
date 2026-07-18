@@ -228,7 +228,7 @@ export async function stopImapIdleListener() {
   }
 }
 
-export async function syncBankReceipts(clientKeywords?: Record<string, string>): Promise<BankReceipt[]> {
+export async function syncBankReceipts(clientKeywords?: Record<string, string>, userIdParam?: string): Promise<BankReceipt[]> {
   // Pause IDLE listener temporarily to prevent IMAP connection pool overflow
   await stopImapIdleListener();
 
@@ -250,6 +250,17 @@ export async function syncBankReceipts(clientKeywords?: Record<string, string>):
   let existingMap = new Map<string, BankReceipt>();
   let ruleList: ReceiptRule[] = [];
   let categoryBudgetsList: any[] = [];
+
+  // Determine user ID for manual_transactions
+  let targetUserId = userIdParam || '';
+  if (!targetUserId) {
+    try {
+      const { data: profData } = await clientAdmin.from('profiles').select('id').limit(1).maybeSingle();
+      if (profData && profData.id) {
+        targetUserId = profData.id;
+      }
+    } catch (e) {}
+  }
 
   // 1. Fetch existing receipts, rules, and category budgets from Supabase DB FIRST
   try {
@@ -286,16 +297,13 @@ export async function syncBankReceipts(clientKeywords?: Record<string, string>):
         category: b.category,
         keywords: b.keywords || defaultKeywords[b.category] || ''
       }));
-      console.log('[IMAP Service] Loaded category budgets from DB:', categoryBudgetsList.map((b: any) => ({ category: b.category, keywords: b.keywords })));
     } else {
       categoryBudgetsList = Object.keys(defaultKeywords).map(cat => ({
         category: cat,
         keywords: defaultKeywords[cat]
       }));
-      console.log('[IMAP Service] Loaded category budgets from default fallback keywords:', categoryBudgetsList.map((b: any) => ({ category: b.category, keywords: b.keywords })));
     }
 
-    // Merge client-passed keywords if database returned empty or is overridden by client
     if (clientKeywords) {
       const clientBudgets = Object.keys(clientKeywords).map(cat => ({
         category: cat,
@@ -310,7 +318,6 @@ export async function syncBankReceipts(clientKeywords?: Record<string, string>):
           categoryBudgetsList.push(cb);
         }
       });
-      console.log('[IMAP Service] Merged category budgets list with client-provided keywords:', categoryBudgetsList.map((b: any) => ({ category: b.category, keywords: b.keywords })));
     }
 
     existingMap = new Map<string, BankReceipt>(dbReceipts.map(r => [r.id, r]));
@@ -318,7 +325,6 @@ export async function syncBankReceipts(clientKeywords?: Record<string, string>):
     // Re-evaluate all unclassified receipts in database against keywords
     const unclassifiedReceipts = dbReceipts.filter((r: any) => r.status === 'unclassified');
     if (unclassifiedReceipts.length > 0 && categoryBudgetsList.length > 0) {
-      console.log(`[IMAP Sync] Re-evaluating ${unclassifiedReceipts.length} existing unclassified database receipts against keywords...`);
       for (const receipt of unclassifiedReceipts) {
         const cleanDetails = cleanString(receipt.details || '');
         let matched = false;
@@ -327,8 +333,6 @@ export async function syncBankReceipts(clientKeywords?: Record<string, string>):
             const kwList = budget.keywords.split(',').map((kw: string) => cleanString(kw)).filter(Boolean);
             for (const kw of kwList) {
               if (matchKeyword(cleanDetails, kw)) {
-                console.log(`[IMAP Sync] Re-evaluation MATCH! Receipt "${receipt.id}" details "${cleanDetails}" matched keyword "${kw}" -> Category: "${budget.category}"`);
-                
                 const savingCats = ['Tiết kiệm khẩn cấp', 'Tích lũy dài hạn', 'Tiết kiệm khác', 'Tiết kiệm'];
                 const matchedType: 'income' | 'expense' | 'saving' = savingCats.includes(budget.category) ? 'saving' : 'expense';
                 
@@ -345,20 +349,21 @@ export async function syncBankReceipts(clientKeywords?: Record<string, string>):
                   try {
                     await clientAdmin.from('bank_receipts').upsert(updatedReceipt, { onConflict: 'id' });
                     
-                    const txRecord = {
-                      id: `tx-receipt-${receipt.id}`,
-                      desc_text: `[Biên lai] ${updatedReceipt.remitter_name || ''} ➔ ${updatedReceipt.beneficiary_name || ''}: ${updatedReceipt.details}`,
-                      amount: updatedReceipt.amount,
-                      type: matchedType,
-                      category: budget.category,
-                      date: updatedReceipt.trans_date,
-                      user_id: receipt.user_id || '2d3a11e1-4d71-474c-b8df-abb85394e9c8',
-                      teacher_name: 'Admin',
-                      updated_at: new Date().toISOString()
-                    };
-                    await clientAdmin.from('manual_transactions').upsert(txRecord, { onConflict: 'id' });
+                    if (targetUserId) {
+                      const txRecord = {
+                        id: `tx-receipt-${receipt.id}`,
+                        user_id: targetUserId,
+                        teacher_name: 'Admin',
+                        desc_text: `[Biên lai] ${updatedReceipt.remitter_name || ''} ➔ ${updatedReceipt.beneficiary_name || ''}: ${updatedReceipt.details}`,
+                        amount: updatedReceipt.amount,
+                        type: matchedType === 'saving' ? 'expense' : matchedType,
+                        category: budget.category,
+                        date: updatedReceipt.trans_date
+                      };
+                      await clientAdmin.from('manual_transactions').upsert(txRecord, { onConflict: 'id' });
+                    }
                   } catch (dbErr) {
-                    console.error('[IMAP Sync] DB background update failed (possibly RLS):', dbErr);
+                    console.error('[IMAP Sync] DB background update failed:', dbErr);
                   }
                 })();
                 
@@ -375,7 +380,7 @@ export async function syncBankReceipts(clientKeywords?: Record<string, string>):
     console.error('[IMAP Sync] Error loading metadata from Supabase DB:', e);
   }
 
-  // 2. Fetch new emails from Gmail IMAP (with 10s timeout safeguard)
+  // 2. Fetch new emails from Gmail IMAP for current month
   try {
     const connectPromise = client.connect();
     const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('IMAP connection timeout (10s)')), 10000));
@@ -385,10 +390,10 @@ export async function syncBankReceipts(clientKeywords?: Record<string, string>):
 
     try {
       const now = new Date();
-      const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+      const firstDayOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-      const searchResult = await client.search({ since: ninetyDaysAgo });
-      const msgIds = Array.isArray(searchResult) ? searchResult.slice(-100) : [];
+      const searchResult = await client.search({ since: firstDayOfCurrentMonth });
+      const msgIds = Array.isArray(searchResult) ? searchResult : [];
 
       if (msgIds.length > 0) {
         for (const seq of msgIds) {
@@ -446,13 +451,11 @@ export async function syncBankReceipts(clientKeywords?: Record<string, string>):
 
           // 1. Match against category-specific keywords in details (Nội dung chuyển tiền)
           const cleanDetails = cleanString(receiptData.details || '');
-          console.log(`[IMAP Sync] Analyzing receipt details: "${receiptData.details}" -> Cleaned: "${cleanDetails}"`);
           for (const budget of categoryBudgetsList) {
             if (budget.keywords) {
               const kwList = budget.keywords.split(',').map((kw: string) => cleanString(kw)).filter(Boolean);
               for (const kw of kwList) {
                 if (matchKeyword(cleanDetails, kw)) {
-                  console.log(`[IMAP Sync] MATCH FOUND! cleanDetails "${cleanDetails}" contains keyword "${kw}" -> Category: "${budget.category}"`);
                   status = 'classified';
                   matchedCategory = budget.category;
                   const savingCats = ['Tiết kiệm khẩn cấp', 'Tích lũy dài hạn', 'Tiết kiệm khác', 'Tiết kiệm'];
@@ -503,25 +506,27 @@ export async function syncBankReceipts(clientKeywords?: Record<string, string>):
             details: receiptData.details || '',
             status,
             type: matchedType,
-            category: matchedCategory
+            category: matchedCategory,
+            user_id: targetUserId || undefined
           };
 
           existingMap.set(receiptId, newReceipt);
 
-          // Insert into Supabase DB
+          // Save directly to Supabase DB
           try {
             const { error: dbErr } = await clientAdmin.from('bank_receipts').upsert(newReceipt, { onConflict: 'id' });
             if (dbErr) console.error('[Supabase bank_receipts upsert error]', dbErr.message);
 
-            if (status === 'classified' && matchedType && matchedCategory) {
+            if (status === 'classified' && matchedType && matchedCategory && targetUserId) {
               const txRecord = {
                 id: `tx-receipt-${receiptId}`,
+                user_id: targetUserId,
+                teacher_name: 'Admin',
                 desc_text: `[Biên lai Vietcombank] ${newReceipt.remitter_name || ''} ➔ ${newReceipt.beneficiary_name || ''}: ${newReceipt.details}`,
                 amount: newReceipt.amount,
-                type: matchedType,
+                type: matchedType === 'saving' ? 'expense' : matchedType,
                 category: matchedCategory,
-                date: newReceipt.trans_date,
-                teacher_name: 'System'
+                date: newReceipt.trans_date
               };
               await clientAdmin.from('manual_transactions').upsert(txRecord, { onConflict: 'id' });
             }
@@ -537,21 +542,17 @@ export async function syncBankReceipts(clientKeywords?: Record<string, string>):
     console.error('IMAP fetch error:', err);
   }
 
-  // Use existingMap which contains all DB receipts + newly parsed and classified receipts from IMAP
-  const receiptsList = Array.from(existingMap.values()).sort((a, b) => b.trans_date.localeCompare(a.trans_date));
+  // Retrieve all receipts directly from Supabase DB to ensure true DB persistence
+  let finalReceiptsList: BankReceipt[] = Array.from(existingMap.values()).sort((a, b) => b.trans_date.localeCompare(a.trans_date));
+  try {
+    const { data: dbData } = await clientAdmin.from('bank_receipts').select('*').order('created_at', { ascending: false });
+    if (dbData && dbData.length > 0) {
+      finalReceiptsList = dbData as BankReceipt[];
+    }
+  } catch (e) {}
 
-  // Async save to Supabase DB in background (best effort)
-  (async () => {
-    try {
-      const unpersisted = receiptsList.filter(r => r.status === 'classified');
-      if (unpersisted.length > 0) {
-        await clientAdmin.from('bank_receipts').upsert(unpersisted, { onConflict: 'id' });
-      }
-    } catch (e) {}
-  })();
-
-  broadcastSseEvent('new-receipt', { receipts: receiptsList });
-  return receiptsList;
+  broadcastSseEvent('new-receipt', { receipts: finalReceiptsList });
+  return finalReceiptsList;
 }
 
 export async function startImapIdleListener() {
