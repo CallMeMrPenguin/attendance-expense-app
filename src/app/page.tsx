@@ -233,8 +233,41 @@ export default function Dashboard() {
     }
   }, [showToast, updateReceiptsState]);
 
-  // Automatic background polling for bank receipts every 20 seconds & on tab focus
+  // Real-time EventSource (SSE) stream listener for instant Gmail IMAP IDLE updates & Auto-Reconnect
   useEffect(() => {
+    let eventSource: EventSource | null = null;
+    let reconnectTimeout: NodeJS.Timeout | null = null;
+
+    const connectSse = () => {
+      if (typeof window === 'undefined') return;
+      if (eventSource) {
+        eventSource.close();
+      }
+
+      eventSource = new EventSource('/api/bank-receipts/stream');
+
+      eventSource.addEventListener('new-receipt', (e: MessageEvent) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (data && Array.isArray(data.receipts) && data.receipts.length > 0) {
+            updateReceiptsState(data.receipts);
+          } else {
+            fetchBankReceipts();
+          }
+        } catch (err) {
+          fetchBankReceipts();
+        }
+      });
+
+      eventSource.onerror = () => {
+        eventSource?.close();
+        if (reconnectTimeout) clearTimeout(reconnectTimeout);
+        reconnectTimeout = setTimeout(connectSse, 5000);
+      };
+    };
+
+    connectSse();
+
     fetchBankReceipts();
 
     const interval = setInterval(() => {
@@ -247,10 +280,12 @@ export default function Dashboard() {
 
     window.addEventListener('focus', onFocus);
     return () => {
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      eventSource?.close();
       clearInterval(interval);
       window.removeEventListener('focus', onFocus);
     };
-  }, [fetchBankReceipts]);
+  }, [fetchBankReceipts, updateReceiptsState]);
 
   // Always force dark mode (night mode)
   useEffect(() => {

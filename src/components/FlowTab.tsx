@@ -1407,7 +1407,7 @@ function FlowTab({
                         <div className="flex items-center gap-3 text-[10px] text-slate-500 font-semibold flex-wrap">
                           <span>Mã GD: {r.order_number}</span>
                           <span>•</span>
-                          <span>Ngày: {r.trans_date}</span>
+                          <span>Ngày: {r.trans_date}{r.trans_time ? ` (${r.trans_time})` : ''}</span>
                           {r.beneficiary_bank && (
                             <>
                               <span>•</span>
@@ -1952,6 +1952,10 @@ function FlowTab({
               <div className="flex justify-between">
                 <span className="text-slate-400">Mã lệnh GD:</span>
                 <span className="text-slate-300">{classifyingReceipt.order_number}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Thời gian GD:</span>
+                <span className="text-amber-300 font-bold">{classifyingReceipt.trans_date}{classifyingReceipt.trans_time ? ` ${classifyingReceipt.trans_time}` : ''}</span>
               </div>
             </div>
 

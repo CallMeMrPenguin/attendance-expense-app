@@ -6,6 +6,7 @@ export interface BankReceipt {
   id: string;
   order_number: string;
   trans_date: string;
+  trans_time?: string;
   debit_account: string;
   remitter_name: string;
   credit_account: string;
@@ -14,7 +15,7 @@ export interface BankReceipt {
   amount: number;
   details: string;
   status: 'unclassified' | 'classified';
-  type?: 'income' | 'expense';
+  type?: 'income' | 'expense' | 'saving';
   category?: string;
   user_id?: string;
   created_at?: string;
@@ -25,9 +26,31 @@ export interface ReceiptRule {
   user_id?: string;
   match_field: 'remitter_name' | 'beneficiary_name' | 'details' | 'sender';
   match_value: string;
-  target_type: 'income' | 'expense';
+  target_type: 'income' | 'expense' | 'saving';
   target_category: string;
   created_at?: string;
+}
+
+// SSE Subscriber & Real-Time Broadcaster Mechanism
+type SseListener = (event: string, data: any) => void;
+const sseSubscribers = new Set<SseListener>();
+
+export function subscribeSseClient(listener: SseListener) {
+  sseSubscribers.add(listener);
+}
+
+export function unsubscribeSseClient(listener: SseListener) {
+  sseSubscribers.delete(listener);
+}
+
+export function broadcastSseEvent(event: string, data: any) {
+  for (const listener of sseSubscribers) {
+    try {
+      listener(event, data);
+    } catch (e) {
+      sseSubscribers.delete(listener);
+    }
+  }
 }
 
 // Server in-memory cache to guarantee persistence even if Supabase table is not created yet
@@ -101,13 +124,20 @@ export function parseVietcombankEmail(html: string, text: string): Partial<BankR
     amount = parseFloat(amountMatch[1].replace(/,/g, '').replace(/\./g, '')) || 0;
   }
 
-  // 3. Trans Date
+  // 3. Trans Date & Time (Hours, minutes, seconds)
   const transDateRaw = getFieldValue(['Ngày, giờ giao dịch', 'Trans. Date, Time']);
   let transDate = new Date().toISOString().split('T')[0];
+  let transTime = '';
+
   const dateMatch = transDateRaw.match(/(\d{1,2}\/\d{1,2}\/\d{4})/);
   if (dateMatch) {
     const [d, m, y] = dateMatch[1].split('/');
     transDate = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  }
+
+  const timeMatch = transDateRaw.match(/(\d{1,2}:\d{2}(?::\d{2})?)/);
+  if (timeMatch) {
+    transTime = timeMatch[1];
   }
 
   // 4. Accounts & Names
@@ -127,6 +157,7 @@ export function parseVietcombankEmail(html: string, text: string): Partial<BankR
   return {
     order_number: orderNumber || `VCB-${Date.now()}`,
     trans_date: transDate,
+    trans_time: transTime,
     debit_account: debitAccount,
     remitter_name: remitterName,
     credit_account: creditAccount,
@@ -252,6 +283,7 @@ export async function syncBankReceipts(): Promise<BankReceipt[]> {
             id: receiptId,
             order_number: receiptData.order_number || '',
             trans_date: receiptData.trans_date || new Date().toISOString().split('T')[0],
+            trans_time: receiptData.trans_time || '',
             debit_account: receiptData.debit_account || '',
             remitter_name: receiptData.remitter_name || '',
             credit_account: receiptData.credit_account || '',
@@ -296,7 +328,22 @@ export async function syncBankReceipts(): Promise<BankReceipt[]> {
     console.error('IMAP fetch error:', err);
   }
 
-  return getCachedReceipts();
+  const receipts = getCachedReceipts();
+  broadcastSseEvent('new-receipt', { receipts });
+  return receipts;
+}
+
+let idleReconnectTimer: NodeJS.Timeout | null = null;
+
+function scheduleIdleReconnect() {
+  if (idleReconnectTimer) clearTimeout(idleReconnectTimer);
+  isIdleListening = false;
+  imapClientInstance = null;
+
+  idleReconnectTimer = setTimeout(() => {
+    console.log('[IMAP IDLE Auto-Reconnect] Attempting to reconnect to Gmail IMAP server...');
+    startImapIdleListener().catch(console.error);
+  }, 5000);
 }
 
 export async function startImapIdleListener() {
@@ -320,20 +367,19 @@ export async function startImapIdleListener() {
     isIdleListening = true;
 
     client.on('exists', async (data) => {
-      console.log(`[IMAP IDLE] New message detected (count: ${data.count}). Syncing receipts...`);
-      await syncBankReceipts();
+      console.log(`[IMAP IDLE] ⚡ New message detected (count: ${data.count}). Syncing receipts...`);
+      const receipts = await syncBankReceipts();
+      broadcastSseEvent('new-receipt', { receipts });
     });
 
     client.on('error', (err) => {
       console.error('[IMAP IDLE Error]', err);
-      isIdleListening = false;
-      imapClientInstance = null;
+      scheduleIdleReconnect();
     });
 
     client.on('close', () => {
-      console.log('[IMAP IDLE] Connection closed.');
-      isIdleListening = false;
-      imapClientInstance = null;
+      console.log('[IMAP IDLE] Connection closed. Auto-reconnecting in 5s...');
+      scheduleIdleReconnect();
     });
 
     await client.connect();
@@ -343,7 +389,6 @@ export async function startImapIdleListener() {
     await client.idle();
   } catch (err) {
     console.error('Failed to start IMAP IDLE listener:', err);
-    isIdleListening = false;
-    imapClientInstance = null;
+    scheduleIdleReconnect();
   }
 }
