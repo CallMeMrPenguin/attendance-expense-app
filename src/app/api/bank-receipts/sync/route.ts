@@ -34,7 +34,13 @@ export async function POST(req: Request) {
     const dbRules = results[1]?.data || [];
     const dbTxs = userId ? (results[2]?.data || []) : [];
 
-    const finalReceipts = dbReceipts.length > 0 ? dbReceipts : receipts;
+    const mergedReceiptsMap = new Map<string, any>();
+    dbReceipts.forEach((r: any) => mergedReceiptsMap.set(r.id, r));
+    receipts.forEach((r: any) => {
+      const existing = mergedReceiptsMap.get(r.id);
+      mergedReceiptsMap.set(r.id, { ...existing, ...r });
+    });
+    const finalReceipts = Array.from(mergedReceiptsMap.values()).sort((a: any, b: any) => b.trans_date.localeCompare(a.trans_date));
 
     // Construct in-memory transaction records for any receipts that are classified but might not be in DB
     const memoryTransactions = finalReceipts
