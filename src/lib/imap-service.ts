@@ -380,10 +380,10 @@ export async function syncBankReceipts(clientKeywords?: Record<string, string>, 
     console.error('[IMAP Sync] Error loading metadata from Supabase DB:', e);
   }
 
-  // 2. Fetch new emails from Gmail IMAP for current month
+  // 2. Fetch new emails from Gmail IMAP for current month (with 45s timeout safeguard)
   try {
     const connectPromise = client.connect();
-    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('IMAP connection timeout (10s)')), 10000));
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('IMAP connection timeout (45s)')), 45000));
     await Promise.race([connectPromise, timeoutPromise]);
 
     const lock = await client.getMailboxLock('INBOX');
