@@ -55,7 +55,7 @@ export function broadcastSseEvent(event: string, data: any) {
 
 
 // Robust HTML / Text Parser for Vietcombank Email Receipts
-export function parseVietcombankEmail(html: string, text: string): Partial<BankReceipt> | null {
+export function parseVietcombankEmail(html: string, text: string, emailHeaderDate?: Date): (Partial<BankReceipt> & { trans_time?: string }) | null {
   const content = (html || '') + '\n' + (text || '');
   if (!content) return null;
 
@@ -63,7 +63,7 @@ export function parseVietcombankEmail(html: string, text: string): Partial<BankR
   if (html) {
     const rowMatches = html.match(/<tr[^>]*>[\s\S]*?<\/tr>/gi) || [];
     for (const row of rowMatches) {
-      let cells = (row.match(/<td[^>]*>[\s\S]*?<\/td>/gi) || [])
+      let cells = (row.match(/<t[dh][^>]*>[\s\S]*?<\/t[dh]>/gi) || [])
         .map(c => c.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim());
       
       // Filter out empty cells and standalone colons
@@ -148,7 +148,20 @@ export function parseVietcombankEmail(html: string, text: string): Partial<BankR
   const timeMatch = transDateRaw.match(/(\d{1,2}:\d{2}(?::\d{2})?)/);
   if (timeMatch) {
     transTime = timeMatch[1];
+    if (transTime.split(':').length === 2) {
+      transTime += ':00';
+    }
+  } else if (emailHeaderDate) {
+    const d = new Date(emailHeaderDate);
+    if (!isNaN(d.getTime())) {
+      const vnHours = String((d.getUTCHours() + 7) % 24).padStart(2, '0');
+      const vnMins = String(d.getUTCMinutes()).padStart(2, '0');
+      const vnSecs = String(d.getUTCSeconds()).padStart(2, '0');
+      transTime = `${vnHours}:${vnMins}:${vnSecs}`;
+    }
   }
+
+  const fullTransDate = transTime ? `${transDate} ${transTime}` : transDate;
 
   // 4. Accounts & Names
   const debitAccount = getFieldValue(['Tài khoản nguồn', 'Debit Account', 'Tài khoản trích nợ', 'Tài khoản thanh toán', 'Từ tài khoản', 'Tài khoản chuyển']);
@@ -172,7 +185,7 @@ export function parseVietcombankEmail(html: string, text: string): Partial<BankR
 
   return {
     order_number: finalOrderNumber,
-    trans_date: transDate,
+    trans_date: fullTransDate,
     trans_time: transTime,
     debit_account: debitAccount,
     remitter_name: remitterName,
@@ -303,9 +316,9 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
       'Giáo dục': 'day hoc, day, cham cong',
       'Đầu tư': 'dau tu, chung khoan',
       'Khác': 'khac',
-      'Ăn uống': 'an uong, do an, food, com, an',
-      'Di chuyển': 'xang, grab, taxi, di lai',
-      'Shopping': 'shopping, mua sam',
+      'Di chuyển': 'xang, grab, taxi, di lai, xe',
+      'Ăn uống': 'an uong, do an, food, com, nhahang, quanan, cafe, trasua, bua an, tien an, mon an',
+      'Shopping': 'shopping, mua sam, shopee, lazada',
       'Hóa đơn': 'hoa don, dien nuoc, wifi',
       'Giải trí': 'giai tri, xem phim, du lich',
       'Tiết kiệm khẩn cấp': 'tiet kiem khan cap, khan cap',
@@ -460,7 +473,7 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
           const html = parsed.html || '';
           const text = parsed.text || '';
 
-          const receiptData = parseVietcombankEmail(typeof html === 'string' ? html : '', text || '');
+          const receiptData = parseVietcombankEmail(typeof html === 'string' ? html : '', text || '', parsed.date || message.envelope?.date);
           if (!receiptData || !receiptData.order_number) continue;
 
           const receiptId = `vcb-${receiptData.order_number}`;
