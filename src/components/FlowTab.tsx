@@ -1610,7 +1610,7 @@ function FlowTab({
                         <div className="flex items-center gap-3 text-[10px] text-slate-500 font-semibold flex-wrap">
                           <span>Mã GD: {r.order_number}</span>
                           <span>•</span>
-                          <span>Ngày: {r.trans_date}{r.trans_time ? ` (${r.trans_time})` : ''}</span>
+                          <span>Ngày: {r.trans_date}{r.trans_time && !r.trans_date?.includes(r.trans_time) ? ` (${r.trans_time})` : ''}</span>
                           {r.beneficiary_bank && (
                             <>
                               <span>•</span>
