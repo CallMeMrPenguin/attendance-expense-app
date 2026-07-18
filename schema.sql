@@ -248,18 +248,18 @@ ALTER TABLE public.savings_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bank_receipts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.receipt_rules ENABLE ROW LEVEL SECURITY;
 
--- Add permissive RLS policies for authenticated users
+-- Add permissive RLS policies for all tables
 DROP POLICY IF EXISTS all_manual_transactions ON public.manual_transactions;
-CREATE POLICY all_manual_transactions ON public.manual_transactions FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY all_manual_transactions ON public.manual_transactions FOR ALL USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS all_savings_funds ON public.savings_funds;
-CREATE POLICY all_savings_funds ON public.savings_funds FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY all_savings_funds ON public.savings_funds FOR ALL USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS all_category_budgets ON public.category_budgets;
-CREATE POLICY all_category_budgets ON public.category_budgets FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY all_category_budgets ON public.category_budgets FOR ALL USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS all_savings_history ON public.savings_history;
-CREATE POLICY all_savings_history ON public.savings_history FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY all_savings_history ON public.savings_history FOR ALL USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS all_bank_receipts ON public.bank_receipts;
 CREATE POLICY all_bank_receipts ON public.bank_receipts FOR ALL USING (true) WITH CHECK (true);
