@@ -232,12 +232,16 @@ export default function Dashboard() {
       const res = await fetch('/api/bank-receipts/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ keywords: localKeywords })
+        body: JSON.stringify({ keywords: localKeywords, userId: currentUser?.id })
       });
       if (res.ok) {
         const data = await res.json();
         if (data.success && Array.isArray(data.receipts)) {
           updateReceiptsState(data.receipts);
+          if (Array.isArray(data.transactions) && currentUser?.id) {
+            setManualTransactions(data.transactions);
+            localStorage.setItem(`finance_trans_${currentUser.id}`, JSON.stringify(data.transactions));
+          }
           showToast(`Đã đồng bộ Gmail! Đã đọc ${data.syncedCount || 0} biên lai mới.`, 'success');
         }
       }

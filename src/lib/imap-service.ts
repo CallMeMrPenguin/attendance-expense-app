@@ -254,73 +254,73 @@ export async function syncBankReceipts(clientKeywords?: Record<string, string>):
           console.log('[IMAP Service] Merged category budgets list with client-provided keywords:', categoryBudgetsList.map((b: any) => ({ category: b.category, keywords: b.keywords })));
         }
 
-        // Re-evaluate existing unclassified receipts in DB against keywords
-        if (receiptsRes.data && categoryBudgetsList.length > 0) {
-          const unclassifiedReceipts = receiptsRes.data.filter((r: any) => r.status === 'unclassified');
-          if (unclassifiedReceipts.length > 0) {
-            console.log(`[IMAP Sync] Re-evaluating ${unclassifiedReceipts.length} existing unclassified receipts against keywords...`);
-            for (const receipt of unclassifiedReceipts) {
-              const cleanDetails = cleanString(receipt.details || '');
-              let matched = false;
-              for (const budget of categoryBudgetsList) {
-                if (budget.keywords) {
-                  const kwList = budget.keywords.split(',').map((kw: string) => cleanString(kw)).filter(Boolean);
-                  for (const kw of kwList) {
-                    if (cleanDetails.includes(kw)) {
-                      console.log(`[IMAP Sync] Re-evaluation MATCH! Receipt "${receipt.id}" details "${cleanDetails}" matched keyword "${kw}" -> Category: "${budget.category}"`);
-                      
-                      const savingCats = ['Tiết kiệm khẩn cấp', 'Tích lũy dài hạn', 'Tiết kiệm khác', 'Tiết kiệm'];
-                      const matchedType = savingCats.includes(budget.category) ? 'saving' : 'expense';
-                      
-                      const updatedReceipt = {
-                        ...receipt,
-                        status: 'classified' as const,
-                        type: matchedType,
-                        category: budget.category
-                      };
-                      
-                      // Update cache
-                      serverReceiptCacheMap.set(receipt.id, updatedReceipt);
-                      
-                      // Update DB
-                      await clientAdmin.from('bank_receipts').upsert(updatedReceipt, { onConflict: 'id' });
-                      
-                      // Insert transaction
-                      const txRecord = {
-                        id: `tx-receipt-${receipt.id}`,
-                        desc_text: `[Biên lai Vietcombank] ${updatedReceipt.remitter_name || ''} ➔ ${updatedReceipt.beneficiary_name || ''}: ${updatedReceipt.details}`,
-                        amount: updatedReceipt.amount,
-                        type: matchedType,
-                        category: budget.category,
-                        date: updatedReceipt.trans_date,
-                        user_id: receipt.user_id || '2d3a11e1-4d71-474c-b8df-abb85394e9c8', // fallback if empty
-                        teacher_name: 'Admin',
-                        updated_at: new Date().toISOString()
-                      };
-                      await clientAdmin.from('manual_transactions').upsert(txRecord, { onConflict: 'id' });
-                      
-                      matched = true;
-                      break;
-                    }
+        // Re-evaluate all unclassified receipts (union of DB and in-memory cache) against keywords
+        const allLoadedReceipts = Array.from(serverReceiptCacheMap.values());
+        const unclassifiedReceipts = allLoadedReceipts.filter((r: any) => r.status === 'unclassified');
+        if (unclassifiedReceipts.length > 0 && categoryBudgetsList.length > 0) {
+          console.log(`[IMAP Sync] Re-evaluating ${unclassifiedReceipts.length} existing unclassified receipts against keywords...`);
+          for (const receipt of unclassifiedReceipts) {
+            const cleanDetails = cleanString(receipt.details || '');
+            let matched = false;
+            for (const budget of categoryBudgetsList) {
+              if (budget.keywords) {
+                const kwList = budget.keywords.split(',').map((kw: string) => cleanString(kw)).filter(Boolean);
+                for (const kw of kwList) {
+                  if (cleanDetails.includes(kw)) {
+                    console.log(`[IMAP Sync] Re-evaluation MATCH! Receipt "${receipt.id}" details "${cleanDetails}" matched keyword "${kw}" -> Category: "${budget.category}"`);
+                    
+                    const savingCats = ['Tiết kiệm khẩn cấp', 'Tích lũy dài hạn', 'Tiết kiệm khác', 'Tiết kiệm'];
+                    const matchedType: 'income' | 'expense' | 'saving' = savingCats.includes(budget.category) ? 'saving' : 'expense';
+                    
+                    const updatedReceipt = {
+                      ...receipt,
+                      status: 'classified' as const,
+                      type: matchedType,
+                      category: budget.category
+                    };
+                    
+                    // Update cache
+                    serverReceiptCacheMap.set(receipt.id, updatedReceipt);
+                    
+                    // Update DB and insert transaction in background without blocking
+                    (async () => {
+                      try {
+                        await clientAdmin.from('bank_receipts').upsert(updatedReceipt, { onConflict: 'id' });
+                        
+                        const txRecord = {
+                          id: `tx-receipt-${receipt.id}`,
+                          desc_text: `[Biên lai] ${updatedReceipt.remitter_name || ''} ➔ ${updatedReceipt.beneficiary_name || ''}: ${updatedReceipt.details}`,
+                          amount: updatedReceipt.amount,
+                          type: matchedType,
+                          category: budget.category,
+                          date: updatedReceipt.trans_date,
+                          user_id: receipt.user_id || '2d3a11e1-4d71-474c-b8df-abb85394e9c8',
+                          teacher_name: 'Admin',
+                          updated_at: new Date().toISOString()
+                        };
+                        await clientAdmin.from('manual_transactions').upsert(txRecord, { onConflict: 'id' });
+                      } catch (dbErr) {
+                        console.error('[IMAP Sync] DB background update failed (possibly RLS):', dbErr);
+                      }
+                    })();
+                    
+                    matched = true;
+                    break;
                   }
                 }
-                if (matched) break;
               }
+              if (matched) break;
             }
           }
         }
       } catch (e) {}
 
-      // 2. Optimized IMAP Search for Vietcombank emails since 1st of current month
+      // 2. Optimized IMAP Search since 1st of current month
       const now = new Date();
       const firstDayOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-      let searchResult = await client.search({ since: firstDayOfCurrentMonth, body: 'Vietcombank' });
-      if (!searchResult || searchResult.length === 0) {
-        searchResult = await client.search({ since: firstDayOfCurrentMonth });
-      }
-
-      const msgIds = Array.isArray(searchResult) ? searchResult.slice(-20) : [];
+      const searchResult = await client.search({ since: firstDayOfCurrentMonth });
+      const msgIds = Array.isArray(searchResult) ? searchResult.slice(-50) : [];
 
       if (msgIds.length > 0) {
         for (const seq of msgIds) {
@@ -333,7 +333,10 @@ export async function syncBankReceipts(clientKeywords?: Record<string, string>):
 
           const isVcbEmail = subject.includes('Biên lai') || 
             fromAddr.toLowerCase().includes('vietcombank') || 
-            (parsed.text || '').includes('Vietcombank');
+            fromAddr.toLowerCase().includes('vietinbank') ||
+            (parsed.text || '').includes('Vietcombank') ||
+            (parsed.text || '').includes('VietinBank') ||
+            (parsed.text || '').includes('Công Thương');
 
           if (!isVcbEmail) continue;
 
