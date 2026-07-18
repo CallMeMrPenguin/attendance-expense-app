@@ -62,7 +62,7 @@ interface FlowTabProps {
   getActualCategoryAmount: (cat: string) => number;
   handleDeleteManualTx: (id: string) => void;
   handleOpenTxModal: (type: 'income' | 'expense' | 'saving') => void;
-  saveBudgets: (userId: string, budgets: Record<string, number>) => void;
+  saveBudgets: (userId: string, budgets: Record<string, number>, keywords?: Record<string, string>) => void;
   saveTransactions?: (userId: string, data: any[]) => void;
   toggleChartMonth?: (mStr: string) => void;
   handleClassifyReceipt?: (receiptId: string, type: 'income' | 'expense' | 'saving', category: string, createRule: boolean, matchField: string, matchValue: string) => void | Promise<void>;
@@ -144,46 +144,36 @@ function FlowTab({
   const [isSavingClassification, setIsSavingClassification] = React.useState(false);
 
   // Dynamic custom categories lists
-  const [incomeCats, setIncomeCats] = React.useState<{name: string, icon: string, note?: string}[]>([
-    { name: 'Lương', icon: 'Briefcase', note: 'Thu nhập cố định hàng tháng' },
-    { name: 'Giáo dục', icon: 'GraduationCap', note: 'Giảng dạy, chấm công' },
-    { name: 'Đầu tư', icon: 'TrendingUp', note: 'Cổ tức, lợi nhuận' },
-    { name: 'Khác', icon: 'Coins', note: 'Thu nhập khác' }
+  const [incomeCats, setIncomeCats] = React.useState<{name: string, icon: string, note?: string, keywords?: string}[]>([
+    { name: 'Lương', icon: 'Briefcase', note: 'Thu nhập cố định hàng tháng', keywords: 'luong' },
+    { name: 'Giáo dục', icon: 'GraduationCap', note: 'Giảng dạy, chấm công', keywords: 'day hoc, day, cham cong' },
+    { name: 'Đầu tư', icon: 'TrendingUp', note: 'Cổ tức, lợi nhuận', keywords: 'dau tu, chung khoan' },
+    { name: 'Khác', icon: 'Coins', note: 'Thu nhập khác', keywords: 'khac' }
   ]);
-  const [expenseCats, setExpenseCats] = React.useState<{name: string, icon: string, note?: string}[]>([
-    { name: 'Ăn uống', icon: 'Utensils', note: 'Đồ ăn, thức uống' },
-    { name: 'Di chuyển', icon: 'Car', note: 'Xăng xe, đi lại' },
-    { name: 'Shopping', icon: 'ShoppingBag', note: 'Mua sắm' },
-    { name: 'Hóa đơn', icon: 'Receipt', note: 'Điện, nước, internet' },
-    { name: 'Giải trí', icon: 'Film', note: 'Vui chơi, giải trí' },
-    { name: 'Khác', icon: 'MoreHorizontal', note: 'Chi phí khác' }
+  const [expenseCats, setExpenseCats] = React.useState<{name: string, icon: string, note?: string, keywords?: string}[]>([
+    { name: 'Ăn uống', icon: 'Utensils', note: 'Đồ ăn, thức uống', keywords: 'an uong, do an, food, com' },
+    { name: 'Di chuyển', icon: 'Car', note: 'Xăng xe, đi lại', keywords: 'xang, grab, taxi, di lai' },
+    { name: 'Shopping', icon: 'ShoppingBag', note: 'Mua sắm', keywords: 'shopping, mua sam' },
+    { name: 'Hóa đơn', icon: 'Receipt', note: 'Điện, nước, internet', keywords: 'hoa don, dien nuoc, wifi' },
+    { name: 'Giải trí', icon: 'Film', note: 'Vui chơi, giải trí', keywords: 'giai tri, xem phim, du lich' },
+    { name: 'Khác', icon: 'MoreHorizontal', note: 'Chi phí khác', keywords: 'khac' }
   ]);
 
   React.useEffect(() => {
     if (classifyingReceipt) {
       const type = (classifyingReceipt.type || 'expense') as 'income' | 'expense' | 'saving';
-      setSelectedType(type);
-      if (type === 'saving') {
+      const initialType = type === 'income' ? 'expense' : type;
+      setSelectedType(initialType);
+      if (initialType === 'saving') {
         setSelectedCat(classifyingReceipt.category || 'Tiết kiệm khẩn cấp');
-      } else if (type === 'income') {
-        setSelectedCat(classifyingReceipt.category || incomeCats[0]?.name || 'Lương');
       } else {
         setSelectedCat(classifyingReceipt.category || expenseCats[0]?.name || 'Ăn uống');
       }
 
-      const rName = (classifyingReceipt.remitter_name || '').toUpperCase();
-      const bName = (classifyingReceipt.beneficiary_name || '').toUpperCase();
-      const isHungToTrang = rName.includes('BUI DUC HUNG') && bName.includes('PHAM THI THU TRANG');
-
-      if (isHungToTrang) {
-        setMatchField('remitter_beneficiary_details');
-        setMatchValue(classifyingReceipt.details || '');
-      } else {
-        setMatchField('remitter_name');
-        setMatchValue(classifyingReceipt.remitter_name || classifyingReceipt.details || '');
-      }
+      setMatchField('details');
+      setMatchValue(classifyingReceipt.details || '');
     }
-  }, [classifyingReceipt, incomeCats, expenseCats]);
+  }, [classifyingReceipt, expenseCats]);
 
   // Month Selector States
   const [monthPickerOpen, setMonthPickerOpen] = React.useState(false);
@@ -197,13 +187,36 @@ function FlowTab({
     if (currentUser?.id) {
       const savedIncome = localStorage.getItem(`finance_income_cats_${currentUser.id}`);
       const savedExpense = localStorage.getItem(`finance_expense_cats_${currentUser.id}`);
-      if (savedIncome) {
-        setIncomeCats(JSON.parse(savedIncome));
+      const savedKeywords = localStorage.getItem(`finance_category_keywords_${currentUser.id}`);
+      const kMap = savedKeywords ? JSON.parse(savedKeywords) : {};
+
+      let loadedIncome = savedIncome ? JSON.parse(savedIncome) : null;
+      let loadedExpense = savedExpense ? JSON.parse(savedExpense) : null;
+
+      if (kMap && Object.keys(kMap).length > 0) {
+        if (loadedIncome) {
+          loadedIncome = loadedIncome.map((c: any) => ({
+            ...c,
+            keywords: kMap[c.name] !== undefined ? kMap[c.name] : (c.keywords || '')
+          }));
+        }
+        if (loadedExpense) {
+          loadedExpense = loadedExpense.map((c: any) => ({
+            ...c,
+            keywords: kMap[c.name] !== undefined ? kMap[c.name] : (c.keywords || '')
+          }));
+        }
+      }
+
+      if (loadedIncome) {
+        setIncomeCats(loadedIncome);
+        localStorage.setItem(`finance_income_cats_${currentUser.id}`, JSON.stringify(loadedIncome));
       } else {
         localStorage.setItem(`finance_income_cats_${currentUser.id}`, JSON.stringify(incomeCats));
       }
-      if (savedExpense) {
-        setExpenseCats(JSON.parse(savedExpense));
+      if (loadedExpense) {
+        setExpenseCats(loadedExpense);
+        localStorage.setItem(`finance_expense_cats_${currentUser.id}`, JSON.stringify(loadedExpense));
       } else {
         localStorage.setItem(`finance_expense_cats_${currentUser.id}`, JSON.stringify(expenseCats));
       }
@@ -218,6 +231,7 @@ function FlowTab({
     icon: string;
     note: string;
     budget: number;
+    keywords?: string;
   } | null>(null);
 
   // Edit manual transaction state
@@ -237,6 +251,7 @@ function FlowTab({
   const [newCatIcon, setNewCatIcon] = React.useState('Coins');
   const [newCatNote, setNewCatNote] = React.useState('');
   const [newCatBudget, setNewCatBudget] = React.useState('');
+  const [newCatKeywords, setNewCatKeywords] = React.useState('');
 
   React.useEffect(() => {
     if (editingCat || editingTx || addingCatType) {
@@ -271,7 +286,8 @@ function FlowTab({
     const newCategoryItem = {
       name: nameTrimmed,
       icon: newCatIcon,
-      note: newCatNote.trim() || (isIncome ? 'Thu nhập khác' : 'Chi phí khác')
+      note: newCatNote.trim() || (isIncome ? 'Thu nhập khác' : 'Chi phí khác'),
+      keywords: newCatKeywords.trim()
     };
 
     const updatedList = [...list, newCategoryItem];
@@ -285,7 +301,18 @@ function FlowTab({
 
     const bVal = parseNumberDots(newCatBudget) || 0;
     const updatedBudgets = { ...categoryBudgets, [nameTrimmed]: bVal };
-    saveBudgets(currentUser.id, updatedBudgets);
+
+    // Sync keywords to DB too!
+    const allKeywords: Record<string, string> = {};
+    incomeCats.forEach(c => {
+      if (c.keywords) allKeywords[c.name] = c.keywords;
+    });
+    expenseCats.forEach(c => {
+      if (c.keywords) allKeywords[c.name] = c.keywords;
+    });
+    allKeywords[nameTrimmed] = newCatKeywords.trim();
+
+    saveBudgets(currentUser.id, updatedBudgets, allKeywords);
 
     showToast(`Đã thêm danh mục "${nameTrimmed}" mới!`, 'success');
     setAddingCatType(null);
@@ -293,6 +320,7 @@ function FlowTab({
     setNewCatIcon('Coins');
     setNewCatNote('');
     setNewCatBudget('');
+    setNewCatKeywords('');
   };
 
   const [confirmDeleteCatInfo, setConfirmDeleteCatInfo] = useState<{ type: 'income' | 'expense'; index: number; catName: string } | null>(null);
@@ -495,14 +523,14 @@ function FlowTab({
 
   const handleSaveCategoryEdit = () => {
     if (!editingCat || !editingCat.name.trim()) return;
-    const { type, index, name: newName, icon: newIcon, note: newNote, budget } = editingCat;
+    const { type, index, name: newName, icon: newIcon, note: newNote, budget, keywords } = editingCat;
     
     const list = type === 'income' ? incomeCats : expenseCats;
     const oldName = list[index].name;
 
     // 1. Update list
     const updatedList = list.map((item, idx) => 
-      idx === index ? { name: newName.trim(), icon: newIcon, note: (newNote || '').trim() } : item
+      idx === index ? { name: newName.trim(), icon: newIcon, note: (newNote || '').trim(), keywords: (keywords || '').trim() } : item
     );
 
     if (type === 'income') {
@@ -513,13 +541,36 @@ function FlowTab({
       localStorage.setItem(`finance_expense_cats_${currentUser.id}`, JSON.stringify(updatedList));
     }
 
-    // 2. Transfer and update budget
+    // 2. Transfer and update budget & keywords
     const updatedBudgets = { ...categoryBudgets };
     if (oldName !== newName.trim()) {
       delete updatedBudgets[oldName];
     }
     updatedBudgets[newName.trim()] = Number(budget);
-    saveBudgets(currentUser.id, updatedBudgets);
+
+    // Build the all-keywords map to sync to Supabase
+    const allKeywords: Record<string, string> = {};
+    incomeCats.forEach(c => {
+      if (c.keywords) allKeywords[c.name] = c.keywords;
+    });
+    expenseCats.forEach(c => {
+      if (c.keywords) allKeywords[c.name] = c.keywords;
+    });
+    if (type === 'income') {
+      updatedList.forEach(c => {
+        if (c.keywords) allKeywords[c.name] = c.keywords;
+      });
+    } else {
+      updatedList.forEach(c => {
+        if (c.keywords) allKeywords[c.name] = c.keywords;
+      });
+    }
+    if (oldName !== newName.trim()) {
+      delete allKeywords[oldName];
+    }
+    allKeywords[newName.trim()] = (keywords || '').trim();
+
+    saveBudgets(currentUser.id, updatedBudgets, allKeywords);
 
     // 3. Update transaction items
     if (oldName !== newName.trim() && saveTransactions) {
@@ -823,7 +874,8 @@ function FlowTab({
                     name: cat, 
                     icon: iconName, 
                     note: noteText,
-                    budget: budgetVal 
+                    budget: budgetVal,
+                    keywords: (type === 'income' ? incomeCats : expenseCats)[idx]?.keywords || ''
                   })}
                   className="h-9 w-9 bg-white/[0.04] border border-white/10 hover:border-white/25 hover:bg-white/10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-all shadow-sm cursor-pointer shrink-0"
                   title="Chỉnh sửa danh mục"
@@ -1628,6 +1680,17 @@ function FlowTab({
               </div>
 
               <div className="space-y-1.5">
+                <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Từ khóa nhận diện (Phân cách bởi dấu phẩy)</label>
+                <input
+                  type="text"
+                  value={editingCat.keywords || ''}
+                  onChange={(e) => setEditingCat(prev => prev ? { ...prev, keywords: e.target.value } : null)}
+                  placeholder="Ví dụ: xang, grab, an uong, food..."
+                  className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 placeholder-slate-600"
+                />
+              </div>
+
+              <div className="space-y-1.5">
                 <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider block">Chọn biểu tượng</label>
                 <div className="grid grid-cols-6 gap-2 bg-[#090b10] p-3 rounded-xl border border-white/5 max-h-48 overflow-y-auto">
                   {Object.keys(ICON_COMPONENTS).map((iconKey) => {
@@ -1731,6 +1794,17 @@ function FlowTab({
                   placeholder="0"
                   value={newCatBudget}
                   onChange={(e) => setNewCatBudget(formatNumberDots(parseNumberDots(e.target.value)))}
+                  className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 placeholder-slate-600"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Từ khóa nhận diện (Phân cách bởi dấu phẩy)</label>
+                <input
+                  type="text"
+                  placeholder="Ví dụ: xang, grab, an uong, food..."
+                  value={newCatKeywords}
+                  onChange={(e) => setNewCatKeywords(e.target.value)}
                   className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 placeholder-slate-600"
                 />
               </div>
@@ -1973,27 +2047,23 @@ function FlowTab({
             </div>
 
             <div className="space-y-4 text-left">
-              {/* Type selection with 3-way animated sliding tab toggle */}
+              {/* Type selection with 2-way animated sliding tab toggle */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Loại Giao Dịch</label>
                 <div className="relative flex bg-[#090b10] border border-white/5 p-1 rounded-xl w-full">
                   <div
                     className={`absolute top-1 bottom-1 rounded-[10px] transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] pointer-events-none ${
-                      selectedType === 'expense'
-                        ? 'bg-rose-500 shadow-[0_0_14px_rgba(239,68,68,0.4)]'
-                        : selectedType === 'income'
-                        ? 'bg-emerald-500 shadow-[0_0_14px_rgba(16,185,129,0.4)]'
-                        : 'bg-blue-500 shadow-[0_0_14px_rgba(59,130,246,0.4)]'
+                      selectedType === 'saving'
+                        ? 'bg-blue-500 shadow-[0_0_14px_rgba(59,130,246,0.4)]'
+                        : 'bg-rose-500 shadow-[0_0_14px_rgba(239,68,68,0.4)]'
                     }`}
                     style={{
                       left: '4px',
-                      width: 'calc(33.333% - 4px)',
+                      width: 'calc(50% - 4px)',
                       transform:
-                        selectedType === 'expense'
-                          ? 'translateX(0)'
-                          : selectedType === 'income'
+                        selectedType === 'saving'
                           ? 'translateX(100%)'
-                          : 'translateX(200%)',
+                          : 'translateX(0)',
                     }}
                   />
                   <button
@@ -2004,8 +2074,8 @@ function FlowTab({
                         setSelectedCat(expenseCats[0]?.name || 'Khác');
                       }
                     }}
-                    className={`relative z-10 flex-1 py-2 text-[10px] font-black tracking-wider uppercase rounded-lg transition-colors duration-300 cursor-pointer ${
-                      selectedType === 'expense' ? 'text-white' : 'text-slate-400 hover:text-slate-200'
+                    className={`relative z-10 flex-1 py-2 text-[10px] font-black tracking-wider uppercase rounded-lg transition-colors duration-300 cursor-pointer text-center ${
+                      selectedType !== 'saving' ? 'text-white' : 'text-slate-400 hover:text-slate-200'
                     }`}
                   >
                     Chi tiêu
@@ -2013,24 +2083,10 @@ function FlowTab({
                   <button
                     type="button"
                     onClick={() => {
-                      setSelectedType('income');
-                      if (!incomeCats.some(c => c.name === selectedCat)) {
-                        setSelectedCat(incomeCats[0]?.name || 'Lương');
-                      }
-                    }}
-                    className={`relative z-10 flex-1 py-2 text-[10px] font-black tracking-wider uppercase rounded-lg transition-colors duration-300 cursor-pointer ${
-                      selectedType === 'income' ? 'text-white' : 'text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    Thu nhập
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
                       setSelectedType('saving');
                       setSelectedCat('Tiết kiệm khẩn cấp');
                     }}
-                    className={`relative z-10 flex-1 py-2 text-[10px] font-black tracking-wider uppercase rounded-lg transition-colors duration-300 cursor-pointer ${
+                    className={`relative z-10 flex-1 py-2 text-[10px] font-black tracking-wider uppercase rounded-lg transition-colors duration-300 cursor-pointer text-center ${
                       selectedType === 'saving' ? 'text-white' : 'text-slate-400 hover:text-slate-200'
                     }`}
                   >
@@ -2054,7 +2110,7 @@ function FlowTab({
                       <option value="Tiết kiệm khác">Tiết kiệm khác</option>
                     </>
                   ) : (
-                    (selectedType === 'income' ? incomeCats : expenseCats).map(cat => (
+                    expenseCats.map(cat => (
                       <option key={cat.name} value={cat.name}>
                         {cat.name} {cat.note ? `(${cat.note})` : ''}
                       </option>
@@ -2087,15 +2143,13 @@ function FlowTab({
                         onChange={(e) => {
                           const f = e.target.value as any;
                           setMatchField(f);
-                          if (f === 'remitter_name') setMatchValue(classifyingReceipt.remitter_name || '');
-                          else if (f === 'beneficiary_name') setMatchValue(classifyingReceipt.beneficiary_name || '');
+                          if (f === 'beneficiary_name') setMatchValue(classifyingReceipt.beneficiary_name || '');
                           else if (f === 'details' || f === 'remitter_beneficiary_details') setMatchValue(classifyingReceipt.details || '');
                         }}
                         className="w-full bg-[#0d1018] border border-white/10 text-[11px] font-semibold text-white rounded-lg px-2.5 py-1.5 focus:outline-none"
                       >
                         <option value="remitter_beneficiary_details">BÙI ĐỨC HÙNG ➔ PHẠM THỊ THU TRANG (Khớp theo Nội dung)</option>
                         <option value="details">Nội dung chuyển tiền (Details of Payment)</option>
-                        <option value="remitter_name">Người chuyển (Remitter Name)</option>
                         <option value="beneficiary_name">Người hưởng (Beneficiary Name)</option>
                       </select>
                     </div>

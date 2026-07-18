@@ -72,11 +72,13 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Format category budgets object
+    // Format category budgets and keywords object
     const formattedBudgets: Record<string, number> = {};
+    const formattedKeywords: Record<string, string> = {};
     if (budgetsData && Array.isArray(budgetsData)) {
       budgetsData.forEach((b: any) => {
         formattedBudgets[b.category] = Number(b.amount) || 0;
+        formattedKeywords[b.category] = b.keywords || '';
       });
     }
 
@@ -107,6 +109,7 @@ export async function GET(request: NextRequest) {
       accumulationCurrent: Number(fundsData?.accumulation_current) || 0,
       accumulationTarget: Number(fundsData?.accumulation_target) || 150000000,
       categoryBudgets: formattedBudgets,
+      categoryKeywords: formattedKeywords,
       savingsHistory: formattedHistory,
       hasData: (txData && txData.length > 0) || !!fundsData || (historyData && historyData.length > 0)
     });
@@ -208,14 +211,17 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Type 3: Sync category budgets
+    // Type 3: Sync category budgets & keywords
     if (type === 'category_budgets' && categoryBudgets) {
-      const records = Object.keys(categoryBudgets).map(cat => ({
+      const budgetsMap = categoryBudgets.budgets || categoryBudgets;
+      const keywordsMap = categoryBudgets.keywords || {};
+      const records = Object.keys(budgetsMap).map(cat => ({
         id: `${userId}_${cat}`,
         user_id: userId,
         teacher_name: teacherName,
         category: cat,
-        amount: Number(categoryBudgets[cat]) || 0,
+        amount: Number(budgetsMap[cat]) || 0,
+        keywords: keywordsMap[cat] || null,
         updated_at: new Date().toISOString()
       }));
 

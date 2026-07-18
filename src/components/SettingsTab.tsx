@@ -27,7 +27,7 @@ interface SettingsTabProps {
   saveAccumulationCurrent: (userId: string, val: number) => void;
   saveAccumulationTarget: (userId: string, val: number) => void;
   saveSavingsHistory: (userId: string, data: any[]) => void;
-  saveBudgets: (userId: string, budgets: Record<string, number>) => void;
+  saveBudgets: (userId: string, budgets: Record<string, number>, keywords?: Record<string, string>) => void;
   
   // Local state update callbacks
   setManualTransactions: React.Dispatch<React.SetStateAction<any[]>>;

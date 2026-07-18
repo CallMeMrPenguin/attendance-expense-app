@@ -205,12 +205,14 @@ export async function syncBankReceipts(): Promise<BankReceipt[]> {
     try {
       const clientAdmin = getSupabaseAdmin();
 
-      // 1. Fetch existing receipts & rules from Supabase DB to seed server cache & rules
+      // 1. Fetch existing receipts, rules, and category budgets from Supabase DB
       let ruleList: ReceiptRule[] = [];
+      let categoryBudgetsList: any[] = [];
       try {
-        const [receiptsRes, rulesRes] = await Promise.all([
+        const [receiptsRes, rulesRes, budgetsRes] = await Promise.all([
           clientAdmin.from('bank_receipts').select('*').order('created_at', { ascending: false }),
-          clientAdmin.from('receipt_rules').select('*').order('created_at', { ascending: false })
+          clientAdmin.from('receipt_rules').select('*').order('created_at', { ascending: false }),
+          clientAdmin.from('category_budgets').select('*')
         ]);
 
         if (receiptsRes.data) {
@@ -218,6 +220,9 @@ export async function syncBankReceipts(): Promise<BankReceipt[]> {
         }
         if (rulesRes.data) {
           ruleList = rulesRes.data as ReceiptRule[];
+        }
+        if (budgetsRes.data) {
+          categoryBudgetsList = budgetsRes.data;
         }
       } catch (e) {}
 
@@ -263,30 +268,61 @@ export async function syncBankReceipts(): Promise<BankReceipt[]> {
             }
           }
 
-          // Check auto classification rule match
+          // Check auto classification matching
           let status: 'unclassified' | 'classified' = 'unclassified';
           let matchedType: 'income' | 'expense' | 'saving' | undefined = undefined;
           let matchedCategory: string | undefined = undefined;
 
-          for (const rule of ruleList) {
-            let valToMatch = '';
-            if (rule.match_field === 'remitter_name') valToMatch = receiptData.remitter_name || '';
-            else if (rule.match_field === 'beneficiary_name') valToMatch = receiptData.beneficiary_name || '';
-            else if (rule.match_field === 'details') valToMatch = receiptData.details || '';
-            else if (rule.match_field === 'sender') valToMatch = sender;
-            else if (rule.match_field === 'remitter_beneficiary_details') {
-              const rName = (receiptData.remitter_name || '').toUpperCase();
-              const bName = (receiptData.beneficiary_name || '').toUpperCase();
-              if (rName.includes('BUI DUC HUNG') && bName.includes('PHAM THI THU TRANG')) {
-                valToMatch = receiptData.details || '';
+          // Helper to remove accents/diacritics and normalize text for comparison
+          const cleanString = (str: string): string => {
+            return (str || '')
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '')
+              .toLowerCase()
+              .replace(/đ/g, 'd')
+              .trim();
+          };
+
+          // 1. Match against category-specific keywords in details (Nội dung chuyển tiền)
+          const cleanDetails = cleanString(receiptData.details || '');
+          for (const budget of categoryBudgetsList) {
+            if (budget.keywords) {
+              const kwList = budget.keywords.split(',').map((kw: string) => cleanString(kw)).filter(Boolean);
+              for (const kw of kwList) {
+                if (cleanDetails.includes(kw)) {
+                  status = 'classified';
+                  matchedCategory = budget.category;
+                  const savingCats = ['Tiết kiệm khẩn cấp', 'Tích lũy dài hạn', 'Tiết kiệm khác', 'Tiết kiệm'];
+                  matchedType = savingCats.includes(budget.category) ? 'saving' : 'expense';
+                  break;
+                }
               }
             }
+            if (status === 'classified') break;
+          }
 
-            if (valToMatch && valToMatch.toLowerCase().includes(rule.match_value.toLowerCase())) {
-              status = 'classified';
-              matchedType = rule.target_type;
-              matchedCategory = rule.target_category;
-              break;
+          // 2. Fallback to existing ruleList matching
+          if (status !== 'classified') {
+            for (const rule of ruleList) {
+              let valToMatch = '';
+              if (rule.match_field === 'remitter_name') valToMatch = receiptData.remitter_name || '';
+              else if (rule.match_field === 'beneficiary_name') valToMatch = receiptData.beneficiary_name || '';
+              else if (rule.match_field === 'details') valToMatch = receiptData.details || '';
+              else if (rule.match_field === 'sender') valToMatch = sender;
+              else if (rule.match_field === 'remitter_beneficiary_details') {
+                const rName = (receiptData.remitter_name || '').toUpperCase();
+                const bName = (receiptData.beneficiary_name || '').toUpperCase();
+                if (rName.includes('BUI DUC HUNG') && bName.includes('PHAM THI THU TRANG')) {
+                  valToMatch = receiptData.details || '';
+                }
+              }
+
+              if (valToMatch && valToMatch.toLowerCase().includes(rule.match_value.toLowerCase())) {
+                status = 'classified';
+                matchedType = rule.target_type;
+                matchedCategory = rule.target_category;
+                break;
+              }
             }
           }
 

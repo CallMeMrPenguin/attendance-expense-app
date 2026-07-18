@@ -194,6 +194,7 @@ CREATE TABLE IF NOT EXISTS public.category_budgets (
     teacher_name text NOT NULL,
     category text NOT NULL,
     amount numeric NOT NULL,
+    keywords text,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 

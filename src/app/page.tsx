@@ -512,9 +512,14 @@ export default function Dashboard() {
 
           if (cloudBudgets.length > 0) {
             const bMap: Record<string, number> = {};
-            cloudBudgets.forEach((b: any) => { bMap[b.category] = Number(b.amount) || 0; });
+            const kMap: Record<string, string> = {};
+            cloudBudgets.forEach((b: any) => {
+              bMap[b.category] = Number(b.amount) || 0;
+              if (b.keywords) kMap[b.category] = b.keywords;
+            });
             setCategoryBudgets({ ...defaultBudgets, ...bMap });
             localStorage.setItem(`finance_budgets_${userId}`, JSON.stringify(bMap));
+            localStorage.setItem(`finance_category_keywords_${userId}`, JSON.stringify(kMap));
           }
 
           if (cloudHist.length > 0) {
@@ -568,12 +573,26 @@ export default function Dashboard() {
             await supabase.from('savings_history').insert(histRecords);
           }
 
+          const savedKeywords = localStorage.getItem(`finance_category_keywords_${userId}`);
+          const localKeywords = savedKeywords ? JSON.parse(savedKeywords) : {};
+          const defaultKeywords: Record<string, string> = {
+            'Lương': 'luong',
+            'Giáo dục': 'day hoc, day, cham cong',
+            'Đầu tư': 'dau tu, chung khoan',
+            'Khác': 'khac',
+            'Ăn uống': 'an uong, do an, food, com',
+            'Di chuyển': 'xang, grab, taxi, di lai',
+            'Shopping': 'shopping, mua sam',
+            'Hóa đơn': 'hoa don, dien nuoc, wifi',
+            'Giải trí': 'giai tri, xem phim, du lich'
+          };
           const budgetRecords = Object.keys(localBudgets).map(cat => ({
             id: `${userId}_${cat}`,
             user_id: userId,
             teacher_name: teacherName,
             category: cat,
             amount: Number(localBudgets[cat]) || 0,
+            keywords: localKeywords[cat] !== undefined ? localKeywords[cat] : (defaultKeywords[cat] || null),
             updated_at: new Date().toISOString()
           }));
           if (budgetRecords.length > 0) {
@@ -689,9 +708,13 @@ export default function Dashboard() {
     });
   }, [currentUser, runBackgroundSave]);
 
-  const saveBudgets = useCallback((userId: string, budgets: Record<string, number>) => {
+  const saveBudgets = useCallback((userId: string, budgets: Record<string, number>, keywords?: Record<string, string>) => {
     setCategoryBudgets(budgets);
     localStorage.setItem(`finance_budgets_${userId}`, JSON.stringify(budgets));
+
+    if (keywords) {
+      localStorage.setItem(`finance_category_keywords_${userId}`, JSON.stringify(keywords));
+    }
 
     if (!currentUser) return;
     runBackgroundSave(async () => {
@@ -702,6 +725,7 @@ export default function Dashboard() {
           teacher_name: currentUser.teacherName || 'Admin',
           category: cat,
           amount: Number(budgets[cat]) || 0,
+          keywords: keywords ? (keywords[cat] || null) : null,
           updated_at: new Date().toISOString()
         }));
         if (records.length > 0) {
