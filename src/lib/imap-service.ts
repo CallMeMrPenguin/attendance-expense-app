@@ -521,7 +521,8 @@ export async function syncBankReceipts(clientKeywords?: Record<string, string>, 
 
           // Save directly to Supabase DB
           try {
-            const { error: dbErr } = await clientAdmin.from('bank_receipts').upsert(newReceipt, { onConflict: 'id' });
+            const receiptPayload = targetUserId ? { ...newReceipt, user_id: targetUserId } : newReceipt;
+            const { error: dbErr } = await clientAdmin.from('bank_receipts').upsert(receiptPayload, { onConflict: 'id' });
             if (dbErr) console.error('[Supabase bank_receipts upsert error]', dbErr.message);
 
             if (status === 'classified' && matchedType && matchedCategory && targetUserId) {
@@ -549,14 +550,19 @@ export async function syncBankReceipts(clientKeywords?: Record<string, string>, 
     console.error('IMAP fetch error:', err);
   }
 
-  // Retrieve all receipts directly from Supabase DB to ensure true DB persistence
-  let finalReceiptsList: BankReceipt[] = Array.from(existingMap.values()).sort((a, b) => b.trans_date.localeCompare(a.trans_date));
+  // Combine DB receipts with in-memory map of newly parsed IMAP receipts
   try {
     const { data: dbData } = await clientAdmin.from('bank_receipts').select('*').order('created_at', { ascending: false });
-    if (dbData && dbData.length > 0) {
-      finalReceiptsList = dbData as BankReceipt[];
+    if (dbData && Array.isArray(dbData)) {
+      dbData.forEach((r: BankReceipt) => {
+        if (!existingMap.has(r.id)) {
+          existingMap.set(r.id, r);
+        }
+      });
     }
   } catch (e) {}
+
+  const finalReceiptsList = Array.from(existingMap.values()).sort((a, b) => b.trans_date.localeCompare(a.trans_date));
 
   broadcastSseEvent('new-receipt', { receipts: finalReceiptsList });
   return finalReceiptsList;
