@@ -43,9 +43,10 @@ interface EditSessionModalProps {
 }
 
 interface SiblingCheck {
-  id: string;
+  id?: string;
   checked: boolean;
   date: string;
+  day_of_week: string;
   time: string;
   duration: number;
 }
@@ -163,23 +164,7 @@ export default function EditSessionModal({
         s.teacher_name === session.teacher_name
     );
 
-    const sortedRelated = [...related].sort((a, b) => {
-      const dateCompare = a.date.localeCompare(b.date);
-      if (dateCompare !== 0) return dateCompare;
-      return a.time.localeCompare(b.time);
-    });
-
-    setSiblings(
-      sortedRelated.map((s) => ({
-        id: s.id,
-        checked: true,
-        date: s.date,
-        time: s.time,
-        duration: s.duration,
-      }))
-    );
-
-    // Set recurring weekdays configs
+    // Set recurring weekdays configs first so we can use it to populate siblings
     const recurringMap: Record<string, RecurringDayConfig> = DAYS.reduce((acc, day) => {
       const match = related.find((s) => s.day_of_week === day);
       acc[day] = {
@@ -191,6 +176,48 @@ export default function EditSessionModal({
     }, {} as Record<string, RecurringDayConfig>);
 
     setRecurringConfigs(recurringMap);
+
+    // Build unique list of all dates from existing sessions + checked recurring weekdays
+    const datesSet = new Set<string>();
+    related.forEach((s) => datesSet.add(s.date));
+    Object.entries(recurringMap).forEach(([day, conf]) => {
+      if (conf.checked) {
+        const dates = getDatesForWeekday(session.month_year, day);
+        dates.forEach((d) => datesSet.add(d));
+      }
+    });
+
+    const sortedDates = Array.from(datesSet).sort();
+
+    const siblingList: SiblingCheck[] = sortedDates.map((dStr) => {
+      const match = related.find((s) => s.date === dStr);
+      const dateObj = new Date(dStr);
+      const dayIndex = dateObj.getUTCDay();
+      const dayMapIndex = dayIndex === 0 ? 6 : dayIndex - 1;
+      const dayOfWeekStr = DAYS[dayMapIndex];
+
+      if (match) {
+        return {
+          id: match.id,
+          date: dStr,
+          day_of_week: dayOfWeekStr,
+          checked: true,
+          time: formatCleanTimeString(match.time),
+          duration: match.duration,
+        };
+      } else {
+        return {
+          id: undefined,
+          date: dStr,
+          day_of_week: dayOfWeekStr,
+          checked: false,
+          time: recurringMap[dayOfWeekStr]?.time || '18:00',
+          duration: recurringMap[dayOfWeekStr]?.duration || 1.5,
+        };
+      }
+    });
+
+    setSiblings(siblingList);
     
     // Collapse by default when switching sessions
     setSiblingsCollapsed(true);
@@ -221,9 +248,9 @@ export default function EditSessionModal({
 
   if (!isOpen || !session) return null;
 
-  const handleSiblingCheck = (id: string, checked: boolean) => {
+  const handleSiblingCheck = (idOrDate: string, checked: boolean) => {
     setSiblings((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, checked } : s))
+      prev.map((s) => (s.id === idOrDate || s.date === idOrDate ? { ...s, checked } : s))
     );
   };
 
@@ -232,6 +259,39 @@ export default function EditSessionModal({
       ...prev,
       [day]: { ...prev[day], checked },
     }));
+
+    if (checked) {
+      const dates = getDatesForWeekday(session.month_year, day);
+      setSiblings((prev) => {
+        const updated = [...prev];
+        dates.forEach((dStr) => {
+          const existingIdx = updated.findIndex((s) => s.date === dStr);
+          if (existingIdx >= 0) {
+            updated[existingIdx].checked = true;
+          } else {
+            updated.push({
+              date: dStr,
+              day_of_week: day,
+              checked: true,
+              time: recurringConfigs[day]?.time || '18:00',
+              duration: recurringConfigs[day]?.duration || 1.5,
+            });
+          }
+        });
+        return updated.sort((a, b) => a.date.localeCompare(b.date));
+      });
+    } else {
+      setSiblings((prev) => {
+        return prev
+          .map((s) => {
+            if (s.day_of_week === day) {
+              return { ...s, checked: false };
+            }
+            return s;
+          })
+          .filter((s) => s.id !== undefined || s.day_of_week !== day);
+      });
+    }
   };
 
   const handleRecurringTimeChange = (day: string, timeVal: string) => {
@@ -243,6 +303,10 @@ export default function EditSessionModal({
     if (day === dayOfWeek) {
       setTime(formatCleanTimeString(timeVal));
     }
+
+    setSiblings((prev) =>
+      prev.map((s) => (s.day_of_week === day ? { ...s, time: formatCleanTimeString(timeVal) } : s))
+    );
   };
 
   const handleRecurringDurationChange = (day: string, durVal: number) => {
@@ -254,6 +318,10 @@ export default function EditSessionModal({
     if (day === dayOfWeek) {
       setDuration(durVal);
     }
+
+    setSiblings((prev) =>
+      prev.map((s) => (s.day_of_week === day ? { ...s, duration: durVal } : s))
+    );
   };
 
   const handleActiveDayTimeDurationChange = (
@@ -305,7 +373,7 @@ export default function EditSessionModal({
           upsertError.message?.includes('Could not find') ||
           upsertError.message?.includes('does not exist')
         )) {
-          const cleanSessions = newSessions.map(({ auto_check_in, auto_checkin, loai_hinh_lich, loai_hinh, category, income_category, ...rest }) => rest);
+          const cleanSessions = newSessions.map(({ auto_check_in, auto_checkin, loai_hinh_lich, loai_hinh, category, income_category, student_name, user_name, ...rest }) => rest);
           const retryRes = await supabase.from('sessions').upsert(cleanSessions);
           upsertError = retryRes.error;
         }
@@ -361,84 +429,59 @@ export default function EditSessionModal({
       const newSiblingSessions: any[] = [];
       const sessionColor = color;
 
-      selectedDays.forEach(({ day, time, duration }) => {
-        const dates = getDatesForWeekday(session.month_year, day);
-        dates.forEach((dStr) => {
-          const matchOld = oldSiblings.find((s) => s.date === dStr);
-          if (matchOld) {
-            const isCurrent = matchOld.id === session.id;
-            const sibConfig = siblings.find((sib) => sib.id === matchOld.id);
-            const isChecked = sibConfig ? sibConfig.checked : false;
+      siblings.forEach((sib) => {
+        if (!sib.checked) return;
 
-            if (isChecked) {
-              if (isCurrent) {
-                // Current edited session: update everything
-                newSiblingSessions.push({
-                  ...matchOld,
-                  user_name: assignedTeacherName,
-                  job_name: studentName.trim(),
-                  teacher_name: assignedTeacherName,
-                  student_name: studentName.trim(),
-                  day_of_week: day,
-                  time: time,
-                  duration: Number(duration),
-                  price: Number(price),
-                  status: status,
-                  color: sessionColor,
-                  loai_hinh: loaiHinh,
-                  loai_hinh_lich: loaiHinh,
-                  income_category: incomeCategory,
-                  auto_checkin: autoCheckin,
-                  auto_check_in: autoCheckin,
-                });
-              } else {
-                // Sibling session is checked: update general fields, preserve status
-                newSiblingSessions.push({
-                  ...matchOld,
-                  user_name: assignedTeacherName,
-                  job_name: studentName.trim(),
-                  teacher_name: assignedTeacherName,
-                  student_name: studentName.trim(),
-                  day_of_week: day,
-                  time: time,
-                  duration: Number(duration),
-                  price: Number(price),
-                  status: matchOld.status, // preserve original
-                  color: sessionColor,
-                  loai_hinh: loaiHinh,
-                  loai_hinh_lich: loaiHinh,
-                  income_category: incomeCategory,
-                  auto_checkin: autoCheckin,
-                  auto_check_in: autoCheckin,
-                });
-              }
-            } else {
-              // Sibling/Current session not checked: do not push (it will be deleted from Supabase)
-            }
-          } else {
-            // New sibling session created by recurring config: default status to 'Chưa làm'
-            newSiblingSessions.push({
-              user_name: assignedTeacherName,
-              job_name: studentName.trim(),
-              teacher_name: assignedTeacherName,
-              student_name: studentName.trim(),
-              day_of_week: day,
-              time: time,
-              duration: Number(duration),
-              price: Number(price),
-              status: 'Chưa làm',
-              month_year: session.month_year,
-              color: sessionColor,
-              date: dStr,
-              loai_hinh: loaiHinh,
-              loai_hinh_lich: loaiHinh,
-              income_category: incomeCategory,
-              category: incomeCategory,
-              auto_checkin: autoCheckin,
-              auto_check_in: autoCheckin,
-            });
-          }
-        });
+        const isCurrent = sib.id === session.id;
+        const matchOld = oldSiblings.find((s) => s.id === sib.id || (sib.id === undefined && s.date === sib.date));
+
+        if (isCurrent) {
+          newSiblingSessions.push({
+            ...session,
+            ...(matchOld || {}),
+            user_name: assignedTeacherName,
+            job_name: studentName.trim(),
+            teacher_name: assignedTeacherName,
+            student_name: studentName.trim(),
+            day_of_week: sib.day_of_week,
+            time: formatCleanTimeString(sib.time),
+            duration: Number(sib.duration),
+            price: Number(price),
+            status: status,
+            color: sessionColor,
+            loai_hinh: loaiHinh,
+            loai_hinh_lich: loaiHinh,
+            income_category: incomeCategory,
+            category: incomeCategory,
+            auto_checkin: autoCheckin,
+            auto_check_in: autoCheckin,
+            date: sib.date,
+            month_year: session.month_year,
+          });
+        } else {
+          newSiblingSessions.push({
+            ...(matchOld || {}),
+            id: sib.id,
+            user_name: assignedTeacherName,
+            job_name: studentName.trim(),
+            teacher_name: assignedTeacherName,
+            student_name: studentName.trim(),
+            day_of_week: sib.day_of_week,
+            time: formatCleanTimeString(sib.time),
+            duration: Number(sib.duration),
+            price: Number(price),
+            status: matchOld ? matchOld.status : 'Chưa làm',
+            color: sessionColor,
+            loai_hinh: loaiHinh,
+            loai_hinh_lich: loaiHinh,
+            income_category: incomeCategory,
+            category: incomeCategory,
+            auto_checkin: autoCheckin,
+            auto_check_in: autoCheckin,
+            date: sib.date,
+            month_year: session.month_year,
+          });
+        }
       });
 
       const overlaps = checkOverlaps(newSiblingSessions, existingOtherSessions);
@@ -857,7 +900,7 @@ export default function EditSessionModal({
                     const isCurrent = sib.id === session.id;
                     return (
                       <div
-                        key={sib.id}
+                        key={sib.id || sib.date}
                         className={`flex items-center justify-between gap-2.5 p-2 rounded-xl border ${
                           isCurrent
                             ? 'bg-indigo-50/40 dark:bg-indigo-950/25 border-indigo-150 dark:border-indigo-900/40'
@@ -868,7 +911,7 @@ export default function EditSessionModal({
                           <input
                             type="checkbox"
                             checked={sib.checked}
-                            onChange={(e) => handleSiblingCheck(sib.id, e.target.checked)}
+                            onChange={(e) => handleSiblingCheck(sib.id || sib.date, e.target.checked)}
                             className="h-4 w-4 rounded border-slate-350 dark:border-slate-700 text-indigo-650 focus:ring-indigo-500 cursor-pointer"
                           />
                           <span className={`text-xs font-semibold truncate ${isCurrent ? 'text-indigo-950 dark:text-indigo-300 font-bold' : 'text-slate-700 dark:text-slate-300'}`}>
@@ -876,10 +919,10 @@ export default function EditSessionModal({
                             {isCurrent ? ' (Đang mở)' : ''}
                           </span>
                         </label>
-                        {!isCurrent && onSwitchSession && (
+                        {!isCurrent && onSwitchSession && sib.id && (
                           <button
                             type="button"
-                            onClick={() => onSwitchSession(sib.id)}
+                            onClick={() => onSwitchSession(sib.id!)}
                             className="text-[10px] font-black text-indigo-500 hover:text-indigo-600 bg-indigo-500/10 hover:bg-indigo-500/20 px-2 py-1 rounded-lg transition-colors cursor-pointer select-none whitespace-nowrap"
                           >
                             Chi tiết
