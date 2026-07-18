@@ -63,8 +63,12 @@ export function parseVietcombankEmail(html: string, text: string): Partial<BankR
   if (html) {
     const rowMatches = html.match(/<tr[^>]*>[\s\S]*?<\/tr>/gi) || [];
     for (const row of rowMatches) {
-      const cells = (row.match(/<td[^>]*>[\s\S]*?<\/td>/gi) || [])
+      let cells = (row.match(/<td[^>]*>[\s\S]*?<\/td>/gi) || [])
         .map(c => c.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim());
+      
+      // Filter out empty cells and standalone colons
+      cells = cells.filter(c => c !== ':' && c !== '');
+
       if (cells.length >= 2) {
         tablePairs[cells[0].toLowerCase()] = cells[1];
         if (cells.length >= 4) {
@@ -87,7 +91,8 @@ export function parseVietcombankEmail(html: string, text: string): Partial<BankR
       const lowerPat = pattern.toLowerCase();
       for (const k of Object.keys(tablePairs)) {
         if (k.includes(lowerPat)) {
-          return tablePairs[k];
+          const val = tablePairs[k].trim();
+          if (val && val !== ':') return val;
         }
       }
     }
@@ -96,26 +101,37 @@ export function parseVietcombankEmail(html: string, text: string): Partial<BankR
       const regex = new RegExp(`${pattern}\\s*[:\\s]+\\s*([^\\n\\r<]{1,120})`, 'i');
       const match = cleanText.match(regex);
       if (match && match[1]) {
-        return match[1].trim();
+        const val = match[1].trim();
+        if (val && val !== ':') return val;
       }
     }
     return '';
   };
 
   // 1. Order Number
-  const orderNumberRaw = getFieldValue(['Số lệnh giao dịch', 'Order Number']);
+  const orderNumberRaw = getFieldValue(['Số lệnh giao dịch', 'Order Number', 'Mã giao dịch', 'Mã GD', 'Số GD', 'Ref No', 'Mã tham chiếu', 'Số tham chiếu', 'Trans ID']);
   const orderNumber = orderNumberRaw.replace(/[^0-9]/g, '');
 
   // 2. Amount
-  const amountStr = getFieldValue(['Số tiền', 'Amount']);
+  const amountStr = getFieldValue(['Số tiền', 'Amount', 'Số tiền giao dịch', 'Giá trị giao dịch', 'Số tiền thanh toán']);
   let amount = 0;
-  const amountMatch = amountStr.match(/([0-9\.\,]+)\s*(VND|VNĐ|đ)?/i);
+  const amountMatch = amountStr.match(/([+-]?\s*[0-9\.\,]+)\s*(VND|VNĐ|đ)?/i);
   if (amountMatch && amountMatch[1]) {
-    amount = parseFloat(amountMatch[1].replace(/,/g, '').replace(/\./g, '')) || 0;
+    const rawNum = amountMatch[1].replace(/\s+/g, '');
+    if (rawNum.includes(',') && rawNum.includes('.')) {
+      if (rawNum.indexOf('.') < rawNum.indexOf(',')) {
+        amount = parseFloat(rawNum.replace(/\./g, '').replace(',', '.')) || 0;
+      } else {
+        amount = parseFloat(rawNum.replace(/,/g, '')) || 0;
+      }
+    } else {
+      amount = parseFloat(rawNum.replace(/[,.]/g, '')) || 0;
+    }
+    amount = Math.abs(amount);
   }
 
   // 3. Trans Date & Time (Hours, minutes, seconds)
-  let transDateRaw = getFieldValue(['ngày, giờ giao dịch', 'ngày giờ giao dịch', 'ngày giao dịch', 'trans. date', 'trans date', 'thời gian']);
+  let transDateRaw = getFieldValue(['ngày, giờ giao dịch', 'ngày giờ giao dịch', 'ngày giao dịch', 'trans. date', 'trans date', 'thời gian', 'thời gian giao dịch', 'ngày thực hiện']);
   if (!transDateRaw) {
     transDateRaw = cleanText;
   }
@@ -135,21 +151,27 @@ export function parseVietcombankEmail(html: string, text: string): Partial<BankR
   }
 
   // 4. Accounts & Names
-  const debitAccount = getFieldValue(['Tài khoản nguồn', 'Debit Account']);
-  const remitterName = getFieldValue(['Tên người chuyển tiền', 'Remitter\'s name', 'Remitter name']);
-  const creditAccount = getFieldValue(['Tài khoản người hưởng', 'Credit Account']);
-  const beneficiaryName = getFieldValue(['Tên người hưởng', 'Beneficiary Name']);
-  const beneficiaryBank = getFieldValue(['Tên ngân hàng hưởng', 'Beneficiary Bank Name', 'Beneficiary Bank']);
+  const debitAccount = getFieldValue(['Tài khoản nguồn', 'Debit Account', 'Tài khoản trích nợ', 'Tài khoản thanh toán', 'Từ tài khoản', 'Tài khoản chuyển']);
+  const remitterName = getFieldValue(['Tên người chuyển tiền', 'Remitter\'s name', 'Remitter name', 'Người chuyển', 'Nguồn tiền', 'Tên người chuyển']);
+  const creditAccount = getFieldValue(['Tài khoản người hưởng', 'Credit Account', 'Tài khoản nhận', 'Tài khoản thụ hưởng', 'Đến tài khoản']);
+  const beneficiaryName = getFieldValue(['Tên người hưởng', 'Beneficiary Name', 'Beneficiary name', 'Người nhận', 'Tên người thụ hưởng', 'Tên tài khoản nhận']);
+  const beneficiaryBank = getFieldValue(['Tên ngân hàng hưởng', 'Beneficiary Bank Name', 'Beneficiary Bank', 'Ngân hàng nhận', 'Ngân hàng thụ hưởng']);
   
   // 5. Details
-  const details = getFieldValue(['Nội dung chuyển tiền', 'Details of Payment']);
+  const details = getFieldValue(['Nội dung chuyển tiền', 'Details of Payment', 'Nội dung', 'Diễn giải', 'Nội dung thanh toán', 'Nội dung giao dịch']);
 
   if (!orderNumber && !amount) {
     return null;
   }
 
+  let finalOrderNumber = orderNumber;
+  if (!finalOrderNumber) {
+    const cleanDet = (details || '').replace(/[^a-zA-Z0-9]/g, '').substring(0, 15);
+    finalOrderNumber = `AUTO-${transDate.replace(/-/g, '')}-${amount}-${cleanDet}`;
+  }
+
   return {
-    order_number: orderNumber || `VCB-${Date.now()}`,
+    order_number: finalOrderNumber,
     trans_date: transDate,
     trans_time: transTime,
     debit_account: debitAccount,
@@ -363,10 +385,10 @@ export async function syncBankReceipts(clientKeywords?: Record<string, string>):
 
     try {
       const now = new Date();
-      const firstDayOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
 
-      const searchResult = await client.search({ since: firstDayOfCurrentMonth });
-      const msgIds = Array.isArray(searchResult) ? searchResult.slice(-50) : [];
+      const searchResult = await client.search({ since: ninetyDaysAgo });
+      const msgIds = Array.isArray(searchResult) ? searchResult.slice(-100) : [];
 
       if (msgIds.length > 0) {
         for (const seq of msgIds) {
@@ -376,15 +398,30 @@ export async function syncBankReceipts(clientKeywords?: Record<string, string>):
           const parsed = await simpleParser(message.source);
           const subject = parsed.subject || '';
           const fromAddr = parsed.from ? parsed.from.text : '';
+          const bodyText = parsed.text || '';
+          const htmlText = typeof parsed.html === 'string' ? parsed.html : '';
 
-          const isVcbEmail = subject.includes('Biên lai') || 
-            fromAddr.toLowerCase().includes('vietcombank') || 
-            fromAddr.toLowerCase().includes('vietinbank') ||
-            (parsed.text || '').includes('Vietcombank') ||
-            (parsed.text || '').includes('VietinBank') ||
-            (parsed.text || '').includes('Công Thương');
+          const cleanSubj = cleanString(subject);
+          const cleanFrom = cleanString(fromAddr);
+          const cleanText = cleanString(bodyText);
+          const cleanHtml = cleanString(htmlText);
 
-          if (!isVcbEmail) continue;
+          const isBankEmail = 
+            cleanSubj.includes('bien lai') ||
+            cleanSubj.includes('chuyen tien') ||
+            cleanSubj.includes('giao dich') ||
+            cleanSubj.includes('so du') ||
+            cleanFrom.includes('vietcombank') ||
+            cleanFrom.includes('vietinbank') ||
+            cleanFrom.includes('vcb') ||
+            cleanText.includes('vietcombank') ||
+            cleanText.includes('vietinbank') ||
+            cleanText.includes('cong thuong') ||
+            cleanHtml.includes('vietcombank') ||
+            cleanHtml.includes('vietinbank') ||
+            cleanHtml.includes('cong thuong');
+
+          if (!isBankEmail) continue;
 
           const html = parsed.html || '';
           const text = parsed.text || '';
