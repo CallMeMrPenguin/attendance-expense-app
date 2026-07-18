@@ -219,6 +219,21 @@ export default function Dashboard() {
 
   const handleSyncReceipts = useCallback(async () => {
     try {
+      const defaultKeywords: Record<string, string> = {
+        'Lương': 'luong',
+        'Giáo dục': 'day hoc, day, cham cong',
+        'Đầu tư': 'dau tu, chung khoan',
+        'Khác': 'khac',
+        'Ăn uống': 'an uong, do an, food, com, an',
+        'Di chuyển': 'xang, grab, taxi, di lai',
+        'Shopping': 'shopping, mua sam',
+        'Hóa đơn': 'hoa don, dien nuoc, wifi',
+        'Giải trí': 'giai tri, xem phim, du lich',
+        'Tiết kiệm khẩn cấp': 'tiet kiem khan cap, khan cap',
+        'Tích lũy dài hạn': 'tich luy dai han, tich luy',
+        'Tiết kiệm khác': 'tiet kiem khac'
+      };
+
       let localKeywords: Record<string, string> = {};
       if (currentUser?.id) {
         try {
@@ -229,10 +244,12 @@ export default function Dashboard() {
         } catch (e) {}
       }
 
+      const mergedKeywords = { ...defaultKeywords, ...localKeywords };
+
       const res = await fetch('/api/bank-receipts/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ keywords: localKeywords, userId: currentUser?.id })
+        body: JSON.stringify({ keywords: mergedKeywords, userId: currentUser?.id })
       });
       if (res.ok) {
         const data = await res.json();

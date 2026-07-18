@@ -223,12 +223,37 @@ export async function syncBankReceipts(clientKeywords?: Record<string, string>):
         if (rulesRes.data) {
           ruleList = rulesRes.data as ReceiptRule[];
         }
-        if (budgetsRes.data) {
-          categoryBudgetsList = budgetsRes.data;
-          console.log('[IMAP Service] Loaded category budgets for keywords matching:', budgetsRes.data.map((b: any) => ({ category: b.category, keywords: b.keywords })));
+        const defaultKeywords: Record<string, string> = {
+          'Lương': 'luong',
+          'Giáo dục': 'day hoc, day, cham cong',
+          'Đầu tư': 'dau tu, chung khoan',
+          'Khác': 'khac',
+          'Ăn uống': 'an uong, do an, food, com, an',
+          'Di chuyển': 'xang, grab, taxi, di lai',
+          'Shopping': 'shopping, mua sam',
+          'Hóa đơn': 'hoa don, dien nuoc, wifi',
+          'Giải trí': 'giai tri, xem phim, du lich',
+          'Tiết kiệm khẩn cấp': 'tiet kiem khan cap, khan cap',
+          'Tích lũy dài hạn': 'tich luy dai han, tich luy',
+          'Tiết kiệm khác': 'tiet kiem khac'
+        };
+
+        if (budgetsRes.data && budgetsRes.data.length > 0) {
+          categoryBudgetsList = budgetsRes.data.map((b: any) => ({
+            category: b.category,
+            keywords: b.keywords || defaultKeywords[b.category] || ''
+          }));
+          console.log('[IMAP Service] Loaded category budgets from DB:', categoryBudgetsList.map((b: any) => ({ category: b.category, keywords: b.keywords })));
+        } else {
+          // Initialize categoryBudgetsList from defaultKeywords
+          categoryBudgetsList = Object.keys(defaultKeywords).map(cat => ({
+            category: cat,
+            keywords: defaultKeywords[cat]
+          }));
+          console.log('[IMAP Service] Loaded category budgets from default fallback keywords:', categoryBudgetsList.map((b: any) => ({ category: b.category, keywords: b.keywords })));
         }
 
-        // Merge client-passed keywords if database returned empty (due to RLS or missing role key)
+        // Merge client-passed keywords if database returned empty or is overridden by client
         if (clientKeywords) {
           const clientBudgets = Object.keys(clientKeywords).map(cat => ({
             category: cat,
@@ -238,7 +263,7 @@ export async function syncBankReceipts(clientKeywords?: Record<string, string>):
           clientBudgets.forEach(cb => {
             const existing = categoryBudgetsList.find(x => x.category === cb.category);
             if (existing) {
-              existing.keywords = cb.keywords;
+              if (cb.keywords) existing.keywords = cb.keywords;
             } else {
               categoryBudgetsList.push(cb);
             }
