@@ -513,13 +513,65 @@ export default function Dashboard() {
           if (cloudBudgets.length > 0) {
             const bMap: Record<string, number> = {};
             const kMap: Record<string, string> = {};
+            
+            // Safe parse of local keywords first
+            let localKeywords: Record<string, string> = {};
+            try {
+              const savedKeywords = localStorage.getItem(`finance_category_keywords_${userId}`);
+              if (savedKeywords && savedKeywords !== 'undefined') {
+                localKeywords = JSON.parse(savedKeywords);
+              }
+            } catch (e) {}
+
+            const defaultKeywords: Record<string, string> = {
+              'Lương': 'luong',
+              'Giáo dục': 'day hoc, day, cham cong',
+              'Đầu tư': 'dau tu, chung khoan',
+              'Khác': 'khac',
+              'Ăn uống': 'an uong, do an, food, com, an',
+              'Di chuyển': 'xang, grab, taxi, di lai',
+              'Shopping': 'shopping, mua sam',
+              'Hóa đơn': 'hoa don, dien nuoc, wifi',
+              'Giải trí': 'giai tri, xem phim, du lich',
+              'Tiết kiệm khẩn cấp': 'tiet kiem khan cap, khan cap',
+              'Tích lũy dài hạn': 'tich luy dai han, tich luy',
+              'Tiết kiệm khác': 'tiet kiem khac'
+            };
+
+            let needsDbSync = false;
             cloudBudgets.forEach((b: any) => {
               bMap[b.category] = Number(b.amount) || 0;
-              if (b.keywords) kMap[b.category] = b.keywords;
+              if (b.keywords) {
+                kMap[b.category] = b.keywords;
+              } else {
+                // Fallback to local or default keywords
+                const fallbackKw = localKeywords[b.category] || defaultKeywords[b.category] || '';
+                if (fallbackKw) {
+                  kMap[b.category] = fallbackKw;
+                  needsDbSync = true;
+                }
+              }
             });
+
             setCategoryBudgets({ ...defaultBudgets, ...bMap });
             localStorage.setItem(`finance_budgets_${userId}`, JSON.stringify(bMap));
             localStorage.setItem(`finance_category_keywords_${userId}`, JSON.stringify(kMap));
+
+            // Sync merged keywords back to Supabase in background if they were missing
+            if (needsDbSync) {
+              const syncRecords = Object.keys(bMap).map(cat => ({
+                id: `${userId}_${cat}`,
+                user_id: userId,
+                teacher_name: teacherName,
+                category: cat,
+                amount: Number(bMap[cat]) || 0,
+                keywords: kMap[cat] || null,
+                updated_at: new Date().toISOString()
+              }));
+              supabase.from('category_budgets').upsert(syncRecords, { onConflict: 'id' }).then(({ error }) => {
+                if (error) console.error('Auto-sync category keywords error:', error.message);
+              });
+            }
           }
 
           if (cloudHist.length > 0) {
