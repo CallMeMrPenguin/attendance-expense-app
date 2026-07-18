@@ -351,48 +351,50 @@ export default function EditSessionModal({
             const sibConfig = siblings.find((sib) => sib.id === matchOld.id);
             const isChecked = sibConfig ? sibConfig.checked : false;
 
-            if (isCurrent) {
-              // Current edited session: update everything
-              newSiblingSessions.push({
-                ...matchOld,
-                user_name: assignedTeacherName,
-                job_name: studentName.trim(),
-                teacher_name: assignedTeacherName,
-                student_name: studentName.trim(),
-                day_of_week: day,
-                time: time,
-                duration: Number(duration),
-                price: Number(price),
-                status: status,
-                color: sessionColor,
-                loai_hinh: loaiHinh,
-                loai_hinh_lich: loaiHinh,
-                income_category: incomeCategory,
-                auto_checkin: autoCheckin,
-                auto_check_in: autoCheckin,
-              });
-            } else if (isChecked) {
-              // Sibling session is checked: update general fields, preserve status
-              newSiblingSessions.push({
-                ...matchOld,
-                user_name: assignedTeacherName,
-                job_name: studentName.trim(),
-                teacher_name: assignedTeacherName,
-                student_name: studentName.trim(),
-                day_of_week: day,
-                time: time,
-                duration: Number(duration),
-                price: Number(price),
-                status: matchOld.status, // preserve original
-                color: sessionColor,
-                loai_hinh: loaiHinh,
-                loai_hinh_lich: loaiHinh,
-                income_category: incomeCategory,
-                auto_checkin: autoCheckin,
-                auto_check_in: autoCheckin,
-              });
+            if (isChecked) {
+              if (isCurrent) {
+                // Current edited session: update everything
+                newSiblingSessions.push({
+                  ...matchOld,
+                  user_name: assignedTeacherName,
+                  job_name: studentName.trim(),
+                  teacher_name: assignedTeacherName,
+                  student_name: studentName.trim(),
+                  day_of_week: day,
+                  time: time,
+                  duration: Number(duration),
+                  price: Number(price),
+                  status: status,
+                  color: sessionColor,
+                  loai_hinh: loaiHinh,
+                  loai_hinh_lich: loaiHinh,
+                  income_category: incomeCategory,
+                  auto_checkin: autoCheckin,
+                  auto_check_in: autoCheckin,
+                });
+              } else {
+                // Sibling session is checked: update general fields, preserve status
+                newSiblingSessions.push({
+                  ...matchOld,
+                  user_name: assignedTeacherName,
+                  job_name: studentName.trim(),
+                  teacher_name: assignedTeacherName,
+                  student_name: studentName.trim(),
+                  day_of_week: day,
+                  time: time,
+                  duration: Number(duration),
+                  price: Number(price),
+                  status: matchOld.status, // preserve original
+                  color: sessionColor,
+                  loai_hinh: loaiHinh,
+                  loai_hinh_lich: loaiHinh,
+                  income_category: incomeCategory,
+                  auto_checkin: autoCheckin,
+                  auto_check_in: autoCheckin,
+                });
+              }
             } else {
-              // Sibling session not checked: do not push (it will be deleted from Supabase)
+              // Sibling/Current session not checked: do not push (it will be deleted from Supabase)
             }
           } else {
             // New sibling session created by recurring config: default status to 'Chưa làm'
@@ -831,9 +833,6 @@ export default function EditSessionModal({
 
             {!siblingsCollapsed && (
               <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-850 space-y-2">
-                <p className="text-slate-450 dark:text-slate-500 text-[10px] leading-tight mb-2">
-                  Tích chọn để áp dụng thay đổi (Tên HS, học phí, số giờ, giờ học) hoặc xóa hàng loạt:
-                </p>
                 <div className="max-h-[150px] overflow-y-auto space-y-1.5 pr-1">
                   {siblings.map((sib) => {
                     const isCurrent = sib.id === session.id;
