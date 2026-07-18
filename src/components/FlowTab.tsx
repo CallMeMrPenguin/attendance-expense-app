@@ -185,13 +185,21 @@ function FlowTab({
   // Load categories from localStorage or set defaults
   React.useEffect(() => {
     if (currentUser?.id) {
-      const savedIncome = localStorage.getItem(`finance_income_cats_${currentUser.id}`);
-      const savedExpense = localStorage.getItem(`finance_expense_cats_${currentUser.id}`);
-      const savedKeywords = localStorage.getItem(`finance_category_keywords_${currentUser.id}`);
-      const kMap = savedKeywords ? JSON.parse(savedKeywords) : {};
+      let loadedIncome = null;
+      let loadedExpense = null;
+      let kMap: Record<string, string> = {};
 
-      let loadedIncome = savedIncome ? JSON.parse(savedIncome) : null;
-      let loadedExpense = savedExpense ? JSON.parse(savedExpense) : null;
+      try {
+        const savedIncome = localStorage.getItem(`finance_income_cats_${currentUser.id}`);
+        const savedExpense = localStorage.getItem(`finance_expense_cats_${currentUser.id}`);
+        const savedKeywords = localStorage.getItem(`finance_category_keywords_${currentUser.id}`);
+        
+        if (savedIncome && savedIncome !== 'undefined') loadedIncome = JSON.parse(savedIncome);
+        if (savedExpense && savedExpense !== 'undefined') loadedExpense = JSON.parse(savedExpense);
+        if (savedKeywords && savedKeywords !== 'undefined') kMap = JSON.parse(savedKeywords);
+      } catch (err) {
+        console.error('Error loading custom categories/keywords from localStorage:', err);
+      }
 
       if (kMap && Object.keys(kMap).length > 0) {
         if (loadedIncome) {
@@ -276,9 +284,9 @@ function FlowTab({
 
     const nameTrimmed = newCatName.trim();
     const isIncome = addingCatType === 'income';
-    const list = isIncome ? incomeCats : expenseCats;
+    const list = isIncome ? (incomeCats || []) : (expenseCats || []);
 
-    if (list.some(c => c.name.toLowerCase() === nameTrimmed.toLowerCase())) {
+    if (list.some(c => c && c.name && c.name.toLowerCase() === nameTrimmed.toLowerCase())) {
       showToast('Tên danh mục này đã tồn tại.', 'error');
       return;
     }
@@ -304,12 +312,16 @@ function FlowTab({
 
     // Sync keywords to DB too!
     const allKeywords: Record<string, string> = {};
-    incomeCats.forEach(c => {
-      if (c.keywords) allKeywords[c.name] = c.keywords;
-    });
-    expenseCats.forEach(c => {
-      if (c.keywords) allKeywords[c.name] = c.keywords;
-    });
+    if (Array.isArray(incomeCats)) {
+      incomeCats.forEach(c => {
+        if (c && c.name && c.keywords) allKeywords[c.name] = c.keywords;
+      });
+    }
+    if (Array.isArray(expenseCats)) {
+      expenseCats.forEach(c => {
+        if (c && c.name && c.keywords) allKeywords[c.name] = c.keywords;
+      });
+    }
     allKeywords[nameTrimmed] = newCatKeywords.trim();
 
     saveBudgets(currentUser.id, updatedBudgets, allKeywords);
@@ -526,6 +538,10 @@ function FlowTab({
     const { type, index, name: newName, icon: newIcon, note: newNote, budget, keywords } = editingCat;
     
     const list = type === 'income' ? incomeCats : expenseCats;
+    if (!list || !list[index]) {
+      showToast('Không tìm thấy danh mục để chỉnh sửa.', 'error');
+      return;
+    }
     const oldName = list[index].name;
 
     // 1. Update list
@@ -548,21 +564,21 @@ function FlowTab({
     }
     updatedBudgets[newName.trim()] = Number(budget);
 
-    // Build the all-keywords map to sync to Supabase
+    // Build the all-keywords map to sync to Supabase safely
     const allKeywords: Record<string, string> = {};
-    incomeCats.forEach(c => {
-      if (c.keywords) allKeywords[c.name] = c.keywords;
-    });
-    expenseCats.forEach(c => {
-      if (c.keywords) allKeywords[c.name] = c.keywords;
-    });
-    if (type === 'income') {
-      updatedList.forEach(c => {
-        if (c.keywords) allKeywords[c.name] = c.keywords;
+    if (Array.isArray(incomeCats)) {
+      incomeCats.forEach(c => {
+        if (c && c.name && c.keywords) allKeywords[c.name] = c.keywords;
       });
-    } else {
+    }
+    if (Array.isArray(expenseCats)) {
+      expenseCats.forEach(c => {
+        if (c && c.name && c.keywords) allKeywords[c.name] = c.keywords;
+      });
+    }
+    if (Array.isArray(updatedList)) {
       updatedList.forEach(c => {
-        if (c.keywords) allKeywords[c.name] = c.keywords;
+        if (c && c.name && c.keywords) allKeywords[c.name] = c.keywords;
       });
     }
     if (oldName !== newName.trim()) {
@@ -574,8 +590,8 @@ function FlowTab({
 
     // 3. Update transaction items
     if (oldName !== newName.trim() && saveTransactions) {
-      const updatedTx = manualTransactions.map(tx => {
-        if (tx.category === oldName) {
+      const updatedTx = (manualTransactions || []).map(tx => {
+        if (tx && tx.category === oldName) {
           return { ...tx, category: newName.trim() };
         }
         return tx;

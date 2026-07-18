@@ -573,8 +573,15 @@ export default function Dashboard() {
             await supabase.from('savings_history').insert(histRecords);
           }
 
-          const savedKeywords = localStorage.getItem(`finance_category_keywords_${userId}`);
-          const localKeywords = savedKeywords ? JSON.parse(savedKeywords) : {};
+          let localKeywords: Record<string, string> = {};
+          try {
+            const savedKeywords = localStorage.getItem(`finance_category_keywords_${userId}`);
+            if (savedKeywords && savedKeywords !== 'undefined') {
+              localKeywords = JSON.parse(savedKeywords);
+            }
+          } catch (e) {
+            console.error('Error parsing local keywords in page.tsx:', e);
+          }
           const defaultKeywords: Record<string, string> = {
             'Lương': 'luong',
             'Giáo dục': 'day hoc, day, cham cong',
