@@ -37,11 +37,20 @@ export async function GET(request: NextRequest) {
     errorMsg = err.message;
   }
 
+  // Retrieve cached receipts in memory
+  let cachedReceipts: any[] = [];
+  try {
+    const { getCachedReceipts } = require('@/lib/imap-service');
+    cachedReceipts = getCachedReceipts() || [];
+  } catch (e) {}
+
   return NextResponse.json({
     supabaseUrl,
     teachersCount,
     profilesCount,
     sessionsCount,
+    cachedReceiptsCount: cachedReceipts.length,
+    cachedReceipts,
     diagnostics: errorMsg
   });
 }
