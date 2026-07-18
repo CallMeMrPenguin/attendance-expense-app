@@ -219,7 +219,21 @@ export default function Dashboard() {
 
   const handleSyncReceipts = useCallback(async () => {
     try {
-      const res = await fetch('/api/bank-receipts/sync', { method: 'POST' });
+      let localKeywords: Record<string, string> = {};
+      if (currentUser?.id) {
+        try {
+          const savedKeywords = localStorage.getItem(`finance_category_keywords_${currentUser.id}`);
+          if (savedKeywords && savedKeywords !== 'undefined') {
+            localKeywords = JSON.parse(savedKeywords);
+          }
+        } catch (e) {}
+      }
+
+      const res = await fetch('/api/bank-receipts/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keywords: localKeywords })
+      });
       if (res.ok) {
         const data = await res.json();
         if (data.success && Array.isArray(data.receipts)) {

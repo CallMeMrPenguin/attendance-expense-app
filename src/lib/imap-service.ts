@@ -193,7 +193,7 @@ export const cleanString = (str: string): string => {
     .trim();
 };
 
-export async function syncBankReceipts(): Promise<BankReceipt[]> {
+export async function syncBankReceipts(clientKeywords?: Record<string, string>): Promise<BankReceipt[]> {
   const { user, pass, sender } = getImapConfig();
   if (!user || !pass) {
     console.warn('Gmail IMAP credentials missing in environment variables.');
@@ -236,15 +236,33 @@ export async function syncBankReceipts(): Promise<BankReceipt[]> {
           console.log('[IMAP Service] Loaded category budgets for keywords matching:', budgetsRes.data.map((b: any) => ({ category: b.category, keywords: b.keywords })));
         }
 
+        // Merge client-passed keywords if database returned empty (due to RLS or missing role key)
+        if (clientKeywords) {
+          const clientBudgets = Object.keys(clientKeywords).map(cat => ({
+            category: cat,
+            keywords: clientKeywords[cat]
+          }));
+          
+          clientBudgets.forEach(cb => {
+            const existing = categoryBudgetsList.find(x => x.category === cb.category);
+            if (existing) {
+              existing.keywords = cb.keywords;
+            } else {
+              categoryBudgetsList.push(cb);
+            }
+          });
+          console.log('[IMAP Service] Merged category budgets list with client-provided keywords:', categoryBudgetsList.map((b: any) => ({ category: b.category, keywords: b.keywords })));
+        }
+
         // Re-evaluate existing unclassified receipts in DB against keywords
-        if (receiptsRes.data && budgetsRes.data) {
+        if (receiptsRes.data && categoryBudgetsList.length > 0) {
           const unclassifiedReceipts = receiptsRes.data.filter((r: any) => r.status === 'unclassified');
           if (unclassifiedReceipts.length > 0) {
             console.log(`[IMAP Sync] Re-evaluating ${unclassifiedReceipts.length} existing unclassified receipts against keywords...`);
             for (const receipt of unclassifiedReceipts) {
               const cleanDetails = cleanString(receipt.details || '');
               let matched = false;
-              for (const budget of budgetsRes.data) {
+              for (const budget of categoryBudgetsList) {
                 if (budget.keywords) {
                   const kwList = budget.keywords.split(',').map((kw: string) => cleanString(kw)).filter(Boolean);
                   for (const kw of kwList) {

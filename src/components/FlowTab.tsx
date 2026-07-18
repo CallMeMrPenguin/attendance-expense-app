@@ -294,6 +294,33 @@ function FlowTab({
       return;
     }
 
+    // Validate keyword uniqueness across categories
+    if (newCatKeywords.trim()) {
+      const currentKws = newCatKeywords.split(',').map(k => k.trim().toLowerCase()).filter(Boolean);
+      for (const cat of incomeCats || []) {
+        if (cat && cat.keywords) {
+          const otherKws = cat.keywords.split(',').map(k => k.trim().toLowerCase()).filter(Boolean);
+          for (const kw of currentKws) {
+            if (otherKws.includes(kw)) {
+              showToast(`Từ khóa "${kw}" đã được sử dụng trong danh mục "${cat.name}". Mỗi từ khóa chỉ được gán cho một danh mục duy nhất.`, 'error');
+              return;
+            }
+          }
+        }
+      }
+      for (const cat of expenseCats || []) {
+        if (cat && cat.keywords) {
+          const otherKws = cat.keywords.split(',').map(k => k.trim().toLowerCase()).filter(Boolean);
+          for (const kw of currentKws) {
+            if (otherKws.includes(kw)) {
+              showToast(`Từ khóa "${kw}" đã được sử dụng trong danh mục "${cat.name}". Mỗi từ khóa chỉ được gán cho một danh mục duy nhất.`, 'error');
+              return;
+            }
+          }
+        }
+      }
+    }
+
     const newCategoryItem = {
       name: nameTrimmed,
       icon: newCatIcon,
@@ -546,6 +573,33 @@ function FlowTab({
       return;
     }
     const oldName = list[index].name;
+
+    // Validate keyword uniqueness across categories
+    if (keywords && keywords.trim()) {
+      const currentKws = keywords.split(',').map(k => k.trim().toLowerCase()).filter(Boolean);
+      for (const cat of incomeCats || []) {
+        if (cat && cat.name !== oldName && cat.keywords) {
+          const otherKws = cat.keywords.split(',').map(k => k.trim().toLowerCase()).filter(Boolean);
+          for (const kw of currentKws) {
+            if (otherKws.includes(kw)) {
+              showToast(`Từ khóa "${kw}" đã được sử dụng trong danh mục "${cat.name}". Mỗi từ khóa chỉ được gán cho một danh mục duy nhất.`, 'error');
+              return;
+            }
+          }
+        }
+      }
+      for (const cat of expenseCats || []) {
+        if (cat && cat.name !== oldName && cat.keywords) {
+          const otherKws = cat.keywords.split(',').map(k => k.trim().toLowerCase()).filter(Boolean);
+          for (const kw of currentKws) {
+            if (otherKws.includes(kw)) {
+              showToast(`Từ khóa "${kw}" đã được sử dụng trong danh mục "${cat.name}". Mỗi từ khóa chỉ được gán cho một danh mục duy nhất.`, 'error');
+              return;
+            }
+          }
+        }
+      }
+    }
 
     // 1. Update list
     const updatedList = list.map((item, idx) => 
