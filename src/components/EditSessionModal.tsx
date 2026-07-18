@@ -126,9 +126,16 @@ export default function EditSessionModal({
   const [pendingOldSiblingIds, setPendingOldSiblingIds] = useState<string[]>([]);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
 
+  const loadedSessionIdRef = React.useRef<string | null>(null);
+
   // Hydrate fields
   useEffect(() => {
-    if (!session) return;
+    if (!session) {
+      loadedSessionIdRef.current = null;
+      return;
+    }
+    if (loadedSessionIdRef.current === session.id) return;
+    loadedSessionIdRef.current = session.id;
 
     setAssignedTeacherName(session.user_name || session.teacher_name || '');
     setStudentName(session.job_name || session.student_name || '');
