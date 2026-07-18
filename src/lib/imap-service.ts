@@ -35,7 +35,21 @@ export function parseVietcombankEmail(html: string, text: string): Partial<BankR
   const content = (html || '') + '\n' + (text || '');
   if (!content) return null;
 
-  // Clean HTML tags for regex matching where helpful
+  const tablePairs: Record<string, string> = {};
+  if (html) {
+    const rowMatches = html.match(/<tr[^>]*>[\s\S]*?<\/tr>/gi) || [];
+    for (const row of rowMatches) {
+      const cells = (row.match(/<td[^>]*>[\s\S]*?<\/td>/gi) || [])
+        .map(c => c.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim());
+      if (cells.length >= 2) {
+        tablePairs[cells[0].toLowerCase()] = cells[1];
+        if (cells.length >= 4) {
+          tablePairs[cells[2].toLowerCase()] = cells[3];
+        }
+      }
+    }
+  }
+
   const cleanText = content
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
@@ -44,6 +58,16 @@ export function parseVietcombankEmail(html: string, text: string): Partial<BankR
     .replace(/\s+/g, ' ');
 
   const getFieldValue = (labelPatterns: string[]): string => {
+    // 1. Try table pairs first
+    for (const pattern of labelPatterns) {
+      const lowerPat = pattern.toLowerCase();
+      for (const k of Object.keys(tablePairs)) {
+        if (k.includes(lowerPat)) {
+          return tablePairs[k];
+        }
+      }
+    }
+    // 2. Fallback to cleanText regex matching
     for (const pattern of labelPatterns) {
       const regex = new RegExp(`${pattern}\\s*[:\\s]+\\s*([^\\n\\r<]{1,120})`, 'i');
       const match = cleanText.match(regex);
@@ -55,8 +79,8 @@ export function parseVietcombankEmail(html: string, text: string): Partial<BankR
   };
 
   // 1. Order Number
-  const orderNumber = getFieldValue(['Số lệnh giao dịch', 'Order Number'])
-    .replace(/[^0-9]/g, '');
+  const orderNumberRaw = getFieldValue(['Số lệnh giao dịch', 'Order Number']);
+  const orderNumber = orderNumberRaw.replace(/[^0-9]/g, '');
 
   // 2. Amount
   const amountStr = getFieldValue(['Số tiền', 'Amount']);
@@ -135,9 +159,18 @@ export async function syncBankReceipts(): Promise<BankReceipt[]> {
     const lock = await client.getMailboxLock('INBOX');
 
     try {
-      // Search emails from Vietcombank sender
-      const searchResult = await client.search({ from: sender });
-      const msgIds = Array.isArray(searchResult) ? searchResult.slice(-20) : []; // Fetch last 20 emails
+      // Filter by current month only (SINCE 1st of current month)
+      const now = new Date();
+      const firstDayOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+      // Search emails from Vietcombank sender or with Vietcombank keywords since current month
+      let searchResult = await client.search({ since: firstDayOfCurrentMonth, from: sender });
+      if (!searchResult || searchResult.length === 0) {
+        // Fallback to searching since current month for any Vietcombank emails
+        searchResult = await client.search({ since: firstDayOfCurrentMonth, body: 'Vietcombank' });
+      }
+
+      const msgIds = Array.isArray(searchResult) ? searchResult.slice(-30) : []; // Fetch up to 30 recent emails of current month
 
       if (msgIds.length > 0) {
         const clientAdmin = getSupabaseAdmin();
@@ -278,7 +311,6 @@ export async function startImapIdleListener() {
     await client.connect();
     await client.mailboxOpen('INBOX');
 
-    // Start idle loop
     console.log('[IMAP IDLE] Connected & listening for real-time Vietcombank emails...');
     await client.idle();
   } catch (err) {

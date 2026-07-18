@@ -585,6 +585,23 @@ function FlowTab({
     return Array.from(new Set(transactions.map(t => t.category)));
   }, [transactions]);
 
+  // Filtered Bank Receipts for current selected month(s)
+  const filteredBankReceipts = React.useMemo(() => {
+    const q = searchQuery.toLowerCase();
+    return bankReceipts.filter((r: any) => {
+      const receiptMonth = (r.trans_date || '').substring(0, 7);
+      const matchesMonth = chartSelectedMonths.length === 0 || chartSelectedMonths.includes(receiptMonth);
+      const matchesCategory = filterCategory === 'all' || r.category === filterCategory;
+      const matchesSearch = !q ||
+        (r.remitter_name || '').toLowerCase().includes(q) ||
+        (r.beneficiary_name || '').toLowerCase().includes(q) ||
+        (r.details || '').toLowerCase().includes(q) ||
+        (r.order_number || '').toLowerCase().includes(q);
+
+      return matchesMonth && matchesCategory && matchesSearch;
+    });
+  }, [bankReceipts, chartSelectedMonths, filterCategory, searchQuery]);
+
   // Filtered & Paginated Transactions
   const filteredTransactions = React.useMemo(() => {
     const q = searchQuery.toLowerCase();
@@ -1263,13 +1280,10 @@ function FlowTab({
 
         {filterRecurring === 'bien_lai' ? (
           <div className="space-y-4">
-            <div className="flex items-center justify-between bg-[#0e1220] p-3 rounded-2xl border border-white/5">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-amber-400 animate-pulse" />
-                <span className="text-xs font-bold text-slate-300">
-                  Danh sách biên lai ngân hàng Vietcombank tự động đọc qua Gmail
-                </span>
-              </div>
+            <div className="flex items-center justify-between border-b border-white/5 pb-2">
+              <span className="text-xs font-black text-amber-400 uppercase tracking-wider">
+                Biên lai ngân hàng Vietcombank ({filteredBankReceipts.length})
+              </span>
               <button
                 type="button"
                 disabled={isSyncing}
@@ -1280,19 +1294,21 @@ function FlowTab({
                     setIsSyncing(false);
                   }
                 }}
-                className="px-3 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-xs font-black rounded-xl transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                className="px-3.5 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-xs font-black rounded-xl transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
               >
                 <span>{isSyncing ? 'Đang đồng bộ...' : 'Đồng bộ Gmail'}</span>
               </button>
             </div>
 
             <div className="flex flex-col gap-3">
-              {bankReceipts.length === 0 ? (
+              {filteredBankReceipts.length === 0 ? (
                 <div className="py-12 text-center text-slate-500 font-bold bg-[#151c2d]/50 border border-white/5 rounded-2xl">
-                  Chưa có biên lai chuyển tiền nào được ghi nhận từ Gmail.
+                  {bankReceipts.length > 0 
+                    ? 'Không có biên lai chuyển tiền nào trong tháng đã chọn.' 
+                    : 'Chưa có biên lai chuyển tiền nào được ghi nhận từ Gmail.'}
                 </div>
               ) : (
-                bankReceipts.map((r: any) => {
+                filteredBankReceipts.map((r: any) => {
                   const isClassified = r.status === 'classified';
 
                   return (
