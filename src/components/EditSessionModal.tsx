@@ -435,52 +435,43 @@ export default function EditSessionModal({
         const isCurrent = sib.id === session.id;
         const matchOld = oldSiblings.find((s) => s.id === sib.id || (sib.id === undefined && s.date === sib.date));
 
+        const baseItem: any = {
+          user_name: assignedTeacherName,
+          job_name: studentName.trim(),
+          teacher_name: assignedTeacherName,
+          student_name: studentName.trim(),
+          day_of_week: sib.day_of_week,
+          time: formatCleanTimeString(sib.time),
+          duration: Number(sib.duration),
+          price: Number(price),
+          color: sessionColor,
+          loai_hinh: loaiHinh,
+          loai_hinh_lich: loaiHinh,
+          income_category: incomeCategory,
+          category: incomeCategory,
+          auto_checkin: autoCheckin,
+          auto_check_in: autoCheckin,
+          date: sib.date,
+          month_year: session.month_year,
+        };
+
         if (isCurrent) {
           newSiblingSessions.push({
             ...session,
             ...(matchOld || {}),
-            user_name: assignedTeacherName,
-            job_name: studentName.trim(),
-            teacher_name: assignedTeacherName,
-            student_name: studentName.trim(),
-            day_of_week: sib.day_of_week,
-            time: formatCleanTimeString(sib.time),
-            duration: Number(sib.duration),
-            price: Number(price),
+            ...baseItem,
             status: status,
-            color: sessionColor,
-            loai_hinh: loaiHinh,
-            loai_hinh_lich: loaiHinh,
-            income_category: incomeCategory,
-            category: incomeCategory,
-            auto_checkin: autoCheckin,
-            auto_check_in: autoCheckin,
-            date: sib.date,
-            month_year: session.month_year,
           });
         } else {
-          newSiblingSessions.push({
+          const item: any = {
             ...(matchOld || {}),
-            id: sib.id,
-            user_name: assignedTeacherName,
-            job_name: studentName.trim(),
-            teacher_name: assignedTeacherName,
-            student_name: studentName.trim(),
-            day_of_week: sib.day_of_week,
-            time: formatCleanTimeString(sib.time),
-            duration: Number(sib.duration),
-            price: Number(price),
+            ...baseItem,
             status: matchOld ? matchOld.status : 'Chưa làm',
-            color: sessionColor,
-            loai_hinh: loaiHinh,
-            loai_hinh_lich: loaiHinh,
-            income_category: incomeCategory,
-            category: incomeCategory,
-            auto_checkin: autoCheckin,
-            auto_check_in: autoCheckin,
-            date: sib.date,
-            month_year: session.month_year,
-          });
+          };
+          if (sib.id !== undefined) {
+            item.id = sib.id;
+          }
+          newSiblingSessions.push(item);
         }
       });
 
