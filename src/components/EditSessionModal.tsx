@@ -373,7 +373,7 @@ export default function EditSessionModal({
           upsertError.message?.includes('Could not find') ||
           upsertError.message?.includes('does not exist')
         )) {
-          const cleanSessions = newSessions.map(({ auto_check_in, auto_checkin, loai_hinh_lich, loai_hinh, category, income_category, student_name, user_name, ...rest }) => rest);
+          const cleanSessions = newSessions.map(({ auto_check_in, auto_checkin, loai_hinh_lich, loai_hinh, category, income_category, student_name, teacher_name, ...rest }) => rest);
           const retryRes = await supabase.from('sessions').upsert(cleanSessions);
           upsertError = retryRes.error;
         }
