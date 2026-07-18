@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { subscribeSseClient, unsubscribeSseClient, startImapIdleListener, getCachedReceipts } from '@/lib/imap-service';
+import { subscribeSseClient, unsubscribeSseClient, startImapIdleListener } from '@/lib/imap-service';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,10 +21,15 @@ export async function GET() {
 
       subscribeSseClient(listener);
 
-      // Send initial cached receipts on connection
-      try {
-        controller.enqueue(encoder.encode(`event: init\ndata: ${JSON.stringify({ success: true, receipts: getCachedReceipts() })}\n\n`));
-      } catch (e) {}
+      // Send initial receipts from DB on connection
+      (async () => {
+        try {
+          const { getSupabaseAdmin } = require('@/lib/supabase');
+          const clientAdmin = getSupabaseAdmin();
+          const { data } = await clientAdmin.from('bank_receipts').select('*').order('created_at', { ascending: false });
+          controller.enqueue(encoder.encode(`event: init\ndata: ${JSON.stringify({ success: true, receipts: data || [] })}\n\n`));
+        } catch (e) {}
+      })();
 
       // Heartbeat ping every 15s to keep SSE connection alive indefinitely
       const pingInterval = setInterval(() => {

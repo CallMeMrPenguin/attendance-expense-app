@@ -19,7 +19,6 @@ export async function POST(req: Request) {
     
     // Perform database queries
     const queries: any[] = [
-      supabaseAdmin.from('bank_receipts').select('*').order('created_at', { ascending: false }),
       supabaseAdmin.from('receipt_rules').select('*').order('created_at', { ascending: false })
     ];
 
@@ -30,20 +29,11 @@ export async function POST(req: Request) {
     }
 
     const results = await Promise.all(queries);
-    const dbReceipts = results[0]?.data || [];
-    const dbRules = results[1]?.data || [];
-    const dbTxs = userId ? (results[2]?.data || []) : [];
-
-    const mergedReceiptsMap = new Map<string, any>();
-    dbReceipts.forEach((r: any) => mergedReceiptsMap.set(r.id, r));
-    receipts.forEach((r: any) => {
-      const existing = mergedReceiptsMap.get(r.id);
-      mergedReceiptsMap.set(r.id, { ...existing, ...r });
-    });
-    const finalReceipts = Array.from(mergedReceiptsMap.values()).sort((a: any, b: any) => b.trans_date.localeCompare(a.trans_date));
+    const dbRules = results[0]?.data || [];
+    const dbTxs = userId ? (results[1]?.data || []) : [];
 
     // Construct in-memory transaction records for any receipts that are classified but might not be in DB
-    const memoryTransactions = finalReceipts
+    const memoryTransactions = receipts
       .filter((r: any) => r.status === 'classified' && r.type && r.category)
       .map((r: any) => {
         const txId = r.id.startsWith('tx-receipt-') ? r.id : `tx-receipt-${r.id.startsWith('vcb-') ? '' : 'vcb-'}${r.id}`;
@@ -77,7 +67,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       syncedCount: receipts.length,
-      receipts: finalReceipts,
+      receipts,
       rules: dbRules,
       transactions: finalTransactions
     });

@@ -53,16 +53,6 @@ export function broadcastSseEvent(event: string, data: any) {
   }
 }
 
-// Server in-memory cache to guarantee persistence even if Supabase table is not created yet
-const serverReceiptCacheMap = new Map<string, BankReceipt>();
-
-export function getCachedReceipts(): BankReceipt[] {
-  return Array.from(serverReceiptCacheMap.values()).sort((a, b) => b.trans_date.localeCompare(a.trans_date));
-}
-
-export function updateCachedReceipt(receipt: BankReceipt) {
-  serverReceiptCacheMap.set(receipt.id, receipt);
-}
 
 // Robust HTML / Text Parser for Vietcombank Email Receipts
 export function parseVietcombankEmail(html: string, text: string): Partial<BankReceipt> | null {
@@ -197,7 +187,7 @@ export async function syncBankReceipts(clientKeywords?: Record<string, string>):
   const { user, pass, sender } = getImapConfig();
   if (!user || !pass) {
     console.warn('Gmail IMAP credentials missing in environment variables.');
-    return getCachedReceipts();
+    return [];
   }
 
   const client = new ImapFlow({
@@ -208,14 +198,16 @@ export async function syncBankReceipts(clientKeywords?: Record<string, string>):
     logger: false
   });
 
+  const clientAdmin = getSupabaseAdmin();
+  let existingMap = new Map<string, BankReceipt>();
+
   try {
     await client.connect();
     const lock = await client.getMailboxLock('INBOX');
 
     try {
-      const clientAdmin = getSupabaseAdmin();
-
       // 1. Fetch existing receipts, rules, and category budgets from Supabase DB
+      let dbReceipts: BankReceipt[] = [];
       let ruleList: ReceiptRule[] = [];
       let categoryBudgetsList: any[] = [];
       try {
@@ -226,7 +218,7 @@ export async function syncBankReceipts(clientKeywords?: Record<string, string>):
         ]);
 
         if (receiptsRes.data) {
-          receiptsRes.data.forEach((r: any) => serverReceiptCacheMap.set(r.id, r as BankReceipt));
+          dbReceipts = receiptsRes.data as BankReceipt[];
         }
         if (rulesRes.data) {
           ruleList = rulesRes.data as ReceiptRule[];
@@ -254,11 +246,12 @@ export async function syncBankReceipts(clientKeywords?: Record<string, string>):
           console.log('[IMAP Service] Merged category budgets list with client-provided keywords:', categoryBudgetsList.map((b: any) => ({ category: b.category, keywords: b.keywords })));
         }
 
-        // Re-evaluate all unclassified receipts (union of DB and in-memory cache) against keywords
-        const allLoadedReceipts = Array.from(serverReceiptCacheMap.values());
-        const unclassifiedReceipts = allLoadedReceipts.filter((r: any) => r.status === 'unclassified');
+        existingMap = new Map<string, BankReceipt>(dbReceipts.map(r => [r.id, r]));
+
+        // Re-evaluate all unclassified receipts in database against keywords
+        const unclassifiedReceipts = dbReceipts.filter((r: any) => r.status === 'unclassified');
         if (unclassifiedReceipts.length > 0 && categoryBudgetsList.length > 0) {
-          console.log(`[IMAP Sync] Re-evaluating ${unclassifiedReceipts.length} existing unclassified receipts against keywords...`);
+          console.log(`[IMAP Sync] Re-evaluating ${unclassifiedReceipts.length} existing unclassified database receipts against keywords...`);
           for (const receipt of unclassifiedReceipts) {
             const cleanDetails = cleanString(receipt.details || '');
             let matched = false;
@@ -279,8 +272,7 @@ export async function syncBankReceipts(clientKeywords?: Record<string, string>):
                       category: budget.category
                     };
                     
-                    // Update cache
-                    serverReceiptCacheMap.set(receipt.id, updatedReceipt);
+                    existingMap.set(receipt.id, updatedReceipt);
                     
                     // Update DB and insert transaction in background without blocking
                     (async () => {
@@ -313,7 +305,9 @@ export async function syncBankReceipts(clientKeywords?: Record<string, string>):
             }
           }
         }
-      } catch (e) {}
+      } catch (e) {
+        console.error('[IMAP Sync] Error loading metadata from Supabase DB:', e);
+      }
 
       // 2. Optimized IMAP Search since 1st of current month
       const now = new Date();
@@ -349,8 +343,8 @@ export async function syncBankReceipts(clientKeywords?: Record<string, string>):
           const receiptId = `vcb-${receiptData.order_number}`;
 
           // If already classified or in DB, keep existing state
-          if (serverReceiptCacheMap.has(receiptId)) {
-            const cached = serverReceiptCacheMap.get(receiptId);
+          if (existingMap.has(receiptId)) {
+            const cached = existingMap.get(receiptId);
             if (cached && cached.status === 'classified') {
               continue;
             }
@@ -360,8 +354,6 @@ export async function syncBankReceipts(clientKeywords?: Record<string, string>):
           let status: 'unclassified' | 'classified' = 'unclassified';
           let matchedType: 'income' | 'expense' | 'saving' | undefined = undefined;
           let matchedCategory: string | undefined = undefined;
-
-
 
           // 1. Match against category-specific keywords in details (Nội dung chuyển tiền)
           const cleanDetails = cleanString(receiptData.details || '');
@@ -425,8 +417,7 @@ export async function syncBankReceipts(clientKeywords?: Record<string, string>):
             category: matchedCategory
           };
 
-          // Store in server memory cache
-          serverReceiptCacheMap.set(receiptId, newReceipt);
+          existingMap.set(receiptId, newReceipt);
 
           // Insert into Supabase DB
           try {
@@ -457,9 +448,19 @@ export async function syncBankReceipts(clientKeywords?: Record<string, string>):
     console.error('IMAP fetch error:', err);
   }
 
-  const receipts = getCachedReceipts();
-  broadcastSseEvent('new-receipt', { receipts });
-  return receipts;
+  // Fetch final receipts list directly from Supabase DB to return it
+  let receiptsList: BankReceipt[] = [];
+  try {
+    const { data } = await clientAdmin.from('bank_receipts').select('*').order('created_at', { ascending: false });
+    receiptsList = (data as BankReceipt[]) || [];
+  } catch (e) {
+    console.error('[IMAP Sync] Error reading final receipts list from Supabase:', e);
+    // Return the local memory list as fallback
+    receiptsList = Array.from(existingMap.values()).sort((a, b) => b.trans_date.localeCompare(a.trans_date));
+  }
+
+  broadcastSseEvent('new-receipt', { receipts: receiptsList });
+  return receiptsList;
 }
 
 let idleReconnectTimer: NodeJS.Timeout | null = null;

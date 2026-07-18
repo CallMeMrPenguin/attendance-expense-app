@@ -37,11 +37,13 @@ export async function GET(request: NextRequest) {
     errorMsg = err.message;
   }
 
-  // Retrieve cached receipts in memory
-  let cachedReceipts: any[] = [];
+  // Retrieve bank receipts directly from Supabase DB
+  let dbReceiptsCount = 0;
+  let dbReceipts: any[] = [];
   try {
-    const { getCachedReceipts } = require('@/lib/imap-service');
-    cachedReceipts = getCachedReceipts() || [];
+    const { data } = await admin.from('bank_receipts').select('*').order('created_at', { ascending: false });
+    dbReceipts = data || [];
+    dbReceiptsCount = dbReceipts.length;
   } catch (e) {}
 
   return NextResponse.json({
@@ -49,8 +51,8 @@ export async function GET(request: NextRequest) {
     teachersCount,
     profilesCount,
     sessionsCount,
-    cachedReceiptsCount: cachedReceipts.length,
-    cachedReceipts,
+    dbReceiptsCount,
+    dbReceipts,
     diagnostics: errorMsg
   });
 }

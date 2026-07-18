@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
-import { syncBankReceipts, getCachedReceipts, updateCachedReceipt, BankReceipt, ReceiptRule } from '@/lib/imap-service';
+import { syncBankReceipts, BankReceipt, ReceiptRule } from '@/lib/imap-service';
 
 export async function GET() {
   try {
@@ -26,21 +26,14 @@ export async function GET() {
       syncBankReceipts().catch(err => console.error('Background sync error:', err));
     }
 
-    // Merge with in-memory server cache
-    const cacheMap = new Map<string, BankReceipt>();
-    receipts.forEach(r => cacheMap.set(r.id, r));
-    getCachedReceipts().forEach(r => cacheMap.set(r.id, { ...(cacheMap.get(r.id) || {}), ...r }));
-    
-    const finalReceipts = Array.from(cacheMap.values()).sort((a, b) => b.trans_date.localeCompare(a.trans_date));
-
     return NextResponse.json({
       success: true,
-      receipts: finalReceipts,
+      receipts,
       rules
     });
   } catch (error: any) {
     console.error('GET /api/bank-receipts error:', error);
-    return NextResponse.json({ success: true, receipts: getCachedReceipts(), rules: [] });
+    return NextResponse.json({ success: true, receipts: [], rules: [] });
   }
 }
 
@@ -55,7 +48,7 @@ export async function POST(req: Request) {
 
     const supabaseAdmin = getSupabaseAdmin();
 
-    // 1. Fetch targeted receipt from DB or in-memory cache
+    // 1. Fetch targeted receipt from DB
     let receipt: BankReceipt | undefined;
     try {
       const { data } = await supabaseAdmin
@@ -67,14 +60,10 @@ export async function POST(req: Request) {
     } catch (e) {}
 
     if (!receipt) {
-      receipt = getCachedReceipts().find(r => r.id === receiptId);
-    }
-
-    if (!receipt) {
       return NextResponse.json({ success: false, error: 'Receipt not found' }, { status: 404 });
     }
 
-    // 2. Update receipt classification in memory and DB
+    // 2. Update receipt classification in DB
     const updatedReceipt: BankReceipt = {
       ...receipt,
       status: 'classified',
@@ -82,8 +71,6 @@ export async function POST(req: Request) {
       category,
       user_id: userId || receipt.user_id
     };
-
-    updateCachedReceipt(updatedReceipt);
 
     try {
       await supabaseAdmin
@@ -124,48 +111,62 @@ export async function POST(req: Request) {
       } catch (e) {}
 
       // 5. Retroactively classify all unclassified receipts matching this rule!
-      const cachedAll = getCachedReceipts();
-      for (const unRec of cachedAll) {
-        if (unRec.status === 'unclassified') {
-          let fieldVal = '';
-          if (matchField === 'remitter_name') fieldVal = unRec.remitter_name || '';
-          else if (matchField === 'beneficiary_name') fieldVal = unRec.beneficiary_name || '';
-          else if (matchField === 'details') fieldVal = unRec.details || '';
+      let dbUnclassified: BankReceipt[] = [];
+      try {
+        const { data } = await supabaseAdmin
+          .from('bank_receipts')
+          .select('*')
+          .eq('status', 'unclassified');
+        dbUnclassified = (data as BankReceipt[]) || [];
+      } catch (e) {}
 
-          if (fieldVal && fieldVal.toLowerCase().includes(matchValue.toLowerCase())) {
-            const classifiedUnRec: BankReceipt = {
-              ...unRec,
-              status: 'classified',
+      for (const unRec of dbUnclassified) {
+        let fieldVal = '';
+        if (matchField === 'remitter_name') fieldVal = unRec.remitter_name || '';
+        else if (matchField === 'beneficiary_name') fieldVal = unRec.beneficiary_name || '';
+        else if (matchField === 'details') fieldVal = unRec.details || '';
+
+        if (fieldVal && fieldVal.toLowerCase().includes(matchValue.toLowerCase())) {
+          const classifiedUnRec: BankReceipt = {
+            ...unRec,
+            status: 'classified',
+            type,
+            category
+          };
+
+          try {
+            await supabaseAdmin
+              .from('bank_receipts')
+              .upsert(classifiedUnRec, { onConflict: 'id' });
+
+            const retroTx = {
+              id: `tx-receipt-${unRec.id}`,
+              user_id: userId || unRec.user_id,
+              teacher_name: 'Admin',
+              desc_text: `[Biên lai Vietcombank] ${unRec.remitter_name || ''} ➔ ${unRec.beneficiary_name || ''}: ${unRec.details}`,
+              amount: Number(unRec.amount),
               type,
-              category
+              category,
+              date: unRec.trans_date || new Date().toISOString().split('T')[0]
             };
-            updateCachedReceipt(classifiedUnRec);
-
-            try {
-              await supabaseAdmin
-                .from('bank_receipts')
-                .upsert(classifiedUnRec, { onConflict: 'id' });
-
-              const retroTx = {
-                id: `tx-receipt-${unRec.id}`,
-                user_id: userId || unRec.user_id,
-                teacher_name: 'Admin',
-                desc_text: `[Biên lai Vietcombank] ${unRec.remitter_name || ''} ➔ ${unRec.beneficiary_name || ''}: ${unRec.details}`,
-                amount: Number(unRec.amount),
-                type,
-                category,
-                date: unRec.trans_date || new Date().toISOString().split('T')[0]
-              };
-              await supabaseAdmin.from('manual_transactions').upsert(retroTx, { onConflict: 'id' });
-            } catch (e) {}
-          }
+            await supabaseAdmin.from('manual_transactions').upsert(retroTx, { onConflict: 'id' });
+          } catch (e) {}
         }
       }
     }
 
+    let finalReceipts: BankReceipt[] = [];
+    try {
+      const { data } = await supabaseAdmin
+        .from('bank_receipts')
+        .select('*')
+        .order('created_at', { ascending: false });
+      finalReceipts = (data as BankReceipt[]) || [];
+    } catch (e) {}
+
     return NextResponse.json({
       success: true,
-      receipts: getCachedReceipts(),
+      receipts: finalReceipts,
       rules: []
     });
   } catch (error: any) {
