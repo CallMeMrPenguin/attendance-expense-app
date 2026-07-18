@@ -14,16 +14,23 @@ export async function POST(req: Request) {
       }
     } catch (e) {}
 
-    const receipts = await syncBankReceipts(clientKeywords, userId);
+    // 1. Trigger background IMAP sync non-blocking to prevent HTTP request timeout
+    syncBankReceipts(clientKeywords, userId).catch(err => {
+      console.error('[Background IMAP Sync Error]:', err);
+    });
+
+    // 2. Immediately return current DB receipts, rules, and transactions (<50ms)
     const supabaseAdmin = getSupabaseAdmin();
 
-    const [rulesRes, txsRes] = await Promise.all([
+    const [receiptsRes, rulesRes, txsRes] = await Promise.all([
+      supabaseAdmin.from('bank_receipts').select('*').order('created_at', { ascending: false }),
       supabaseAdmin.from('receipt_rules').select('*').order('created_at', { ascending: false }),
       userId 
         ? supabaseAdmin.from('manual_transactions').select('*').eq('user_id', userId).order('date', { ascending: false })
         : supabaseAdmin.from('manual_transactions').select('*').order('date', { ascending: false })
     ]);
 
+    const dbReceipts = receiptsRes.data || [];
     const dbRules = rulesRes.data || [];
     const dbTxs = txsRes.data || [];
 
@@ -38,8 +45,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       success: true,
-      syncedCount: receipts.length,
-      receipts,
+      syncing: true,
+      syncedCount: dbReceipts.length,
+      receipts: dbReceipts,
       rules: dbRules,
       transactions: formattedTxs
     });

@@ -604,7 +604,13 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
   return finalReceiptsList;
 }
 
+let lastAutoSyncTime = 0;
+
 export async function startImapIdleListener() {
-  // Disabled background IDLE persistent connection to avoid Gmail IMAP connection limits
-  return;
+  const now = Date.now();
+  // Rate limit background auto-sync to once every 2 minutes
+  if (now - lastAutoSyncTime > 120000) {
+    lastAutoSyncTime = now;
+    syncBankReceipts().catch(err => console.error('[Auto IMAP Sync Error]:', err));
+  }
 }
