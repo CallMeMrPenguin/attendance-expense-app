@@ -57,20 +57,21 @@ async function checkDbSync() {
   console.log(`  └─ Unclassified (Yellow): ${unclassified.length}`);
   console.log(`Manual Transactions Total: ${manualTxs ? manualTxs.length : 0}`);
 
-  let missingTxCount = 0;
+  let inHistoryCount = 0;
+  let deletedFromHistoryCount = 0;
   for (const r of classified) {
     const txId = `tx-receipt-${r.id}`;
     const txMatch = (manualTxs || []).find(t => t.id === txId);
-    if (!txMatch) {
-      console.warn(`⚠️ Warning: Classified receipt [${r.id}] missing in manual_transactions DB!`);
-      missingTxCount++;
+    if (txMatch) {
+      inHistoryCount++;
+    } else {
+      deletedFromHistoryCount++;
     }
   }
 
-  if (missingTxCount === 0) {
-    console.log('✅ All classified bank receipts are properly synced with manual_transactions!');
-  } else {
-    console.warn(`❌ Found ${missingTxCount} classified receipts not synced to manual_transactions!`);
+  console.log(`✅ Classified Receipts in History section: ${inHistoryCount}`);
+  if (deletedFromHistoryCount > 0) {
+    console.log(`ℹ️  Classified Receipts deleted from History (retained in Bank Receipts DB only): ${deletedFromHistoryCount}`);
   }
 
   console.log('\n===================================================');

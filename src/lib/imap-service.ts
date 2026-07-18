@@ -478,8 +478,8 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
 
           const receiptId = `vcb-${receiptData.order_number}`;
 
-          // If already classified or in DB, keep existing state
-          if (existingMap.has(receiptId)) {
+          const isNewReceipt = !existingMap.has(receiptId);
+          if (!isNewReceipt) {
             const cached = existingMap.get(receiptId);
             if (cached && cached.status === 'classified') {
               continue;
@@ -561,7 +561,7 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
             const { error: dbErr } = await clientAdmin.from('bank_receipts').upsert(receiptPayload, { onConflict: 'id' });
             if (dbErr) console.error('[Supabase bank_receipts upsert error]', dbErr.message);
 
-            if (status === 'classified' && matchedType && matchedCategory && targetUserId) {
+            if (isNewReceipt && status === 'classified' && matchedType && matchedCategory && targetUserId) {
               const txRecord = {
                 id: `tx-receipt-${receiptId}`,
                 user_id: targetUserId,
