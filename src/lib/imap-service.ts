@@ -473,16 +473,18 @@ export async function syncBankReceipts(clientKeywords?: Record<string, string>):
     console.error('IMAP fetch error:', err);
   }
 
-  // Fetch final receipts list directly from Supabase DB to return it
-  let receiptsList: BankReceipt[] = [];
-  try {
-    const { data } = await clientAdmin.from('bank_receipts').select('*').order('created_at', { ascending: false });
-    receiptsList = (data as BankReceipt[]) || [];
-  } catch (e) {
-    console.error('[IMAP Sync] Error reading final receipts list from Supabase:', e);
-    // Return the local memory list as fallback
-    receiptsList = Array.from(existingMap.values()).sort((a, b) => b.trans_date.localeCompare(a.trans_date));
-  }
+  // Use existingMap which contains all DB receipts + newly parsed and classified receipts from IMAP
+  const receiptsList = Array.from(existingMap.values()).sort((a, b) => b.trans_date.localeCompare(a.trans_date));
+
+  // Async save to Supabase DB in background (best effort)
+  (async () => {
+    try {
+      const unpersisted = receiptsList.filter(r => r.status === 'classified');
+      if (unpersisted.length > 0) {
+        await clientAdmin.from('bank_receipts').upsert(unpersisted, { onConflict: 'id' });
+      }
+    } catch (e) {}
+  })();
 
   broadcastSseEvent('new-receipt', { receipts: receiptsList });
   return receiptsList;

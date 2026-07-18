@@ -256,8 +256,14 @@ export default function Dashboard() {
         if (data.success && Array.isArray(data.receipts)) {
           updateReceiptsState(data.receipts);
           if (Array.isArray(data.transactions) && currentUser?.id) {
-            setManualTransactions(data.transactions);
-            localStorage.setItem(`finance_trans_${currentUser.id}`, JSON.stringify(data.transactions));
+            setManualTransactions(prev => {
+              const map = new Map<string, any>();
+              prev.forEach(t => map.set(t.id, t));
+              data.transactions.forEach((t: any) => map.set(t.id, t));
+              const merged = Array.from(map.values()).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+              localStorage.setItem(`finance_trans_${currentUser.id}`, JSON.stringify(merged));
+              return merged;
+            });
           }
           showToast(`Đã đồng bộ Gmail! Đã đọc ${data.syncedCount || 0} biên lai mới.`, 'success');
         }
