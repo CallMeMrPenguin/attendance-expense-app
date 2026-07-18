@@ -55,6 +55,18 @@ export default function Dashboard() {
   const { showToast } = useToast();
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [deletedTxIds, setDeletedTxIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (currentUser?.id) {
+      try {
+        const saved = localStorage.getItem(`finance_deleted_tx_${currentUser.id}`);
+        if (saved && saved !== 'undefined') {
+          setDeletedTxIds(JSON.parse(saved));
+        }
+      } catch (e) {}
+    }
+  }, [currentUser]);
   
   // Navigation states
   const [activeTab, setActiveTab] = useState<'dashboard' | 'flow' | 'saving' | 'schedule' | 'settings'>('dashboard');
@@ -184,6 +196,17 @@ export default function Dashboard() {
     matchField: string,
     matchValue: string
   ) => {
+    // Remove from deletedTxIds if user explicitly re-classifies manually
+    if (currentUser?.id) {
+      setDeletedTxIds(prev => {
+        const txId = `tx-receipt-${receiptId.startsWith('vcb-') ? receiptId.replace('vcb-', '') : receiptId}`;
+        const rawId = receiptId.replace(/^tx-receipt-/, '').replace(/^vcb-/, '');
+        const updated = prev.filter(id => id !== receiptId && id !== txId && id !== rawId && id !== `vcb-${rawId}`);
+        localStorage.setItem(`finance_deleted_tx_${currentUser.id}`, JSON.stringify(updated));
+        return updated;
+      });
+    }
+
     // 1. Optimistic instant local update
     setBankReceipts(prev => {
       const updated = prev.map(r => r.id === receiptId ? { ...r, status: 'classified', type, category } : r);
@@ -280,7 +303,13 @@ export default function Dashboard() {
             setManualTransactions(prev => {
               const map = new Map<string, any>();
               prev.forEach(t => map.set(t.id, t));
-              data.transactions.forEach((t: any) => map.set(t.id, t));
+              data.transactions.forEach((t: any) => {
+                const rawId = (t.id || '').replace(/^tx-receipt-/, '').replace(/^vcb-/, '');
+                const isDeleted = deletedTxIds.includes(t.id) || deletedTxIds.includes(rawId) || deletedTxIds.includes(`vcb-${rawId}`);
+                if (!isDeleted) {
+                  map.set(t.id, t);
+                }
+              });
               const merged = Array.from(map.values()).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
               localStorage.setItem(`finance_trans_${currentUser.id}`, JSON.stringify(merged));
               return merged;
@@ -409,14 +438,19 @@ export default function Dashboard() {
 
       if (status === 'classified' && type && category) {
         const txId = r.id.startsWith('tx-receipt-') ? r.id : `tx-receipt-${r.id.startsWith('vcb-') ? '' : 'vcb-'}${r.id}`;
-        newTxList.push({
-          id: txId,
-          desc: `[Biên lai] ${r.remitter_name || ''} ➔ ${r.beneficiary_name || ''}: ${r.details}`,
-          amount: Number(r.amount) || 0,
-          type,
-          category,
-          date: r.trans_date
-        });
+        const rawId = r.id.replace(/^tx-receipt-/, '').replace(/^vcb-/, '');
+        const isDeleted = deletedTxIds.includes(txId) || deletedTxIds.includes(r.id) || deletedTxIds.includes(rawId) || deletedTxIds.includes(`vcb-${rawId}`);
+
+        if (!isDeleted) {
+          newTxList.push({
+            id: txId,
+            desc: `[Biên lai] ${r.remitter_name || ''} ➔ ${r.beneficiary_name || ''}: ${r.details}`,
+            amount: Number(r.amount) || 0,
+            type,
+            category,
+            date: r.trans_date
+          });
+        }
       }
 
       return { ...r, status, category, type };
@@ -446,7 +480,7 @@ export default function Dashboard() {
         return merged;
       });
     }
-  }, [bankReceipts, currentUser]);
+  }, [bankReceipts, currentUser, deletedTxIds]);
 
   // Always force dark mode (night mode)
   useEffect(() => {
@@ -1353,8 +1387,24 @@ export default function Dashboard() {
   const executeDeleteManualTx = () => {
     if (!currentUser || !confirmDeleteTxId) return;
     const userId = currentUser.id;
-    const updated = manualTransactions.filter(t => t.id !== confirmDeleteTxId);
+    const idToDelete = confirmDeleteTxId;
+    const updated = manualTransactions.filter(t => t.id !== idToDelete);
     saveTransactions(userId, updated);
+
+    // Track deleted transaction ID so auto-classification never resurrects it
+    setDeletedTxIds(prev => {
+      const set = new Set(prev);
+      set.add(idToDelete);
+      if (idToDelete.startsWith('tx-receipt-')) {
+        const rawId = idToDelete.replace('tx-receipt-', '');
+        set.add(rawId);
+        set.add(`vcb-${rawId}`);
+      }
+      const arr = Array.from(set);
+      localStorage.setItem(`finance_deleted_tx_${userId}`, JSON.stringify(arr));
+      return arr;
+    });
+
     setConfirmDeleteTxId(null);
   };
 
