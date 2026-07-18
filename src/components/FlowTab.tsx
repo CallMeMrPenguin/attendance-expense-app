@@ -64,7 +64,7 @@ interface FlowTabProps {
   saveBudgets: (userId: string, budgets: Record<string, number>) => void;
   saveTransactions?: (userId: string, data: any[]) => void;
   toggleChartMonth?: (mStr: string) => void;
-  handleClassifyReceipt?: (receiptId: string, type: 'income' | 'expense', category: string, createRule: boolean, matchField: string, matchValue: string) => Promise<void>;
+  handleClassifyReceipt?: (receiptId: string, type: 'income' | 'expense', category: string, createRule: boolean, matchField: string, matchValue: string) => void | Promise<void>;
   handleSyncReceipts?: () => Promise<void>;
 }
 

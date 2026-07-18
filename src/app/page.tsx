@@ -114,6 +114,34 @@ export default function Dashboard() {
     return [];
   });
 
+  // Track in-flight background DB saves to eliminate front-end UI delay
+  const [pendingSavesCount, setPendingSavesCount] = useState(0);
+
+  const runBackgroundSave = useCallback(async (saveTask: () => Promise<any>) => {
+    setPendingSavesCount(c => c + 1);
+    try {
+      await saveTask();
+    } catch (err) {
+      console.error('Background save error:', err);
+    } finally {
+      setPendingSavesCount(c => Math.max(0, c - 1));
+    }
+  }, []);
+
+  // Display browser warning modal if user attempts to close tab, refresh page, or leave while background saves are pending
+  useEffect(() => {
+    if (pendingSavesCount <= 0) return;
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = 'Hệ thống đang đồng bộ dữ liệu ngầm. Bạn có chắc chắn muốn rời đi?';
+      return e.returnValue;
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [pendingSavesCount]);
+
   const updateReceiptsState = useCallback((newReceipts: any[]) => {
     setBankReceipts(prev => {
       const map = new Map();
@@ -141,7 +169,7 @@ export default function Dashboard() {
     }
   }, [updateReceiptsState]);
 
-  const handleClassifyReceipt = useCallback(async (
+  const handleClassifyReceipt = useCallback((
     receiptId: string,
     type: 'income' | 'expense',
     category: string,
@@ -149,49 +177,59 @@ export default function Dashboard() {
     matchField: string,
     matchValue: string
   ) => {
-    try {
-      const res = await fetch('/api/bank-receipts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          receiptId,
-          type,
-          category,
-          userId: currentUser?.id,
-          createRule,
-          matchField,
-          matchValue
-        })
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && Array.isArray(data.receipts)) {
-          updateReceiptsState(data.receipts);
-          // Also refresh manual transactions cloud sync
-          try {
-            const txRes = await supabase.from('manual_transactions').select('*').eq('user_id', currentUser?.id).order('date', { ascending: false });
-            if (txRes.data) {
-              const formatted = txRes.data.map((t: any) => ({
-                id: t.id,
-                desc: t.desc_text || t.desc || '',
-                amount: Number(t.amount) || 0,
-                type: t.type,
-                category: t.category,
-                date: t.date
-              }));
-              setManualTransactions(formatted);
-              localStorage.setItem(`finance_trans_${currentUser?.id}`, JSON.stringify(formatted));
-            }
-          } catch (e) {}
-          showToast('Đã phân loại biên lai và cập nhật giao dịch thành công!', 'success');
-        }
+    // 1. Optimistic instant local update
+    setBankReceipts(prev => {
+      const updated = prev.map(r => r.id === receiptId ? { ...r, status: 'classified', type, category } : r);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('bank_receipts', JSON.stringify(updated));
       }
-    } catch (err) {
-      console.error('Error classifying receipt:', err);
-      showToast('Có lỗi xảy ra khi phân loại biên lai.', 'error');
-    }
-  }, [currentUser, showToast, updateReceiptsState]);
+      return updated;
+    });
+    showToast('Đã phân loại biên lai!', 'success');
+
+    // 2. Non-blocking background save to API & Supabase
+    runBackgroundSave(async () => {
+      try {
+        const res = await fetch('/api/bank-receipts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            receiptId,
+            type,
+            category,
+            userId: currentUser?.id,
+            createRule,
+            matchField,
+            matchValue
+          })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.receipts)) {
+            updateReceiptsState(data.receipts);
+            try {
+              const txRes = await supabase.from('manual_transactions').select('*').eq('user_id', currentUser?.id).order('date', { ascending: false });
+              if (txRes.data) {
+                const formatted = txRes.data.map((t: any) => ({
+                  id: t.id,
+                  desc: t.desc_text || t.desc || '',
+                  amount: Number(t.amount) || 0,
+                  type: t.type,
+                  category: t.category,
+                  date: t.date
+                }));
+                setManualTransactions(formatted);
+                localStorage.setItem(`finance_trans_${currentUser?.id}`, JSON.stringify(formatted));
+              }
+            } catch (e) {}
+          }
+        }
+      } catch (err) {
+        console.error('Error in background receipt classification:', err);
+      }
+    });
+  }, [currentUser, showToast, updateReceiptsState, runBackgroundSave]);
 
   const handleSyncReceipts = useCallback(async () => {
     try {
@@ -514,50 +552,54 @@ export default function Dashboard() {
     fetchFinanceCloud();
   }, [currentUser]);
 
-  // Direct Supabase Save Helpers (Updates React State, LocalStorage Backup & Supabase Cloud directly)
-  const saveTransactions = useCallback(async (userId: string, data: any[]) => {
+  // Direct Supabase Save Helpers (Updates React State, LocalStorage Backup synchronously & Supabase Cloud asynchronously)
+  const saveTransactions = useCallback((userId: string, data: any[]) => {
     setManualTransactions(data);
     localStorage.setItem(`finance_trans_${userId}`, JSON.stringify(data));
 
     if (!currentUser) return;
     const teacherName = currentUser.teacherName || 'Admin';
-    try {
-      await supabase.from('manual_transactions').delete().eq('user_id', userId);
-      if (data.length > 0) {
-        const records = data.map(t => ({
-          id: t.id || `tx-${Date.now()}-${Math.random()}`,
-          user_id: userId,
-          teacher_name: teacherName,
-          desc_text: t.desc || '',
-          amount: Number(t.amount) || 0,
-          type: t.type,
-          category: t.category,
-          date: t.date
-        }));
-        const { error } = await supabase.from('manual_transactions').insert(records);
-        if (error) console.error('Supabase manual_transactions insert error:', error);
+    runBackgroundSave(async () => {
+      try {
+        await supabase.from('manual_transactions').delete().eq('user_id', userId);
+        if (data.length > 0) {
+          const records = data.map(t => ({
+            id: t.id || `tx-${Date.now()}-${Math.random()}`,
+            user_id: userId,
+            teacher_name: teacherName,
+            desc_text: t.desc || '',
+            amount: Number(t.amount) || 0,
+            type: t.type,
+            category: t.category,
+            date: t.date
+          }));
+          const { error } = await supabase.from('manual_transactions').insert(records);
+          if (error) console.error('Supabase manual_transactions insert error:', error);
+        }
+      } catch (err) {
+        console.error('Direct saveTransactions error:', err);
       }
-    } catch (err) {
-      console.error('Direct saveTransactions error:', err);
-    }
-  }, [currentUser]);
+    });
+  }, [currentUser, runBackgroundSave]);
 
-  const saveSavingsFundsDirect = async (userId: string, emCurr: number, emTar: number, acCurr: number, acTar: number) => {
+  const saveSavingsFundsDirect = (userId: string, emCurr: number, emTar: number, acCurr: number, acTar: number) => {
     if (!currentUser) return;
-    try {
-      const { error } = await supabase.from('savings_funds').upsert({
-        user_id: userId,
-        teacher_name: currentUser.teacherName || 'Admin',
-        emergency_current: emCurr,
-        emergency_target: emTar,
-        accumulation_current: acCurr,
-        accumulation_target: acTar,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'user_id' });
-      if (error) console.error('Supabase savings_funds upsert error:', error);
-    } catch (err) {
-      console.error('Direct saveSavingsFunds error:', err);
-    }
+    runBackgroundSave(async () => {
+      try {
+        const { error } = await supabase.from('savings_funds').upsert({
+          user_id: userId,
+          teacher_name: currentUser.teacherName || 'Admin',
+          emergency_current: emCurr,
+          emergency_target: emTar,
+          accumulation_current: acCurr,
+          accumulation_target: acTar,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'user_id' });
+        if (error) console.error('Supabase savings_funds upsert error:', error);
+      } catch (err) {
+        console.error('Direct saveSavingsFunds error:', err);
+      }
+    });
   };
 
   const saveEmergencyCurrent = (userId: string, val: number) => {
@@ -584,53 +626,57 @@ export default function Dashboard() {
     saveSavingsFundsDirect(userId, emergencyCurrent, emergencyTarget, accumulationCurrent, val);
   };
 
-  const saveSavingsHistory = useCallback(async (userId: string, data: any[]) => {
+  const saveSavingsHistory = useCallback((userId: string, data: any[]) => {
     setSavingsHistory(data);
     localStorage.setItem(`finance_sav_hist_${userId}`, JSON.stringify(data));
 
     if (!currentUser) return;
-    try {
-      await supabase.from('savings_history').delete().eq('user_id', userId);
-      if (data.length > 0) {
-        const records = data.map(h => ({
-          id: h.id || `sh-${Date.now()}-${Math.random()}`,
-          user_id: userId,
-          teacher_name: currentUser.teacherName || 'Admin',
-          fund: h.fund,
-          type: h.type,
-          amount: Number(h.amount) || 0,
-          date: h.date
-        }));
-        const { error } = await supabase.from('savings_history').insert(records);
-        if (error) console.error('Supabase savings_history insert error:', error);
+    runBackgroundSave(async () => {
+      try {
+        await supabase.from('savings_history').delete().eq('user_id', userId);
+        if (data.length > 0) {
+          const records = data.map(h => ({
+            id: h.id || `sh-${Date.now()}-${Math.random()}`,
+            user_id: userId,
+            teacher_name: currentUser.teacherName || 'Admin',
+            fund: h.fund,
+            type: h.type,
+            amount: Number(h.amount) || 0,
+            date: h.date
+          }));
+          const { error } = await supabase.from('savings_history').insert(records);
+          if (error) console.error('Supabase savings_history insert error:', error);
+        }
+      } catch (err) {
+        console.error('Direct saveSavingsHistory error:', err);
       }
-    } catch (err) {
-      console.error('Direct saveSavingsHistory error:', err);
-    }
-  }, [currentUser]);
+    });
+  }, [currentUser, runBackgroundSave]);
 
-  const saveBudgets = useCallback(async (userId: string, budgets: Record<string, number>) => {
+  const saveBudgets = useCallback((userId: string, budgets: Record<string, number>) => {
     setCategoryBudgets(budgets);
     localStorage.setItem(`finance_budgets_${userId}`, JSON.stringify(budgets));
 
     if (!currentUser) return;
-    try {
-      const records = Object.keys(budgets).map(cat => ({
-        id: `${userId}_${cat}`,
-        user_id: userId,
-        teacher_name: currentUser.teacherName || 'Admin',
-        category: cat,
-        amount: Number(budgets[cat]) || 0,
-        updated_at: new Date().toISOString()
-      }));
-      if (records.length > 0) {
-        const { error } = await supabase.from('category_budgets').upsert(records, { onConflict: 'id' });
-        if (error) console.error('Supabase category_budgets upsert error:', error);
+    runBackgroundSave(async () => {
+      try {
+        const records = Object.keys(budgets).map(cat => ({
+          id: `${userId}_${cat}`,
+          user_id: userId,
+          teacher_name: currentUser.teacherName || 'Admin',
+          category: cat,
+          amount: Number(budgets[cat]) || 0,
+          updated_at: new Date().toISOString()
+        }));
+        if (records.length > 0) {
+          const { error } = await supabase.from('category_budgets').upsert(records, { onConflict: 'id' });
+          if (error) console.error('Supabase category_budgets upsert error:', error);
+        }
+      } catch (err) {
+        console.error('Direct saveBudgets error:', err);
       }
-    } catch (err) {
-      console.error('Direct saveBudgets error:', err);
-    }
-  }, [currentUser]);
+    });
+  }, [currentUser, runBackgroundSave]);
 
   // Fetch teachers list
   const fetchTeachers = useCallback(async () => {
@@ -1072,6 +1118,13 @@ export default function Dashboard() {
           </div>
 
           <div className="flex items-center gap-3 relative">
+            {pendingSavesCount > 0 && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/15 border border-amber-500/30 text-amber-300 rounded-xl text-[10px] font-black shadow-sm animate-pulse">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-ping"></span>
+                <span>Đang lưu ngầm ({pendingSavesCount})</span>
+              </div>
+            )}
+
             {/* Quick Scheduler Manage (Admin only & Schedule view) */}
             {currentUser.role === 'admin' && activeTab === 'schedule' && (
               <button
