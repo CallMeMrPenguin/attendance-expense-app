@@ -15,8 +15,13 @@ export async function GET() {
     let receipts: BankReceipt[] = receiptsRes.data || [];
     const rules: ReceiptRule[] = rulesRes.data || [];
 
-    // Trigger IMAP sync in background if empty or to get fresh emails
-    syncBankReceipts().catch(err => console.error('Background sync error:', err));
+    if (receipts.length === 0) {
+      // If DB is empty, await sync synchronously to return fresh receipts immediately
+      receipts = await syncBankReceipts();
+    } else {
+      // Trigger background sync for updates
+      syncBankReceipts().catch(err => console.error('Background sync error:', err));
+    }
 
     return NextResponse.json({
       success: true,

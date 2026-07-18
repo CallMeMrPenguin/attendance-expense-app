@@ -163,14 +163,9 @@ export async function syncBankReceipts(): Promise<BankReceipt[]> {
       const now = new Date();
       const firstDayOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-      // Search emails from Vietcombank sender or with Vietcombank keywords since current month
-      let searchResult = await client.search({ since: firstDayOfCurrentMonth, from: sender });
-      if (!searchResult || searchResult.length === 0) {
-        // Fallback to searching since current month for any Vietcombank emails
-        searchResult = await client.search({ since: firstDayOfCurrentMonth, body: 'Vietcombank' });
-      }
-
-      const msgIds = Array.isArray(searchResult) ? searchResult.slice(-30) : []; // Fetch up to 30 recent emails of current month
+      // Search all emails since 1st of current month
+      const searchResult = await client.search({ since: firstDayOfCurrentMonth });
+      const msgIds = Array.isArray(searchResult) ? searchResult.slice(-50) : []; // Fetch up to 50 recent emails of current month
 
       if (msgIds.length > 0) {
         const clientAdmin = getSupabaseAdmin();
@@ -183,6 +178,15 @@ export async function syncBankReceipts(): Promise<BankReceipt[]> {
           if (!message || !message.source) continue;
 
           const parsed = await simpleParser(message.source);
+          const subject = parsed.subject || '';
+          const fromAddr = parsed.from ? parsed.from.text : '';
+
+          const isVcbEmail = subject.includes('Biên lai') || 
+            fromAddr.toLowerCase().includes('vietcombank') || 
+            (parsed.text || '').includes('Vietcombank');
+
+          if (!isVcbEmail) continue;
+
           const html = parsed.html || '';
           const text = parsed.text || '';
 
