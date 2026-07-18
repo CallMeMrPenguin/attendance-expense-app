@@ -262,9 +262,9 @@ DROP POLICY IF EXISTS all_savings_history ON public.savings_history;
 CREATE POLICY all_savings_history ON public.savings_history FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS all_bank_receipts ON public.bank_receipts;
-CREATE POLICY all_bank_receipts ON public.bank_receipts FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY all_bank_receipts ON public.bank_receipts FOR ALL USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS all_receipt_rules ON public.receipt_rules;
-CREATE POLICY all_receipt_rules ON public.receipt_rules FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY all_receipt_rules ON public.receipt_rules FOR ALL USING (true) WITH CHECK (true);
 
 

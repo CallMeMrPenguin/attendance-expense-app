@@ -1198,44 +1198,6 @@ function FlowTab({
                 className="bg-[#0d1018] border border-white/10 rounded-xl px-3 py-1.5 text-xs font-medium text-white focus:outline-none focus:border-indigo-500/50 placeholder-slate-500 min-w-[140px]"
               />
 
-              {/* Category Filter Dropdown */}
-              <div className="relative" data-filter-cat>
-                <button
-                  onClick={() => setCatFilterOpen(o => !o)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                    filterCategory !== 'all' 
-                      ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-300' 
-                      : 'bg-[#0d1018] border-white/10 text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <Filter className="h-3.5 w-3.5" />
-                  <span>{filterCategory === 'all' ? 'Tất cả danh mục' : filterCategory}</span>
-                </button>
-                {catFilterOpen && (
-                  <div className="absolute top-full right-0 mt-1.5 z-40 bg-[#0d1018]/95 border border-white/10 rounded-[14px] p-1.5 shadow-2xl text-left font-normal normal-case w-40 max-h-48 overflow-y-auto scrollbar-thin animate-mac-dropdown origin-top">
-                    <button
-                      onClick={() => { setFilterCategory('all'); setCatFilterOpen(false); setCurrentPage(1); }}
-                      className={`w-full text-left px-2.5 py-1.5 text-xs font-bold rounded-lg ${
-                        filterCategory === 'all' ? 'bg-indigo-500/25 text-indigo-300 border border-indigo-500/20 shadow-sm' : 'text-slate-400 hover:bg-white/5'
-                      }`}
-                    >
-                      Tất cả danh mục
-                    </button>
-                    {availableCategories.map(catName => (
-                      <button
-                        key={catName}
-                        onClick={() => { setFilterCategory(catName); setCatFilterOpen(false); setCurrentPage(1); }}
-                        className={`w-full text-left px-2.5 py-1.5 text-xs font-bold rounded-lg ${
-                          filterCategory === catName ? 'bg-indigo-500/25 text-indigo-300 border border-indigo-500/20 shadow-sm' : 'text-slate-400 hover:bg-white/5'
-                        }`}
-                      >
-                        {catName}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
               {/* Filter pill toggle */}
               <div className="relative flex bg-[#0d1018] p-1 rounded-xl border border-white/10 text-xs shrink-0 font-bold select-none min-w-[320px]">
                 <div

@@ -168,25 +168,36 @@ export async function syncBankReceipts(): Promise<BankReceipt[]> {
     const lock = await client.getMailboxLock('INBOX');
 
     try {
-      // Filter by current month only (SINCE 1st of current month)
+      const clientAdmin = getSupabaseAdmin();
+
+      // 1. Fetch existing receipts & rules from Supabase DB to seed server cache & rules
+      let ruleList: ReceiptRule[] = [];
+      try {
+        const [receiptsRes, rulesRes] = await Promise.all([
+          clientAdmin.from('bank_receipts').select('*').order('created_at', { ascending: false }),
+          clientAdmin.from('receipt_rules').select('*').order('created_at', { ascending: false })
+        ]);
+
+        if (receiptsRes.data) {
+          receiptsRes.data.forEach((r: any) => serverReceiptCacheMap.set(r.id, r as BankReceipt));
+        }
+        if (rulesRes.data) {
+          ruleList = rulesRes.data as ReceiptRule[];
+        }
+      } catch (e) {}
+
+      // 2. Optimized IMAP Search for Vietcombank emails since 1st of current month
       const now = new Date();
       const firstDayOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-      // Search all emails since 1st of current month
-      const searchResult = await client.search({ since: firstDayOfCurrentMonth });
-      const msgIds = Array.isArray(searchResult) ? searchResult.slice(-50) : []; // Fetch up to 50 recent emails of current month
+      let searchResult = await client.search({ since: firstDayOfCurrentMonth, body: 'Vietcombank' });
+      if (!searchResult || searchResult.length === 0) {
+        searchResult = await client.search({ since: firstDayOfCurrentMonth });
+      }
+
+      const msgIds = Array.isArray(searchResult) ? searchResult.slice(-20) : [];
 
       if (msgIds.length > 0) {
-        const clientAdmin = getSupabaseAdmin();
-        // Fetch existing rules for auto-classification
-        let ruleList: ReceiptRule[] = [];
-        try {
-          const { data: rules } = await clientAdmin.from('receipt_rules').select('*');
-          ruleList = rules || [];
-        } catch (e) {
-          // Ignore if table doesn't exist yet
-        }
-
         for (const seq of msgIds) {
           const message = await client.fetchOne(seq, { source: true, envelope: true });
           if (!message || !message.source) continue;
@@ -209,30 +220,17 @@ export async function syncBankReceipts(): Promise<BankReceipt[]> {
 
           const receiptId = `vcb-${receiptData.order_number}`;
 
-          // Check in-memory cache first
+          // If already classified or in DB, keep existing state
           if (serverReceiptCacheMap.has(receiptId)) {
-            continue;
-          }
-
-          // Check if already in DB
-          try {
-            const { data: existing } = await clientAdmin
-              .from('bank_receipts')
-              .select('*')
-              .eq('id', receiptId)
-              .maybeSingle();
-
-            if (existing) {
-              serverReceiptCacheMap.set(receiptId, existing as BankReceipt);
+            const cached = serverReceiptCacheMap.get(receiptId);
+            if (cached && cached.status === 'classified') {
               continue;
             }
-          } catch (e) {
-            // Ignore missing table error
           }
 
           // Check auto classification rule match
           let status: 'unclassified' | 'classified' = 'unclassified';
-          let matchedType: 'income' | 'expense' | undefined = undefined;
+          let matchedType: 'income' | 'expense' | 'saving' | undefined = undefined;
           let matchedCategory: string | undefined = undefined;
 
           for (const rule of ruleList) {
@@ -269,9 +267,10 @@ export async function syncBankReceipts(): Promise<BankReceipt[]> {
           // Store in server memory cache
           serverReceiptCacheMap.set(receiptId, newReceipt);
 
-          // Attempt insert into Supabase
+          // Insert into Supabase DB
           try {
-            await clientAdmin.from('bank_receipts').upsert(newReceipt, { onConflict: 'id' });
+            const { error: dbErr } = await clientAdmin.from('bank_receipts').upsert(newReceipt, { onConflict: 'id' });
+            if (dbErr) console.error('[Supabase bank_receipts upsert error]', dbErr.message);
 
             if (status === 'classified' && matchedType && matchedCategory) {
               const txRecord = {
@@ -285,9 +284,7 @@ export async function syncBankReceipts(): Promise<BankReceipt[]> {
               };
               await clientAdmin.from('manual_transactions').upsert(txRecord, { onConflict: 'id' });
             }
-          } catch (e) {
-            // Ignore missing table error
-          }
+          } catch (e) {}
         }
       }
     } finally {
