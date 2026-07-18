@@ -1656,7 +1656,7 @@ function FlowTab({
       </div>
 
       {mounted && editingCat && createPortal(
-        <div className="fixed inset-0 bg-[#070911]/90 backdrop-blur-md z-[99999] flex items-center justify-center p-4 text-slate-100">
+        <div className="fixed inset-0 bg-[#070911]/96 z-[99999] flex items-center justify-center p-4 text-slate-100">
           <div className="bg-[#0f1320] border border-indigo-500/30 rounded-2xl w-full max-w-md p-6 relative shadow-[0_0_50px_rgba(0,0,0,0.9)] animate-mac-dropdown">
             <h3 className="text-sm font-black text-indigo-400 tracking-wider uppercase mb-5">
               Sửa danh mục: {editingCat.type === 'income' ? 'Thu nhập' : 'Chi tiêu'}
@@ -1766,7 +1766,7 @@ function FlowTab({
 
       {/* Modal: Thêm danh mục mới (Income / Expense) */}
       {mounted && addingCatType && createPortal(
-        <div className="fixed inset-0 bg-[#070911]/90 backdrop-blur-md z-[99999] flex items-center justify-center p-4 text-slate-100">
+        <div className="fixed inset-0 bg-[#070911]/96 z-[99999] flex items-center justify-center p-4 text-slate-100">
           <div className="bg-[#0f1320] border border-indigo-500/30 rounded-2xl w-full max-w-md p-6 relative shadow-[0_0_50px_rgba(0,0,0,0.9)] animate-mac-dropdown">
             <button 
               onClick={() => setAddingCatType(null)}
@@ -1874,7 +1874,7 @@ function FlowTab({
       )}
 
       {mounted && editingTx && createPortal(
-        <div className="fixed inset-0 bg-[#070911]/90 backdrop-blur-md z-[99999] flex items-center justify-center p-4 text-slate-100">
+        <div className="fixed inset-0 bg-[#070911]/96 z-[99999] flex items-center justify-center p-4 text-slate-100">
           <div className="bg-[#0f1320] border border-indigo-500/30 rounded-2xl w-full max-w-md p-6 relative shadow-[0_0_50px_rgba(0,0,0,0.9)] animate-mac-dropdown">
             <button 
               onClick={() => setEditingTx(null)}
@@ -2030,7 +2030,7 @@ function FlowTab({
 
       {/* Modal: Phân loại Biên Lai Chuyển Tiền */}
       {mounted && classifyingReceipt && createPortal(
-        <div className="fixed inset-0 bg-[#070911]/90 backdrop-blur-md z-[99999] flex items-center justify-center p-4 text-slate-100">
+        <div className="fixed inset-0 bg-[#070911]/96 z-[99999] flex items-center justify-center p-4 text-slate-100">
           <div className="bg-[#0f1320] border border-amber-500/30 rounded-2xl w-full max-w-md p-6 relative shadow-[0_0_50px_rgba(245,158,11,0.2)] animate-mac-dropdown">
             <button 
               onClick={() => setClassifyingReceipt(null)}
