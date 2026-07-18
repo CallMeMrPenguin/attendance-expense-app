@@ -31,6 +31,7 @@ import {
   ChevronRight,
   ChevronDown,
   Filter,
+  ArrowUpDown,
   X,
   Sparkles
 } from 'lucide-react';
@@ -318,13 +319,18 @@ function FlowTab({
     setConfirmDeleteCatInfo(null);
   };
 
-  // Filter & Pagination states for Giao dịch section
+  // Filter, Sort & Pagination states for Giao dịch section
   const [filterType, setFilterType] = React.useState<'all' | 'income' | 'expense'>('all');
   const [filterCategory, setFilterCategory] = React.useState<string>('all');
   const [filterRecurring, setFilterRecurring] = React.useState<'all' | 'co_dinh' | 'tam_thoi' | 'bien_lai'>('all');
   const [searchQuery, setSearchQuery] = React.useState<string>('');
   const [currentPage, setCurrentPage] = React.useState<number>(1);
   const itemsPerPage = 10;
+
+  // Sorting states (by date, name, amount)
+  const [sortBy, setSortBy] = React.useState<'date-desc' | 'date-asc' | 'name-asc' | 'name-desc' | 'amount-desc' | 'amount-asc'>('date-desc');
+  const [receiptSortBy, setReceiptSortBy] = React.useState<'date-desc' | 'date-asc' | 'name-asc' | 'name-desc' | 'amount-desc' | 'amount-asc'>('date-desc');
+  const [sortMenuOpen, setSortMenuOpen] = React.useState(false);
 
   // Filter Popover Menu toggles
   const [typeFilterOpen, setTypeFilterOpen] = React.useState(false);
@@ -353,6 +359,9 @@ function FlowTab({
       }
       if (!target.closest('[data-filter-cat]')) {
         setCatFilterOpen(false);
+      }
+      if (!target.closest('[data-sort-menu]')) {
+        setSortMenuOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -598,35 +607,54 @@ function FlowTab({
     return Array.from(new Set(transactions.map(t => t.category)));
   }, [transactions]);
 
-  // Filtered Bank Receipts for current selected month(s)
+  // Filtered Bank Receipts for current selected month(s) with sorting
   const filteredBankReceipts = React.useMemo(() => {
     const q = searchQuery.toLowerCase();
-    return bankReceipts.filter((r: any) => {
+    const list = bankReceipts.filter((r: any) => {
       const receiptMonth = (r.trans_date || '').substring(0, 7);
       const matchesMonth = chartSelectedMonths.length === 0 || chartSelectedMonths.includes(receiptMonth);
-      const matchesCategory = filterCategory === 'all' || r.category === filterCategory;
       const matchesSearch = !q ||
         (r.remitter_name || '').toLowerCase().includes(q) ||
         (r.beneficiary_name || '').toLowerCase().includes(q) ||
         (r.details || '').toLowerCase().includes(q) ||
         (r.order_number || '').toLowerCase().includes(q);
 
-      return matchesMonth && matchesCategory && matchesSearch;
+      return matchesMonth && matchesSearch;
     });
-  }, [bankReceipts, chartSelectedMonths, filterCategory, searchQuery]);
 
-  // Filtered & Paginated Transactions
+    return list.sort((a: any, b: any) => {
+      const aName = a.remitter_name || a.beneficiary_name || a.details || '';
+      const bName = b.remitter_name || b.beneficiary_name || b.details || '';
+      if (receiptSortBy === 'date-desc') return (b.trans_date || '').localeCompare(a.trans_date || '');
+      if (receiptSortBy === 'date-asc') return (a.trans_date || '').localeCompare(b.trans_date || '');
+      if (receiptSortBy === 'name-asc') return aName.localeCompare(bName, 'vi');
+      if (receiptSortBy === 'name-desc') return bName.localeCompare(aName, 'vi');
+      if (receiptSortBy === 'amount-desc') return (Number(b.amount) || 0) - (Number(a.amount) || 0);
+      if (receiptSortBy === 'amount-asc') return (Number(a.amount) || 0) - (Number(b.amount) || 0);
+      return 0;
+    });
+  }, [bankReceipts, chartSelectedMonths, searchQuery, receiptSortBy]);
+
+  // Filtered & Paginated Transactions with sorting
   const filteredTransactions = React.useMemo(() => {
     const q = searchQuery.toLowerCase();
-    return transactions.filter(t => {
-      const matchesType = filterType === 'all' || t.type === filterType;
-      const matchesCategory = filterCategory === 'all' || t.category === filterCategory;
+    const list = transactions.filter(t => {
       const matchesSearch = !q || t.desc.toLowerCase().includes(q);
       const matchesRec = filterRecurring === 'all' || 
         (filterRecurring === 'co_dinh' ? t.isRecurring : !t.isRecurring);
-      return matchesType && matchesCategory && matchesSearch && matchesRec;
+      return matchesSearch && matchesRec;
     });
-  }, [transactions, filterType, filterCategory, searchQuery, filterRecurring]);
+
+    return list.sort((a: any, b: any) => {
+      if (sortBy === 'date-desc') return (b.date || '').localeCompare(a.date || '');
+      if (sortBy === 'date-asc') return (a.date || '').localeCompare(b.date || '');
+      if (sortBy === 'name-asc') return (a.desc || '').localeCompare(b.desc || '', 'vi');
+      if (sortBy === 'name-desc') return (b.desc || '').localeCompare(a.desc || '', 'vi');
+      if (sortBy === 'amount-desc') return (Number(b.amount) || 0) - (Number(a.amount) || 0);
+      if (sortBy === 'amount-asc') return (Number(a.amount) || 0) - (Number(b.amount) || 0);
+      return 0;
+    });
+  }, [transactions, searchQuery, filterRecurring, sortBy]);
 
   const totalPages = React.useMemo(() => Math.ceil(filteredTransactions.length / itemsPerPage) || 1, [filteredTransactions.length, itemsPerPage]);
 
@@ -1198,6 +1226,67 @@ function FlowTab({
                 className="bg-[#0d1018] border border-white/10 rounded-xl px-3 py-1.5 text-xs font-medium text-white focus:outline-none focus:border-indigo-500/50 placeholder-slate-500 min-w-[140px]"
               />
 
+              {/* Sort Dropdown (by Date, Name, Amount) */}
+              <div className="relative" data-sort-menu>
+                <button
+                  type="button"
+                  onClick={() => setSortMenuOpen(o => !o)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0d1018] border border-white/10 hover:border-indigo-500/40 text-slate-300 hover:text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm"
+                  title="Sắp xếp danh sách"
+                >
+                  <ArrowUpDown className="h-3.5 w-3.5 text-indigo-400" />
+                  <span>
+                    {filterRecurring === 'bien_lai' ? (
+                      receiptSortBy === 'date-desc' ? 'Ngày (Mới → Cũ)' :
+                      receiptSortBy === 'date-asc' ? 'Ngày (Cũ → Mới)' :
+                      receiptSortBy === 'name-asc' ? 'Tên (A → Z)' :
+                      receiptSortBy === 'name-desc' ? 'Tên (Z → A)' :
+                      receiptSortBy === 'amount-desc' ? 'Số tiền (Cao → Thấp)' : 'Số tiền (Thấp → Cao)'
+                    ) : (
+                      sortBy === 'date-desc' ? 'Ngày (Mới → Cũ)' :
+                      sortBy === 'date-asc' ? 'Ngày (Cũ → Mới)' :
+                      sortBy === 'name-asc' ? 'Tên (A → Z)' :
+                      sortBy === 'name-desc' ? 'Tên (Z → A)' :
+                      sortBy === 'amount-desc' ? 'Số tiền (Cao → Thấp)' : 'Số tiền (Thấp → Cao)'
+                    )}
+                  </span>
+                  <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+                </button>
+
+                {sortMenuOpen && (
+                  <div className="absolute top-full right-0 mt-1.5 z-40 bg-[#0d1018]/95 border border-white/10 rounded-[14px] p-1.5 shadow-2xl text-left font-normal normal-case w-48 animate-mac-dropdown origin-top">
+                    {[
+                      { key: 'date-desc', label: '📅 Ngày (Mới → Cũ)' },
+                      { key: 'date-asc', label: '📅 Ngày (Cũ → Mới)' },
+                      { key: 'name-asc', label: '🔤 Tên (A → Z)' },
+                      { key: 'name-desc', label: '🔤 Tên (Z → A)' },
+                      { key: 'amount-desc', label: '💵 Số tiền (Cao → Thấp)' },
+                      { key: 'amount-asc', label: '💵 Số tiền (Thấp → Cao)' }
+                    ].map(item => (
+                      <button
+                        key={item.key}
+                        onClick={() => {
+                          if (filterRecurring === 'bien_lai') {
+                            setReceiptSortBy(item.key as any);
+                          } else {
+                            setSortBy(item.key as any);
+                          }
+                          setSortMenuOpen(false);
+                          setCurrentPage(1);
+                        }}
+                        className={`w-full text-left px-2.5 py-1.5 text-xs font-bold rounded-lg ${
+                          (filterRecurring === 'bien_lai' ? receiptSortBy : sortBy) === item.key
+                            ? 'bg-indigo-500/25 text-indigo-300 border border-indigo-500/20 shadow-sm'
+                            : 'text-slate-400 hover:bg-white/5'
+                        }`}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {/* Filter pill toggle */}
               <div className="relative flex bg-[#0d1018] p-1 rounded-xl border border-white/10 text-xs shrink-0 font-bold select-none min-w-[320px]">
                 <div
@@ -1337,10 +1426,19 @@ function FlowTab({
 
                         <button
                           type="button"
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
                             setClassifyingReceipt(r);
-                            setSelectedType(r.type || 'expense');
-                            setSelectedCat(r.category || (r.type === 'income' ? incomeCats[0]?.name : expenseCats[0]?.name));
+                            const t = r.type || 'expense';
+                            setSelectedType(t);
+                            if (t === 'saving') {
+                              setSelectedCat(r.category || 'Tiết kiệm khẩn cấp');
+                            } else if (t === 'income') {
+                              setSelectedCat(r.category || incomeCats[0]?.name || 'Lương');
+                            } else {
+                              setSelectedCat(r.category || expenseCats[0]?.name || 'Ăn uống');
+                            }
                             setMatchField('remitter_name');
                             setMatchValue(r.remitter_name || r.details || '');
                           }}
@@ -1825,7 +1923,7 @@ function FlowTab({
       )}
 
       {/* Modal: Phân loại Biên Lai Chuyển Tiền */}
-      {mounted && classifyingReceipt && createPortal(
+      {(mounted || typeof window !== 'undefined') && classifyingReceipt && createPortal(
         <div className="fixed inset-0 bg-[#070911]/90 backdrop-blur-md z-[99999] flex items-center justify-center p-4 text-slate-100">
           <div className="bg-[#0f1320] border border-amber-500/30 rounded-2xl w-full max-w-md p-6 relative shadow-[0_0_50px_rgba(245,158,11,0.2)] animate-mac-dropdown">
             <button 
