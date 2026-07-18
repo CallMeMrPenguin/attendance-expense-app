@@ -45,6 +45,27 @@ const ICON_COMPONENTS: Record<string, React.ComponentType<any>> = {
   Home, Heart, Plane, Gift, Phone, Shield, Cpu, Coffee
 };
 
+const cleanString = (str: string): string => {
+  return (str || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/đ/g, 'd')
+    .trim();
+};
+
+const matchKeyword = (cleanDetails: string, kw: string): boolean => {
+  const cleanedKw = cleanString(kw);
+  if (!cleanedKw) return false;
+
+  if (cleanedKw.includes(' ')) {
+    return cleanDetails.includes(cleanedKw);
+  } else {
+    const words = cleanDetails.split(/[\s,._-]+/).filter(Boolean);
+    return words.includes(cleanedKw) || new RegExp(`\\b${cleanedKw}\\b`, 'i').test(cleanDetails);
+  }
+};
+
 const CategoryIcon = React.memo(({ iconName, className }: { iconName: string, className?: string }) => {
   const IconComp = ICON_COMPONENTS[iconName] || HelpCircle;
   return <IconComp className={className} />;
@@ -741,10 +762,47 @@ function FlowTab({
     return Array.from(new Set(transactions.map(t => t.category)));
   }, [transactions]);
 
-  // Filtered Bank Receipts for current selected month(s) with sorting
+  // Filtered Bank Receipts for current selected month(s) with sorting & instant keyword auto-classification
   const filteredBankReceipts = React.useMemo(() => {
     const q = searchQuery.toLowerCase();
-    const list = bankReceipts.filter((r: any) => {
+    const allCats = [
+      ...incomeCats.map(c => ({ ...c, catType: 'income' as const })),
+      ...expenseCats.map(c => ({ ...c, catType: 'expense' as const }))
+    ];
+
+    const processed = bankReceipts.map((r: any) => {
+      let status = r.status;
+      let category = r.category;
+      let type = r.type;
+
+      if (status !== 'classified' && r.details) {
+        const cleanDetails = cleanString(r.details);
+        for (const catObj of allCats) {
+          if (catObj.keywords) {
+            const kwList = catObj.keywords.split(',').map(cleanString).filter(Boolean);
+            for (const kw of kwList) {
+              if (matchKeyword(cleanDetails, kw)) {
+                status = 'classified';
+                category = catObj.name;
+                const savingCats = ['Tiết kiệm khẩn cấp', 'Tích lũy dài hạn', 'Tiết kiệm khác', 'Tiết kiệm'];
+                type = savingCats.includes(catObj.name) ? 'saving' : catObj.catType;
+                break;
+              }
+            }
+          }
+          if (status === 'classified') break;
+        }
+      }
+
+      return {
+        ...r,
+        status,
+        category,
+        type
+      };
+    });
+
+    const list = processed.filter((r: any) => {
       const receiptMonth = (r.trans_date || '').substring(0, 7);
       const matchesMonth = chartSelectedMonths.length === 0 || chartSelectedMonths.includes(receiptMonth);
       const matchesSearch = !q ||
@@ -770,7 +828,7 @@ function FlowTab({
       if (receiptSortBy === 'amount-asc') return (Number(a.amount) || 0) - (Number(b.amount) || 0);
       return 0;
     });
-  }, [bankReceipts, chartSelectedMonths, searchQuery, receiptSortBy]);
+  }, [bankReceipts, incomeCats, expenseCats, chartSelectedMonths, searchQuery, receiptSortBy]);
 
   // Filtered & Paginated Transactions with sorting
   const filteredTransactions = React.useMemo(() => {

@@ -183,7 +183,33 @@ export const cleanString = (str: string): string => {
     .trim();
 };
 
+export function matchKeyword(cleanDetails: string, kw: string): boolean {
+  const cleanedKw = cleanString(kw);
+  if (!cleanedKw) return false;
+
+  if (cleanedKw.includes(' ')) {
+    return cleanDetails.includes(cleanedKw);
+  } else {
+    const words = cleanDetails.split(/[\s,._-]+/).filter(Boolean);
+    return words.includes(cleanedKw) || new RegExp(`\\b${cleanedKw}\\b`, 'i').test(cleanDetails);
+  }
+}
+
+export async function stopImapIdleListener() {
+  if (imapClientInstance) {
+    try {
+      isIdleListening = false;
+      const client = imapClientInstance;
+      imapClientInstance = null;
+      await client.logout();
+    } catch (e) {}
+  }
+}
+
 export async function syncBankReceipts(clientKeywords?: Record<string, string>): Promise<BankReceipt[]> {
+  // Pause IDLE listener temporarily to prevent IMAP connection pool overflow
+  await stopImapIdleListener();
+
   const { user, pass, sender } = getImapConfig();
   if (!user || !pass) {
     console.warn('Gmail IMAP credentials missing in environment variables.');
@@ -200,141 +226,142 @@ export async function syncBankReceipts(clientKeywords?: Record<string, string>):
 
   const clientAdmin = getSupabaseAdmin();
   let existingMap = new Map<string, BankReceipt>();
+  let ruleList: ReceiptRule[] = [];
+  let categoryBudgetsList: any[] = [];
 
+  // 1. Fetch existing receipts, rules, and category budgets from Supabase DB FIRST
   try {
-    await client.connect();
+    const [receiptsRes, rulesRes, budgetsRes] = await Promise.all([
+      clientAdmin.from('bank_receipts').select('*').order('created_at', { ascending: false }),
+      clientAdmin.from('receipt_rules').select('*').order('created_at', { ascending: false }),
+      clientAdmin.from('category_budgets').select('*')
+    ]);
+
+    let dbReceipts: BankReceipt[] = [];
+    if (receiptsRes.data) {
+      dbReceipts = receiptsRes.data as BankReceipt[];
+    }
+    if (rulesRes.data) {
+      ruleList = rulesRes.data as ReceiptRule[];
+    }
+    const defaultKeywords: Record<string, string> = {
+      'Lương': 'luong',
+      'Giáo dục': 'day hoc, day, cham cong',
+      'Đầu tư': 'dau tu, chung khoan',
+      'Khác': 'khac',
+      'Ăn uống': 'an uong, do an, food, com, an',
+      'Di chuyển': 'xang, grab, taxi, di lai',
+      'Shopping': 'shopping, mua sam',
+      'Hóa đơn': 'hoa don, dien nuoc, wifi',
+      'Giải trí': 'giai tri, xem phim, du lich',
+      'Tiết kiệm khẩn cấp': 'tiet kiem khan cap, khan cap',
+      'Tích lũy dài hạn': 'tich luy dai han, tich luy',
+      'Tiết kiệm khác': 'tiet kiem khac'
+    };
+
+    if (budgetsRes.data && budgetsRes.data.length > 0) {
+      categoryBudgetsList = budgetsRes.data.map((b: any) => ({
+        category: b.category,
+        keywords: b.keywords || defaultKeywords[b.category] || ''
+      }));
+      console.log('[IMAP Service] Loaded category budgets from DB:', categoryBudgetsList.map((b: any) => ({ category: b.category, keywords: b.keywords })));
+    } else {
+      categoryBudgetsList = Object.keys(defaultKeywords).map(cat => ({
+        category: cat,
+        keywords: defaultKeywords[cat]
+      }));
+      console.log('[IMAP Service] Loaded category budgets from default fallback keywords:', categoryBudgetsList.map((b: any) => ({ category: b.category, keywords: b.keywords })));
+    }
+
+    // Merge client-passed keywords if database returned empty or is overridden by client
+    if (clientKeywords) {
+      const clientBudgets = Object.keys(clientKeywords).map(cat => ({
+        category: cat,
+        keywords: clientKeywords[cat]
+      }));
+      
+      clientBudgets.forEach(cb => {
+        const existing = categoryBudgetsList.find(x => x.category === cb.category);
+        if (existing) {
+          if (cb.keywords) existing.keywords = cb.keywords;
+        } else {
+          categoryBudgetsList.push(cb);
+        }
+      });
+      console.log('[IMAP Service] Merged category budgets list with client-provided keywords:', categoryBudgetsList.map((b: any) => ({ category: b.category, keywords: b.keywords })));
+    }
+
+    existingMap = new Map<string, BankReceipt>(dbReceipts.map(r => [r.id, r]));
+
+    // Re-evaluate all unclassified receipts in database against keywords
+    const unclassifiedReceipts = dbReceipts.filter((r: any) => r.status === 'unclassified');
+    if (unclassifiedReceipts.length > 0 && categoryBudgetsList.length > 0) {
+      console.log(`[IMAP Sync] Re-evaluating ${unclassifiedReceipts.length} existing unclassified database receipts against keywords...`);
+      for (const receipt of unclassifiedReceipts) {
+        const cleanDetails = cleanString(receipt.details || '');
+        let matched = false;
+        for (const budget of categoryBudgetsList) {
+          if (budget.keywords) {
+            const kwList = budget.keywords.split(',').map((kw: string) => cleanString(kw)).filter(Boolean);
+            for (const kw of kwList) {
+              if (matchKeyword(cleanDetails, kw)) {
+                console.log(`[IMAP Sync] Re-evaluation MATCH! Receipt "${receipt.id}" details "${cleanDetails}" matched keyword "${kw}" -> Category: "${budget.category}"`);
+                
+                const savingCats = ['Tiết kiệm khẩn cấp', 'Tích lũy dài hạn', 'Tiết kiệm khác', 'Tiết kiệm'];
+                const matchedType: 'income' | 'expense' | 'saving' = savingCats.includes(budget.category) ? 'saving' : 'expense';
+                
+                const updatedReceipt = {
+                  ...receipt,
+                  status: 'classified' as const,
+                  type: matchedType,
+                  category: budget.category
+                };
+                
+                existingMap.set(receipt.id, updatedReceipt);
+                
+                (async () => {
+                  try {
+                    await clientAdmin.from('bank_receipts').upsert(updatedReceipt, { onConflict: 'id' });
+                    
+                    const txRecord = {
+                      id: `tx-receipt-${receipt.id}`,
+                      desc_text: `[Biên lai] ${updatedReceipt.remitter_name || ''} ➔ ${updatedReceipt.beneficiary_name || ''}: ${updatedReceipt.details}`,
+                      amount: updatedReceipt.amount,
+                      type: matchedType,
+                      category: budget.category,
+                      date: updatedReceipt.trans_date,
+                      user_id: receipt.user_id || '2d3a11e1-4d71-474c-b8df-abb85394e9c8',
+                      teacher_name: 'Admin',
+                      updated_at: new Date().toISOString()
+                    };
+                    await clientAdmin.from('manual_transactions').upsert(txRecord, { onConflict: 'id' });
+                  } catch (dbErr) {
+                    console.error('[IMAP Sync] DB background update failed (possibly RLS):', dbErr);
+                  }
+                })();
+                
+                matched = true;
+                break;
+              }
+            }
+          }
+          if (matched) break;
+        }
+      }
+    }
+  } catch (e) {
+    console.error('[IMAP Sync] Error loading metadata from Supabase DB:', e);
+  }
+
+  // 2. Fetch new emails from Gmail IMAP (with 10s timeout safeguard)
+  try {
+    const connectPromise = client.connect();
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('IMAP connection timeout (10s)')), 10000));
+    await Promise.race([connectPromise, timeoutPromise]);
+
     const lock = await client.getMailboxLock('INBOX');
 
     try {
-      // 1. Fetch existing receipts, rules, and category budgets from Supabase DB
-      let dbReceipts: BankReceipt[] = [];
-      let ruleList: ReceiptRule[] = [];
-      let categoryBudgetsList: any[] = [];
-      try {
-        const [receiptsRes, rulesRes, budgetsRes] = await Promise.all([
-          clientAdmin.from('bank_receipts').select('*').order('created_at', { ascending: false }),
-          clientAdmin.from('receipt_rules').select('*').order('created_at', { ascending: false }),
-          clientAdmin.from('category_budgets').select('*')
-        ]);
-
-        if (receiptsRes.data) {
-          dbReceipts = receiptsRes.data as BankReceipt[];
-        }
-        if (rulesRes.data) {
-          ruleList = rulesRes.data as ReceiptRule[];
-        }
-        const defaultKeywords: Record<string, string> = {
-          'Lương': 'luong',
-          'Giáo dục': 'day hoc, day, cham cong',
-          'Đầu tư': 'dau tu, chung khoan',
-          'Khác': 'khac',
-          'Ăn uống': 'an uong, do an, food, com, an',
-          'Di chuyển': 'xang, grab, taxi, di lai',
-          'Shopping': 'shopping, mua sam',
-          'Hóa đơn': 'hoa don, dien nuoc, wifi',
-          'Giải trí': 'giai tri, xem phim, du lich',
-          'Tiết kiệm khẩn cấp': 'tiet kiem khan cap, khan cap',
-          'Tích lũy dài hạn': 'tich luy dai han, tich luy',
-          'Tiết kiệm khác': 'tiet kiem khac'
-        };
-
-        if (budgetsRes.data && budgetsRes.data.length > 0) {
-          categoryBudgetsList = budgetsRes.data.map((b: any) => ({
-            category: b.category,
-            keywords: b.keywords || defaultKeywords[b.category] || ''
-          }));
-          console.log('[IMAP Service] Loaded category budgets from DB:', categoryBudgetsList.map((b: any) => ({ category: b.category, keywords: b.keywords })));
-        } else {
-          // Initialize categoryBudgetsList from defaultKeywords
-          categoryBudgetsList = Object.keys(defaultKeywords).map(cat => ({
-            category: cat,
-            keywords: defaultKeywords[cat]
-          }));
-          console.log('[IMAP Service] Loaded category budgets from default fallback keywords:', categoryBudgetsList.map((b: any) => ({ category: b.category, keywords: b.keywords })));
-        }
-
-        // Merge client-passed keywords if database returned empty or is overridden by client
-        if (clientKeywords) {
-          const clientBudgets = Object.keys(clientKeywords).map(cat => ({
-            category: cat,
-            keywords: clientKeywords[cat]
-          }));
-          
-          clientBudgets.forEach(cb => {
-            const existing = categoryBudgetsList.find(x => x.category === cb.category);
-            if (existing) {
-              if (cb.keywords) existing.keywords = cb.keywords;
-            } else {
-              categoryBudgetsList.push(cb);
-            }
-          });
-          console.log('[IMAP Service] Merged category budgets list with client-provided keywords:', categoryBudgetsList.map((b: any) => ({ category: b.category, keywords: b.keywords })));
-        }
-
-        existingMap = new Map<string, BankReceipt>(dbReceipts.map(r => [r.id, r]));
-
-        // Re-evaluate all unclassified receipts in database against keywords
-        const unclassifiedReceipts = dbReceipts.filter((r: any) => r.status === 'unclassified');
-        if (unclassifiedReceipts.length > 0 && categoryBudgetsList.length > 0) {
-          console.log(`[IMAP Sync] Re-evaluating ${unclassifiedReceipts.length} existing unclassified database receipts against keywords...`);
-          for (const receipt of unclassifiedReceipts) {
-            const cleanDetails = cleanString(receipt.details || '');
-            let matched = false;
-            for (const budget of categoryBudgetsList) {
-              if (budget.keywords) {
-                const kwList = budget.keywords.split(',').map((kw: string) => cleanString(kw)).filter(Boolean);
-                for (const kw of kwList) {
-                  if (cleanDetails.includes(kw)) {
-                    console.log(`[IMAP Sync] Re-evaluation MATCH! Receipt "${receipt.id}" details "${cleanDetails}" matched keyword "${kw}" -> Category: "${budget.category}"`);
-                    
-                    const savingCats = ['Tiết kiệm khẩn cấp', 'Tích lũy dài hạn', 'Tiết kiệm khác', 'Tiết kiệm'];
-                    const matchedType: 'income' | 'expense' | 'saving' = savingCats.includes(budget.category) ? 'saving' : 'expense';
-                    
-                    const updatedReceipt = {
-                      ...receipt,
-                      status: 'classified' as const,
-                      type: matchedType,
-                      category: budget.category
-                    };
-                    
-                    existingMap.set(receipt.id, updatedReceipt);
-                    
-                    // Update DB and insert transaction in background without blocking
-                    (async () => {
-                      try {
-                        await clientAdmin.from('bank_receipts').upsert(updatedReceipt, { onConflict: 'id' });
-                        
-                        const txRecord = {
-                          id: `tx-receipt-${receipt.id}`,
-                          desc_text: `[Biên lai] ${updatedReceipt.remitter_name || ''} ➔ ${updatedReceipt.beneficiary_name || ''}: ${updatedReceipt.details}`,
-                          amount: updatedReceipt.amount,
-                          type: matchedType,
-                          category: budget.category,
-                          date: updatedReceipt.trans_date,
-                          user_id: receipt.user_id || '2d3a11e1-4d71-474c-b8df-abb85394e9c8',
-                          teacher_name: 'Admin',
-                          updated_at: new Date().toISOString()
-                        };
-                        await clientAdmin.from('manual_transactions').upsert(txRecord, { onConflict: 'id' });
-                      } catch (dbErr) {
-                        console.error('[IMAP Sync] DB background update failed (possibly RLS):', dbErr);
-                      }
-                    })();
-                    
-                    matched = true;
-                    break;
-                  }
-                }
-              }
-              if (matched) break;
-            }
-          }
-        }
-      } catch (e) {
-        console.error('[IMAP Sync] Error loading metadata from Supabase DB:', e);
-      }
-
-      // 2. Optimized IMAP Search since 1st of current month
       const now = new Date();
       const firstDayOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
@@ -387,7 +414,7 @@ export async function syncBankReceipts(clientKeywords?: Record<string, string>):
             if (budget.keywords) {
               const kwList = budget.keywords.split(',').map((kw: string) => cleanString(kw)).filter(Boolean);
               for (const kw of kwList) {
-                if (cleanDetails.includes(kw)) {
+                if (matchKeyword(cleanDetails, kw)) {
                   console.log(`[IMAP Sync] MATCH FOUND! cleanDetails "${cleanDetails}" contains keyword "${kw}" -> Category: "${budget.category}"`);
                   status = 'classified';
                   matchedCategory = budget.category;
@@ -490,62 +517,7 @@ export async function syncBankReceipts(clientKeywords?: Record<string, string>):
   return receiptsList;
 }
 
-let idleReconnectTimer: NodeJS.Timeout | null = null;
-
-function scheduleIdleReconnect() {
-  if (idleReconnectTimer) clearTimeout(idleReconnectTimer);
-  isIdleListening = false;
-  imapClientInstance = null;
-
-  idleReconnectTimer = setTimeout(() => {
-    console.log('[IMAP IDLE Auto-Reconnect] Attempting to reconnect to Gmail IMAP server...');
-    startImapIdleListener().catch(console.error);
-  }, 5000);
-}
-
 export async function startImapIdleListener() {
-  if (isIdleListening && imapClientInstance) {
-    return;
-  }
-
-  const { user, pass } = getImapConfig();
-  if (!user || !pass) return;
-
-  try {
-    const client = new ImapFlow({
-      host: 'imap.gmail.com',
-      port: 993,
-      secure: true,
-      auth: { user, pass },
-      logger: false
-    });
-
-    imapClientInstance = client;
-    isIdleListening = true;
-
-    client.on('exists', async (data) => {
-      console.log(`[IMAP IDLE] ⚡ New message detected (count: ${data.count}). Syncing receipts...`);
-      const receipts = await syncBankReceipts();
-      broadcastSseEvent('new-receipt', { receipts });
-    });
-
-    client.on('error', (err) => {
-      console.error('[IMAP IDLE Error]', err);
-      scheduleIdleReconnect();
-    });
-
-    client.on('close', () => {
-      console.log('[IMAP IDLE] Connection closed. Auto-reconnecting in 5s...');
-      scheduleIdleReconnect();
-    });
-
-    await client.connect();
-    await client.mailboxOpen('INBOX');
-
-    console.log('[IMAP IDLE] Connected & listening for real-time Vietcombank emails...');
-    await client.idle();
-  } catch (err) {
-    console.error('Failed to start IMAP IDLE listener:', err);
-    scheduleIdleReconnect();
-  }
+  // Disabled background IDLE persistent connection to avoid Gmail IMAP connection limits
+  return;
 }

@@ -29,6 +29,27 @@ interface UserProfile {
   token: string;
 }
 
+const cleanString = (str: string): string => {
+  return (str || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/đ/g, 'd')
+    .trim();
+};
+
+const matchKeyword = (cleanDetails: string, kw: string): boolean => {
+  const cleanedKw = cleanString(kw);
+  if (!cleanedKw) return false;
+
+  if (cleanedKw.includes(' ')) {
+    return cleanDetails.includes(cleanedKw);
+  } else {
+    const words = cleanDetails.split(/[\s,._-]+/).filter(Boolean);
+    return words.includes(cleanedKw) || new RegExp(`\\b${cleanedKw}\\b`, 'i').test(cleanDetails);
+  }
+};
+
 export default function Dashboard() {
   const router = useRouter();
   const { showToast } = useToast();
@@ -327,6 +348,105 @@ export default function Dashboard() {
       window.removeEventListener('focus', onFocus);
     };
   }, [fetchBankReceipts, updateReceiptsState]);
+
+  // Client-side Instant Auto-Classification & Transaction Registration
+  useEffect(() => {
+    if (!bankReceipts || bankReceipts.length === 0) return;
+
+    const defaultKeywords: Record<string, string> = {
+      'Lương': 'luong',
+      'Giáo dục': 'day hoc, day, cham cong',
+      'Đầu tư': 'dau tu, chung khoan',
+      'Khác': 'khac',
+      'Ăn uống': 'an uong, do an, food, com, an',
+      'Di chuyển': 'xang, grab, taxi, di lai',
+      'Shopping': 'shopping, mua sam',
+      'Hóa đơn': 'hoa don, dien nuoc, wifi',
+      'Giải trí': 'giai tri, xem phim, du lich',
+      'Tiết kiệm khẩn cấp': 'tiet kiem khan cap, khan cap',
+      'Tích lũy dài hạn': 'tich luy dai han, tich luy',
+      'Tiết kiệm khác': 'tiet kiem khac'
+    };
+
+    let localKeywords: Record<string, string> = {};
+    if (currentUser?.id) {
+      try {
+        const saved = localStorage.getItem(`finance_category_keywords_${currentUser.id}`);
+        if (saved && saved !== 'undefined') localKeywords = JSON.parse(saved);
+      } catch (e) {}
+    }
+
+    const mergedKwMap: Record<string, string> = { ...defaultKeywords, ...localKeywords };
+
+    let receiptsChanged = false;
+    let newTxList: any[] = [];
+
+    const updatedReceipts = bankReceipts.map((r: any) => {
+      let status = r.status;
+      let category = r.category;
+      let type = r.type;
+
+      if (status !== 'classified' && r.details) {
+        const cleanDetails = cleanString(r.details);
+        for (const catName of Object.keys(mergedKwMap)) {
+          const kwStr = mergedKwMap[catName];
+          if (kwStr) {
+            const kwList = kwStr.split(',').map(cleanString).filter(Boolean);
+            for (const kw of kwList) {
+              if (matchKeyword(cleanDetails, kw)) {
+                status = 'classified';
+                category = catName;
+                const savingCats = ['Tiết kiệm khẩn cấp', 'Tích lũy dài hạn', 'Tiết kiệm khác', 'Tiết kiệm'];
+                type = savingCats.includes(catName) ? 'saving' : (['Lương', 'Giáo dục', 'Đầu tư'].includes(catName) ? 'income' : 'expense');
+                receiptsChanged = true;
+                break;
+              }
+            }
+          }
+          if (status === 'classified') break;
+        }
+      }
+
+      if (status === 'classified' && type && category) {
+        const txId = r.id.startsWith('tx-receipt-') ? r.id : `tx-receipt-${r.id.startsWith('vcb-') ? '' : 'vcb-'}${r.id}`;
+        newTxList.push({
+          id: txId,
+          desc: `[Biên lai] ${r.remitter_name || ''} ➔ ${r.beneficiary_name || ''}: ${r.details}`,
+          amount: Number(r.amount) || 0,
+          type,
+          category,
+          date: r.trans_date
+        });
+      }
+
+      return { ...r, status, category, type };
+    });
+
+    if (receiptsChanged) {
+      setBankReceipts(updatedReceipts);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('bank_receipts', JSON.stringify(updatedReceipts));
+      }
+    }
+
+    if (newTxList.length > 0 && currentUser?.id) {
+      setManualTransactions(prev => {
+        let hasNew = false;
+        const map = new Map<string, any>();
+        prev.forEach(t => map.set(t.id, t));
+        newTxList.forEach(t => {
+          if (!map.has(t.id) || map.get(t.id).category !== t.category) {
+            map.set(t.id, t);
+            hasNew = true;
+          }
+        });
+        if (!hasNew) return prev;
+        const merged = Array.from(map.values()).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+        localStorage.setItem(`finance_trans_${currentUser.id}`, JSON.stringify(merged));
+        return merged;
+      });
+    }
+  }, [bankReceipts, currentUser]);
 
   // Always force dark mode (night mode)
   useEffect(() => {
