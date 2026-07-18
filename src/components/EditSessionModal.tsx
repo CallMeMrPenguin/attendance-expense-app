@@ -392,10 +392,7 @@ export default function EditSessionModal({
                 auto_check_in: autoCheckin,
               });
             } else {
-              // Sibling session not checked: keep completely unmodified
-              newSiblingSessions.push({
-                ...matchOld,
-              });
+              // Sibling session not checked: do not push (it will be deleted from Supabase)
             }
           } else {
             // New sibling session created by recurring config: default status to 'Chưa làm'
