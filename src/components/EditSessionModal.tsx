@@ -156,8 +156,14 @@ export default function EditSessionModal({
         s.teacher_name === session.teacher_name
     );
 
+    const sortedRelated = [...related].sort((a, b) => {
+      const dateCompare = a.date.localeCompare(b.date);
+      if (dateCompare !== 0) return dateCompare;
+      return a.time.localeCompare(b.time);
+    });
+
     setSiblings(
-      related.map((s) => ({
+      sortedRelated.map((s) => ({
         id: s.id,
         checked: true,
         date: s.date,
@@ -282,17 +288,23 @@ export default function EditSessionModal({
         if (deleteError) throw new Error(deleteError.message);
       }
 
-      let { error: upsertError } = await supabase
-        .from('sessions')
-        .upsert(newSessions);
+      if (newSessions.length > 0) {
+        let { error: upsertError } = await supabase
+          .from('sessions')
+          .upsert(newSessions);
 
-      if (upsertError && (upsertError.message?.includes('schema cache') || upsertError.message?.includes('Could not find'))) {
-        const cleanSessions = newSessions.map(({ auto_check_in, auto_checkin, loai_hinh_lich, loai_hinh, category, income_category, ...rest }) => rest);
-        const retryRes = await supabase.from('sessions').upsert(cleanSessions);
-        upsertError = retryRes.error;
+        if (upsertError && (
+          upsertError.message?.includes('schema cache') || 
+          upsertError.message?.includes('Could not find') ||
+          upsertError.message?.includes('does not exist')
+        )) {
+          const cleanSessions = newSessions.map(({ auto_check_in, auto_checkin, loai_hinh_lich, loai_hinh, category, income_category, ...rest }) => rest);
+          const retryRes = await supabase.from('sessions').upsert(cleanSessions);
+          upsertError = retryRes.error;
+        }
+
+        if (upsertError) throw new Error(upsertError.message);
       }
-
-      if (upsertError) throw new Error(upsertError.message);
 
       onSave();
       onClose();
