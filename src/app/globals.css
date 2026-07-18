@@ -83,11 +83,10 @@ body {
   overflow-x: hidden;
 }
 
-/* Freeze background scrolling completely when modal window is active */
+/* Prevent touch-action bleed when modal window is active without resetting container scroll */
 body.modal-open,
 body.modal-open main,
 html.modal-open {
-  overflow: hidden !important;
   touch-action: none;
 }
 

@@ -224,7 +224,7 @@ CREATE TABLE IF NOT EXISTS public.bank_receipts (
     amount numeric NOT NULL,
     details text,
     status text NOT NULL DEFAULT 'unclassified' CHECK (status IN ('unclassified', 'classified')),
-    type text CHECK (type IN ('income', 'expense')),
+    type text CHECK (type IN ('income', 'expense', 'saving')),
     category text,
     created_at timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -235,7 +235,7 @@ CREATE TABLE IF NOT EXISTS public.receipt_rules (
     user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
     match_field text NOT NULL CHECK (match_field IN ('remitter_name', 'beneficiary_name', 'details', 'sender')),
     match_value text NOT NULL,
-    target_type text NOT NULL CHECK (target_type IN ('income', 'expense')),
+    target_type text NOT NULL CHECK (target_type IN ('income', 'expense', 'saving')),
     target_category text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL
 );

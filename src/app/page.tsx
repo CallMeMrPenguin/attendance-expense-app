@@ -128,20 +128,6 @@ export default function Dashboard() {
     }
   }, []);
 
-  // Display browser warning modal if user attempts to close tab, refresh page, or leave while background saves are pending
-  useEffect(() => {
-    if (pendingSavesCount <= 0) return;
-
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = 'Hệ thống đang đồng bộ dữ liệu ngầm. Bạn có chắc chắn muốn rời đi?';
-      return e.returnValue;
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [pendingSavesCount]);
-
   const updateReceiptsState = useCallback((newReceipts: any[]) => {
     setBankReceipts(prev => {
       const map = new Map();
@@ -171,7 +157,7 @@ export default function Dashboard() {
 
   const handleClassifyReceipt = useCallback((
     receiptId: string,
-    type: 'income' | 'expense',
+    type: 'income' | 'expense' | 'saving',
     category: string,
     createRule: boolean,
     matchField: string,
