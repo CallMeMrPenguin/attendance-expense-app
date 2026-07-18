@@ -103,22 +103,43 @@ export default function Dashboard() {
   const [earnedIncome, setEarnedIncome] = useState(0);
   const [projectedIncome, setProjectedIncome] = useState(0);
 
-  // Bank receipts state
-  const [bankReceipts, setBankReceipts] = useState<any[]>([]);
+  // Bank receipts state with LocalStorage persistence
+  const [bankReceipts, setBankReceipts] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('bank_receipts');
+        if (saved) return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return [];
+  });
+
+  const updateReceiptsState = useCallback((newReceipts: any[]) => {
+    setBankReceipts(prev => {
+      const map = new Map();
+      prev.forEach(r => map.set(r.id, r));
+      newReceipts.forEach(r => map.set(r.id, { ...(map.get(r.id) || {}), ...r }));
+      const merged = Array.from(map.values()).sort((a, b) => (b.trans_date || '').localeCompare(a.trans_date || ''));
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('bank_receipts', JSON.stringify(merged));
+      }
+      return merged;
+    });
+  }, []);
 
   const fetchBankReceipts = useCallback(async () => {
     try {
       const res = await fetch('/api/bank-receipts');
       if (res.ok) {
         const data = await res.json();
-        if (data.success && Array.isArray(data.receipts)) {
-          setBankReceipts(data.receipts);
+        if (data.success && Array.isArray(data.receipts) && data.receipts.length > 0) {
+          updateReceiptsState(data.receipts);
         }
       }
     } catch (err) {
       console.error('Error fetching bank receipts:', err);
     }
-  }, []);
+  }, [updateReceiptsState]);
 
   const handleClassifyReceipt = useCallback(async (
     receiptId: string,
@@ -145,22 +166,24 @@ export default function Dashboard() {
 
       if (res.ok) {
         const data = await res.json();
-        if (data.success) {
-          setBankReceipts(data.receipts || []);
+        if (data.success && Array.isArray(data.receipts)) {
+          updateReceiptsState(data.receipts);
           // Also refresh manual transactions cloud sync
-          const txRes = await supabase.from('manual_transactions').select('*').eq('user_id', currentUser?.id).order('date', { ascending: false });
-          if (txRes.data) {
-            const formatted = txRes.data.map((t: any) => ({
-              id: t.id,
-              desc: t.desc_text || t.desc || '',
-              amount: Number(t.amount) || 0,
-              type: t.type,
-              category: t.category,
-              date: t.date
-            }));
-            setManualTransactions(formatted);
-            localStorage.setItem(`finance_trans_${currentUser?.id}`, JSON.stringify(formatted));
-          }
+          try {
+            const txRes = await supabase.from('manual_transactions').select('*').eq('user_id', currentUser?.id).order('date', { ascending: false });
+            if (txRes.data) {
+              const formatted = txRes.data.map((t: any) => ({
+                id: t.id,
+                desc: t.desc_text || t.desc || '',
+                amount: Number(t.amount) || 0,
+                type: t.type,
+                category: t.category,
+                date: t.date
+              }));
+              setManualTransactions(formatted);
+              localStorage.setItem(`finance_trans_${currentUser?.id}`, JSON.stringify(formatted));
+            }
+          } catch (e) {}
           showToast('Đã phân loại biên lai và cập nhật giao dịch thành công!', 'success');
         }
       }
@@ -168,15 +191,15 @@ export default function Dashboard() {
       console.error('Error classifying receipt:', err);
       showToast('Có lỗi xảy ra khi phân loại biên lai.', 'error');
     }
-  }, [currentUser, showToast]);
+  }, [currentUser, showToast, updateReceiptsState]);
 
   const handleSyncReceipts = useCallback(async () => {
     try {
       const res = await fetch('/api/bank-receipts/sync', { method: 'POST' });
       if (res.ok) {
         const data = await res.json();
-        if (data.success) {
-          setBankReceipts(data.receipts || []);
+        if (data.success && Array.isArray(data.receipts)) {
+          updateReceiptsState(data.receipts);
           showToast(`Đã đồng bộ Gmail! Đã đọc ${data.syncedCount || 0} biên lai mới.`, 'success');
         }
       }
@@ -184,7 +207,7 @@ export default function Dashboard() {
       console.error('Error syncing receipts:', err);
       showToast('Có lỗi xảy ra khi đồng bộ Gmail.', 'error');
     }
-  }, [showToast]);
+  }, [showToast, updateReceiptsState]);
 
   useEffect(() => {
     fetchBankReceipts();

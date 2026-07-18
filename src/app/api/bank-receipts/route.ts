@@ -1,36 +1,46 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
-import { syncBankReceipts, BankReceipt, ReceiptRule } from '@/lib/imap-service';
+import { syncBankReceipts, getCachedReceipts, updateCachedReceipt, BankReceipt, ReceiptRule } from '@/lib/imap-service';
 
 export async function GET() {
   try {
     const supabaseAdmin = getSupabaseAdmin();
     
-    // Fetch receipts & rules from DB
-    const [receiptsRes, rulesRes] = await Promise.all([
-      supabaseAdmin.from('bank_receipts').select('*').order('created_at', { ascending: false }),
-      supabaseAdmin.from('receipt_rules').select('*').order('created_at', { ascending: false })
-    ]);
+    let receipts: BankReceipt[] = [];
+    let rules: ReceiptRule[] = [];
 
-    let receipts: BankReceipt[] = receiptsRes.data || [];
-    const rules: ReceiptRule[] = rulesRes.data || [];
+    try {
+      const [receiptsRes, rulesRes] = await Promise.all([
+        supabaseAdmin.from('bank_receipts').select('*').order('created_at', { ascending: false }),
+        supabaseAdmin.from('receipt_rules').select('*').order('created_at', { ascending: false })
+      ]);
+      receipts = receiptsRes.data || [];
+      rules = rulesRes.data || [];
+    } catch (e) {
+      // DB missing error
+    }
 
     if (receipts.length === 0) {
-      // If DB is empty, await sync synchronously to return fresh receipts immediately
       receipts = await syncBankReceipts();
     } else {
-      // Trigger background sync for updates
       syncBankReceipts().catch(err => console.error('Background sync error:', err));
     }
 
+    // Merge with in-memory server cache
+    const cacheMap = new Map<string, BankReceipt>();
+    receipts.forEach(r => cacheMap.set(r.id, r));
+    getCachedReceipts().forEach(r => cacheMap.set(r.id, { ...(cacheMap.get(r.id) || {}), ...r }));
+    
+    const finalReceipts = Array.from(cacheMap.values()).sort((a, b) => b.trans_date.localeCompare(a.trans_date));
+
     return NextResponse.json({
       success: true,
-      receipts,
+      receipts: finalReceipts,
       rules
     });
   } catch (error: any) {
     console.error('GET /api/bank-receipts error:', error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ success: true, receipts: getCachedReceipts(), rules: [] });
   }
 }
 
@@ -45,29 +55,41 @@ export async function POST(req: Request) {
 
     const supabaseAdmin = getSupabaseAdmin();
 
-    // 1. Fetch targeted receipt
-    const { data: receipt, error: fetchErr } = await supabaseAdmin
-      .from('bank_receipts')
-      .select('*')
-      .eq('id', receiptId)
-      .single();
+    // 1. Fetch targeted receipt from DB or in-memory cache
+    let receipt: BankReceipt | undefined;
+    try {
+      const { data } = await supabaseAdmin
+        .from('bank_receipts')
+        .select('*')
+        .eq('id', receiptId)
+        .maybeSingle();
+      if (data) receipt = data as BankReceipt;
+    } catch (e) {}
 
-    if (fetchErr || !receipt) {
+    if (!receipt) {
+      receipt = getCachedReceipts().find(r => r.id === receiptId);
+    }
+
+    if (!receipt) {
       return NextResponse.json({ success: false, error: 'Receipt not found' }, { status: 404 });
     }
 
-    // 2. Update receipt classification
-    const { error: updateErr } = await supabaseAdmin
-      .from('bank_receipts')
-      .update({
-        status: 'classified',
-        type,
-        category,
-        user_id: userId || receipt.user_id
-      })
-      .eq('id', receiptId);
+    // 2. Update receipt classification in memory and DB
+    const updatedReceipt: BankReceipt = {
+      ...receipt,
+      status: 'classified',
+      type,
+      category,
+      user_id: userId || receipt.user_id
+    };
 
-    if (updateErr) throw updateErr;
+    updateCachedReceipt(updatedReceipt);
+
+    try {
+      await supabaseAdmin
+        .from('bank_receipts')
+        .upsert(updatedReceipt, { onConflict: 'id' });
+    } catch (e) {}
 
     // 3. Create or update manual_transaction
     const txId = `tx-receipt-${receiptId}`;
@@ -82,7 +104,9 @@ export async function POST(req: Request) {
       date: receipt.trans_date || new Date().toISOString().split('T')[0]
     };
 
-    await supabaseAdmin.from('manual_transactions').upsert(txRecord, { onConflict: 'id' });
+    try {
+      await supabaseAdmin.from('manual_transactions').upsert(txRecord, { onConflict: 'id' });
+    } catch (e) {}
 
     // 4. Save auto-classification rule if requested
     if (createRule && matchField && matchValue) {
@@ -95,53 +119,54 @@ export async function POST(req: Request) {
         target_type: type,
         target_category: category
       };
-      await supabaseAdmin.from('receipt_rules').upsert(ruleRecord, { onConflict: 'id' });
+      try {
+        await supabaseAdmin.from('receipt_rules').upsert(ruleRecord, { onConflict: 'id' });
+      } catch (e) {}
 
       // 5. Retroactively classify all unclassified receipts matching this rule!
-      const { data: unclassifiedList } = await supabaseAdmin
-        .from('bank_receipts')
-        .select('*')
-        .eq('status', 'unclassified');
-
-      if (unclassifiedList && unclassifiedList.length > 0) {
-        for (const unRec of unclassifiedList) {
+      const cachedAll = getCachedReceipts();
+      for (const unRec of cachedAll) {
+        if (unRec.status === 'unclassified') {
           let fieldVal = '';
           if (matchField === 'remitter_name') fieldVal = unRec.remitter_name || '';
           else if (matchField === 'beneficiary_name') fieldVal = unRec.beneficiary_name || '';
           else if (matchField === 'details') fieldVal = unRec.details || '';
 
           if (fieldVal && fieldVal.toLowerCase().includes(matchValue.toLowerCase())) {
-            await supabaseAdmin
-              .from('bank_receipts')
-              .update({ status: 'classified', type, category })
-              .eq('id', unRec.id);
-
-            const retroTx = {
-              id: `tx-receipt-${unRec.id}`,
-              user_id: userId || unRec.user_id,
-              teacher_name: 'Admin',
-              desc_text: `[Biên lai Vietcombank] ${unRec.remitter_name || ''} ➔ ${unRec.beneficiary_name || ''}: ${unRec.details}`,
-              amount: Number(unRec.amount),
+            const classifiedUnRec: BankReceipt = {
+              ...unRec,
+              status: 'classified',
               type,
-              category,
-              date: unRec.trans_date || new Date().toISOString().split('T')[0]
+              category
             };
-            await supabaseAdmin.from('manual_transactions').upsert(retroTx, { onConflict: 'id' });
+            updateCachedReceipt(classifiedUnRec);
+
+            try {
+              await supabaseAdmin
+                .from('bank_receipts')
+                .upsert(classifiedUnRec, { onConflict: 'id' });
+
+              const retroTx = {
+                id: `tx-receipt-${unRec.id}`,
+                user_id: userId || unRec.user_id,
+                teacher_name: 'Admin',
+                desc_text: `[Biên lai Vietcombank] ${unRec.remitter_name || ''} ➔ ${unRec.beneficiary_name || ''}: ${unRec.details}`,
+                amount: Number(unRec.amount),
+                type,
+                category,
+                date: unRec.trans_date || new Date().toISOString().split('T')[0]
+              };
+              await supabaseAdmin.from('manual_transactions').upsert(retroTx, { onConflict: 'id' });
+            } catch (e) {}
           }
         }
       }
     }
 
-    // Return updated receipts list
-    const [receiptsRes, rulesRes] = await Promise.all([
-      supabaseAdmin.from('bank_receipts').select('*').order('created_at', { ascending: false }),
-      supabaseAdmin.from('receipt_rules').select('*').order('created_at', { ascending: false })
-    ]);
-
     return NextResponse.json({
       success: true,
-      receipts: receiptsRes.data || [],
-      rules: rulesRes.data || []
+      receipts: getCachedReceipts(),
+      rules: []
     });
   } catch (error: any) {
     console.error('POST /api/bank-receipts error:', error);

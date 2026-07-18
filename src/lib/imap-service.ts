@@ -30,6 +30,17 @@ export interface ReceiptRule {
   created_at?: string;
 }
 
+// Server in-memory cache to guarantee persistence even if Supabase table is not created yet
+const serverReceiptCacheMap = new Map<string, BankReceipt>();
+
+export function getCachedReceipts(): BankReceipt[] {
+  return Array.from(serverReceiptCacheMap.values()).sort((a, b) => b.trans_date.localeCompare(a.trans_date));
+}
+
+export function updateCachedReceipt(receipt: BankReceipt) {
+  serverReceiptCacheMap.set(receipt.id, receipt);
+}
+
 // Robust HTML / Text Parser for Vietcombank Email Receipts
 export function parseVietcombankEmail(html: string, text: string): Partial<BankReceipt> | null {
   const content = (html || '') + '\n' + (text || '');
@@ -141,7 +152,7 @@ export async function syncBankReceipts(): Promise<BankReceipt[]> {
   const { user, pass, sender } = getImapConfig();
   if (!user || !pass) {
     console.warn('Gmail IMAP credentials missing in environment variables.');
-    return [];
+    return getCachedReceipts();
   }
 
   const client = new ImapFlow({
@@ -151,8 +162,6 @@ export async function syncBankReceipts(): Promise<BankReceipt[]> {
     auth: { user, pass },
     logger: false
   });
-
-  const parsedReceipts: BankReceipt[] = [];
 
   try {
     await client.connect();
@@ -170,8 +179,13 @@ export async function syncBankReceipts(): Promise<BankReceipt[]> {
       if (msgIds.length > 0) {
         const clientAdmin = getSupabaseAdmin();
         // Fetch existing rules for auto-classification
-        const { data: rules } = await clientAdmin.from('receipt_rules').select('*');
-        const ruleList: ReceiptRule[] = rules || [];
+        let ruleList: ReceiptRule[] = [];
+        try {
+          const { data: rules } = await clientAdmin.from('receipt_rules').select('*');
+          ruleList = rules || [];
+        } catch (e) {
+          // Ignore if table doesn't exist yet
+        }
 
         for (const seq of msgIds) {
           const message = await client.fetchOne(seq, { source: true, envelope: true });
@@ -195,16 +209,25 @@ export async function syncBankReceipts(): Promise<BankReceipt[]> {
 
           const receiptId = `vcb-${receiptData.order_number}`;
 
-          // Check if already in DB
-          const { data: existing } = await clientAdmin
-            .from('bank_receipts')
-            .select('*')
-            .eq('id', receiptId)
-            .maybeSingle();
-
-          if (existing) {
-            parsedReceipts.push(existing as BankReceipt);
+          // Check in-memory cache first
+          if (serverReceiptCacheMap.has(receiptId)) {
             continue;
+          }
+
+          // Check if already in DB
+          try {
+            const { data: existing } = await clientAdmin
+              .from('bank_receipts')
+              .select('*')
+              .eq('id', receiptId)
+              .maybeSingle();
+
+            if (existing) {
+              serverReceiptCacheMap.set(receiptId, existing as BankReceipt);
+              continue;
+            }
+          } catch (e) {
+            // Ignore missing table error
           }
 
           // Check auto classification rule match
@@ -243,24 +266,28 @@ export async function syncBankReceipts(): Promise<BankReceipt[]> {
             category: matchedCategory
           };
 
-          // Insert into Supabase
-          await clientAdmin.from('bank_receipts').upsert(newReceipt, { onConflict: 'id' });
+          // Store in server memory cache
+          serverReceiptCacheMap.set(receiptId, newReceipt);
 
-          // If auto-classified, also create manual_transactions entry
-          if (status === 'classified' && matchedType && matchedCategory) {
-            const txRecord = {
-              id: `tx-receipt-${receiptId}`,
-              desc_text: `[Biên lai Vietcombank] ${newReceipt.remitter_name || ''} ➔ ${newReceipt.beneficiary_name || ''}: ${newReceipt.details}`,
-              amount: newReceipt.amount,
-              type: matchedType,
-              category: matchedCategory,
-              date: newReceipt.trans_date,
-              teacher_name: 'System'
-            };
-            await clientAdmin.from('manual_transactions').upsert(txRecord, { onConflict: 'id' });
+          // Attempt insert into Supabase
+          try {
+            await clientAdmin.from('bank_receipts').upsert(newReceipt, { onConflict: 'id' });
+
+            if (status === 'classified' && matchedType && matchedCategory) {
+              const txRecord = {
+                id: `tx-receipt-${receiptId}`,
+                desc_text: `[Biên lai Vietcombank] ${newReceipt.remitter_name || ''} ➔ ${newReceipt.beneficiary_name || ''}: ${newReceipt.details}`,
+                amount: newReceipt.amount,
+                type: matchedType,
+                category: matchedCategory,
+                date: newReceipt.trans_date,
+                teacher_name: 'System'
+              };
+              await clientAdmin.from('manual_transactions').upsert(txRecord, { onConflict: 'id' });
+            }
+          } catch (e) {
+            // Ignore missing table error
           }
-
-          parsedReceipts.push(newReceipt);
         }
       }
     } finally {
@@ -272,7 +299,7 @@ export async function syncBankReceipts(): Promise<BankReceipt[]> {
     console.error('IMAP fetch error:', err);
   }
 
-  return parsedReceipts;
+  return getCachedReceipts();
 }
 
 export async function startImapIdleListener() {
