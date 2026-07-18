@@ -70,6 +70,17 @@ const PALETTE = [
   '#fb7185', // Rose Red
 ];
 
+const generateUUID = () => {
+  if (typeof window !== 'undefined' && window.crypto?.randomUUID) {
+    return window.crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
 export default function EditSessionModal({
   isOpen,
   onClose,
@@ -467,10 +478,8 @@ export default function EditSessionModal({
             ...(matchOld || {}),
             ...baseItem,
             status: matchOld ? matchOld.status : 'Chưa làm',
+            id: sib.id || generateUUID(),
           };
-          if (sib.id !== undefined) {
-            item.id = sib.id;
-          }
           newSiblingSessions.push(item);
         }
       });
