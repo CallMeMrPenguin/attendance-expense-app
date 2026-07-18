@@ -132,6 +132,9 @@ function FlowTab({
 }: FlowTabProps) {
   const { showToast } = useToast();
   const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
   const [isSyncing, setIsSyncing] = React.useState(false);
 
   // Bank receipt classification modal state
@@ -2026,7 +2029,7 @@ function FlowTab({
       )}
 
       {/* Modal: Phân loại Biên Lai Chuyển Tiền */}
-      {(mounted || typeof window !== 'undefined') && classifyingReceipt && createPortal(
+      {mounted && classifyingReceipt && createPortal(
         <div className="fixed inset-0 bg-[#070911]/90 backdrop-blur-md z-[99999] flex items-center justify-center p-4 text-slate-100">
           <div className="bg-[#0f1320] border border-amber-500/30 rounded-2xl w-full max-w-md p-6 relative shadow-[0_0_50px_rgba(245,158,11,0.2)] animate-mac-dropdown">
             <button 
