@@ -230,6 +230,8 @@ export default function AddSessionModal({
         }
         dates.forEach((dStr) => {
           candidates.push({
+            user_name: assignedTeacherName,
+            job_name: studentName.trim(),
             teacher_name: assignedTeacherName,
             student_name: studentName.trim(),
             day_of_week: day,
@@ -237,9 +239,6 @@ export default function AddSessionModal({
             duration: Number(config.duration),
             price: Number(price),
             status: status,
-            grade: '',
-            homework: '',
-            note: '',
             month_year: selectedMonth,
             color: sessionColor,
             date: dStr,
@@ -511,9 +510,9 @@ export default function AddSessionModal({
                   onChange={(e) => setStatus(e.target.value)}
                   className="w-full px-4 py-2.5 bg-[#0d1018] border border-white/10 text-white rounded-xl text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                 >
-                  <option value="Chưa dạy" className="bg-[#0d1018] text-white">Chưa thực hiện</option>
-                  <option value="Đã dạy" className="bg-[#0d1018] text-white">Đã hoàn thành</option>
-                  <option value="Hủy" className="bg-[#0d1018] text-white">Đã hủy / nghỉ</option>
+                  <option value="Chưa làm" className="bg-[#0d1018] text-white">Chưa làm</option>
+                  <option value="Đã làm" className="bg-[#0d1018] text-white">Đã làm</option>
+                  <option value="Hủy" className="bg-[#0d1018] text-white">Hủy</option>
                 </select>
               </div>
             </div>

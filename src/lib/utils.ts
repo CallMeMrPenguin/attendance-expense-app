@@ -2,16 +2,15 @@ export const DAYS = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Th�
 
 export interface Session {
   id: string;
+  user_name?: string;
+  job_name?: string;
   teacher_name: string;
   student_name: string;
   day_of_week: string;
   time: string;
   duration: number;
   price: number;
-  status: 'Chưa dạy' | 'Đã dạy' | 'Hủy' | string;
-  grade?: string;
-  homework?: string;
-  note?: string;
+  status: 'Chưa làm' | 'Đã làm' | 'Chưa dạy' | 'Đã dạy' | 'Hủy' | string;
   month_year: string;
   color: string;
   date: string;

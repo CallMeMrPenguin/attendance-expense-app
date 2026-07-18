@@ -100,9 +100,6 @@ export default function EditSessionModal({
     }
     return defaultCats;
   }, [currentUser?.id]);
-  const [grade, setGrade] = useState('');
-  const [homework, setHomework] = useState('');
-  const [note, setNote] = useState('');
   const [color, setColor] = useState('#7c3aed');
   const [isColorCustomized, setIsColorCustomized] = useState(false);
   const colorInputRef = React.useRef<HTMLInputElement>(null);
@@ -133,13 +130,13 @@ export default function EditSessionModal({
   useEffect(() => {
     if (!session) return;
 
-    setAssignedTeacherName(session.teacher_name || '');
-    setStudentName(session.student_name || '');
+    setAssignedTeacherName(session.user_name || session.teacher_name || '');
+    setStudentName(session.job_name || session.student_name || '');
     setPrice(String(session.price || ''));
-    setStatus(session.status || 'Chưa dạy');
-    setGrade(session.grade || '');
-    setHomework(session.homework || '');
-    setNote(session.note || '');
+    let currentStatus = session.status || 'Chưa làm';
+    if (currentStatus === 'Chưa dạy') currentStatus = 'Chưa làm';
+    if (currentStatus === 'Đã dạy') currentStatus = 'Đã làm';
+    setStatus(currentStatus);
     setDayOfWeek(session.day_of_week || 'Thứ 2');
     setTime(formatCleanTimeString(session.time));
     setDuration(session.duration || 1.5);
@@ -358,6 +355,8 @@ export default function EditSessionModal({
               // Current edited session: update everything
               newSiblingSessions.push({
                 ...matchOld,
+                user_name: assignedTeacherName,
+                job_name: studentName.trim(),
                 teacher_name: assignedTeacherName,
                 student_name: studentName.trim(),
                 day_of_week: day,
@@ -365,9 +364,6 @@ export default function EditSessionModal({
                 duration: Number(duration),
                 price: Number(price),
                 status: status,
-                grade: grade,
-                homework: homework,
-                note: note,
                 color: sessionColor,
                 loai_hinh: loaiHinh,
                 loai_hinh_lich: loaiHinh,
@@ -376,9 +372,11 @@ export default function EditSessionModal({
                 auto_check_in: autoCheckin,
               });
             } else if (isChecked) {
-              // Sibling session is checked: update general fields, preserve status, grade, note
+              // Sibling session is checked: update general fields, preserve status
               newSiblingSessions.push({
                 ...matchOld,
+                user_name: assignedTeacherName,
+                job_name: studentName.trim(),
                 teacher_name: assignedTeacherName,
                 student_name: studentName.trim(),
                 day_of_week: day,
@@ -386,9 +384,6 @@ export default function EditSessionModal({
                 duration: Number(duration),
                 price: Number(price),
                 status: matchOld.status, // preserve original
-                grade: matchOld.grade,   // preserve original
-                homework: matchOld.homework, // preserve original
-                note: matchOld.note,     // preserve original
                 color: sessionColor,
                 loai_hinh: loaiHinh,
                 loai_hinh_lich: loaiHinh,
@@ -403,18 +398,17 @@ export default function EditSessionModal({
               });
             }
           } else {
-            // New sibling session created by recurring config: default status to 'Chưa dạy'
+            // New sibling session created by recurring config: default status to 'Chưa làm'
             newSiblingSessions.push({
+              user_name: assignedTeacherName,
+              job_name: studentName.trim(),
               teacher_name: assignedTeacherName,
               student_name: studentName.trim(),
               day_of_week: day,
               time: time,
               duration: Number(duration),
               price: Number(price),
-              status: 'Chưa dạy',
-              grade: '',
-              homework: '',
-              note: '',
+              status: 'Chưa làm',
               month_year: session.month_year,
               color: sessionColor,
               date: dStr,
@@ -648,9 +642,9 @@ export default function EditSessionModal({
               {/* Sliding pill background */}
               <div
                 className={`absolute top-1 bottom-1 rounded-[10px] transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] pointer-events-none ${
-                  status === 'Chưa dạy'
+                  status === 'Chưa làm' || status === 'Chưa dạy'
                     ? 'bg-indigo-650 dark:bg-indigo-500 shadow-[0_0_14px_rgba(99,102,241,0.4)]'
-                    : status === 'Đã dạy'
+                    : status === 'Đã làm' || status === 'Đã dạy'
                     ? 'bg-emerald-650 dark:bg-emerald-500 shadow-[0_0_14px_rgba(16,185,129,0.4)]'
                     : 'bg-rose-650 dark:bg-rose-500 shadow-[0_0_14px_rgba(244,63,94,0.4)]'
                 }`}
@@ -658,30 +652,30 @@ export default function EditSessionModal({
                   left: '4px',
                   width: 'calc(33.333% - 4px)',
                   transform:
-                    status === 'Chưa dạy'
+                    status === 'Chưa làm' || status === 'Chưa dạy'
                       ? 'translateX(0)'
-                      : status === 'Đã dạy'
+                      : status === 'Đã làm' || status === 'Đã dạy'
                       ? 'translateX(100%)'
                       : 'translateX(200%)',
                 }}
               />
               <button
                 type="button"
-                onClick={() => setStatus('Chưa dạy')}
+                onClick={() => setStatus('Chưa làm')}
                 className={`relative z-10 flex-1 py-2 text-xs font-black rounded-[10px] transition-colors duration-300 cursor-pointer ${
-                  status === 'Chưa dạy' ? 'text-white' : 'text-slate-550 dark:text-slate-455 hover:text-slate-800 dark:hover:text-slate-200'
+                  status === 'Chưa làm' || status === 'Chưa dạy' ? 'text-white' : 'text-slate-550 dark:text-slate-455 hover:text-slate-800 dark:hover:text-slate-200'
                 }`}
               >
-                Chưa thực hiện
+                Chưa làm
               </button>
               <button
                 type="button"
-                onClick={() => setStatus('Đã dạy')}
+                onClick={() => setStatus('Đã làm')}
                 className={`relative z-10 flex-1 py-2 text-xs font-black rounded-[10px] transition-colors duration-300 cursor-pointer ${
-                  status === 'Đã dạy' ? 'text-white' : 'text-slate-550 dark:text-slate-455 hover:text-slate-800 dark:hover:text-slate-200'
+                  status === 'Đã làm' || status === 'Đã dạy' ? 'text-white' : 'text-slate-550 dark:text-slate-455 hover:text-slate-800 dark:hover:text-slate-200'
                 }`}
               >
-                Đã hoàn thành
+                Đã làm
               </button>
               <button
                 type="button"
@@ -1051,33 +1045,6 @@ export default function EditSessionModal({
                   className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500"
                 />
               </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <label htmlFor="editGrade" className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
-                Điểm số
-              </label>
-              <input
-                id="editGrade"
-                type="text"
-                value={grade}
-                onChange={(e) => setGrade(e.target.value)}
-                placeholder="VD: 9/10"
-                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label htmlFor="editNote" className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
-                Nhận xét & Ghi chú
-              </label>
-              <textarea
-                id="editNote"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="Nhập ghi chú buổi học..."
-                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm min-h-[80px] resize-y focus:outline-none focus:border-indigo-500"
-              />
             </div>
           </div>
         </div>

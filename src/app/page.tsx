@@ -768,7 +768,8 @@ export default function Dashboard() {
     const idsToUpdate: string[] = [];
 
     const updatedSessions = items.map((s) => {
-      if (s.status === 'Chưa dạy' && s.auto_checkin !== false && s.auto_check_in !== false) {
+      const isPending = s.status === 'Chưa làm' || s.status === 'Chưa dạy';
+      if (isPending && s.auto_checkin !== false && s.auto_check_in !== false) {
         const sDate = s.date;
         const sTime = formatCleanTimeString(s.time);
 
@@ -777,7 +778,7 @@ export default function Dashboard() {
 
         if (isPastDay || isTodayDue) {
           idsToUpdate.push(s.id);
-          return { ...s, status: 'Đã dạy' };
+          return { ...s, status: 'Đã làm' };
         }
       }
       return s;
@@ -787,7 +788,7 @@ export default function Dashboard() {
       try {
         await supabase
           .from('sessions')
-          .update({ status: 'Đã dạy' })
+          .update({ status: 'Đã làm' })
           .in('id', idsToUpdate);
       } catch (err) {
         console.error('Error auto checking-in sessions:', err);
@@ -798,20 +799,54 @@ export default function Dashboard() {
     return items;
   }, []);
 
+  // Helper to normalize session properties
+  const normalizeSessionList = useCallback((rawList: any[]): Session[] => {
+    if (!Array.isArray(rawList)) return [];
+    return rawList.map(s => {
+      const userName = s.user_name || s.teacher_name || 'Admin';
+      const jobName = s.job_name || s.student_name || 'Công việc';
+      let st = s.status || 'Chưa làm';
+      if (st === 'Chưa dạy') st = 'Chưa làm';
+      if (st === 'Đã dạy') st = 'Đã làm';
+      return {
+        ...s,
+        user_name: userName,
+        teacher_name: userName,
+        job_name: jobName,
+        student_name: jobName,
+        status: st
+      };
+    });
+  }, []);
+
   // Fetch session schedule data
   const fetchSessions = useCallback(async () => {
     if (!selectedMonth) return;
     setLoading(true);
 
-    // 1. Fetch sessions for the active teacher in selectedMonth (for scheduler)
+    // 1. Fetch sessions for the active user/teacher in selectedMonth (for scheduler)
     if (activeTeacherName) {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('sessions')
         .select('*')
-        .eq('teacher_name', activeTeacherName)
+        .eq('user_name', activeTeacherName)
         .eq('month_year', selectedMonth);
+
+      if ((error || !data || data.length === 0) && activeTeacherName) {
+        const res2 = await supabase
+          .from('sessions')
+          .select('*')
+          .eq('teacher_name', activeTeacherName)
+          .eq('month_year', selectedMonth);
+        if (!res2.error && res2.data) {
+          data = res2.data;
+          error = null;
+        }
+      }
+
       if (!error && data) {
-        const processed = await processAutoCheckIn(data as Session[]);
+        const normalized = normalizeSessionList(data);
+        const processed = await processAutoCheckIn(normalized);
         setSessions(processed);
         calculateStats(processed);
       } else {
@@ -831,7 +866,8 @@ export default function Dashboard() {
         .select('*')
         .in('month_year', monthsToFetch);
       if (!error && data) {
-        const processedAll = await processAutoCheckIn(data as Session[]);
+        const normalizedAll = normalizeSessionList(data);
+        const processedAll = await processAutoCheckIn(normalizedAll);
         setAllSessions(processedAll);
       } else {
         setAllSessions([]);

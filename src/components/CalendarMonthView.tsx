@@ -62,7 +62,7 @@ export function getPremiumVioletStyle(timeStr: string, status: string, hexColor:
   let sat = initialSat;
   let lightness = initialLight;
 
-  if (status === 'Đã dạy') {
+  if (status === 'Đã dạy' || status === 'Đã làm') {
     sat = Math.max(25, Math.round(initialSat * 0.55));
     lightness = 52;
   } else {
@@ -70,13 +70,13 @@ export function getPremiumVioletStyle(timeStr: string, status: string, hexColor:
     lightness = Math.min(80, Math.max(55, initialLight));
   }
 
-  const alphaBg = status === 'Đã dạy' ? '0.14' : '0.22';
+  const alphaBg = (status === 'Đã dạy' || status === 'Đã làm') ? '0.14' : '0.22';
   const bg = `hsla(${hue}, ${sat}%, ${lightness}%, ${alphaBg})`;
   const border = `hsla(${hue}, ${sat}%, ${lightness}%, 0.85)`;
   const color = `hsla(${hue}, 95%, 92%, 0.98)`;
   
   // High-intensity noticeable vibrant glow shadow effect matching day indicator glow
-  const shadow = status === 'Đã dạy'
+  const shadow = (status === 'Đã dạy' || status === 'Đã làm')
     ? `0 0 16px hsla(${hue}, ${sat}%, ${lightness}%, 0.40), 0 0 4px hsla(${hue}, ${sat}%, ${lightness}%, 0.80)`
     : `0 0 20px hsla(${hue}, ${sat}%, ${lightness}%, 0.65), 0 0 8px hsla(${hue}, ${sat}%, ${lightness}%, 0.90), 0 4px 14px rgba(0, 0, 0, 0.4)`;
 
@@ -252,7 +252,7 @@ export default function CalendarMonthView({
                             <h4 
                               className="text-[12px] font-black truncate leading-tight text-left tracking-tight text-white"
                             >
-                              {s.student_name}
+                              {s.job_name || s.student_name}
                             </h4>
                             <div 
                               className="text-[9.5px] font-bold mt-0.5 select-none leading-none text-left opacity-90"

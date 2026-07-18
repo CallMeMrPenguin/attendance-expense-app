@@ -140,7 +140,8 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
 
                     const grouped: Record<string, Session[]> = {};
                     slotSessions.forEach((s) => {
-                      const key = `${s.student_name}|${s.price}|${formatCleanTimeString(s.time)}|${s.duration}`;
+                      const jobName = s.job_name || s.student_name || '';
+                      const key = `${jobName}|${s.price}|${formatCleanTimeString(s.time)}|${s.duration}`;
                       if (!grouped[key]) {
                         grouped[key] = [];
                       }
@@ -160,7 +161,8 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
                           const s = group[0];
                           const startTime = formatCleanTimeString(s.time);
                           const endTime = getEndTime(startTime, s.duration);
-                          const vStyle = getPremiumVioletStyle(s.time, s.status, s.color || getStudentColor(s.student_name));
+                          const jobName = s.job_name || s.student_name || '';
+                          const vStyle = getPremiumVioletStyle(s.time, s.status, s.color || getStudentColor(jobName));
 
                           return (
                             <div
@@ -191,7 +193,7 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
                                 <h4 
                                   className="text-[12px] font-black truncate leading-tight text-left tracking-tight text-white"
                                 >
-                                  {s.student_name}
+                                  {jobName}
                                 </h4>
                                 <div 
                                   className="text-[10px] font-extrabold mt-0.5 select-none leading-none text-left"
