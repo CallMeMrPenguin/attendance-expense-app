@@ -223,6 +223,7 @@ export async function syncBankReceipts(): Promise<BankReceipt[]> {
         }
         if (budgetsRes.data) {
           categoryBudgetsList = budgetsRes.data;
+          console.log('[IMAP Service] Loaded category budgets for keywords matching:', budgetsRes.data.map((b: any) => ({ category: b.category, keywords: b.keywords })));
         }
       } catch (e) {}
 
@@ -285,11 +286,13 @@ export async function syncBankReceipts(): Promise<BankReceipt[]> {
 
           // 1. Match against category-specific keywords in details (Nội dung chuyển tiền)
           const cleanDetails = cleanString(receiptData.details || '');
+          console.log(`[IMAP Sync] Analyzing receipt details: "${receiptData.details}" -> Cleaned: "${cleanDetails}"`);
           for (const budget of categoryBudgetsList) {
             if (budget.keywords) {
               const kwList = budget.keywords.split(',').map((kw: string) => cleanString(kw)).filter(Boolean);
               for (const kw of kwList) {
                 if (cleanDetails.includes(kw)) {
+                  console.log(`[IMAP Sync] MATCH FOUND! cleanDetails "${cleanDetails}" contains keyword "${kw}" -> Category: "${budget.category}"`);
                   status = 'classified';
                   matchedCategory = budget.category;
                   const savingCats = ['Tiết kiệm khẩn cấp', 'Tích lũy dài hạn', 'Tiết kiệm khác', 'Tiết kiệm'];
