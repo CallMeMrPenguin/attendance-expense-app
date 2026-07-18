@@ -228,7 +228,28 @@ export async function stopImapIdleListener() {
   }
 }
 
+let isSyncInProgress = false;
+
 export async function syncBankReceipts(clientKeywords?: Record<string, string>, userIdParam?: string): Promise<BankReceipt[]> {
+  if (isSyncInProgress) {
+    console.log('[IMAP Service] Sync already in progress, skipping duplicate concurrent connection.');
+    const clientAdmin = getSupabaseAdmin();
+    try {
+      const { data: dbData } = await clientAdmin.from('bank_receipts').select('*').order('created_at', { ascending: false });
+      if (dbData && dbData.length > 0) return dbData as BankReceipt[];
+    } catch (e) {}
+    return [];
+  }
+
+  isSyncInProgress = true;
+  try {
+    return await executeSyncBankReceipts(clientKeywords, userIdParam);
+  } finally {
+    isSyncInProgress = false;
+  }
+}
+
+async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, userIdParam?: string): Promise<BankReceipt[]> {
   // Pause IDLE listener temporarily to prevent IMAP connection pool overflow
   await stopImapIdleListener();
 
@@ -405,8 +426,8 @@ export async function syncBankReceipts(clientKeywords?: Record<string, string>, 
       const msgIds = Array.isArray(searchResult) ? searchResult : [];
 
       if (msgIds.length > 0) {
-        for (const seq of msgIds) {
-          const message = await client.fetchOne(seq, { source: true, envelope: true });
+        // Fast batch streaming IMAP fetch instead of 70 sequential roundtrips
+        for await (const message of client.fetch(msgIds, { source: true, envelope: true })) {
           if (!message || !message.source) continue;
 
           const parsed = await simpleParser(message.source);

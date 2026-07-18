@@ -22,8 +22,6 @@ export async function GET() {
 
     if (receipts.length === 0) {
       receipts = await syncBankReceipts();
-    } else {
-      syncBankReceipts().catch(err => console.error('Background sync error:', err));
     }
 
     return NextResponse.json({
