@@ -71,9 +71,10 @@ export async function POST(req: Request) {
     };
 
     try {
+      const { trans_time, ...receiptPayload } = updatedReceipt;
       await supabaseAdmin
         .from('bank_receipts')
-        .upsert(updatedReceipt, { onConflict: 'id' });
+        .upsert(receiptPayload, { onConflict: 'id' });
     } catch (e) {}
 
     // 3. Create or update manual_transaction
@@ -84,7 +85,7 @@ export async function POST(req: Request) {
       teacher_name: 'Admin',
       desc_text: `[Biên lai Vietcombank] ${receipt.remitter_name || ''} ➔ ${receipt.beneficiary_name || ''}: ${receipt.details}`,
       amount: Number(receipt.amount),
-      type,
+      type: type === 'saving' ? 'expense' : type,
       category,
       date: receipt.trans_date || new Date().toISOString().split('T')[0]
     };
@@ -133,9 +134,10 @@ export async function POST(req: Request) {
           };
 
           try {
+            const { trans_time, ...unRecPayload } = classifiedUnRec;
             await supabaseAdmin
               .from('bank_receipts')
-              .upsert(classifiedUnRec, { onConflict: 'id' });
+              .upsert(unRecPayload, { onConflict: 'id' });
 
             const retroTx = {
               id: `tx-receipt-${unRec.id}`,
@@ -143,7 +145,7 @@ export async function POST(req: Request) {
               teacher_name: 'Admin',
               desc_text: `[Biên lai Vietcombank] ${unRec.remitter_name || ''} ➔ ${unRec.beneficiary_name || ''}: ${unRec.details}`,
               amount: Number(unRec.amount),
-              type,
+              type: type === 'saving' ? 'expense' : type,
               category,
               date: unRec.trans_date || new Date().toISOString().split('T')[0]
             };

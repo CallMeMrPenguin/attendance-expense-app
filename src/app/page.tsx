@@ -137,16 +137,8 @@ export default function Dashboard() {
   const [earnedIncome, setEarnedIncome] = useState(0);
   const [projectedIncome, setProjectedIncome] = useState(0);
 
-  // Bank receipts state with LocalStorage persistence
-  const [bankReceipts, setBankReceipts] = useState<any[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('bank_receipts');
-        if (saved) return JSON.parse(saved);
-      } catch (e) {}
-    }
-    return [];
-  });
+  // Bank receipts state fetched directly from Supabase DB via API
+  const [bankReceipts, setBankReceipts] = useState<any[]>([]);
 
   // Track in-flight background DB saves to eliminate front-end UI delay
   const [pendingSavesCount, setPendingSavesCount] = useState(0);
@@ -167,11 +159,7 @@ export default function Dashboard() {
       const map = new Map();
       prev.forEach(r => map.set(r.id, r));
       newReceipts.forEach(r => map.set(r.id, { ...(map.get(r.id) || {}), ...r }));
-      const merged = Array.from(map.values()).sort((a, b) => (b.trans_date || '').localeCompare(a.trans_date || ''));
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('bank_receipts', JSON.stringify(merged));
-      }
-      return merged;
+      return Array.from(map.values()).sort((a, b) => (b.trans_date || '').localeCompare(a.trans_date || ''));
     });
   }, []);
 
@@ -210,11 +198,7 @@ export default function Dashboard() {
 
     // 1. Optimistic instant local update
     setBankReceipts(prev => {
-      const updated = prev.map(r => r.id === receiptId ? { ...r, status: 'classified', type, category } : r);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('bank_receipts', JSON.stringify(updated));
-      }
-      return updated;
+      return prev.map(r => r.id === receiptId ? { ...r, status: 'classified', type, category } : r);
     });
     showToast('Đã phân loại biên lai!', 'success');
 
@@ -459,9 +443,6 @@ export default function Dashboard() {
 
     if (receiptsChanged) {
       setBankReceipts(updatedReceipts);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('bank_receipts', JSON.stringify(updatedReceipts));
-      }
     }
 
     if (newTxList.length > 0 && currentUser?.id) {
@@ -1390,9 +1371,17 @@ export default function Dashboard() {
     const userId = currentUser.id;
     const idToDelete = confirmDeleteTxId;
     const updated = manualTransactions.filter(t => t.id !== idToDelete);
-    saveTransactions(userId, updated);
+    setManualTransactions(updated);
 
-    // Track deleted transaction ID so auto-classification never resurrects it
+    runBackgroundSave(async () => {
+      try {
+        await supabase.from('manual_transactions').delete().eq('id', idToDelete);
+      } catch (err) {
+        console.error('Error deleting manual transaction from DB:', err);
+      }
+    });
+
+    // Track deleted transaction ID so auto-classification never resurrects it in history section
     setDeletedTxIds(prev => {
       const set = new Set(prev);
       set.add(idToDelete);
