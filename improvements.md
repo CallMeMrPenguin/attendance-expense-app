@@ -1,8 +1,9 @@
-﻿# UI Design System Reference
+# New App Improvements Guide
 
-> Copy this file to any new project to replicate the same visual identity.
-> This system is opinionated, dark-first, and built around a deep navy-black
-> base with an indigo/violet primary accent and multi-color semantic states.
+> This file covers everything needed to build the next app better:
+> stack improvements, package recommendations, TypeScript config,
+> and the complete UI design system to replicate the same visual identity.
+> Copy this file to the new project root before any agent starts work.
 
 ---
 
@@ -440,3 +441,109 @@ Then append the full effect classes from Section 5 and animations from Section 6
 | Apply `animate-mac-dropdown` to dropdowns, `animate-mac-modal` to modals | Hard-show elements without animation |
 | Use `box-shadow` glow to reinforce semantic colour (green = income, red = expense) | Use flat unstyled borders only |
 | Use `text-[10px] font-black uppercase tracking-widest` for section labels | Use large font for metadata labels |
+
+---
+
+## 12. Stack Improvements (Apply to New App)
+
+### 12.1 — Confirmed: Keep This Stack
+| Layer | Choice | Reason |
+|---|---|---|
+| Desktop wrapper | pywebview | Correct for local-only app, no change needed |
+| Backend | Python + FastAPI | Irreplaceable for docx/pdf generation |
+| Frontend build | Vite + React | Right tool for pywebview, no server needed |
+| Language | TypeScript + TSX | Same as attendance app, agents know it well |
+| CSS | Tailwind v4 | Same version as attendance app |
+| Icons | lucide-react | Same as attendance app |
+| Font | Plus Jakarta Sans | Switch from Outfit — matches design system |
+
+---
+
+### 12.2 — Add React Router
+Current navigation likely uses useState tab-switching. Replace with proper routing.
+
+```bash
+npm install react-router-dom
+```
+
+**Why**: 6+ pages benefit from URL-based routing. Enables back/forward navigation,
+cleaner page separation, and easier deep-linking to specific views.
+
+```tsx
+// main.tsx
+import { BrowserRouter } from 'react-router-dom';
+
+// App.tsx
+import { Routes, Route } from 'react-router-dom';
+<Routes>
+  <Route path="/" element={<Dashboard />} />
+  <Route path="/test-formatter" element={<TestFormatter />} />
+  <Route path="/question-bank" element={<QuestionBank />} />
+  <Route path="/vocabulary" element={<VocabularyBank />} />
+  <Route path="/documents" element={<DocumentManager />} />
+  <Route path="/settings" element={<Settings />} />
+</Routes>
+```
+
+---
+
+### 12.3 — Add Zustand for State Management
+The attendance app manages all state in one giant file with heavy prop-drilling.
+For 6 separate pages, Zustand prevents this from day one.
+
+```bash
+npm install zustand
+```
+
+**Why**: Tiny (1KB), no boilerplate, no Context providers, no Redux overhead.
+Any component can read/write shared state without passing props through layers.
+
+```ts
+// store/useAppStore.ts
+import { create } from 'zustand';
+
+interface AppStore {
+  activeGrade: string;
+  setActiveGrade: (grade: string) => void;
+  selectedQuestions: any[];
+  addQuestion: (q: any) => void;
+}
+
+export const useAppStore = create<AppStore>((set) => ({
+  activeGrade: '',
+  setActiveGrade: (grade) => set({ activeGrade: grade }),
+  selectedQuestions: [],
+  addQuestion: (q) => set((s) => ({ selectedQuestions: [...s.selectedQuestions, q] })),
+}));
+```
+
+---
+
+### 12.4 — Enable Strict TypeScript
+Default Vite tsconfig is lenient. Strict mode catches real bugs before runtime.
+
+In `tsconfig.app.json`:
+```json
+{
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true
+  }
+}
+```
+
+---
+
+### 12.5 — Future: Replace pywebview with Tauri (Not Now)
+Only relevant when docx/pdf Python dependency is eventually removed.
+
+| | pywebview (current) | Tauri (future) |
+|---|---|---|
+| Installer size | ~50MB (Python runtime) | ~5MB |
+| Performance | Okay | Fast native |
+| Backend language | Python | Rust |
+| Migration effort | — | High |
+
+**Do NOT do this now.** Python is required for docx/pdf. Revisit only when that
+feature is fully replaced by a pure TypeScript/math solution.
