@@ -31,28 +31,6 @@ export interface ReceiptRule {
   created_at?: string;
 }
 
-// SSE Subscriber & Real-Time Broadcaster Mechanism
-type SseListener = (event: string, data: any) => void;
-const sseSubscribers = new Set<SseListener>();
-
-export function subscribeSseClient(listener: SseListener) {
-  sseSubscribers.add(listener);
-}
-
-export function unsubscribeSseClient(listener: SseListener) {
-  sseSubscribers.delete(listener);
-}
-
-export function broadcastSseEvent(event: string, data: any) {
-  for (const listener of sseSubscribers) {
-    try {
-      listener(event, data);
-    } catch (e) {
-      sseSubscribers.delete(listener);
-    }
-  }
-}
-
 
 // Robust HTML / Text Parser for Vietcombank Email Receipts
 export function parseVietcombankEmail(html: string, text: string, emailHeaderDate?: Date): (Partial<BankReceipt> & { trans_time?: string }) | null {
@@ -248,7 +226,7 @@ export async function syncBankReceipts(clientKeywords?: Record<string, string>, 
     console.log('[IMAP Service] Sync already in progress, skipping duplicate concurrent connection.');
     const clientAdmin = getSupabaseAdmin();
     try {
-      const { data: dbData } = await clientAdmin.from('bank_receipts').select('*').order('created_at', { ascending: false });
+      const { data: dbData } = await clientAdmin.from('bank_receipts').select('id, user_id, order_number, trans_date, debit_account, remitter_name, credit_account, beneficiary_name, beneficiary_bank, amount, details, status, type, category, created_at').order('created_at', { ascending: false });
       if (dbData && dbData.length > 0) return dbData as BankReceipt[];
     } catch (e) {}
     return [];
@@ -291,8 +269,8 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
   if (!targetUserId) {
     try {
       const { data: profData } = await clientAdmin.from('profiles').select('id').limit(1).maybeSingle();
-      if (profData && profData.id) {
-        targetUserId = profData.id;
+      if ((profData as any)?.id) {
+        targetUserId = (profData as any).id;
       }
     } catch (e) {}
   }
@@ -300,9 +278,9 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
   // 1. Fetch existing receipts, rules, and category budgets from Supabase DB FIRST
   try {
     const [receiptsRes, rulesRes, budgetsRes] = await Promise.all([
-      clientAdmin.from('bank_receipts').select('*').order('created_at', { ascending: false }),
-      clientAdmin.from('receipt_rules').select('*').order('created_at', { ascending: false }),
-      clientAdmin.from('category_budgets').select('*')
+      clientAdmin.from('bank_receipts').select('id, user_id, order_number, trans_date, debit_account, remitter_name, credit_account, beneficiary_name, beneficiary_bank, amount, details, status, type, category, created_at').order('created_at', { ascending: false }),
+      clientAdmin.from('receipt_rules').select('id, user_id, match_field, match_value, target_type, target_category, created_at').order('created_at', { ascending: false }),
+      clientAdmin.from('category_budgets').select('id, user_id, teacher_name, category, amount, keywords, updated_at')
     ]);
 
     let dbReceipts: BankReceipt[] = [];
@@ -383,7 +361,7 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
                 (async () => {
                   try {
                     const { trans_time, ...updatedPayload } = updatedReceipt;
-                    await clientAdmin.from('bank_receipts').upsert(updatedPayload, { onConflict: 'id' });
+                    await clientAdmin.from('bank_receipts').upsert(updatedPayload as any, { onConflict: 'id' });
                     
                     if (targetUserId) {
                       const txRecord = {
@@ -396,7 +374,7 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
                         category: budget.category,
                         date: updatedReceipt.trans_date
                       };
-                      await clientAdmin.from('manual_transactions').upsert(txRecord, { onConflict: 'id' });
+                      await clientAdmin.from('manual_transactions').upsert(txRecord as any, { onConflict: 'id' });
                     }
                   } catch (dbErr) {
                     console.error('[IMAP Sync] DB background update failed:', dbErr);
@@ -562,7 +540,7 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
           try {
             const { trans_time, ...payloadWithoutTime } = newReceipt;
             const receiptPayload = targetUserId ? { ...payloadWithoutTime, user_id: targetUserId } : payloadWithoutTime;
-            const { error: dbErr } = await clientAdmin.from('bank_receipts').upsert(receiptPayload, { onConflict: 'id' });
+            const { error: dbErr } = await clientAdmin.from('bank_receipts').upsert(receiptPayload as any, { onConflict: 'id' });
             if (dbErr) console.error('[Supabase bank_receipts upsert error]', dbErr.message);
 
             if (isNewReceipt && status === 'classified' && matchedType && matchedCategory && targetUserId) {
@@ -576,7 +554,7 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
                 category: matchedCategory,
                 date: newReceipt.trans_date
               };
-              await clientAdmin.from('manual_transactions').upsert(txRecord, { onConflict: 'id' });
+              await clientAdmin.from('manual_transactions').upsert(txRecord as any, { onConflict: 'id' });
             }
           } catch (e) {}
         }
@@ -592,7 +570,7 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
 
   // Combine DB receipts with in-memory map of newly parsed IMAP receipts
   try {
-    const { data: dbData } = await clientAdmin.from('bank_receipts').select('*').order('created_at', { ascending: false });
+    const { data: dbData } = await clientAdmin.from('bank_receipts').select('id, user_id, order_number, trans_date, debit_account, remitter_name, credit_account, beneficiary_name, beneficiary_bank, amount, details, status, type, category, created_at').order('created_at', { ascending: false });
     if (dbData && Array.isArray(dbData)) {
       dbData.forEach((r: BankReceipt) => {
         if (!existingMap.has(r.id)) {
@@ -603,18 +581,9 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
   } catch (e) {}
 
   const finalReceiptsList = Array.from(existingMap.values()).sort((a, b) => b.trans_date.localeCompare(a.trans_date));
-
-  broadcastSseEvent('new-receipt', { receipts: finalReceiptsList, newlyParsedCount });
   return finalReceiptsList;
 }
 
-let lastAutoSyncTime = 0;
-
 export async function startImapIdleListener() {
-  const now = Date.now();
-  // Rate limit background auto-sync to once every 2 minutes
-  if (now - lastAutoSyncTime > 120000) {
-    lastAutoSyncTime = now;
-    syncBankReceipts().catch(err => console.error('[Auto IMAP Sync Error]:', err));
-  }
+  // Disabled: IMAP sync is handled via Vercel Cron Job (/api/bank-receipts/sync-cron)
 }

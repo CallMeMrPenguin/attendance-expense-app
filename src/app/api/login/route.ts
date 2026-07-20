@@ -30,23 +30,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Tên đăng nhập hoặc mật khẩu không chính xác!' }, { status: 400 });
     }
 
+    const p = profile as any;
+
     // 2. Verify plain text password
-    if (profile.password !== password) {
+    if (p.password !== password) {
       return NextResponse.json({ error: 'Tên đăng nhập hoặc mật khẩu không chính xác!' }, { status: 400 });
     }
 
     // 3. User verified in profiles. Ensure they exist and are synced in Supabase Auth.
-    const userEmail = profile.email || `${profile.username}@giasupro.com`;
+    const userEmail = p.email || `${p.username}@giasupro.com`;
 
     try {
       // Attempt to sync password and metadata to existing Auth user ID
-      const { error: updateError } = await admin.auth.admin.updateUserById(profile.id, {
+      const { error: updateError } = await admin.auth.admin.updateUserById(p.id, {
         password: password,
         email_confirm: true,
         user_metadata: {
-          role: profile.role,
-          teacher_name: profile.teacher_name,
-          username: profile.username
+          role: p.role,
+          teacher_name: p.teacher_name,
+          username: p.username
         }
       });
 
@@ -61,9 +63,9 @@ export async function POST(request: NextRequest) {
           password: password,
           email_confirm: true,
           user_metadata: {
-            role: profile.role,
-            teacher_name: profile.teacher_name,
-            username: profile.username
+            role: p.role,
+            teacher_name: p.teacher_name,
+            username: p.username
           }
         });
 
@@ -74,10 +76,9 @@ export async function POST(request: NextRequest) {
 
         if (newUser?.user) {
           // Re-link the profiles row to the newly created Auth user ID
-          await admin
-            .from('profiles')
+          await (admin.from('profiles') as any)
             .update({ id: newUser.user.id })
-            .eq('username', profile.username);
+            .eq('username', p.username);
         }
       } catch (createErr: any) {
         return NextResponse.json({ error: `Đồng bộ tài khoản thất bại: ${createErr.message}` }, { status: 500 });

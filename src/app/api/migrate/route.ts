@@ -32,12 +32,12 @@ export async function GET() {
     const adminClient = getSupabaseAdmin();
     
     // Purge Giáo Viên 1 records
-    await adminClient.from('sessions').delete().eq('teacher_name', 'Giáo Viên 1');
-    await adminClient.from('profiles').delete().eq('teacher_name', 'Giáo Viên 1');
-    await adminClient.from('teachers').delete().eq('name', 'Giáo Viên 1');
+    await (adminClient.from('sessions') as any).delete().eq('teacher_name', 'Giáo Viên 1');
+    await (adminClient.from('profiles') as any).delete().eq('teacher_name', 'Giáo Viên 1');
+    await (adminClient.from('teachers') as any).delete().eq('name', 'Giáo Viên 1');
     
     // Normalize role 'teacher' -> 'user'
-    await adminClient.from('profiles').update({ role: 'user' }).eq('role', 'teacher');
+    await (adminClient.from('profiles') as any).update({ role: 'user' }).eq('role', 'teacher');
 
     return NextResponse.json({ status: 'success', message: 'Legacy records purged and roles normalized successfully!' });
   } catch (err: any) {
@@ -60,8 +60,8 @@ export async function POST(request: NextRequest) {
         .filter((t: any) => t && String(t).trim())
         .map((t: string) => ({ name: t.trim() }));
         
-      const { error: tError } = await adminClient
-        .from('teachers')
+      const { error: tError } = await (adminClient
+        .from('teachers') as any)
         .upsert(teacherRecords, { onConflict: 'name' });
       
       if (tError) {
@@ -92,8 +92,8 @@ export async function POST(request: NextRequest) {
       const batchSize = 100;
       for (let i = 0; i < sessionRecords.length; i += batchSize) {
         const batch = sessionRecords.slice(i, i + batchSize);
-        const { error: sError } = await adminClient
-          .from('sessions')
+        const { error: sError } = await (adminClient
+          .from('sessions') as any)
           .insert(batch);
         
         if (sError) {

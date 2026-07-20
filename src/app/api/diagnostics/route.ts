@@ -41,7 +41,10 @@ export async function GET(request: NextRequest) {
   let dbReceiptsCount = 0;
   let dbReceipts: any[] = [];
   try {
-    const { data } = await admin.from('bank_receipts').select('*').order('created_at', { ascending: false });
+    const { data } = await admin
+      .from('bank_receipts')
+      .select('id, user_id, order_number, trans_date, debit_account, remitter_name, credit_account, beneficiary_name, beneficiary_bank, amount, details, status, type, category, created_at')
+      .order('created_at', { ascending: false });
     dbReceipts = data || [];
     dbReceiptsCount = dbReceipts.length;
   } catch (e) {}

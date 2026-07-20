@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
-import { syncBankReceipts, BankReceipt, ReceiptRule } from '@/lib/imap-service';
+import { BankReceipt, ReceiptRule } from '@/lib/imap-service';
 
 export async function GET() {
   try {
@@ -11,17 +11,19 @@ export async function GET() {
 
     try {
       const [receiptsRes, rulesRes] = await Promise.all([
-        supabaseAdmin.from('bank_receipts').select('*').order('created_at', { ascending: false }),
-        supabaseAdmin.from('receipt_rules').select('*').order('created_at', { ascending: false })
+        supabaseAdmin
+          .from('bank_receipts')
+          .select('id, user_id, order_number, trans_date, debit_account, remitter_name, credit_account, beneficiary_name, beneficiary_bank, amount, details, status, type, category, created_at')
+          .order('created_at', { ascending: false }),
+        supabaseAdmin
+          .from('receipt_rules')
+          .select('id, user_id, match_field, match_value, target_type, target_category, created_at')
+          .order('created_at', { ascending: false })
       ]);
       receipts = receiptsRes.data || [];
       rules = rulesRes.data || [];
     } catch (e) {
       // DB missing error
-    }
-
-    if (receipts.length === 0) {
-      receipts = await syncBankReceipts();
     }
 
     return NextResponse.json({
@@ -51,7 +53,7 @@ export async function POST(req: Request) {
     try {
       const { data } = await supabaseAdmin
         .from('bank_receipts')
-        .select('*')
+        .select('id, user_id, order_number, trans_date, debit_account, remitter_name, credit_account, beneficiary_name, beneficiary_bank, amount, details, status, type, category, created_at')
         .eq('id', receiptId)
         .maybeSingle();
       if (data) receipt = data as BankReceipt;
@@ -74,7 +76,7 @@ export async function POST(req: Request) {
       const { trans_time, ...receiptPayload } = updatedReceipt;
       await supabaseAdmin
         .from('bank_receipts')
-        .upsert(receiptPayload, { onConflict: 'id' });
+        .upsert(receiptPayload as any, { onConflict: 'id' });
     } catch (e) {}
 
     // 3. Create or update manual_transaction
@@ -91,7 +93,7 @@ export async function POST(req: Request) {
     };
 
     try {
-      await supabaseAdmin.from('manual_transactions').upsert(txRecord, { onConflict: 'id' });
+      await supabaseAdmin.from('manual_transactions').upsert(txRecord as any, { onConflict: 'id' });
     } catch (e) {}
 
     // 4. Save auto-classification rule if requested
@@ -106,7 +108,7 @@ export async function POST(req: Request) {
         target_category: category
       };
       try {
-        await supabaseAdmin.from('receipt_rules').upsert(ruleRecord, { onConflict: 'id' });
+        await supabaseAdmin.from('receipt_rules').upsert(ruleRecord as any, { onConflict: 'id' });
       } catch (e) {}
 
       // 5. Retroactively classify all unclassified receipts matching this rule!
@@ -114,7 +116,7 @@ export async function POST(req: Request) {
       try {
         const { data } = await supabaseAdmin
           .from('bank_receipts')
-          .select('*')
+          .select('id, user_id, order_number, trans_date, debit_account, remitter_name, credit_account, beneficiary_name, beneficiary_bank, amount, details, status, type, category, created_at')
           .eq('status', 'unclassified');
         dbUnclassified = (data as BankReceipt[]) || [];
       } catch (e) {}
@@ -137,7 +139,7 @@ export async function POST(req: Request) {
             const { trans_time, ...unRecPayload } = classifiedUnRec;
             await supabaseAdmin
               .from('bank_receipts')
-              .upsert(unRecPayload, { onConflict: 'id' });
+              .upsert(unRecPayload as any, { onConflict: 'id' });
 
             const retroTx = {
               id: `tx-receipt-${unRec.id}`,
@@ -149,7 +151,7 @@ export async function POST(req: Request) {
               category,
               date: unRec.trans_date || new Date().toISOString().split('T')[0]
             };
-            await supabaseAdmin.from('manual_transactions').upsert(retroTx, { onConflict: 'id' });
+            await supabaseAdmin.from('manual_transactions').upsert(retroTx as any, { onConflict: 'id' });
           } catch (e) {}
         }
       }
@@ -159,7 +161,7 @@ export async function POST(req: Request) {
     try {
       const { data } = await supabaseAdmin
         .from('bank_receipts')
-        .select('*')
+        .select('id, user_id, order_number, trans_date, debit_account, remitter_name, credit_account, beneficiary_name, beneficiary_bank, amount, details, status, type, category, created_at')
         .order('created_at', { ascending: false });
       finalReceipts = (data as BankReceipt[]) || [];
     } catch (e) {}

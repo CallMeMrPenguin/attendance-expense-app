@@ -224,7 +224,11 @@ export default function Dashboard() {
           if (data.success && Array.isArray(data.receipts)) {
             updateReceiptsState(data.receipts);
             try {
-              const txRes = await supabase.from('manual_transactions').select('*').eq('user_id', currentUser?.id).order('date', { ascending: false });
+              const txRes = await supabase
+                .from('manual_transactions')
+                .select('id, user_id, teacher_name, desc_text, amount, type, category, date, created_at')
+                .eq('user_id', currentUser?.id)
+                .order('date', { ascending: false });
               if (txRes.data) {
                 const formatted = txRes.data.map((t: any) => ({
                   id: t.id,
@@ -316,49 +320,13 @@ export default function Dashboard() {
     }
   }, [activeTab, currentUser?.id, handleSyncReceipts]);
 
-  // Real-time EventSource (SSE) stream listener for instant Gmail IMAP updates & Auto-Reconnect
+  // Fetch bank receipts on mount, window focus, and 60-second periodic poll
   useEffect(() => {
-    let eventSource: EventSource | null = null;
-    let reconnectTimeout: NodeJS.Timeout | null = null;
-
-    const connectSse = () => {
-      if (typeof window === 'undefined') return;
-      if (eventSource) {
-        eventSource.close();
-      }
-
-      eventSource = new EventSource('/api/bank-receipts/stream');
-
-      eventSource.addEventListener('new-receipt', (e: MessageEvent) => {
-        try {
-          const data = JSON.parse(e.data);
-          if (data && Array.isArray(data.receipts) && data.receipts.length > 0) {
-            updateReceiptsState(data.receipts);
-            if (data.newlyParsedCount !== undefined && data.newlyParsedCount > 0) {
-              showToast(`Đã quét Gmail! Đã đọc ${data.newlyParsedCount} biên lai mới.`, 'success');
-            }
-          } else {
-            fetchBankReceipts();
-          }
-        } catch (err) {
-          fetchBankReceipts();
-        }
-      });
-
-      eventSource.onerror = () => {
-        eventSource?.close();
-        if (reconnectTimeout) clearTimeout(reconnectTimeout);
-        reconnectTimeout = setTimeout(connectSse, 5000);
-      };
-    };
-
-    connectSse();
-
     fetchBankReceipts();
 
     const interval = setInterval(() => {
       fetchBankReceipts();
-    }, 20000);
+    }, 60000);
 
     const onFocus = () => {
       fetchBankReceipts();
@@ -366,12 +334,10 @@ export default function Dashboard() {
 
     window.addEventListener('focus', onFocus);
     return () => {
-      if (reconnectTimeout) clearTimeout(reconnectTimeout);
-      eventSource?.close();
       clearInterval(interval);
       window.removeEventListener('focus', onFocus);
     };
-  }, [fetchBankReceipts, updateReceiptsState]);
+  }, [fetchBankReceipts]);
 
   // Client-side Instant Auto-Classification & Transaction Registration
   useEffect(() => {
@@ -647,10 +613,10 @@ export default function Dashboard() {
     const fetchFinanceCloud = async () => {
       try {
         const [txRes, fundRes, budgetRes, histRes] = await Promise.all([
-          supabase.from('manual_transactions').select('*').eq('user_id', userId).order('date', { ascending: false }),
-          supabase.from('savings_funds').select('*').eq('user_id', userId).maybeSingle(),
-          supabase.from('category_budgets').select('*').eq('user_id', userId),
-          supabase.from('savings_history').select('*').eq('user_id', userId).order('date', { ascending: false })
+          supabase.from('manual_transactions').select('id, user_id, teacher_name, desc_text, amount, type, category, date, created_at').eq('user_id', userId).order('date', { ascending: false }),
+          supabase.from('savings_funds').select('user_id, teacher_name, emergency_current, emergency_target, accumulation_current, accumulation_target, updated_at').eq('user_id', userId).maybeSingle(),
+          supabase.from('category_budgets').select('id, user_id, teacher_name, category, amount, keywords, updated_at').eq('user_id', userId),
+          supabase.from('savings_history').select('id, user_id, teacher_name, fund, type, amount, date, created_at').eq('user_id', userId).order('date', { ascending: false })
         ]);
 
         if (txRes.error || fundRes.error || budgetRes.error || histRes.error) {

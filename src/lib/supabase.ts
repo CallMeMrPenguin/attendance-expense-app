@@ -19,16 +19,21 @@ if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
 // Client-side public Supabase client
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+let _adminClient: ReturnType<typeof createClient> | null = null;
+
 // Server-side admin Supabase client (only use in API routes/Server components)
 export const getSupabaseAdmin = () => {
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || supabaseAnonKey; // Fallback to anon key for build safety
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    console.warn('Warning: SUPABASE_SERVICE_ROLE_KEY is not set. Using fallback.');
+  if (!_adminClient) {
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || supabaseAnonKey; // Fallback to anon key for build safety
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.warn('Warning: SUPABASE_SERVICE_ROLE_KEY is not set. Using fallback.');
+    }
+    _adminClient = createClient(supabaseUrl, serviceRoleKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
   }
-  return createClient(supabaseUrl, serviceRoleKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
+  return _adminClient;
 };

@@ -23,8 +23,8 @@ export async function GET(request: NextRequest) {
         .select('id')
         .or(`id.eq.${token},username.eq.${token}`)
         .maybeSingle();
-      if (matchedProfile?.id) {
-        userId = matchedProfile.id;
+      if ((matchedProfile as any)?.id) {
+        userId = (matchedProfile as any).id;
       }
     }
 
@@ -35,27 +35,27 @@ export async function GET(request: NextRequest) {
     // 1. Fetch manual_transactions
     const { data: txData, error: txError } = await admin
       .from('manual_transactions')
-      .select('*')
+      .select('id, user_id, teacher_name, desc_text, amount, type, category, date, created_at')
       .eq('user_id', userId)
       .order('date', { ascending: false });
 
     // 2. Fetch savings_funds
     const { data: fundsData, error: fundsError } = await admin
       .from('savings_funds')
-      .select('*')
+      .select('user_id, teacher_name, emergency_current, emergency_target, accumulation_current, accumulation_target, updated_at')
       .eq('user_id', userId)
       .maybeSingle();
 
     // 3. Fetch category_budgets
     const { data: budgetsData, error: budgetsError } = await admin
       .from('category_budgets')
-      .select('*')
+      .select('id, user_id, teacher_name, category, amount, keywords, updated_at')
       .eq('user_id', userId);
 
     // 4. Fetch savings_history
     const { data: historyData, error: historyError } = await admin
       .from('savings_history')
-      .select('*')
+      .select('id, user_id, teacher_name, fund, type, amount, date, created_at')
       .eq('user_id', userId)
       .order('date', { ascending: false });
 
@@ -104,10 +104,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       manualTransactions: formattedTx,
-      emergencyCurrent: Number(fundsData?.emergency_current) || 0,
-      emergencyTarget: Number(fundsData?.emergency_target) || 30000000,
-      accumulationCurrent: Number(fundsData?.accumulation_current) || 0,
-      accumulationTarget: Number(fundsData?.accumulation_target) || 150000000,
+      emergencyCurrent: Number((fundsData as any)?.emergency_current) || 0,
+      emergencyTarget: Number((fundsData as any)?.emergency_target) || 30000000,
+      accumulationCurrent: Number((fundsData as any)?.accumulation_current) || 0,
+      accumulationTarget: Number((fundsData as any)?.accumulation_target) || 150000000,
       categoryBudgets: formattedBudgets,
       categoryKeywords: formattedKeywords,
       savingsHistory: formattedHistory,
@@ -140,8 +140,8 @@ export async function POST(request: NextRequest) {
         .select('id')
         .or(`id.eq.${token},username.eq.${token}`)
         .maybeSingle();
-      if (matchedProfile?.id) {
-        userId = matchedProfile.id;
+      if ((matchedProfile as any)?.id) {
+        userId = (matchedProfile as any).id;
       }
     }
 
@@ -155,7 +155,7 @@ export async function POST(request: NextRequest) {
       .eq('id', userId)
       .maybeSingle();
 
-    const teacherName = profile?.teacher_name || 'Admin';
+    const teacherName = (profile as any)?.teacher_name || 'Admin';
     const body = await request.json();
 
     const {
@@ -166,13 +166,8 @@ export async function POST(request: NextRequest) {
       savingsHistory
     } = body;
 
-    // Type 1: Sync manual transactions
+    // Type 1: Sync manual transactions via Upsert
     if (type === 'transactions' && Array.isArray(transactions)) {
-      const { error: delErr } = await admin.from('manual_transactions').delete().eq('user_id', userId);
-      if (delErr && delErr.code === '42P01') {
-        return NextResponse.json({ tablesMissing: true, error: delErr.message }, { status: 400 });
-      }
-
       if (transactions.length > 0) {
         const records = transactions.map((t: any) => ({
           id: t.id || `tx-${Date.now()}-${Math.random()}`,
@@ -185,9 +180,12 @@ export async function POST(request: NextRequest) {
           date: t.date
         }));
 
-        const { error: insErr } = await admin.from('manual_transactions').insert(records);
+        const { error: insErr } = await admin.from('manual_transactions').upsert(records as any, { onConflict: 'id' });
         if (insErr) {
-          console.error('Failed to insert manual_transactions into Supabase:', insErr);
+          if (insErr.code === '42P01') {
+            return NextResponse.json({ tablesMissing: true, error: insErr.message }, { status: 400 });
+          }
+          console.error('Failed to upsert manual_transactions into Supabase:', insErr);
           return NextResponse.json({ error: insErr.message, code: insErr.code }, { status: 400 });
         }
       }
@@ -203,7 +201,7 @@ export async function POST(request: NextRequest) {
         accumulation_current: Number(savingsFunds.accumulationCurrent) || 0,
         accumulation_target: Number(savingsFunds.accumulationTarget) || 150000000,
         updated_at: new Date().toISOString()
-      }, { onConflict: 'user_id' });
+      } as any, { onConflict: 'user_id' });
 
       if (fundErr) {
         console.error('Failed to upsert savings_funds in Supabase:', fundErr);
@@ -226,7 +224,7 @@ export async function POST(request: NextRequest) {
       }));
 
       if (records.length > 0) {
-        const { error: bErr } = await admin.from('category_budgets').upsert(records, { onConflict: 'id' });
+        const { error: bErr } = await admin.from('category_budgets').upsert(records as any, { onConflict: 'id' });
         if (bErr) {
           console.error('Failed to upsert category_budgets in Supabase:', bErr);
           return NextResponse.json({ error: bErr.message, code: bErr.code }, { status: 400 });
@@ -234,13 +232,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Type 4: Sync savings history
+    // Type 4: Sync savings history via Upsert
     if (type === 'savings_history' && Array.isArray(savingsHistory)) {
-      const { error: delHistErr } = await admin.from('savings_history').delete().eq('user_id', userId);
-      if (delHistErr && delHistErr.code === '42P01') {
-        return NextResponse.json({ tablesMissing: true, error: delHistErr.message }, { status: 400 });
-      }
-
       if (savingsHistory.length > 0) {
         const records = savingsHistory.map((h: any) => ({
           id: h.id || `sh-${Date.now()}-${Math.random()}`,
@@ -252,9 +245,12 @@ export async function POST(request: NextRequest) {
           date: h.date
         }));
 
-        const { error: insHistErr } = await admin.from('savings_history').insert(records);
+        const { error: insHistErr } = await admin.from('savings_history').upsert(records as any, { onConflict: 'id' });
         if (insHistErr) {
-          console.error('Failed to insert savings_history in Supabase:', insHistErr);
+          if (insHistErr.code === '42P01') {
+            return NextResponse.json({ tablesMissing: true, error: insHistErr.message }, { status: 400 });
+          }
+          console.error('Failed to upsert savings_history in Supabase:', insHistErr);
           return NextResponse.json({ error: insHistErr.message, code: insHistErr.code }, { status: 400 });
         }
       }

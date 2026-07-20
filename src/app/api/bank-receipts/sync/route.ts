@@ -1,33 +1,36 @@
 import { NextResponse } from 'next/server';
-import { syncBankReceipts } from '@/lib/imap-service';
 import { getSupabaseAdmin } from '@/lib/supabase';
 
 export async function POST(req: Request) {
   try {
-    let clientKeywords: Record<string, string> | undefined = undefined;
     let userId: string | undefined = undefined;
     try {
       const body = await req.json();
-      if (body) {
-        if (body.keywords) clientKeywords = body.keywords;
-        if (body.userId) userId = body.userId;
-      }
+      if (body && body.userId) userId = body.userId;
     } catch (e) {}
 
-    // 1. Trigger background IMAP sync non-blocking to prevent HTTP request timeout
-    syncBankReceipts(clientKeywords, userId).catch(err => {
-      console.error('[Background IMAP Sync Error]:', err);
-    });
-
-    // 2. Immediately return current DB receipts, rules, and transactions (<50ms)
+    // Immediately return current DB receipts, rules, and transactions (<50ms)
     const supabaseAdmin = getSupabaseAdmin();
 
     const [receiptsRes, rulesRes, txsRes] = await Promise.all([
-      supabaseAdmin.from('bank_receipts').select('*').order('created_at', { ascending: false }),
-      supabaseAdmin.from('receipt_rules').select('*').order('created_at', { ascending: false }),
+      supabaseAdmin
+        .from('bank_receipts')
+        .select('id, user_id, order_number, trans_date, debit_account, remitter_name, credit_account, beneficiary_name, beneficiary_bank, amount, details, status, type, category, created_at')
+        .order('created_at', { ascending: false }),
+      supabaseAdmin
+        .from('receipt_rules')
+        .select('id, user_id, match_field, match_value, target_type, target_category, created_at')
+        .order('created_at', { ascending: false }),
       userId 
-        ? supabaseAdmin.from('manual_transactions').select('*').eq('user_id', userId).order('date', { ascending: false })
-        : supabaseAdmin.from('manual_transactions').select('*').order('date', { ascending: false })
+        ? supabaseAdmin
+            .from('manual_transactions')
+            .select('id, user_id, teacher_name, desc_text, amount, type, category, date, created_at')
+            .eq('user_id', userId)
+            .order('date', { ascending: false })
+        : supabaseAdmin
+            .from('manual_transactions')
+            .select('id, user_id, teacher_name, desc_text, amount, type, category, date, created_at')
+            .order('date', { ascending: false })
     ]);
 
     const dbReceipts = receiptsRes.data || [];
@@ -45,7 +48,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       success: true,
-      syncing: true,
+      syncing: false,
       syncedCount: dbReceipts.length,
       receipts: dbReceipts,
       rules: dbRules,
