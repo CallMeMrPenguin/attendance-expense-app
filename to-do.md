@@ -1,10 +1,10 @@
-﻿# Project To-Do List
+﻿# Project To-Do List — Vercel Function Optimization
 
 ## Core Rule: App Must Be Silent When Nobody Is Using It
 
 > If no user has the app open → zero Vercel function runtime consumed.
 > No background loops. No auto-sync on startup. No persistent connections.
-> IMAP runs only on a schedule. All API routes must exit under 5 seconds.
+> IMAP runs only on a fixed cron schedule. All API routes must exit under 5 seconds.
 
 ---
 
@@ -36,8 +36,8 @@ alive indefinitely — burning memory-seconds 24/7 even when the user is idle.
 **Problem**
 ```ts
 syncBankReceipts(clientKeywords, userId).catch(...);
-// ↑ Fire-and-forget. Response returns instantly but IMAP keeps the
-//   function alive for 30–60 more seconds. Vercel bills the full duration.
+// Fire-and-forget. Response returns instantly but IMAP keeps the
+// function alive for 30-60 more seconds. Vercel bills the full duration.
 ```
 
 **Solution**
@@ -49,11 +49,11 @@ syncBankReceipts(clientKeywords, userId).catch(...);
     ]
   }
   ```
-- Create `src/app/api/bank-receipts/sync-cron/route.ts` — awaits `syncBankReceipts()`
-  fully, then returns. Vercel triggers it every 30 minutes automatically.
+- Create `src/app/api/bank-receipts/sync-cron/route.ts` — fully awaits
+  `syncBankReceipts()` then returns. Vercel triggers it every 30 minutes.
 - The existing `/api/bank-receipts/sync` POST should only read from DB and return,
   never trigger IMAP.
-- Remove IMAP auto-start from `src/instrumentation.ts` entirely — the cron replaces it.
+- Remove IMAP auto-start from `src/instrumentation.ts` entirely — cron replaces it.
 - Result: app does nothing in the background when nobody is using it.
 
 ---
@@ -65,7 +65,7 @@ syncBankReceipts(clientKeywords, userId).catch(...);
 **Problem**
 ```ts
 if (receipts.length === 0) {
-  receipts = await syncBankReceipts(); // blocks function for 30–60s
+  receipts = await syncBankReceipts(); // blocks function for 30-60s
 }
 ```
 Cold start or empty DB triggers a full blocking IMAP fetch inside a GET.
@@ -134,10 +134,10 @@ Same fix applies to `savings_history`.
 
 **Problem**
 `select('*')` fetches all columns including large text fields on every query.
-Inflates payload size, increases memory usage, and slows JSON parsing.
+Inflates payload size, increases memory usage, slows JSON parsing.
 
 **Solution**
-Explicitly select only what each route actually uses:
+Explicitly select only the columns each route actually uses:
 ```ts
 // Instead of:
 .select('*')
