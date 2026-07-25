@@ -561,7 +561,7 @@ export default function Dashboard() {
           budgetRes.data.forEach((b: any) => {
             bMap[b.category] = Number(b.amount) || 0;
           });
-          setCategoryBudgets({ ...defaultBudgets, ...bMap });
+          setCategoryBudgets(bMap);
         } else {
           setCategoryBudgets(defaultBudgets);
         }
@@ -616,15 +616,16 @@ export default function Dashboard() {
     if (!currentUser) return;
     runBackgroundSave(async () => {
       try {
-        const { error } = await supabase.from('savings_funds').upsert({
-          user_id: userId,
-          teacher_name: currentUser.teacherName || 'Admin',
+        const payload = {
+          user_id: 'aae79676-8bc1-4cce-8f5d-e78379a6abc4',
+          teacher_name: 'Shared Admin',
           emergency_current: emCurr,
           emergency_target: emTar,
           accumulation_current: acCurr,
           accumulation_target: acTar,
           updated_at: new Date().toISOString()
-        }, { onConflict: 'user_id' });
+        };
+        const { error } = await supabase.from('savings_funds').upsert(payload, { onConflict: 'user_id' });
         if (error) console.error('Supabase savings_funds upsert error:', error);
       } catch (err) {
         console.error('Direct saveSavingsFunds error:', err);
@@ -683,6 +684,16 @@ export default function Dashboard() {
     if (!currentUser) return;
     runBackgroundSave(async () => {
       try {
+        const { data: existing } = await supabase.from('category_budgets').select('id');
+        if (existing && existing.length > 0) {
+          const existingIds = existing.map(e => e.id);
+          const newKeys = new Set(Object.keys(budgets));
+          const idsToDelete = existingIds.filter(id => !newKeys.has(id));
+          if (idsToDelete.length > 0) {
+            await supabase.from('category_budgets').delete().in('id', idsToDelete);
+          }
+        }
+
         const records = Object.keys(budgets).map(cat => ({
           id: cat,
           user_id: userId,
