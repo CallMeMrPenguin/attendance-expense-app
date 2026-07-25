@@ -78,12 +78,13 @@ interface FlowTabProps {
   manualTransactions: any[];
   sessions: Session[];
   categoryBudgets: Record<string, number>;
+  categoryTypes?: Record<string, 'income' | 'expense'>;
   chartSelectedMonths: string[];
   bankReceipts?: any[];
   getActualCategoryAmount: (cat: string) => number;
   handleDeleteManualTx: (id: string) => void;
   handleOpenTxModal: (type: 'income' | 'expense' | 'saving') => void;
-  saveBudgets: (userId: string, budgets: Record<string, number>, keywords?: Record<string, string>) => void;
+  saveBudgets: (userId: string, budgets: Record<string, number>, keywords?: Record<string, string>, catTypes?: Record<string, 'income' | 'expense'>) => void;
   saveTransactions?: (userId: string, data: any[]) => void;
   toggleChartMonth?: (mStr: string) => void;
   handleClassifyReceipt?: (receiptId: string, type: 'income' | 'expense' | 'saving', category: string, createRule: boolean, matchField: string, matchValue: string) => void | Promise<void>;
@@ -140,6 +141,7 @@ function FlowTab({
   manualTransactions,
   sessions,
   categoryBudgets,
+  categoryTypes = {},
   chartSelectedMonths,
   bankReceipts = [],
   getActualCategoryAmount,
@@ -206,7 +208,7 @@ function FlowTab({
     return firstMonth ? parseInt(firstMonth.split('-')[0]) : new Date().getFullYear();
   });
 
-  // Initialize categories dynamically from categoryBudgets prop
+  // Initialize categories dynamically from categoryBudgets & categoryTypes props
   React.useEffect(() => {
     if (!categoryBudgets) return;
 
@@ -214,42 +216,30 @@ function FlowTab({
     if (budgetKeys.length === 0) return;
 
     const defaultIncomeNames = ['Lương', 'Giáo dục', 'Đầu tư'];
-    const defaultExpenseNames = ['Ăn uống', 'Di chuyển', 'Shopping', 'Hóa đơn', 'Giải trí', 'Khác'];
 
     const newIncome: { name: string; icon: string; note?: string; keywords?: string }[] = [];
     const newExpense: { name: string; icon: string; note?: string; keywords?: string }[] = [];
 
     budgetKeys.forEach((catName) => {
-      const isInc = defaultIncomeNames.includes(catName);
-      const isExp = defaultExpenseNames.includes(catName);
-
-      const existingInc = incomeCats.find((c) => c.name === catName);
-      const existingExp = expenseCats.find((c) => c.name === catName);
-      const existing = existingInc || existingExp;
+      const isInc = categoryTypes[catName] ? categoryTypes[catName] === 'income' : defaultIncomeNames.includes(catName);
 
       const item = {
         name: catName,
-        icon: existing?.icon || (isInc ? 'TrendingUp' : 'Coins'),
-        note: existing?.note || (isInc ? 'Thu nhập' : 'Chi phí'),
-        keywords: existing?.keywords || ''
+        icon: isInc ? 'TrendingUp' : 'Coins',
+        note: isInc ? 'Thu nhập' : 'Chi phí',
+        keywords: ''
       };
 
       if (isInc) {
         newIncome.push(item);
-      } else if (isExp) {
-        newExpense.push(item);
       } else {
-        if (existingInc) {
-          newIncome.push(item);
-        } else {
-          newExpense.push(item);
-        }
+        newExpense.push(item);
       }
     });
 
     if (newIncome.length > 0) setIncomeCats(newIncome);
     if (newExpense.length > 0) setExpenseCats(newExpense);
-  }, [categoryBudgets]);
+  }, [categoryBudgets, categoryTypes]);
 
   // Edit category state (contains budget now)
   const [editingCat, setEditingCat] = React.useState<{
@@ -367,9 +357,8 @@ function FlowTab({
         if (c && c.name && c.keywords) allKeywords[c.name] = c.keywords;
       });
     }
-    allKeywords[nameTrimmed] = newCatKeywords.trim();
-
-    saveBudgets(currentUser.id, updatedBudgets, allKeywords);
+    const updatedCategoryTypes: Record<string, 'income' | 'expense'> = { ...categoryTypes, [nameTrimmed]: isIncome ? 'income' : 'expense' };
+    saveBudgets(currentUser.id, updatedBudgets, allKeywords, updatedCategoryTypes);
 
     showToast(`Đã thêm danh mục "${nameTrimmed}" mới!`, 'success');
     setAddingCatType(null);

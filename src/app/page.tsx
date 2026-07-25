@@ -358,46 +358,13 @@ export default function Dashboard() {
         }
       }
 
-      if (status === 'classified' && type && category) {
-        const txId = r.id.startsWith('tx-receipt-') ? r.id : `tx-receipt-${r.id.startsWith('vcb-') ? '' : 'vcb-'}${r.id}`;
-        const rawId = r.id.replace(/^tx-receipt-/, '').replace(/^vcb-/, '');
-        const isDeleted = deletedTxIds.includes(txId) || deletedTxIds.includes(r.id) || deletedTxIds.includes(rawId) || deletedTxIds.includes(`vcb-${rawId}`);
-
-        if (!isDeleted) {
-          newTxList.push({
-            id: txId,
-            desc: `[Biên lai] ${r.remitter_name || ''} ➔ ${r.beneficiary_name || ''}: ${r.details}`,
-            amount: Number(r.amount) || 0,
-            type,
-            category,
-            date: r.trans_date
-          });
-        }
-      }
-
       return { ...r, status, category, type };
     });
 
     if (receiptsChanged) {
       setBankReceipts(updatedReceipts);
     }
-
-    if (newTxList.length > 0 && currentUser?.id) {
-      setManualTransactions(prev => {
-        let hasNew = false;
-        const map = new Map<string, any>();
-        prev.forEach(t => map.set(t.id, t));
-        newTxList.forEach(t => {
-          if (!map.has(t.id) || map.get(t.id).category !== t.category) {
-            map.set(t.id, t);
-            hasNew = true;
-          }
-        });
-        if (!hasNew) return prev;
-        return Array.from(map.values()).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-      });
-    }
-  }, [bankReceipts, currentUser, deletedTxIds]);
+  }, [bankReceipts, currentUser]);
 
   // Always force dark mode (night mode)
   useEffect(() => {
@@ -512,6 +479,18 @@ export default function Dashboard() {
     }
   }, [currentUser, activeTab]);
 
+  const [categoryTypes, setCategoryTypes] = useState<Record<string, 'income' | 'expense'>>({
+    'Lương': 'income',
+    'Giáo dục': 'income',
+    'Đầu tư': 'income',
+    'Khác': 'expense',
+    'Ăn uống': 'expense',
+    'Di chuyển': 'expense',
+    'Shopping': 'expense',
+    'Hóa đơn': 'expense',
+    'Giải trí': 'expense'
+  });
+
   // Load financial data directly from Supabase DB (shared across all admins)
   useEffect(() => {
     if (!currentUser) return;
@@ -558,10 +537,20 @@ export default function Dashboard() {
 
         if (budgetRes.data && budgetRes.data.length > 0) {
           const bMap: Record<string, number> = {};
+          const tMap: Record<string, 'income' | 'expense'> = {};
           budgetRes.data.forEach((b: any) => {
             bMap[b.category] = Number(b.amount) || 0;
+            let type: 'income' | 'expense' = ['Lương', 'Giáo dục', 'Đầu tư'].includes(b.category) ? 'income' : 'expense';
+            if (b.keywords && b.keywords.startsWith('{')) {
+              try {
+                const parsed = JSON.parse(b.keywords);
+                if (parsed.type) type = parsed.type;
+              } catch (e) {}
+            }
+            tMap[b.category] = type;
           });
           setCategoryBudgets(bMap);
+          setCategoryTypes(tMap);
         } else {
           setCategoryBudgets(defaultBudgets);
         }
@@ -678,8 +667,11 @@ export default function Dashboard() {
     });
   }, [currentUser, runBackgroundSave]);
 
-  const saveBudgets = useCallback((userId: string, budgets: Record<string, number>, keywords?: Record<string, string>) => {
+  const saveBudgets = useCallback((userId: string, budgets: Record<string, number>, keywords?: Record<string, string>, catTypes?: Record<string, 'income' | 'expense'>) => {
     setCategoryBudgets(budgets);
+    if (catTypes) {
+      setCategoryTypes(prev => ({ ...prev, ...catTypes }));
+    }
 
     if (!currentUser) return;
     runBackgroundSave(async () => {
@@ -694,15 +686,20 @@ export default function Dashboard() {
           }
         }
 
-        const records = Object.keys(budgets).map(cat => ({
-          id: cat,
-          user_id: userId,
-          teacher_name: currentUser.teacherName || 'Admin',
-          category: cat,
-          amount: Number(budgets[cat]) || 0,
-          keywords: keywords ? (keywords[cat] || null) : null,
-          updated_at: new Date().toISOString()
-        }));
+        const records = Object.keys(budgets).map(cat => {
+          const type = catTypes?.[cat] || categoryTypes[cat] || (['Lương', 'Giáo dục', 'Đầu tư'].includes(cat) ? 'income' : 'expense');
+          const kw = keywords?.[cat] || '';
+          const metaStr = JSON.stringify({ type, kw });
+          return {
+            id: cat,
+            user_id: userId,
+            teacher_name: currentUser.teacherName || 'Admin',
+            category: cat,
+            amount: Number(budgets[cat]) || 0,
+            keywords: metaStr,
+            updated_at: new Date().toISOString()
+          };
+        });
         if (records.length > 0) {
           const { error } = await supabase.from('category_budgets').upsert(records, { onConflict: 'id' });
           if (error) console.error('Supabase category_budgets upsert error:', error);
@@ -711,7 +708,7 @@ export default function Dashboard() {
         console.error('Direct saveBudgets error:', err);
       }
     });
-  }, [currentUser, runBackgroundSave]);
+  }, [currentUser, runBackgroundSave, categoryTypes]);
 
   // Fetch teachers list
   const fetchTeachers = useCallback(async () => {
@@ -1280,6 +1277,7 @@ export default function Dashboard() {
               manualTransactions={manualTransactions}
               sessions={currentUser.role === 'admin' ? allSessions : sessions}
               categoryBudgets={categoryBudgets}
+              categoryTypes={categoryTypes}
               chartSelectedMonths={chartSelectedMonths}
               bankReceipts={bankReceipts}
               getActualCategoryAmount={getActualCategoryAmount}
