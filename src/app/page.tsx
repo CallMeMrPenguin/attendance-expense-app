@@ -56,17 +56,6 @@ export default function Dashboard() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [deletedTxIds, setDeletedTxIds] = useState<string[]>([]);
-
-  useEffect(() => {
-    if (currentUser?.id) {
-      try {
-        const saved = localStorage.getItem(`finance_deleted_tx_${currentUser.id}`);
-        if (saved && saved !== 'undefined') {
-          setDeletedTxIds(JSON.parse(saved));
-        }
-      } catch (e) {}
-    }
-  }, [currentUser]);
   
   // Navigation states
   const [activeTab, setActiveTab] = useState<'dashboard' | 'flow' | 'saving' | 'schedule' | 'settings'>('dashboard');
@@ -190,9 +179,7 @@ export default function Dashboard() {
       setDeletedTxIds(prev => {
         const txId = `tx-receipt-${receiptId.startsWith('vcb-') ? receiptId.replace('vcb-', '') : receiptId}`;
         const rawId = receiptId.replace(/^tx-receipt-/, '').replace(/^vcb-/, '');
-        const updated = prev.filter(id => id !== receiptId && id !== txId && id !== rawId && id !== `vcb-${rawId}`);
-        localStorage.setItem(`finance_deleted_tx_${currentUser.id}`, JSON.stringify(updated));
-        return updated;
+        return prev.filter(id => id !== receiptId && id !== txId && id !== rawId && id !== `vcb-${rawId}`);
       });
     }
 
@@ -227,7 +214,6 @@ export default function Dashboard() {
               const txRes = await supabase
                 .from('manual_transactions')
                 .select('id, user_id, teacher_name, desc_text, amount, type, category, date, created_at')
-                .eq('user_id', currentUser?.id)
                 .order('date', { ascending: false });
               if (txRes.data) {
                 const formatted = txRes.data.map((t: any) => ({
@@ -239,7 +225,6 @@ export default function Dashboard() {
                   date: t.date
                 }));
                 setManualTransactions(formatted);
-                localStorage.setItem(`finance_trans_${currentUser?.id}`, JSON.stringify(formatted));
               }
             } catch (e) {}
           }
@@ -252,7 +237,7 @@ export default function Dashboard() {
 
   const handleSyncReceipts = useCallback(async () => {
     try {
-      const defaultKeywords: Record<string, string> = {
+      const mergedKeywords: Record<string, string> = {
         'Lương': 'luong',
         'Giáo dục': 'day hoc, day, cham cong',
         'Đầu tư': 'dau tu, chung khoan',
@@ -266,18 +251,6 @@ export default function Dashboard() {
         'Tích lũy dài hạn': 'tich luy dai han, tich luy',
         'Tiết kiệm khác': 'tiet kiem khac'
       };
-
-      let localKeywords: Record<string, string> = {};
-      if (currentUser?.id) {
-        try {
-          const savedKeywords = localStorage.getItem(`finance_category_keywords_${currentUser.id}`);
-          if (savedKeywords && savedKeywords !== 'undefined') {
-            localKeywords = JSON.parse(savedKeywords);
-          }
-        } catch (e) {}
-      }
-
-      const mergedKeywords = { ...defaultKeywords, ...localKeywords };
 
       const res = await fetch('/api/bank-receipts/sync', {
         method: 'POST',
@@ -299,9 +272,7 @@ export default function Dashboard() {
                   map.set(t.id, t);
                 }
               });
-              const merged = Array.from(map.values()).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-              localStorage.setItem(`finance_trans_${currentUser.id}`, JSON.stringify(merged));
-              return merged;
+              return Array.from(map.values()).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
             });
           }
           showToast('Đang quét Gmail ngầm tìm biên lai mới...', 'info');
@@ -311,7 +282,7 @@ export default function Dashboard() {
       console.error('Error syncing receipts:', err);
       showToast('Có lỗi xảy ra khi đồng bộ Gmail.', 'error');
     }
-  }, [showToast, updateReceiptsState]);
+  }, [showToast, updateReceiptsState, currentUser?.id, deletedTxIds]);
 
   // Trigger Gmail IMAP scan automatically whenever user switches to Dòng tiền (Flow) tab
   useEffect(() => {
@@ -343,7 +314,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (!bankReceipts || bankReceipts.length === 0) return;
 
-    const defaultKeywords: Record<string, string> = {
+    const mergedKwMap: Record<string, string> = {
       'Lương': 'luong',
       'Giáo dục': 'day hoc, day, cham cong',
       'Đầu tư': 'dau tu, chung khoan',
@@ -357,16 +328,6 @@ export default function Dashboard() {
       'Tích lũy dài hạn': 'tich luy dai han, tich luy',
       'Tiết kiệm khác': 'tiet kiem khac'
     };
-
-    let localKeywords: Record<string, string> = {};
-    if (currentUser?.id) {
-      try {
-        const saved = localStorage.getItem(`finance_category_keywords_${currentUser.id}`);
-        if (saved && saved !== 'undefined') localKeywords = JSON.parse(saved);
-      } catch (e) {}
-    }
-
-    const mergedKwMap: Record<string, string> = { ...defaultKeywords, ...localKeywords };
 
     let receiptsChanged = false;
     let newTxList: any[] = [];
@@ -433,9 +394,7 @@ export default function Dashboard() {
           }
         });
         if (!hasNew) return prev;
-        const merged = Array.from(map.values()).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-        localStorage.setItem(`finance_trans_${currentUser.id}`, JSON.stringify(merged));
-        return merged;
+        return Array.from(map.values()).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
       });
     }
   }, [bankReceipts, currentUser, deletedTxIds]);
@@ -553,43 +512,11 @@ export default function Dashboard() {
     }
   }, [currentUser, activeTab]);
 
-  // Load financial data from LocalStorage first, then sync directly with Supabase DB (matching sessions table architecture)
+  // Load financial data directly from Supabase DB (shared across all admins)
   useEffect(() => {
     if (!currentUser) return;
-    const userId = currentUser.id;
-    const teacherName = currentUser.teacherName || 'Admin';
 
-    // Step 1: Initial LocalStorage Load (Prevents data loss under all conditions)
-    let localTx: any[] = [];
-    let localSavHist: any[] = [];
-    let localBudgets: Record<string, number> = {};
-    let localEmCurr = 0;
-    let localEmTar = 30000000;
-    let localAcCurr = 0;
-    let localAcTar = 150000000;
-
-    const storedTrans = localStorage.getItem(`finance_trans_${userId}`);
-    if (storedTrans) {
-      try { localTx = JSON.parse(storedTrans); } catch (e) { console.error(e); }
-    }
-    const storedSavHist = localStorage.getItem(`finance_sav_hist_${userId}`);
-    if (storedSavHist) {
-      try { localSavHist = JSON.parse(storedSavHist); } catch (e) { console.error(e); }
-    }
-    const storedBudgets = localStorage.getItem(`finance_budgets_${userId}`);
-    if (storedBudgets) {
-      try { localBudgets = JSON.parse(storedBudgets); } catch (e) { console.error(e); }
-    }
-    const sEmCurr = localStorage.getItem(`finance_em_curr_${userId}`);
-    if (sEmCurr) localEmCurr = Number(sEmCurr);
-    const sEmTar = localStorage.getItem(`finance_em_tar_${userId}`);
-    if (sEmTar) localEmTar = Number(sEmTar);
-    const sAcCurr = localStorage.getItem(`finance_ac_curr_${userId}`);
-    if (sAcCurr) localAcCurr = Number(sAcCurr);
-    const sAcTar = localStorage.getItem(`finance_ac_tar_${userId}`);
-    if (sAcTar) localAcTar = Number(sAcTar);
-
-    const defaultBudgets = {
+    const defaultBudgets: Record<string, number> = {
       'Lương': 15000000,
       'Giáo dục': 10000000,
       'Đầu tư': 5000000,
@@ -601,215 +528,53 @@ export default function Dashboard() {
       'Giải trí': 2000000
     };
 
-    setManualTransactions(localTx);
-    setEmergencyCurrent(localEmCurr);
-    setEmergencyTarget(localEmTar);
-    setAccumulationCurrent(localAcCurr);
-    setAccumulationTarget(localAcTar);
-    setSavingsHistory(localSavHist);
-    setCategoryBudgets({ ...defaultBudgets, ...localBudgets });
-
-    // Step 2: Direct Supabase Cloud Synchronization & Auto-Migration
     const fetchFinanceCloud = async () => {
       try {
         const [txRes, fundRes, budgetRes, histRes] = await Promise.all([
-          supabase.from('manual_transactions').select('id, user_id, teacher_name, desc_text, amount, type, category, date, created_at').eq('user_id', userId).order('date', { ascending: false }),
-          supabase.from('savings_funds').select('user_id, teacher_name, emergency_current, emergency_target, accumulation_current, accumulation_target, updated_at').eq('user_id', userId).maybeSingle(),
-          supabase.from('category_budgets').select('id, user_id, teacher_name, category, amount, keywords, updated_at').eq('user_id', userId),
-          supabase.from('savings_history').select('id, user_id, teacher_name, fund, type, amount, date, created_at').eq('user_id', userId).order('date', { ascending: false })
+          supabase.from('manual_transactions').select('id, user_id, teacher_name, desc_text, amount, type, category, date, created_at').order('date', { ascending: false }),
+          supabase.from('savings_funds').select('user_id, teacher_name, emergency_current, emergency_target, accumulation_current, accumulation_target, updated_at').order('updated_at', { ascending: false }).limit(1).maybeSingle(),
+          supabase.from('category_budgets').select('id, user_id, teacher_name, category, amount, keywords, updated_at'),
+          supabase.from('savings_history').select('id, user_id, teacher_name, fund, type, amount, date, created_at').order('date', { ascending: false })
         ]);
 
-        if (txRes.error || fundRes.error || budgetRes.error || histRes.error) {
-          console.warn('Supabase financial tables not present or inaccessible. Operating in LocalStorage mode.', {
-            txErr: txRes.error?.message,
-            fundErr: fundRes.error?.message,
-            budgetErr: budgetRes.error?.message,
-            histErr: histRes.error?.message
-          });
-          return;
+        if (txRes.data) {
+          const formatted = txRes.data.map((t: any) => ({
+            id: t.id,
+            desc: t.desc_text || t.desc || '',
+            amount: Number(t.amount) || 0,
+            type: t.type,
+            category: t.category,
+            date: t.date
+          }));
+          setManualTransactions(formatted);
         }
 
-        const cloudTx = txRes.data || [];
-        const cloudFund = fundRes.data;
-        const cloudBudgets = budgetRes.data || [];
-        const cloudHist = histRes.data || [];
+        if (fundRes.data) {
+          setEmergencyCurrent(Number(fundRes.data.emergency_current) || 0);
+          setEmergencyTarget(Number(fundRes.data.emergency_target) || 30000000);
+          setAccumulationCurrent(Number(fundRes.data.accumulation_current) || 0);
+          setAccumulationTarget(Number(fundRes.data.accumulation_target) || 150000000);
+        }
 
-        const hasCloudData = cloudTx.length > 0 || !!cloudFund || cloudBudgets.length > 0 || cloudHist.length > 0;
+        if (budgetRes.data && budgetRes.data.length > 0) {
+          const bMap: Record<string, number> = {};
+          budgetRes.data.forEach((b: any) => {
+            bMap[b.category] = Number(b.amount) || 0;
+          });
+          setCategoryBudgets({ ...defaultBudgets, ...bMap });
+        } else {
+          setCategoryBudgets(defaultBudgets);
+        }
 
-        if (hasCloudData) {
-          // Cloud has data: sync to state & LocalStorage
-          if (cloudTx.length > 0) {
-            const formatted = cloudTx.map((t: any) => ({
-              id: t.id,
-              desc: t.desc_text || t.desc || '',
-              amount: Number(t.amount) || 0,
-              type: t.type,
-              category: t.category,
-              date: t.date
-            }));
-            setManualTransactions(formatted);
-            localStorage.setItem(`finance_trans_${userId}`, JSON.stringify(formatted));
-          }
-
-          if (cloudFund) {
-            setEmergencyCurrent(Number(cloudFund.emergency_current) || 0);
-            setEmergencyTarget(Number(cloudFund.emergency_target) || 30000000);
-            setAccumulationCurrent(Number(cloudFund.accumulation_current) || 0);
-            setAccumulationTarget(Number(cloudFund.accumulation_target) || 150000000);
-
-            localStorage.setItem(`finance_em_curr_${userId}`, String(cloudFund.emergency_current || 0));
-            localStorage.setItem(`finance_em_tar_${userId}`, String(cloudFund.emergency_target || 30000000));
-            localStorage.setItem(`finance_ac_curr_${userId}`, String(cloudFund.accumulation_current || 0));
-            localStorage.setItem(`finance_ac_tar_${userId}`, String(cloudFund.accumulation_target || 150000000));
-          }
-
-          if (cloudBudgets.length > 0) {
-            const bMap: Record<string, number> = {};
-            const kMap: Record<string, string> = {};
-            
-            // Safe parse of local keywords first
-            let localKeywords: Record<string, string> = {};
-            try {
-              const savedKeywords = localStorage.getItem(`finance_category_keywords_${userId}`);
-              if (savedKeywords && savedKeywords !== 'undefined') {
-                localKeywords = JSON.parse(savedKeywords);
-              }
-            } catch (e) {}
-
-            const defaultKeywords: Record<string, string> = {
-              'Lương': 'luong',
-              'Giáo dục': 'day hoc, day, cham cong',
-              'Đầu tư': 'dau tu, chung khoan',
-              'Khác': 'khac',
-              'Ăn uống': 'an uong, do an, food, com, an',
-              'Di chuyển': 'xang, grab, taxi, di lai',
-              'Shopping': 'shopping, mua sam',
-              'Hóa đơn': 'hoa don, dien nuoc, wifi',
-              'Giải trí': 'giai tri, xem phim, du lich',
-              'Tiết kiệm khẩn cấp': 'tiet kiem khan cap, khan cap',
-              'Tích lũy dài hạn': 'tich luy dai han, tich luy',
-              'Tiết kiệm khác': 'tiet kiem khac'
-            };
-
-            let needsDbSync = false;
-            cloudBudgets.forEach((b: any) => {
-              bMap[b.category] = Number(b.amount) || 0;
-              if (b.keywords) {
-                kMap[b.category] = b.keywords;
-              } else {
-                // Fallback to local or default keywords
-                const fallbackKw = localKeywords[b.category] || defaultKeywords[b.category] || '';
-                if (fallbackKw) {
-                  kMap[b.category] = fallbackKw;
-                  needsDbSync = true;
-                }
-              }
-            });
-
-            setCategoryBudgets({ ...defaultBudgets, ...bMap });
-            localStorage.setItem(`finance_budgets_${userId}`, JSON.stringify(bMap));
-            localStorage.setItem(`finance_category_keywords_${userId}`, JSON.stringify(kMap));
-
-            // Sync merged keywords back to Supabase in background if they were missing
-            if (needsDbSync) {
-              const syncRecords = Object.keys(bMap).map(cat => ({
-                id: `${userId}_${cat}`,
-                user_id: userId,
-                teacher_name: teacherName,
-                category: cat,
-                amount: Number(bMap[cat]) || 0,
-                keywords: kMap[cat] || null,
-                updated_at: new Date().toISOString()
-              }));
-              supabase.from('category_budgets').upsert(syncRecords, { onConflict: 'id' }).then(({ error }) => {
-                if (error) console.error('Auto-sync category keywords error:', error.message);
-              });
-            }
-          }
-
-          if (cloudHist.length > 0) {
-            const formatted = cloudHist.map((h: any) => ({
-              id: h.id,
-              fund: h.fund,
-              type: h.type,
-              amount: Number(h.amount) || 0,
-              date: h.date
-            }));
-            setSavingsHistory(formatted);
-            localStorage.setItem(`finance_sav_hist_${userId}`, JSON.stringify(formatted));
-          }
-        } else if (localTx.length > 0 || localSavHist.length > 0 || Object.keys(localBudgets).length > 0) {
-          // Cloud table is empty BUT LocalStorage has existing data -> Auto-migrate UP to Supabase cloud!
-          console.log('Auto-migrating local financial data up to Supabase database...');
-          if (localTx.length > 0) {
-            const txRecords = localTx.map(t => ({
-              id: t.id || `tx-${Date.now()}-${Math.random()}`,
-              user_id: userId,
-              teacher_name: teacherName,
-              desc_text: t.desc || '',
-              amount: Number(t.amount) || 0,
-              type: t.type,
-              category: t.category,
-              date: t.date
-            }));
-            await supabase.from('manual_transactions').insert(txRecords);
-          }
-
-          await supabase.from('savings_funds').upsert({
-            user_id: userId,
-            teacher_name: teacherName,
-            emergency_current: localEmCurr,
-            emergency_target: localEmTar,
-            accumulation_current: localAcCurr,
-            accumulation_target: localAcTar,
-            updated_at: new Date().toISOString()
-          }, { onConflict: 'user_id' });
-
-          if (localSavHist.length > 0) {
-            const histRecords = localSavHist.map(h => ({
-              id: h.id || `sh-${Date.now()}-${Math.random()}`,
-              user_id: userId,
-              teacher_name: teacherName,
-              fund: h.fund,
-              type: h.type,
-              amount: Number(h.amount) || 0,
-              date: h.date
-            }));
-            await supabase.from('savings_history').insert(histRecords);
-          }
-
-          let localKeywords: Record<string, string> = {};
-          try {
-            const savedKeywords = localStorage.getItem(`finance_category_keywords_${userId}`);
-            if (savedKeywords && savedKeywords !== 'undefined') {
-              localKeywords = JSON.parse(savedKeywords);
-            }
-          } catch (e) {
-            console.error('Error parsing local keywords in page.tsx:', e);
-          }
-          const defaultKeywords: Record<string, string> = {
-            'Lương': 'luong',
-            'Giáo dục': 'day hoc, day, cham cong',
-            'Đầu tư': 'dau tu, chung khoan',
-            'Khác': 'khac',
-            'Ăn uống': 'an uong, do an, food, com',
-            'Di chuyển': 'xang, grab, taxi, di lai',
-            'Shopping': 'shopping, mua sam',
-            'Hóa đơn': 'hoa don, dien nuoc, wifi',
-            'Giải trí': 'giai tri, xem phim, du lich'
-          };
-          const budgetRecords = Object.keys(localBudgets).map(cat => ({
-            id: `${userId}_${cat}`,
-            user_id: userId,
-            teacher_name: teacherName,
-            category: cat,
-            amount: Number(localBudgets[cat]) || 0,
-            keywords: localKeywords[cat] !== undefined ? localKeywords[cat] : (defaultKeywords[cat] || null),
-            updated_at: new Date().toISOString()
+        if (histRes.data) {
+          const formatted = histRes.data.map((h: any) => ({
+            id: h.id,
+            fund: h.fund,
+            type: h.type,
+            amount: Number(h.amount) || 0,
+            date: h.date
           }));
-          if (budgetRecords.length > 0) {
-            await supabase.from('category_budgets').upsert(budgetRecords, { onConflict: 'id' });
-          }
+          setSavingsHistory(formatted);
         }
       } catch (err) {
         console.error('Direct Supabase cloud fetch error:', err);
@@ -819,16 +584,14 @@ export default function Dashboard() {
     fetchFinanceCloud();
   }, [currentUser]);
 
-  // Direct Supabase Save Helpers (Updates React State, LocalStorage Backup synchronously & Supabase Cloud asynchronously)
+  // Direct Supabase Save Helpers (Updates React State & Supabase Cloud directly without localStorage)
   const saveTransactions = useCallback((userId: string, data: any[]) => {
     setManualTransactions(data);
-    localStorage.setItem(`finance_trans_${userId}`, JSON.stringify(data));
 
     if (!currentUser) return;
     const teacherName = currentUser.teacherName || 'Admin';
     runBackgroundSave(async () => {
       try {
-        await supabase.from('manual_transactions').delete().eq('user_id', userId);
         if (data.length > 0) {
           const records = data.map(t => ({
             id: t.id || `tx-${Date.now()}-${Math.random()}`,
@@ -840,8 +603,8 @@ export default function Dashboard() {
             category: t.category,
             date: t.date
           }));
-          const { error } = await supabase.from('manual_transactions').insert(records);
-          if (error) console.error('Supabase manual_transactions insert error:', error);
+          const { error } = await supabase.from('manual_transactions').upsert(records, { onConflict: 'id' });
+          if (error) console.error('Supabase manual_transactions upsert error:', error);
         }
       } catch (err) {
         console.error('Direct saveTransactions error:', err);
@@ -849,7 +612,7 @@ export default function Dashboard() {
     });
   }, [currentUser, runBackgroundSave]);
 
-  const saveSavingsFundsDirect = (userId: string, emCurr: number, emTar: number, acCurr: number, acTar: number) => {
+  const saveSavingsFundsDirect = useCallback((userId: string, emCurr: number, emTar: number, acCurr: number, acTar: number) => {
     if (!currentUser) return;
     runBackgroundSave(async () => {
       try {
@@ -867,40 +630,34 @@ export default function Dashboard() {
         console.error('Direct saveSavingsFunds error:', err);
       }
     });
-  };
+  }, [currentUser, runBackgroundSave]);
 
   const saveEmergencyCurrent = (userId: string, val: number) => {
     setEmergencyCurrent(val);
-    localStorage.setItem(`finance_em_curr_${userId}`, String(val));
     saveSavingsFundsDirect(userId, val, emergencyTarget, accumulationCurrent, accumulationTarget);
   };
 
   const saveEmergencyTarget = (userId: string, val: number) => {
     setEmergencyTarget(val);
-    localStorage.setItem(`finance_em_tar_${userId}`, String(val));
     saveSavingsFundsDirect(userId, emergencyCurrent, val, accumulationCurrent, accumulationTarget);
   };
 
   const saveAccumulationCurrent = (userId: string, val: number) => {
     setAccumulationCurrent(val);
-    localStorage.setItem(`finance_ac_curr_${userId}`, String(val));
     saveSavingsFundsDirect(userId, emergencyCurrent, emergencyTarget, val, accumulationTarget);
   };
 
   const saveAccumulationTarget = (userId: string, val: number) => {
     setAccumulationTarget(val);
-    localStorage.setItem(`finance_ac_tar_${userId}`, String(val));
     saveSavingsFundsDirect(userId, emergencyCurrent, emergencyTarget, accumulationCurrent, val);
   };
 
   const saveSavingsHistory = useCallback((userId: string, data: any[]) => {
     setSavingsHistory(data);
-    localStorage.setItem(`finance_sav_hist_${userId}`, JSON.stringify(data));
 
     if (!currentUser) return;
     runBackgroundSave(async () => {
       try {
-        await supabase.from('savings_history').delete().eq('user_id', userId);
         if (data.length > 0) {
           const records = data.map(h => ({
             id: h.id || `sh-${Date.now()}-${Math.random()}`,
@@ -911,8 +668,8 @@ export default function Dashboard() {
             amount: Number(h.amount) || 0,
             date: h.date
           }));
-          const { error } = await supabase.from('savings_history').insert(records);
-          if (error) console.error('Supabase savings_history insert error:', error);
+          const { error } = await supabase.from('savings_history').upsert(records, { onConflict: 'id' });
+          if (error) console.error('Supabase savings_history upsert error:', error);
         }
       } catch (err) {
         console.error('Direct saveSavingsHistory error:', err);
@@ -922,17 +679,12 @@ export default function Dashboard() {
 
   const saveBudgets = useCallback((userId: string, budgets: Record<string, number>, keywords?: Record<string, string>) => {
     setCategoryBudgets(budgets);
-    localStorage.setItem(`finance_budgets_${userId}`, JSON.stringify(budgets));
-
-    if (keywords) {
-      localStorage.setItem(`finance_category_keywords_${userId}`, JSON.stringify(keywords));
-    }
 
     if (!currentUser) return;
     runBackgroundSave(async () => {
       try {
         const records = Object.keys(budgets).map(cat => ({
-          id: `${userId}_${cat}`,
+          id: cat,
           user_id: userId,
           teacher_name: currentUser.teacherName || 'Admin',
           category: cat,
@@ -1366,9 +1118,7 @@ export default function Dashboard() {
         set.add(rawId);
         set.add(`vcb-${rawId}`);
       }
-      const arr = Array.from(set);
-      localStorage.setItem(`finance_deleted_tx_${userId}`, JSON.stringify(arr));
-      return arr;
+      return Array.from(set);
     });
 
     setConfirmDeleteTxId(null);

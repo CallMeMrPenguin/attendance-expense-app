@@ -206,53 +206,9 @@ function FlowTab({
     return firstMonth ? parseInt(firstMonth.split('-')[0]) : new Date().getFullYear();
   });
 
-  // Load categories from localStorage or set defaults
+  // Initialize categories
   React.useEffect(() => {
-    if (currentUser?.id) {
-      let loadedIncome = null;
-      let loadedExpense = null;
-      let kMap: Record<string, string> = {};
-
-      try {
-        const savedIncome = localStorage.getItem(`finance_income_cats_${currentUser.id}`);
-        const savedExpense = localStorage.getItem(`finance_expense_cats_${currentUser.id}`);
-        const savedKeywords = localStorage.getItem(`finance_category_keywords_${currentUser.id}`);
-        
-        if (savedIncome && savedIncome !== 'undefined') loadedIncome = JSON.parse(savedIncome);
-        if (savedExpense && savedExpense !== 'undefined') loadedExpense = JSON.parse(savedExpense);
-        if (savedKeywords && savedKeywords !== 'undefined') kMap = JSON.parse(savedKeywords);
-      } catch (err) {
-        console.error('Error loading custom categories/keywords from localStorage:', err);
-      }
-
-      if (kMap && Object.keys(kMap).length > 0) {
-        if (loadedIncome) {
-          loadedIncome = loadedIncome.map((c: any) => ({
-            ...c,
-            keywords: kMap[c.name] !== undefined ? kMap[c.name] : (c.keywords || '')
-          }));
-        }
-        if (loadedExpense) {
-          loadedExpense = loadedExpense.map((c: any) => ({
-            ...c,
-            keywords: kMap[c.name] !== undefined ? kMap[c.name] : (c.keywords || '')
-          }));
-        }
-      }
-
-      if (loadedIncome) {
-        setIncomeCats(loadedIncome);
-        localStorage.setItem(`finance_income_cats_${currentUser.id}`, JSON.stringify(loadedIncome));
-      } else {
-        localStorage.setItem(`finance_income_cats_${currentUser.id}`, JSON.stringify(incomeCats));
-      }
-      if (loadedExpense) {
-        setExpenseCats(loadedExpense);
-        localStorage.setItem(`finance_expense_cats_${currentUser.id}`, JSON.stringify(loadedExpense));
-      } else {
-        localStorage.setItem(`finance_expense_cats_${currentUser.id}`, JSON.stringify(expenseCats));
-      }
-    }
+    // Categories are loaded dynamically from categoryBudgets & categoryKeywords
   }, [currentUser]);
 
   // Edit category state (contains budget now)
@@ -352,10 +308,8 @@ function FlowTab({
     const updatedList = [...list, newCategoryItem];
     if (isIncome) {
       setIncomeCats(updatedList);
-      localStorage.setItem(`finance_income_cats_${currentUser.id}`, JSON.stringify(updatedList));
     } else {
       setExpenseCats(updatedList);
-      localStorage.setItem(`finance_expense_cats_${currentUser.id}`, JSON.stringify(updatedList));
     }
 
     const bVal = parseNumberDots(newCatBudget) || 0;
@@ -405,10 +359,8 @@ function FlowTab({
     const updatedList = list.filter((_, idx) => idx !== index);
     if (type === 'income') {
       setIncomeCats(updatedList);
-      localStorage.setItem(`finance_income_cats_${currentUser.id}`, JSON.stringify(updatedList));
     } else {
       setExpenseCats(updatedList);
-      localStorage.setItem(`finance_expense_cats_${currentUser.id}`, JSON.stringify(updatedList));
     }
 
     const updatedBudgets = { ...categoryBudgets };

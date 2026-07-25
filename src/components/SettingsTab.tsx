@@ -127,21 +127,7 @@ export default function SettingsTab({
 
   const executeResetData = () => {
     const userId = currentUser.id;
-    localStorage.removeItem(`finance_trans_${userId}`);
-    localStorage.removeItem(`finance_em_curr_${userId}`);
-    localStorage.removeItem(`finance_em_tar_${userId}`);
-    localStorage.removeItem(`finance_ac_curr_${userId}`);
-    localStorage.removeItem(`finance_ac_tar_${userId}`);
-    localStorage.removeItem(`finance_sav_hist_${userId}`);
-    localStorage.removeItem(`finance_budgets_${userId}`);
-
-    setManualTransactions([]);
-    setEmergencyCurrent(0);
-    setEmergencyTarget(30000000);
-    setAccumulationCurrent(0);
-    setAccumulationTarget(150000000);
-    setSavingsHistory([]);
-    setCategoryBudgets({
+    const defaultBudgets = {
       'Lương': 15000000,
       'Giáo dục': 10000000,
       'Đầu tư': 5000000,
@@ -151,8 +137,24 @@ export default function SettingsTab({
       'Shopping': 3000000,
       'Hóa đơn': 3000000,
       'Giải trí': 2000000
-    });
-    showToast('Đã xóa dữ liệu tài chính cục bộ.', 'info');
+    };
+
+    saveTransactions(userId, []);
+    saveEmergencyCurrent(userId, 0);
+    saveEmergencyTarget(userId, 30000000);
+    saveAccumulationCurrent(userId, 0);
+    saveAccumulationTarget(userId, 150000000);
+    saveSavingsHistory(userId, []);
+    saveBudgets(userId, defaultBudgets);
+
+    setManualTransactions([]);
+    setEmergencyCurrent(0);
+    setEmergencyTarget(30000000);
+    setAccumulationCurrent(0);
+    setAccumulationTarget(150000000);
+    setSavingsHistory([]);
+    setCategoryBudgets(defaultBudgets);
+    showToast('Đã đặt lại dữ liệu tài chính về mặc định!', 'info');
     setResetConfirmOpen(false);
   };
 

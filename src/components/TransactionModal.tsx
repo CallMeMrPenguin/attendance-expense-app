@@ -76,12 +76,6 @@ export default function TransactionModal({
       
       let incCats = ['Lương', 'Giáo dục', 'Đầu tư', 'Khác'];
       let expCats = ['Ăn uống', 'Di chuyển', 'Shopping', 'Hóa đơn', 'Giải trí', 'Khác'];
-      if (currentUser?.id) {
-        const savedIncome = localStorage.getItem(`finance_income_cats_${currentUser.id}`);
-        const savedExpense = localStorage.getItem(`finance_expense_cats_${currentUser.id}`);
-        if (savedIncome) incCats = JSON.parse(savedIncome).map((c: any) => c.name);
-        if (savedExpense) expCats = JSON.parse(savedExpense).map((c: any) => c.name);
-      }
       setIncomeCategories(incCats);
       setExpenseCategories(expCats);
 

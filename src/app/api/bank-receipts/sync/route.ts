@@ -21,16 +21,10 @@ export async function POST(req: Request) {
         .from('receipt_rules')
         .select('id, user_id, match_field, match_value, target_type, target_category, created_at')
         .order('created_at', { ascending: false }),
-      userId 
-        ? supabaseAdmin
-            .from('manual_transactions')
-            .select('id, user_id, teacher_name, desc_text, amount, type, category, date, created_at')
-            .eq('user_id', userId)
-            .order('date', { ascending: false })
-        : supabaseAdmin
-            .from('manual_transactions')
-            .select('id, user_id, teacher_name, desc_text, amount, type, category, date, created_at')
-            .order('date', { ascending: false })
+      supabaseAdmin
+        .from('manual_transactions')
+        .select('id, user_id, teacher_name, desc_text, amount, type, category, date, created_at')
+        .order('date', { ascending: false })
     ]);
 
     const dbReceipts = receiptsRes.data || [];
