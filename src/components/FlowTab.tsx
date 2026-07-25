@@ -206,10 +206,50 @@ function FlowTab({
     return firstMonth ? parseInt(firstMonth.split('-')[0]) : new Date().getFullYear();
   });
 
-  // Initialize categories
+  // Initialize categories dynamically from categoryBudgets prop
   React.useEffect(() => {
-    // Categories are loaded dynamically from categoryBudgets & categoryKeywords
-  }, [currentUser]);
+    if (!categoryBudgets) return;
+
+    const budgetKeys = Object.keys(categoryBudgets);
+    if (budgetKeys.length === 0) return;
+
+    const defaultIncomeNames = ['Lương', 'Giáo dục', 'Đầu tư'];
+    const defaultExpenseNames = ['Ăn uống', 'Di chuyển', 'Shopping', 'Hóa đơn', 'Giải trí', 'Khác'];
+
+    const newIncome: { name: string; icon: string; note?: string; keywords?: string }[] = [];
+    const newExpense: { name: string; icon: string; note?: string; keywords?: string }[] = [];
+
+    budgetKeys.forEach((catName) => {
+      const isInc = defaultIncomeNames.includes(catName);
+      const isExp = defaultExpenseNames.includes(catName);
+
+      const existingInc = incomeCats.find((c) => c.name === catName);
+      const existingExp = expenseCats.find((c) => c.name === catName);
+      const existing = existingInc || existingExp;
+
+      const item = {
+        name: catName,
+        icon: existing?.icon || (isInc ? 'TrendingUp' : 'Coins'),
+        note: existing?.note || (isInc ? 'Thu nhập' : 'Chi phí'),
+        keywords: existing?.keywords || ''
+      };
+
+      if (isInc) {
+        newIncome.push(item);
+      } else if (isExp) {
+        newExpense.push(item);
+      } else {
+        if (existingInc) {
+          newIncome.push(item);
+        } else {
+          newExpense.push(item);
+        }
+      }
+    });
+
+    if (newIncome.length > 0) setIncomeCats(newIncome);
+    if (newExpense.length > 0) setExpenseCats(newExpense);
+  }, [categoryBudgets]);
 
   // Edit category state (contains budget now)
   const [editingCat, setEditingCat] = React.useState<{

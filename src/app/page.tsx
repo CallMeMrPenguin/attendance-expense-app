@@ -1408,6 +1408,7 @@ export default function Dashboard() {
         accumulationCurrent={accumulationCurrent}
         manualTransactions={manualTransactions}
         savingsHistory={savingsHistory}
+        categoryBudgets={categoryBudgets}
         saveTransactions={saveTransactions}
         saveEmergencyCurrent={saveEmergencyCurrent}
         saveAccumulationCurrent={saveAccumulationCurrent}

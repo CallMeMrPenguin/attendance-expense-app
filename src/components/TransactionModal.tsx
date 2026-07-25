@@ -19,6 +19,7 @@ interface TransactionModalProps {
   accumulationCurrent: number;
   manualTransactions: any[];
   savingsHistory: any[];
+  categoryBudgets?: Record<string, number>;
   saveTransactions: (userId: string, data: any[]) => void;
   saveEmergencyCurrent: (userId: string, val: number) => void;
   saveAccumulationCurrent: (userId: string, val: number) => void;
@@ -34,6 +35,7 @@ export default function TransactionModal({
   accumulationCurrent,
   manualTransactions,
   savingsHistory,
+  categoryBudgets = {},
   saveTransactions,
   saveEmergencyCurrent,
   saveAccumulationCurrent,
@@ -74,8 +76,26 @@ export default function TransactionModal({
     if (isOpen) {
       setModalTxType(defaultType);
       
-      let incCats = ['Lương', 'Giáo dục', 'Đầu tư', 'Khác'];
-      let expCats = ['Ăn uống', 'Di chuyển', 'Shopping', 'Hóa đơn', 'Giải trí', 'Khác'];
+      const defaultInc = ['Lương', 'Giáo dục', 'Đầu tư'];
+      const defaultExp = ['Ăn uống', 'Di chuyển', 'Shopping', 'Hóa đơn', 'Giải trí'];
+
+      const customKeys = Object.keys(categoryBudgets);
+      const incSet = new Set(['Lương', 'Giáo dục', 'Đầu tư', 'Khác']);
+      const expSet = new Set(['Ăn uống', 'Di chuyển', 'Shopping', 'Hóa đơn', 'Giải trí', 'Khác']);
+
+      customKeys.forEach(cat => {
+        if (defaultInc.includes(cat)) {
+          incSet.add(cat);
+        } else if (defaultExp.includes(cat)) {
+          expSet.add(cat);
+        } else {
+          expSet.add(cat);
+        }
+      });
+
+      const incCats = Array.from(incSet);
+      const expCats = Array.from(expSet);
+
       setIncomeCategories(incCats);
       setExpenseCategories(expCats);
 
