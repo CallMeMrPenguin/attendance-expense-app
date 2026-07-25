@@ -924,7 +924,7 @@ export default function Dashboard() {
     let projected = 0;
 
     items.forEach((s) => {
-      if (s.status === 'Đã dạy') {
+      if (s.status === 'Đã làm' || s.status === 'Đã dạy') {
         completed++;
         earned += Number(s.price) || 0;
       }
@@ -950,7 +950,7 @@ export default function Dashboard() {
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
 
     const prevAutoInc = targetSessions
-      .filter(s => s.status === 'Đã dạy' && s.date && s.date.substring(0, 7) < targetMonthStr)
+      .filter(s => (s.status === 'Đã làm' || s.status === 'Đã dạy') && s.date && s.date.substring(0, 7) < targetMonthStr)
       .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
 
     const prevManualExp = manualTransactions
@@ -964,7 +964,7 @@ export default function Dashboard() {
   const getTotalIncome = useCallback(() => {
     const targetSessions = currentUser?.role === 'admin' ? allSessions : sessions;
     const sbInc = targetSessions
-      .filter(s => s.status === 'Đã dạy')
+      .filter(s => s.status === 'Đã làm' || s.status === 'Đã dạy')
       .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
     const manualInc = manualTransactions
       .filter(t => t.type === 'income')
@@ -981,7 +981,7 @@ export default function Dashboard() {
   const getMonthlyIncome = useCallback((monthStr: string) => {
     const targetSessions = currentUser?.role === 'admin' ? allSessions : sessions;
     const sbEarned = targetSessions
-      .filter(s => s.status === 'Đã dạy' && s.month_year === monthStr)
+      .filter(s => (s.status === 'Đã làm' || s.status === 'Đã dạy') && s.month_year === monthStr)
       .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
       
     const manualInc = manualTransactions
@@ -1002,7 +1002,7 @@ export default function Dashboard() {
   const getSelectedMonthsIncome = useCallback(() => {
     const targetSessions = currentUser?.role === 'admin' ? allSessions : sessions;
     const sbEarned = targetSessions
-      .filter(s => s.status === 'Đã dạy' && chartSelectedMonths.includes(s.month_year))
+      .filter(s => (s.status === 'Đã làm' || s.status === 'Đã dạy') && chartSelectedMonths.includes(s.month_year))
       .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
       
     const manualInc = manualTransactions
@@ -1027,7 +1027,7 @@ export default function Dashboard() {
     const targetSessions = currentUser?.role === 'admin' ? allSessions : sessions;
     const sbEarned = targetSessions
       .filter(s => {
-        if (s.month_year !== monthStr || s.status !== 'Đã dạy') return false;
+        if (s.month_year !== monthStr || (s.status !== 'Đã làm' && s.status !== 'Đã dạy')) return false;
         const d = Number(s.date.split('-')[2]) || 1;
         return d >= startDay && d <= endDay;
       })
@@ -1054,8 +1054,6 @@ export default function Dashboard() {
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
   }, [manualTransactions]);
 
-
-
   // Actual total per category for selected months
   const getActualCategoryAmount = useCallback((cat: string) => {
     const isExp = ['Ăn uống', 'Di chuyển', 'Shopping', 'Hóa đơn', 'Giải trí', 'Khác'].includes(cat);
@@ -1070,7 +1068,7 @@ export default function Dashboard() {
       
       const targetSessions = currentUser?.role === 'admin' ? allSessions : sessions;
       const sbInc = targetSessions
-        .filter(s => s.status === 'Đã dạy' && chartSelectedMonths.includes(s.month_year) && ((s as any).income_category || s.category || 'Giáo dục') === cat)
+        .filter(s => (s.status === 'Đã làm' || s.status === 'Đã dạy') && chartSelectedMonths.includes(s.month_year) && ((s as any).income_category || s.category || 'Giáo dục') === cat)
         .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
       return manualInc + sbInc;
     }
