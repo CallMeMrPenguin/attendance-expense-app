@@ -1102,6 +1102,21 @@ export default function Dashboard() {
     runBackgroundSave(async () => {
       try {
         await supabase.from('manual_transactions').delete().eq('id', idToDelete);
+        if (idToDelete.startsWith('tx-receipt-')) {
+          const receiptId = idToDelete.replace('tx-receipt-', '');
+          const rawId = receiptId.replace(/^vcb-/, '');
+          await supabase
+            .from('bank_receipts')
+            .update({ status: 'unclassified', type: null, category: null })
+            .or(`id.eq.${receiptId},id.eq.${rawId},id.eq.vcb-${rawId}`);
+
+          setBankReceipts(prev => prev.map(r => {
+            if (r.id === receiptId || r.id === rawId || r.id === `vcb-${rawId}`) {
+              return { ...r, status: 'unclassified', type: null, category: null };
+            }
+            return r;
+          }));
+        }
       } catch (err) {
         console.error('Error deleting manual transaction from DB:', err);
       }
