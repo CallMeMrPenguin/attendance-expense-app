@@ -1018,7 +1018,7 @@ function FlowTab({
             return (
               <div
                 key={cat}
-                className={`px-4 py-3 rounded-2xl border transition-all flex items-center justify-between gap-3 text-left min-h-[68px] ${cardStyle}`}
+                className={`px-4 py-3 rounded-2xl border transition-all flex items-center justify-between gap-3 text-left h-[72px] ${cardStyle}`}
               >
                 <div className="flex items-center gap-3 shrink-0 min-w-0 max-w-[170px] sm:max-w-[220px]">
                   <span className={`inline-flex p-2.5 rounded-full border shrink-0 transition-all ${

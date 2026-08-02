@@ -553,7 +553,7 @@ export default function Dashboard() {
         const [txRes, fundRes, budgetRes, histRes] = await Promise.all([
           supabase.from('manual_transactions').select('id, user_id, teacher_name, desc_text, amount, type, category, date, created_at').order('date', { ascending: false }),
           supabase.from('savings_funds').select('user_id, teacher_name, emergency_current, emergency_target, accumulation_current, accumulation_target, updated_at').order('updated_at', { ascending: false }).limit(1).maybeSingle(),
-          supabase.from('category_budgets').select('id, user_id, teacher_name, category, amount, keywords, updated_at'),
+          supabase.from('category_budgets').select('*'),
           supabase.from('savings_history').select('id, user_id, teacher_name, fund, type, amount, date, created_at').order('date', { ascending: false })
         ]);
 
@@ -761,8 +761,6 @@ export default function Dashboard() {
           const kw = targetKeywords[cat] !== undefined ? targetKeywords[cat] : (DEFAULT_CATEGORY_KEYWORDS[cat] || '');
           const icon = targetIcons[cat] || DEFAULT_CATEGORY_ICONS[cat] || (type === 'income' ? 'TrendingUp' : 'Coins');
           const note = targetNotes[cat] || DEFAULT_CATEGORY_NOTES[cat] || (type === 'income' ? 'Thu nhập khác' : 'Chi phí khác');
-          const metaStr = JSON.stringify({ type, kw, icon, note });
-
           const record: any = {
             id: cat,
             user_id: userId,
@@ -772,7 +770,7 @@ export default function Dashboard() {
             type: type,
             icon: icon,
             note: note,
-            keywords: metaStr,
+            keywords: kw,
             updated_at: new Date().toISOString()
           };
           return record;
@@ -780,7 +778,13 @@ export default function Dashboard() {
 
         if (records.length > 0) {
           const { error } = await supabase.from('category_budgets').upsert(records, { onConflict: 'id' });
-          if (error) console.error('Supabase category_budgets upsert error:', error);
+          if (error && error.code === 'PGRST204') {
+            const cleanRecords = records.map(({ keywords, ...rest }: any) => rest);
+            const { error: retryErr } = await supabase.from('category_budgets').upsert(cleanRecords, { onConflict: 'id' });
+            if (retryErr) console.error('Retry upsert category_budgets error:', retryErr);
+          } else if (error) {
+            console.error('Supabase category_budgets upsert error:', error);
+          }
         }
       } catch (err) {
         console.error('Direct saveBudgets error:', err);
