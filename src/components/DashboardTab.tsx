@@ -107,6 +107,20 @@ export default function DashboardTab({
   } | null>(null);
 
   const svgRef = useRef<SVGSVGElement>(null);
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState<number>(900);
+
+  React.useEffect(() => {
+    const updateWidth = () => {
+      if (chartContainerRef.current) {
+        setContainerWidth(Math.max(chartContainerRef.current.clientWidth, 600));
+      }
+    };
+    updateWidth();
+    const observer = new ResizeObserver(updateWidth);
+    if (chartContainerRef.current) observer.observe(chartContainerRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   const income = getSelectedMonthsIncome();
   const expense = getSelectedMonthsExpense();
@@ -809,8 +823,8 @@ export default function DashboardTab({
           )}
         </div>
 
-        {/* Long Taller SVG Visual Canvas (900 x 420 Canvas with Invisible Point Hover in non-day modes) */}
-        <div className="w-full overflow-x-auto scrollbar-thin relative py-2">
+        {/* Responsive SVG Visual Canvas with Expanded Glow Bounds & Precision Hover */}
+        <div ref={chartContainerRef} className="w-full overflow-x-auto scrollbar-thin relative py-2">
           {chartDataModel.series.length === 0 ? (
             <div className="h-[420px] flex items-center justify-center text-xs text-slate-500 font-bold bg-[#0b0e18] rounded-2xl border border-white/5">
               Vui lòng chọn ít nhất một tháng hoặc năm ở bộ lọc ở trên để hiển thị biểu đồ.
@@ -819,27 +833,52 @@ export default function DashboardTab({
             <div className="relative">
               <svg 
                 ref={svgRef}
-                className="w-full min-w-[900px] h-[420px]" 
+                className="w-full min-w-[600px] h-[420px] overflow-visible" 
                 viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
                 onMouseMove={handleSvgMouseMove}
                 onMouseLeave={() => setHoveredNodeInfo(null)}
               >
                 <defs>
+                  {/* Expanded Filter Bounds (300% width/height to eliminate square edge clipping!) */}
+                  <filter id="glow-dash-emerald" x="-100%" y="-100%" width="300%" height="300%">
+                    <feGaussianBlur stdDeviation="5" result="blur" />
+                    <feMerge>
+                      <feMergeNode in="blur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                  <filter id="glow-dash-rose" x="-100%" y="-100%" width="300%" height="300%">
+                    <feGaussianBlur stdDeviation="5" result="blur" />
+                    <feMerge>
+                      <feMergeNode in="blur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                  <filter id="glow-dash-cyan" x="-100%" y="-100%" width="300%" height="300%">
+                    <feGaussianBlur stdDeviation="5" result="blur" />
+                    <feMerge>
+                      <feMergeNode in="blur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+
                   {chartDataModel.series.map((s, idx) => (
                     <React.Fragment key={idx}>
                       <linearGradient id={`incGrad-${idx}`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={s.incomeColor} stopOpacity="0.25" />
+                        <stop offset="0%" stopColor={s.incomeColor} stopOpacity="0.30" />
+                        <stop offset="70%" stopColor={s.incomeColor} stopOpacity="0.08" />
                         <stop offset="100%" stopColor={s.incomeColor} stopOpacity="0.0" />
                       </linearGradient>
                       <linearGradient id={`expGrad-${idx}`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={s.expenseColor} stopOpacity="0.25" />
+                        <stop offset="0%" stopColor={s.expenseColor} stopOpacity="0.30" />
+                        <stop offset="70%" stopColor={s.expenseColor} stopOpacity="0.08" />
                         <stop offset="100%" stopColor={s.expenseColor} stopOpacity="0.0" />
                       </linearGradient>
                     </React.Fragment>
                   ))}
                 </defs>
 
-                {/* Horizontal Guidelines */}
+                {/* Horizontal Grid Guidelines */}
                 {[30, 115, 200, 285, BASE_Y].map((y, idx) => (
                   <line
                     key={idx}
@@ -847,8 +886,9 @@ export default function DashboardTab({
                     y1={y}
                     x2={MARGIN_RIGHT}
                     y2={y}
-                    stroke="rgba(255, 255, 255, 0.06)"
-                    strokeDasharray="5 5"
+                    stroke="rgba(255, 255, 255, 0.07)"
+                    strokeWidth="1"
+                    strokeDasharray={idx === 4 ? "0" : "4 4"}
                   />
                 ))}
 
@@ -877,13 +917,13 @@ export default function DashboardTab({
                     y1={TOP_Y}
                     x2={getXCoordinate(hoveredNodeInfo.pointIndex)}
                     y2={BASE_Y}
-                    stroke="rgba(129, 140, 248, 0.6)"
+                    stroke="rgba(99, 102, 241, 0.7)"
                     strokeWidth="1.5"
                     strokeDasharray="4 4"
                   />
                 )}
 
-                {/* Render Series */}
+                {/* Render Series Lines & Gradient Area Fills */}
                 {chartDataModel.series.map((seriesItem, sIdx) => {
                   const incPoints = seriesItem.points.map((p, pIdx) => ({
                     x: getXCoordinate(pIdx),
@@ -912,7 +952,7 @@ export default function DashboardTab({
                         stroke={seriesItem.incomeColor}
                         strokeWidth="3.5"
                         strokeLinecap="round"
-                        style={{ filter: `drop-shadow(0 0 6px ${seriesItem.incomeColor})` }}
+                        style={{ filter: `drop-shadow(0 0 8px ${seriesItem.incomeColor})` }}
                       />
 
                       {/* Expense Line */}
@@ -922,34 +962,41 @@ export default function DashboardTab({
                         stroke={seriesItem.expenseColor}
                         strokeWidth="3.5"
                         strokeLinecap="round"
-                        style={{ filter: `drop-shadow(0 0 6px ${seriesItem.expenseColor})` }}
+                        style={{ filter: `drop-shadow(0 0 8px ${seriesItem.expenseColor})` }}
                       />
 
-                      {/* Node Circles: Visible in Day mode or when precision hovered */}
+                      {/* Node Circles */}
                       {incPoints.map((pt, pIdx) => {
                         const isNodeHovered = hoveredNodeInfo?.pointIndex === pIdx;
-                        const showVisibleCircle = viewMode === 'days' || isNodeHovered;
                         return (
                           <g key={pIdx}>
                             <circle
                               cx={pt.x}
                               cy={pt.y}
-                              r={isNodeHovered ? "6" : "4"}
+                              r={isNodeHovered ? "6.5" : "4.5"}
                               fill={seriesItem.incomeColor}
                               stroke="#0b0e18"
                               strokeWidth="2"
-                              opacity={showVisibleCircle ? 1 : 0}
-                              style={{ filter: isNodeHovered ? `drop-shadow(0 0 6px ${seriesItem.incomeColor})` : undefined }}
+                              style={{ 
+                                filter: `drop-shadow(0 0 8px ${seriesItem.incomeColor})`,
+                                transformBox: 'fill-box',
+                                transformOrigin: 'center'
+                              }}
+                              className="transition-transform hover:scale-150 cursor-pointer"
                             />
                             <circle
                               cx={expPoints[pIdx].x}
                               cy={expPoints[pIdx].y}
-                              r={isNodeHovered ? "6" : "4"}
+                              r={isNodeHovered ? "6.5" : "4.5"}
                               fill={seriesItem.expenseColor}
                               stroke="#0b0e18"
                               strokeWidth="2"
-                              opacity={showVisibleCircle ? 1 : 0}
-                              style={{ filter: isNodeHovered ? `drop-shadow(0 0 6px ${seriesItem.expenseColor})` : undefined }}
+                              style={{ 
+                                filter: `drop-shadow(0 0 8px ${seriesItem.expenseColor})`,
+                                transformBox: 'fill-box',
+                                transformOrigin: 'center'
+                              }}
+                              className="transition-transform hover:scale-150 cursor-pointer"
                             />
                           </g>
                         );
@@ -981,27 +1028,32 @@ export default function DashboardTab({
                 })}
               </svg>
 
-              {/* Precision Hover Tooltip Overlay */}
+              {/* Precision Hover Tooltip Card Overlay */}
               {hoveredNodeInfo && chartDataModel.series.length > 0 && (
-                <div className="absolute top-4 right-6 bg-[#0d101d]/95 border border-indigo-500/40 rounded-2xl p-4 shadow-2xl backdrop-blur-xl animate-mac-dropdown text-xs space-y-2 z-20 pointer-events-none max-w-xs">
-                  <span className="font-black text-indigo-300 block border-b border-white/5 pb-1 uppercase tracking-wider text-[11px]">
+                <div className="absolute top-4 right-6 bg-[#0c0f1d]/95 border border-indigo-500/40 rounded-2xl p-4 shadow-2xl backdrop-blur-xl animate-mac-dropdown text-xs space-y-2 z-20 pointer-events-none max-w-xs">
+                  <span className="font-black text-indigo-300 block border-b border-white/10 pb-1.5 uppercase tracking-wider text-[11px]">
                     {chartDataModel.xLabels[hoveredNodeInfo.pointIndex]}
                   </span>
 
-                  <div className="space-y-1.5 max-h-48 overflow-y-auto scrollbar-thin pr-1">
+                  <div className="space-y-2 max-h-56 overflow-y-auto scrollbar-thin pr-1">
                     {chartDataModel.series.map((sItem, sIdx) => {
                       const pt = sItem.points[hoveredNodeInfo.pointIndex];
                       if (!pt) return null;
+                      const surplus = pt.income - pt.expense;
                       return (
-                        <div key={sIdx} className="space-y-0.5 bg-[#080a14] p-2 rounded-xl border border-white/5">
-                          <span className="text-[10px] font-black text-slate-400 block">{sItem.title}</span>
-                          <div className="flex items-center justify-between gap-3 text-emerald-400 font-black">
-                            <span>Thu:</span>
+                        <div key={sIdx} className="space-y-1 bg-[#080b15] p-2.5 rounded-xl border border-white/10 shadow-inner">
+                          <span className="text-[10px] font-black text-slate-400 block uppercase tracking-wider">{sItem.title}</span>
+                          <div className="flex items-center justify-between gap-4 text-emerald-400 font-black">
+                            <span>Thu nhập:</span>
                             <span>{formatVND(pt.income)}</span>
                           </div>
-                          <div className="flex items-center justify-between gap-3 text-rose-400 font-black">
-                            <span>Chi:</span>
+                          <div className="flex items-center justify-between gap-4 text-rose-400 font-black">
+                            <span>Chi tiêu:</span>
                             <span>{formatVND(pt.expense)}</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-4 text-cyan-400 font-black border-t border-white/5 pt-1 mt-1">
+                            <span>Thặng dư:</span>
+                            <span className={surplus >= 0 ? 'text-cyan-400' : 'text-rose-400'}>{formatVND(surplus)}</span>
                           </div>
                         </div>
                       );

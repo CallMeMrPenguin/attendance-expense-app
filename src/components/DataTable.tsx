@@ -41,6 +41,7 @@ import { CSS } from '@dnd-kit/utilities';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { supabase } from '@/lib/supabase';
 import {
   ChevronLeft, ChevronRight, RefreshCw, AlertCircle,
   ArrowUp, ArrowDown, ArrowUpDown, Search, ChevronDown, ChevronUp,
@@ -95,6 +96,8 @@ export interface DataTableProps<TData> {
   // Export & Storage
   exportFilename?: string;
   tableId?: string;
+  userId?: string;
+  teacherName?: string;
 }
 
 // ─── Indeterminate Checkbox ──────────────────────────────────────────────────
@@ -146,7 +149,8 @@ function DraggableHeader({
     opacity: isDragging ? 0.5 : 1,
     zIndex: isDragging ? 100 : undefined,
     position: 'relative',
-    ...(enableColumnResizing ? { width, minWidth: width } : {}),
+    boxSizing: 'border-box',
+    ...(enableColumnResizing ? { width, minWidth: width, maxWidth: width } : {}),
     ...(isPinned === 'left' ? { position: 'sticky', left: header.column.getStart('left'), zIndex: 10, boxShadow: '2px 0 6px rgba(0,0,0,0.5)' } : {}),
     ...(isPinned === 'right' ? { position: 'sticky', right: header.column.getAfter('right'), zIndex: 10, boxShadow: '-2px 0 6px rgba(0,0,0,0.5)' } : {}),
   };
@@ -501,6 +505,8 @@ export function DataTable<TData>({
   searchPlaceholder = 'Tìm kiếm...',
   exportFilename = 'export',
   tableId,
+  userId,
+  teacherName,
 }: DataTableProps<TData>) {
 
   const storageKey = `dt_layout_${tableId || exportFilename}`;
@@ -529,37 +535,87 @@ export function DataTable<TData>({
   const [columnOrder, setColumnOrder] = useState<ColumnOrderState>(() => savedLayout?.order || []);
   const [columnAlignments, setColumnAlignments] = useState<Record<string, 'center' | 'left'>>(() => savedLayout?.alignments || {});
 
+  // Fetch table settings from Supabase DB on mount if available
   useEffect(() => {
-    if (!storageKey || typeof window === 'undefined') return;
-    try {
-      const item = localStorage.getItem(storageKey);
-      const layout = item ? JSON.parse(item) : null;
-      setColumnSizing(layout?.sizing || {});
-      const baseVis = { ...initialColumnVisibility, ...(layout?.visibility || {}) };
-      columns.forEach((col: any) => {
-        const id = col.id || col.accessorKey;
-        if (id && baseVis[id] === undefined) {
-          baseVis[id] = true;
+    if (!tableId) return;
+    let isMounted = true;
+    const fetchDbLayout = async () => {
+      try {
+        const settingId = `tbl_cfg_${tableId}`;
+        const { data, error } = await supabase
+          .from('category_budgets')
+          .select('note')
+          .eq('id', settingId)
+          .maybeSingle();
+
+        if (!error && data && data.note && isMounted) {
+          const parsed = JSON.parse(data.note);
+          if (parsed) {
+            if (parsed.sizing) setColumnSizing(parsed.sizing);
+            if (parsed.visibility) setColumnVisibility(parsed.visibility);
+            if (parsed.order) setColumnOrder(parsed.order);
+            if (parsed.alignments) setColumnAlignments(parsed.alignments);
+            if (storageKey && typeof window !== 'undefined') {
+              localStorage.setItem(storageKey, JSON.stringify(parsed));
+            }
+          }
         }
-      });
-      setColumnVisibility(baseVis);
-      setColumnOrder(layout?.order || []);
-      setColumnAlignments(layout?.alignments || {});
-    } catch (e) {}
-  }, [storageKey, columns, initialColumnVisibility]);
+      } catch (e) {}
+    };
+    fetchDbLayout();
+    return () => { isMounted = false; };
+  }, [tableId, storageKey]);
+
+  // Save table layout updates to both LocalStorage and Supabase DB
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    if (!storageKey || typeof window === 'undefined') return;
-    try {
-      const layout = {
-        sizing: columnSizing,
-        visibility: columnVisibility,
-        order: columnOrder,
-        alignments: columnAlignments,
-      };
-      localStorage.setItem(storageKey, JSON.stringify(layout));
-    } catch (e) {}
-  }, [columnSizing, columnVisibility, columnOrder, columnAlignments, storageKey]);
+    if (!tableId || typeof window === 'undefined') return;
+    const layout = {
+      sizing: columnSizing,
+      visibility: columnVisibility,
+      order: columnOrder,
+      alignments: columnAlignments,
+    };
+
+    if (storageKey) {
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(layout));
+      } catch (e) {}
+    }
+
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(async () => {
+      try {
+        const settingId = `tbl_cfg_${tableId}`;
+        let uId = userId;
+        let tName = teacherName || 'ADMIN';
+
+        if (!uId) {
+          const { data: userRes } = await supabase.auth.getUser();
+          uId = userRes.user?.id;
+        }
+
+        if (uId) {
+          await supabase.from('category_budgets').upsert({
+            id: settingId,
+            user_id: uId,
+            teacher_name: tName,
+            category: `__TABLE_SETTINGS_${tableId}__`,
+            amount: 0,
+            type: 'settings',
+            icon: 'SlidersHorizontal',
+            note: JSON.stringify(layout),
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'id' });
+        }
+      } catch (e) {}
+    }, 500);
+
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
+  }, [columnSizing, columnVisibility, columnOrder, columnAlignments, tableId, storageKey, userId, teacherName]);
 
   const handleToggleAlignment = useCallback((colId: string) => {
     setColumnAlignments(prev => {
@@ -579,7 +635,11 @@ export function DataTable<TData>({
         localStorage.removeItem(storageKey);
       } catch (e) {}
     }
-  }, [initialColumnVisibility, storageKey]);
+    if (tableId) {
+      const settingId = `tbl_cfg_${tableId}`;
+      supabase.from('category_budgets').delete().eq('id', settingId).then(() => {});
+    }
+  }, [initialColumnVisibility, storageKey, tableId]);
 
   const [globalFilter, setGlobalFilter] = useState('');
   const [sorting, setSorting] = useState<SortingState>(initialSorting);
@@ -866,10 +926,11 @@ export function DataTable<TData>({
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <SortableContext items={orderedHeaderIds} strategy={horizontalListSortingStrategy}>
                 <table
-                  className="text-left text-sm min-w-full"
+                  className="text-left text-sm"
                   style={{
                     borderCollapse: 'separate',
                     borderSpacing: 0,
+                    tableLayout: enableColumnResizing ? 'fixed' : 'auto',
                     ...(enableColumnResizing ? { width: table.getTotalSize() } : { width: '100%' }),
                   }}
                 >
@@ -961,7 +1022,8 @@ export function DataTable<TData>({
                                   ${isLastRow && isLastCell ? 'rounded-br-xl' : ''}
                                 `}
                                 style={{
-                                  ...(enableColumnResizing ? { width: cell.column.getSize(), minWidth: cell.column.getSize() } : {}),
+                                  boxSizing: 'border-box',
+                                  ...(enableColumnResizing ? { width: cell.column.getSize(), minWidth: cell.column.getSize(), maxWidth: cell.column.getSize() } : {}),
                                   ...(isPinned === 'left' ? { position: 'sticky', left: cell.column.getStart('left'), zIndex: 3, boxShadow: '2px 0 6px rgba(0,0,0,0.4)' } : {}),
                                   ...(isPinned === 'right' ? { position: 'sticky', right: cell.column.getAfter('right'), zIndex: 3, boxShadow: '-2px 0 6px rgba(0,0,0,0.4)' } : {}),
                                   backgroundColor: isPinned

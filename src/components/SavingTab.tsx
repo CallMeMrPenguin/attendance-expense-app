@@ -452,6 +452,7 @@ export default function SavingTab({
           {/* History DataTable */}
           <DataTable
             tableId="saving_history"
+            userId={currentUser.id}
             data={filteredHistory}
             columns={historyColumns}
             pageSize={20}

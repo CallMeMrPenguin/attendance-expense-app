@@ -1821,6 +1821,7 @@ function FlowTab({
           <div className="space-y-4">
             <DataTable
               tableId="flow_bank_receipts"
+              userId={currentUser.id}
               data={filteredBankReceipts}
               columns={bankReceiptColumns}
               pageSize={20}
@@ -1853,6 +1854,7 @@ function FlowTab({
           <div className="space-y-4">
             <DataTable
               tableId="flow_transactions"
+              userId={currentUser.id}
               data={filteredTransactions}
               columns={transactionColumns}
               pageSize={20}
