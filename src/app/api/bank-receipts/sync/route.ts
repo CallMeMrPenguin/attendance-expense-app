@@ -1,15 +1,26 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { syncBankReceipts } from '@/lib/imap-service';
 
 export async function POST(req: Request) {
   try {
     let userId: string | undefined = undefined;
+    let keywords: Record<string, string> | undefined = undefined;
     try {
       const body = await req.json();
-      if (body && body.userId) userId = body.userId;
+      if (body) {
+        if (body.userId) userId = body.userId;
+        if (body.keywords) keywords = body.keywords;
+      }
     } catch (e) {}
 
-    // Immediately return current DB receipts, rules, and transactions (<50ms)
+    // Run active IMAP Gmail scan & keyword classification
+    try {
+      await syncBankReceipts(keywords, userId);
+    } catch (syncErr) {
+      console.error('[IMAP Sync Error in API route]:', syncErr);
+    }
+
     const supabaseAdmin = getSupabaseAdmin();
 
     const [receiptsRes, rulesRes, txsRes] = await Promise.all([

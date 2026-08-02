@@ -87,11 +87,11 @@ export function parseVietcombankEmail(html: string, text: string, emailHeaderDat
   };
 
   // 1. Order Number
-  const orderNumberRaw = getFieldValue(['Số lệnh giao dịch', 'Order Number', 'Mã giao dịch', 'Mã GD', 'Số GD', 'Ref No', 'Mã tham chiếu', 'Số tham chiếu', 'Trans ID']);
-  const orderNumber = orderNumberRaw.replace(/[^0-9]/g, '');
+  const orderNumberRaw = getFieldValue(['Số lệnh giao dịch', 'Order Number', 'Mã giao dịch', 'Mã GD', 'Số GD', 'Ref No', 'Mã tham chiếu', 'Số tham chiếu', 'Trans ID', 'Mã hóa đơn', 'Số hóa đơn', 'Mã đơn hàng', 'Invoice No', 'Invoice ID', 'Order ID', 'Order No', 'Số chứng từ', 'Ký hiệu/Số HD']);
+  const orderNumber = orderNumberRaw.replace(/[^0-9a-zA-Z]/g, '');
 
   // 2. Amount
-  const amountStr = getFieldValue(['Số tiền', 'Amount', 'Số tiền giao dịch', 'Giá trị giao dịch', 'Số tiền thanh toán']);
+  const amountStr = getFieldValue(['Số tiền', 'Amount', 'Số tiền giao dịch', 'Giá trị giao dịch', 'Số tiền thanh toán', 'Tổng tiền', 'Thành tiền', 'Tổng thanh toán', 'Tổng số tiền', 'Giá trị', 'Total', 'Total Amount', 'Cần thanh toán']);
   let amount = 0;
   const amountMatch = amountStr.match(/([+-]?\s*[0-9\.\,]+)\s*(VND|VNĐ|đ)?/i);
   if (amountMatch && amountMatch[1]) {
@@ -143,13 +143,13 @@ export function parseVietcombankEmail(html: string, text: string, emailHeaderDat
 
   // 4. Accounts & Names
   const debitAccount = getFieldValue(['Tài khoản nguồn', 'Debit Account', 'Tài khoản trích nợ', 'Tài khoản thanh toán', 'Từ tài khoản', 'Tài khoản chuyển']);
-  const remitterName = getFieldValue(['Tên người chuyển tiền', 'Remitter\'s name', 'Remitter name', 'Người chuyển', 'Nguồn tiền', 'Tên người chuyển']);
+  const remitterName = getFieldValue(['Tên người chuyển tiền', 'Remitter\'s name', 'Remitter name', 'Người chuyển', 'Nguồn tiền', 'Tên người chuyển', 'Đơn vị bán hàng', 'Người bán']);
   const creditAccount = getFieldValue(['Tài khoản người hưởng', 'Credit Account', 'Tài khoản nhận', 'Tài khoản thụ hưởng', 'Đến tài khoản']);
-  const beneficiaryName = getFieldValue(['Tên người hưởng', 'Beneficiary Name', 'Beneficiary name', 'Người nhận', 'Tên người thụ hưởng', 'Tên tài khoản nhận']);
+  const beneficiaryName = getFieldValue(['Tên người hưởng', 'Beneficiary Name', 'Beneficiary name', 'Người nhận', 'Tên người thụ hưởng', 'Tên tài khoản nhận', 'Khách hàng', 'Tên khách hàng']);
   const beneficiaryBank = getFieldValue(['Tên ngân hàng hưởng', 'Beneficiary Bank Name', 'Beneficiary Bank', 'Ngân hàng nhận', 'Ngân hàng thụ hưởng']);
   
   // 5. Details
-  const details = getFieldValue(['Nội dung chuyển tiền', 'Details of Payment', 'Nội dung', 'Diễn giải', 'Nội dung thanh toán', 'Nội dung giao dịch']);
+  const details = getFieldValue(['Nội dung chuyển tiền', 'Details of Payment', 'Nội dung', 'Diễn giải', 'Nội dung thanh toán', 'Nội dung giao dịch', 'Tên sản phẩm', 'Mô tả', 'Dịch vụ', 'Loại dịch vụ', 'Tên hàng hóa']);
 
   if (!orderNumber && !amount) {
     return null;
@@ -306,10 +306,19 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
     };
 
     if (budgetsRes.data && budgetsRes.data.length > 0) {
-      categoryBudgetsList = budgetsRes.data.map((b: any) => ({
-        category: b.category,
-        keywords: b.keywords || defaultKeywords[b.category] || ''
-      }));
+      categoryBudgetsList = budgetsRes.data.map((b: any) => {
+        let kwVal = b.keywords || '';
+        if (typeof kwVal === 'string' && kwVal.startsWith('{')) {
+          try {
+            const parsed = JSON.parse(kwVal);
+            kwVal = parsed.kw || '';
+          } catch (e) {}
+        }
+        return {
+          category: b.category,
+          keywords: kwVal || defaultKeywords[b.category] || ''
+        };
+      });
     } else {
       categoryBudgetsList = Object.keys(defaultKeywords).map(cat => ({
         category: cat,
@@ -318,10 +327,19 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
     }
 
     if (clientKeywords) {
-      const clientBudgets = Object.keys(clientKeywords).map(cat => ({
-        category: cat,
-        keywords: clientKeywords[cat]
-      }));
+      const clientBudgets = Object.keys(clientKeywords).map(cat => {
+        let kwVal = clientKeywords[cat] || '';
+        if (typeof kwVal === 'string' && kwVal.startsWith('{')) {
+          try {
+            const parsed = JSON.parse(kwVal);
+            kwVal = parsed.kw || '';
+          } catch (e) {}
+        }
+        return {
+          category: cat,
+          keywords: kwVal || defaultKeywords[cat] || ''
+        };
+      });
       
       clientBudgets.forEach(cb => {
         const existing = categoryBudgetsList.find(x => x.category === cb.category);
@@ -339,7 +357,7 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
     const unclassifiedReceipts = dbReceipts.filter((r: any) => r.status === 'unclassified');
     if (unclassifiedReceipts.length > 0 && categoryBudgetsList.length > 0) {
       for (const receipt of unclassifiedReceipts) {
-        const cleanDetails = cleanString(receipt.details || '');
+        const cleanDetails = cleanString(`${receipt.details || ''} ${receipt.remitter_name || ''} ${receipt.beneficiary_name || ''} ${receipt.beneficiary_bank || ''}`);
         let matched = false;
         for (const budget of categoryBudgetsList) {
           if (budget.keywords) {
@@ -435,16 +453,20 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
           const cleanText = cleanString(bodyText);
           const cleanHtml = cleanString(htmlText);
 
-          // Strictly filter for sender VCBDigibank@info.vietcombank.com.vn & topic Biên lai chuyển tiền qua tài khoản
+          // Filter for sender Vietcombank/Bank or receipt/invoice topic
           const isVcbSender = cleanFrom.includes('vcbdigibank@info.vietcombank.com.vn') || 
                               cleanFrom.includes('vietcombank') || 
                               cleanFrom.includes('vcb');
           
-          const isReceiptSubject = cleanSubj.includes('bien lai chuyen tien qua tai khoan') || 
-                                   cleanSubj.includes('bien lai chuyen tien') || 
-                                   cleanSubj.includes('bien lai');
+          const isReceiptSubject = cleanSubj.includes('bien lai') || 
+                                   cleanSubj.includes('hoa don') || 
+                                   cleanSubj.includes('thanh toan') || 
+                                   cleanSubj.includes('invoice') || 
+                                   cleanSubj.includes('receipt') ||
+                                   cleanSubj.includes('xac nhan') ||
+                                   cleanSubj.includes('thong bao');
 
-          const isBankContent = cleanText.includes('vietcombank') || cleanHtml.includes('vietcombank');
+          const isBankContent = cleanText.includes('vietcombank') || cleanHtml.includes('vietcombank') || cleanText.includes('hoa don') || cleanHtml.includes('hoa don') || cleanText.includes('bien lai') || cleanHtml.includes('bien lai');
 
           const isBankEmail = isVcbSender || isReceiptSubject || isBankContent;
 
@@ -473,8 +495,8 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
           let matchedType: 'income' | 'expense' | 'saving' | undefined = undefined;
           let matchedCategory: string | undefined = undefined;
 
-          // 1. Match against category-specific keywords in details (Nội dung chuyển tiền)
-          const cleanDetails = cleanString(receiptData.details || '');
+          // 1. Match against category-specific keywords in details, names, and bank
+          const cleanDetails = cleanString(`${receiptData.details || ''} ${receiptData.remitter_name || ''} ${receiptData.beneficiary_name || ''} ${receiptData.beneficiary_bank || ''}`);
           for (const budget of categoryBudgetsList) {
             if (budget.keywords) {
               const kwList = budget.keywords.split(',').map((kw: string) => cleanString(kw)).filter(Boolean);

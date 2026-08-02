@@ -20,6 +20,7 @@ interface TransactionModalProps {
   manualTransactions: any[];
   savingsHistory: any[];
   categoryBudgets?: Record<string, number>;
+  categoryTypes?: Record<string, 'income' | 'expense'>;
   saveTransactions: (userId: string, data: any[]) => void;
   saveEmergencyCurrent: (userId: string, val: number) => void;
   saveAccumulationCurrent: (userId: string, val: number) => void;
@@ -36,6 +37,7 @@ export default function TransactionModal({
   manualTransactions,
   savingsHistory,
   categoryBudgets = {},
+  categoryTypes = {},
   saveTransactions,
   saveEmergencyCurrent,
   saveAccumulationCurrent,
@@ -76,25 +78,27 @@ export default function TransactionModal({
     if (isOpen) {
       setModalTxType(defaultType);
       
-      const defaultInc = ['Lương', 'Giáo dục', 'Đầu tư'];
-      const defaultExp = ['Ăn uống', 'Di chuyển', 'Shopping', 'Hóa đơn', 'Giải trí'];
+      const budgetKeys = Object.keys(categoryBudgets);
+      let incCats: string[] = [];
+      let expCats: string[] = [];
 
-      const customKeys = Object.keys(categoryBudgets);
-      const incSet = new Set(['Lương', 'Giáo dục', 'Đầu tư', 'Khác']);
-      const expSet = new Set(['Ăn uống', 'Di chuyển', 'Shopping', 'Hóa đơn', 'Giải trí', 'Khác']);
-
-      customKeys.forEach(cat => {
-        if (defaultInc.includes(cat)) {
-          incSet.add(cat);
-        } else if (defaultExp.includes(cat)) {
-          expSet.add(cat);
-        } else {
-          expSet.add(cat);
-        }
-      });
-
-      const incCats = Array.from(incSet);
-      const expCats = Array.from(expSet);
+      if (budgetKeys.length > 0) {
+        const defaultIncomeNames = ['Lương', 'Giáo dục', 'Đầu tư', 'Gia Sư'];
+        budgetKeys.forEach(cat => {
+          const type = categoryTypes[cat];
+          const isInc = type ? type === 'income' : defaultIncomeNames.includes(cat);
+          if (isInc) {
+            incCats.push(cat);
+          } else {
+            expCats.push(cat);
+          }
+        });
+        if (!incCats.includes('Khác')) incCats.push('Khác');
+        if (!expCats.includes('Khác')) expCats.push('Khác');
+      } else {
+        incCats = ['Lương', 'Giáo dục', 'Đầu tư', 'Gia Sư', 'Khác'];
+        expCats = ['Ăn uống', 'Di chuyển', 'Shopping', 'Hóa đơn', 'Giải trí', 'Xăng', 'Đi Chợ', 'Khác'];
+      }
 
       setIncomeCategories(incCats);
       setExpenseCategories(expCats);
@@ -107,7 +111,7 @@ export default function TransactionModal({
       setModalSavingAction('deposit');
       setIsRecurring(false);
     }
-  }, [isOpen, defaultType, currentUser]);
+  }, [isOpen, defaultType, currentUser, categoryBudgets, categoryTypes]);
 
   if (!isOpen || !mounted) return null;
 

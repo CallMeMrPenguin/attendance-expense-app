@@ -1407,6 +1407,7 @@ export default function Dashboard() {
         manualTransactions={manualTransactions}
         savingsHistory={savingsHistory}
         categoryBudgets={categoryBudgets}
+        categoryTypes={categoryTypes}
         saveTransactions={saveTransactions}
         saveEmergencyCurrent={saveEmergencyCurrent}
         saveAccumulationCurrent={saveAccumulationCurrent}
