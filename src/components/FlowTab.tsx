@@ -1252,10 +1252,13 @@ function FlowTab({
         return (
           <div className="flex items-center gap-2.5 w-full px-1 min-w-[140px]">
             <span className="text-[10px] font-black text-slate-300 w-8 shrink-0 text-right">{item.pct}%</span>
-            <div className="h-2 bg-[#0b0e18] rounded-full overflow-hidden w-full border border-white/5">
+            <div className="h-2.5 bg-[#080c18] rounded-full w-full relative overflow-visible border border-white/10 shadow-[inset_0_1px_3px_rgba(0,0,0,0.8)]">
               <div
-                className={`h-full rounded-full transition-all duration-300 ${item.barGradientClass}`}
-                style={{ width: `${item.pct}%`, boxShadow: `0 0 8px ${item.glowColor}` }}
+                className={`h-full rounded-full transition-all duration-300 relative ${item.barGradientClass}`}
+                style={{
+                  width: `${item.pct}%`,
+                  boxShadow: `0 0 12px ${item.glowColor}, 0 0 4px ${item.glowColor}`
+                }}
               />
             </div>
             {item.rawPct > 100 && (
