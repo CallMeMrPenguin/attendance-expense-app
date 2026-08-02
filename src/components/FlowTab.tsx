@@ -1128,7 +1128,7 @@ function FlowTab({
         );
       }
     }
-  ], []);
+  ], [incomeCats, expenseCats, getCategoryIconName]);
 
   const paginatedTransactions = React.useMemo(() => {
     return filteredTransactions.slice(
@@ -1229,10 +1229,10 @@ function FlowTab({
             return (
               <div
                 key={cat}
-                className={`px-4 py-3 rounded-2xl border transition-all flex items-center justify-between gap-3 h-[72px] ${cardStyle}`}
+                className={`p-3.5 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 min-h-[72px] ${cardStyle}`}
               >
-                {/* Column 1: Icon + Name + Note (Left Aligned) */}
-                <div className="flex items-center gap-3 shrink-0 w-[42%] sm:w-[35%] min-w-0 text-left">
+                {/* Column 1: Icon + Name + Note */}
+                <div className="flex items-center gap-3 shrink-0 min-w-[160px] max-w-full text-left">
                   <span className={`inline-flex p-2.5 rounded-full border shrink-0 transition-all ${
                     isIncome 
                       ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.35)]' 
@@ -1250,8 +1250,8 @@ function FlowTab({
                   </div>
                 </div>
 
-                {/* Column 2: Actual / Budget Amount (Center Aligned) */}
-                <div className="flex flex-col justify-center items-center text-center shrink-0 w-[30%] sm:w-[28%]">
+                {/* Column 2: Actual / Budget Amount */}
+                <div className="flex flex-col justify-center items-start sm:items-center text-left sm:text-center shrink-0 min-w-[110px]">
                   <span className="text-xs font-black text-white leading-none whitespace-nowrap">
                     {formatVND(actual)}
                   </span>
@@ -1260,25 +1260,21 @@ function FlowTab({
                   </span>
                 </div>
 
-                {/* Column 3: Progress Bar & Percentage (Center Aligned) */}
-                <div className="flex-1 hidden sm:flex flex-col justify-center text-center px-1">
-                  <div className="space-y-1 w-full">
-                    <div className="h-2.5 bg-[#070912] rounded-full w-full relative overflow-visible p-[2px] border border-white/10 shadow-[inset_0_1px_3px_rgba(0,0,0,0.8)]">
-                      <div
-                        className={`h-full rounded-full transition-all duration-300 ${barColorClass}`}
-                        style={{ width: `${pct}%` }}
-                      ></div>
-                    </div>
-                    <div className="flex justify-between items-center text-[8px] font-extrabold text-slate-400 pt-0.5 h-3 px-0.5">
-                      <span className="whitespace-nowrap">{pct}%</span>
-                      {rawPct > 100 && (
-                        <span className={`${isIncome ? 'text-emerald-400' : 'text-rose-500'} font-black uppercase whitespace-nowrap`}>Vượt!</span>
-                      )}
-                    </div>
+                {/* Column 3: Glowing Progress Bar & Percentage */}
+                <div className="flex-1 flex items-center gap-2.5 min-w-[120px] px-1">
+                  <span className="text-[10px] font-black text-slate-300 w-7 shrink-0 text-right">{pct}%</span>
+                  <div className="h-2 bg-[#080b15] rounded-full w-full relative overflow-hidden border border-white/10 shadow-[inset_0_1px_3px_rgba(0,0,0,0.9)]">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${barColorClass}`}
+                      style={{ width: `${pct}%` }}
+                    />
                   </div>
+                  {rawPct > 100 && (
+                    <span className={`${isIncome ? 'text-emerald-400' : 'text-rose-500'} text-[9px] font-black uppercase shrink-0`}>Vượt!</span>
+                  )}
                 </div>
 
-                {/* Column 4: Edit Pen Action Button (Right Aligned) */}
+                {/* Column 4: Edit Pen Action Button */}
                 <div className="shrink-0 flex items-center justify-end">
                   <button
                     onClick={() => setEditingCat({ 
@@ -1288,9 +1284,9 @@ function FlowTab({
                       icon: iconName, 
                       note: noteText,
                       budget: budgetVal,
-                      keywords: (type === 'income' ? incomeCats : expenseCats)[idx]?.keywords || ''
+                      keywords: catItem.keywords || ''
                     })}
-                    className="h-9 w-9 bg-white/[0.04] border border-white/10 hover:border-white/25 hover:bg-white/10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-all shadow-sm cursor-pointer shrink-0"
+                    className="h-8.5 w-8.5 bg-white/[0.04] border border-white/10 hover:border-indigo-500/40 hover:bg-indigo-500/15 rounded-full flex items-center justify-center text-slate-400 hover:text-white transition-all shadow-sm cursor-pointer shrink-0"
                     title="Chỉnh sửa danh mục"
                   >
                     <Edit2 className="h-4 w-4" />
@@ -1824,6 +1820,7 @@ function FlowTab({
         {filterRecurring === 'bien_lai' ? (
           <div className="space-y-4">
             <DataTable
+              tableId="flow_bank_receipts"
               data={filteredBankReceipts}
               columns={bankReceiptColumns}
               pageSize={20}
@@ -1855,6 +1852,7 @@ function FlowTab({
         ) : (
           <div className="space-y-4">
             <DataTable
+              tableId="flow_transactions"
               data={filteredTransactions}
               columns={transactionColumns}
               pageSize={20}

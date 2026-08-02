@@ -45,7 +45,7 @@ import {
   ChevronLeft, ChevronRight, RefreshCw, AlertCircle,
   ArrowUp, ArrowDown, ArrowUpDown, Search, ChevronDown, ChevronUp,
   CheckSquare, ChevronsLeft, ChevronsRight, X, SlidersHorizontal,
-  Download, FileSpreadsheet, FileText, Zap, RotateCcw,
+  Download, FileSpreadsheet, FileText, Zap, RotateCcw, GripVertical,
 } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -169,6 +169,7 @@ function DraggableHeader({
         }`}
         title={enableReorder ? 'Giữ chuột và kéo để thay đổi thứ tự cột' : undefined}
       >
+        {enableReorder && <GripVertical size={12} className="text-slate-500 hover:text-indigo-400 shrink-0" />}
         {children}
       </div>
 
@@ -193,11 +194,13 @@ function ColumnVisibilityDropdown<TData>({
   columnAlignments,
   onToggleAlignment,
   onResetColumnWidths,
+  onMoveColumn,
 }: {
   table: ReturnType<typeof useReactTable<TData>>;
   columnAlignments: Record<string, 'center' | 'left'>;
   onToggleAlignment: (colId: string) => void;
   onResetColumnWidths?: () => void;
+  onMoveColumn?: (colId: string, direction: 'up' | 'down') => void;
 }) {
   const [activeTab, setActiveTab] = useState<'visibility' | 'align'>('visibility');
   const [open, setOpen] = useState(false);
@@ -227,7 +230,7 @@ function ColumnVisibilityDropdown<TData>({
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 z-[60] w-64 bg-[#131929] border border-[#28334e] rounded-2xl shadow-2xl p-3 space-y-2 animate-mac-dropdown">
+        <div className="absolute right-0 top-full mt-2 z-[60] w-72 bg-[#131929] border border-[#28334e] rounded-2xl shadow-2xl p-3 space-y-2 animate-mac-dropdown">
           {/* TAB SWITCHER */}
           <div className="flex bg-[#0b0e19] p-1 rounded-xl border border-white/5 text-xs font-bold">
             <button
@@ -237,7 +240,7 @@ function ColumnVisibilityDropdown<TData>({
                 activeTab === 'visibility' ? 'bg-[#5c36f5] text-white font-extrabold shadow-sm' : 'text-slate-400 hover:text-white'
               }`}
             >
-              Hiển Thị Cột
+              Hiển Thị & Thứ Tự
             </button>
             <button
               type="button"
@@ -250,11 +253,11 @@ function ColumnVisibilityDropdown<TData>({
             </button>
           </div>
 
-          {/* TAB 1: VISIBILITY */}
+          {/* TAB 1: VISIBILITY & REORDER */}
           {activeTab === 'visibility' && (
             <div className="space-y-1">
               <div className="text-[10px] font-black uppercase text-indigo-400 tracking-wider border-b border-white/10 pb-1.5 mb-1 flex items-center justify-between">
-                <span>Chọn cột hiển thị</span>
+                <span>Cột & Thứ Tự</span>
                 <div className="flex gap-1">
                   <button type="button" onClick={() => table.toggleAllColumnsVisible(true)}
                     className="text-[9px] text-slate-400 hover:text-white px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10 transition cursor-pointer">Tất cả</button>
@@ -262,13 +265,37 @@ function ColumnVisibilityDropdown<TData>({
                     className="text-[9px] text-slate-400 hover:text-white px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10 transition cursor-pointer">Ẩn hết</button>
                 </div>
               </div>
-              <div className="max-h-56 overflow-y-auto space-y-0.5 scrollbar-thin pr-1">
-                {allCols.map(col => (
-                  <label key={col.id} className="flex items-center gap-2.5 text-xs text-slate-200 cursor-pointer hover:text-white px-1.5 py-1 rounded-lg hover:bg-[#1e2740] transition">
-                    <input type="checkbox" checked={col.getIsVisible()} onChange={col.getToggleVisibilityHandler()}
-                      className="accent-indigo-500 rounded cursor-pointer w-3.5 h-3.5" />
-                    <span className="truncate">{typeof col.columnDef.header === 'string' ? col.columnDef.header : col.id}</span>
-                  </label>
+              <div className="max-h-60 overflow-y-auto space-y-1 scrollbar-thin pr-1">
+                {allCols.map((col, idx) => (
+                  <div key={col.id} className="flex items-center justify-between gap-1 text-xs text-slate-200 px-1.5 py-1 rounded-lg hover:bg-[#1e2740] transition group">
+                    <label className="flex items-center gap-2 min-w-0 flex-1 cursor-pointer hover:text-white">
+                      <input type="checkbox" checked={col.getIsVisible()} onChange={col.getToggleVisibilityHandler()}
+                        className="accent-indigo-500 rounded cursor-pointer w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">{typeof col.columnDef.header === 'string' ? col.columnDef.header : col.id}</span>
+                    </label>
+                    {onMoveColumn && (
+                      <div className="flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition shrink-0">
+                        <button
+                          type="button"
+                          disabled={idx === 0}
+                          onClick={() => onMoveColumn(col.id, 'up')}
+                          className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white disabled:opacity-20 disabled:hover:bg-transparent cursor-pointer"
+                          title="Chuyển sang trái (Lên)"
+                        >
+                          <ChevronUp size={12} />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={idx === allCols.length - 1}
+                          onClick={() => onMoveColumn(col.id, 'down')}
+                          className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white disabled:opacity-20 disabled:hover:bg-transparent cursor-pointer"
+                          title="Chuyển sang phải (Xuống)"
+                        >
+                          <ChevronDown size={12} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
             </div>
@@ -280,7 +307,7 @@ function ColumnVisibilityDropdown<TData>({
               <div className="text-[10px] font-black uppercase text-indigo-400 tracking-wider border-b border-white/10 pb-1.5 mb-1">
                 <span>Tích = Căn Giữa | Bỏ tích = Trái</span>
               </div>
-              <div className="max-h-56 overflow-y-auto space-y-0.5 scrollbar-thin pr-1">
+              <div className="max-h-60 overflow-y-auto space-y-0.5 scrollbar-thin pr-1">
                 {allCols.map(col => {
                   const isCentered = columnAlignments[col.id] === 'center';
                   const colName = typeof col.columnDef.header === 'string' ? col.columnDef.header : col.id;
@@ -674,6 +701,17 @@ export function DataTable<TData>({
     initialState: { pagination: { pageSize } },
   });
 
+  const handleMoveColumn = useCallback((colId: string, direction: 'up' | 'down') => {
+    const currentOrder = table.getState().columnOrder.length > 0
+      ? [...table.getState().columnOrder]
+      : table.getAllLeafColumns().filter(c => c.id !== 'select' && c.id !== '_expander').map(c => c.id);
+    const idx = currentOrder.indexOf(colId);
+    if (idx === -1) return;
+    const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= currentOrder.length) return;
+    setColumnOrder(arrayMove(currentOrder, idx, targetIdx));
+  }, [table]);
+
   const prevSelRef = useRef<RowSelectionState>({});
   useEffect(() => {
     if (!onSelectionChange) return;
@@ -792,6 +830,7 @@ export function DataTable<TData>({
                 columnAlignments={columnAlignments}
                 onToggleAlignment={handleToggleAlignment}
                 onResetColumnWidths={handleResetColumnWidths}
+                onMoveColumn={handleMoveColumn}
               />
             )}
           </div>
