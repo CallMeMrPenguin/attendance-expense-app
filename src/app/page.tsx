@@ -490,6 +490,9 @@ export default function Dashboard() {
     'Hóa đơn': 'expense',
     'Giải trí': 'expense'
   });
+  const [categoryIcons, setCategoryIcons] = useState<Record<string, string>>({});
+  const [categoryNotes, setCategoryNotes] = useState<Record<string, string>>({});
+  const [categoryKeywords, setCategoryKeywords] = useState<Record<string, string>>({});
 
   // Load financial data directly from Supabase DB (shared across all admins)
   useEffect(() => {
@@ -538,19 +541,36 @@ export default function Dashboard() {
         if (budgetRes.data && budgetRes.data.length > 0) {
           const bMap: Record<string, number> = {};
           const tMap: Record<string, 'income' | 'expense'> = {};
+          const iMap: Record<string, string> = {};
+          const nMap: Record<string, string> = {};
+          const kMap: Record<string, string> = {};
+
           budgetRes.data.forEach((b: any) => {
             bMap[b.category] = Number(b.amount) || 0;
             let type: 'income' | 'expense' = ['Lương', 'Giáo dục', 'Đầu tư'].includes(b.category) ? 'income' : 'expense';
-            if (b.keywords && b.keywords.startsWith('{')) {
+            let icon = type === 'income' ? 'TrendingUp' : 'Coins';
+            let note = type === 'income' ? 'Thu nhập' : 'Chi phí';
+            let kw = '';
+
+            if (b.keywords && typeof b.keywords === 'string' && b.keywords.startsWith('{')) {
               try {
                 const parsed = JSON.parse(b.keywords);
                 if (parsed.type) type = parsed.type;
+                if (parsed.icon) icon = parsed.icon;
+                if (parsed.note) note = parsed.note;
+                if (parsed.kw) kw = parsed.kw;
               } catch (e) {}
             }
             tMap[b.category] = type;
+            iMap[b.category] = icon;
+            nMap[b.category] = note;
+            kMap[b.category] = kw;
           });
           setCategoryBudgets(bMap);
           setCategoryTypes(tMap);
+          setCategoryIcons(iMap);
+          setCategoryNotes(nMap);
+          setCategoryKeywords(kMap);
         } else {
           setCategoryBudgets(defaultBudgets);
         }
@@ -667,11 +687,19 @@ export default function Dashboard() {
     });
   }, [currentUser, runBackgroundSave]);
 
-  const saveBudgets = useCallback((userId: string, budgets: Record<string, number>, keywords?: Record<string, string>, catTypes?: Record<string, 'income' | 'expense'>) => {
+  const saveBudgets = useCallback((
+    userId: string, 
+    budgets: Record<string, number>, 
+    keywords?: Record<string, string>, 
+    catTypes?: Record<string, 'income' | 'expense'>,
+    catIcons?: Record<string, string>,
+    catNotes?: Record<string, string>
+  ) => {
     setCategoryBudgets(budgets);
-    if (catTypes) {
-      setCategoryTypes(prev => ({ ...prev, ...catTypes }));
-    }
+    if (catTypes) setCategoryTypes(prev => ({ ...prev, ...catTypes }));
+    if (catIcons) setCategoryIcons(prev => ({ ...prev, ...catIcons }));
+    if (catNotes) setCategoryNotes(prev => ({ ...prev, ...catNotes }));
+    if (keywords) setCategoryKeywords(prev => ({ ...prev, ...keywords }));
 
     if (!currentUser) return;
     runBackgroundSave(async () => {
@@ -688,8 +716,10 @@ export default function Dashboard() {
 
         const records = Object.keys(budgets).map(cat => {
           const type = catTypes?.[cat] || categoryTypes[cat] || (['Lương', 'Giáo dục', 'Đầu tư'].includes(cat) ? 'income' : 'expense');
-          const kw = keywords?.[cat] || '';
-          const metaStr = JSON.stringify({ type, kw });
+          const kw = keywords?.[cat] || categoryKeywords[cat] || '';
+          const icon = catIcons?.[cat] || categoryIcons[cat] || (type === 'income' ? 'TrendingUp' : 'Coins');
+          const note = catNotes?.[cat] || categoryNotes[cat] || '';
+          const metaStr = JSON.stringify({ type, kw, icon, note });
           return {
             id: cat,
             user_id: userId,
@@ -708,7 +738,7 @@ export default function Dashboard() {
         console.error('Direct saveBudgets error:', err);
       }
     });
-  }, [currentUser, runBackgroundSave, categoryTypes]);
+  }, [currentUser, runBackgroundSave, categoryTypes, categoryIcons, categoryNotes, categoryKeywords]);
 
   // Fetch teachers list
   const fetchTeachers = useCallback(async () => {
@@ -1278,6 +1308,9 @@ export default function Dashboard() {
               sessions={currentUser.role === 'admin' ? allSessions : sessions}
               categoryBudgets={categoryBudgets}
               categoryTypes={categoryTypes}
+              categoryIcons={categoryIcons}
+              categoryNotes={categoryNotes}
+              categoryKeywords={categoryKeywords}
               chartSelectedMonths={chartSelectedMonths}
               bankReceipts={bankReceipts}
               getActualCategoryAmount={getActualCategoryAmount}

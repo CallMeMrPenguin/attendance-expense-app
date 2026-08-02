@@ -26,14 +26,31 @@ import {
   Shield,
   Cpu,
   Coffee,
+  Zap,
+  BookOpen,
+  Music,
+  Smile,
+  CreditCard,
+  PiggyBank,
+  Percent,
+  Truck,
+  Wrench,
+  Key,
+  Wifi,
+  Tv,
+  Camera,
+  Package,
+  Bookmark,
+  Sparkles,
+  Globe,
+  Tag,
   Calendar as CalendarIcon,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
   Filter,
   ArrowUpDown,
-  X,
-  Sparkles
+  X
 } from 'lucide-react';
 import { formatVND, Session, formatDateVN, formatNumberDots, parseNumberDots } from '@/lib/utils';
 import CustomDatePicker from './CustomDatePicker';
@@ -42,7 +59,9 @@ import MaterialSymbol from './MaterialSymbol';
 const ICON_COMPONENTS: Record<string, React.ComponentType<any>> = {
   Briefcase, GraduationCap, TrendingUp, Coins, HelpCircle,
   Utensils, Car, ShoppingBag, Receipt, Film, MoreHorizontal,
-  Home, Heart, Plane, Gift, Phone, Shield, Cpu, Coffee
+  Home, Heart, Plane, Gift, Phone, Shield, Cpu, Coffee,
+  Zap, BookOpen, Music, Smile, CreditCard, PiggyBank, Percent,
+  Truck, Wrench, Key, Wifi, Tv, Camera, Package, Bookmark, Sparkles, Globe, Tag
 };
 
 const cleanString = (str: string): string => {
@@ -67,8 +86,12 @@ const matchKeyword = (cleanDetails: string, kw: string): boolean => {
 };
 
 const CategoryIcon = React.memo(({ iconName, className }: { iconName: string, className?: string }) => {
-  const IconComp = ICON_COMPONENTS[iconName] || HelpCircle;
-  return <IconComp className={className} />;
+  if (!iconName) return <HelpCircle className={className} />;
+  const IconComp = ICON_COMPONENTS[iconName];
+  if (IconComp) {
+    return <IconComp className={className} />;
+  }
+  return <span className={`inline-flex items-center justify-center leading-none select-none text-sm ${className || 'h-4 w-4'}`}>{iconName}</span>;
 });
 
 interface FlowTabProps {
@@ -79,12 +102,22 @@ interface FlowTabProps {
   sessions: Session[];
   categoryBudgets: Record<string, number>;
   categoryTypes?: Record<string, 'income' | 'expense'>;
+  categoryIcons?: Record<string, string>;
+  categoryNotes?: Record<string, string>;
+  categoryKeywords?: Record<string, string>;
   chartSelectedMonths: string[];
   bankReceipts?: any[];
   getActualCategoryAmount: (cat: string) => number;
   handleDeleteManualTx: (id: string) => void;
   handleOpenTxModal: (type: 'income' | 'expense' | 'saving') => void;
-  saveBudgets: (userId: string, budgets: Record<string, number>, keywords?: Record<string, string>, catTypes?: Record<string, 'income' | 'expense'>) => void;
+  saveBudgets: (
+    userId: string, 
+    budgets: Record<string, number>, 
+    keywords?: Record<string, string>, 
+    catTypes?: Record<string, 'income' | 'expense'>,
+    catIcons?: Record<string, string>,
+    catNotes?: Record<string, string>
+  ) => void;
   saveTransactions?: (userId: string, data: any[]) => void;
   toggleChartMonth?: (mStr: string) => void;
   handleClassifyReceipt?: (receiptId: string, type: 'income' | 'expense' | 'saving', category: string, createRule: boolean, matchField: string, matchValue: string) => void | Promise<void>;
@@ -142,6 +175,9 @@ function FlowTab({
   sessions,
   categoryBudgets,
   categoryTypes = {},
+  categoryIcons = {},
+  categoryNotes = {},
+  categoryKeywords = {},
   chartSelectedMonths,
   bankReceipts = [],
   getActualCategoryAmount,
@@ -158,6 +194,43 @@ function FlowTab({
   React.useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Initialize categories dynamically from categoryBudgets, categoryTypes, categoryIcons, categoryNotes
+  React.useEffect(() => {
+    if (!categoryBudgets) return;
+
+    const budgetKeys = Object.keys(categoryBudgets);
+    if (budgetKeys.length === 0) return;
+
+    const defaultIncomeNames = ['Lương', 'Giáo dục', 'Đầu tư'];
+
+    const newIncome: { name: string; icon: string; note?: string; keywords?: string }[] = [];
+    const newExpense: { name: string; icon: string; note?: string; keywords?: string }[] = [];
+
+    budgetKeys.forEach((catName) => {
+      const isInc = categoryTypes[catName] ? categoryTypes[catName] === 'income' : defaultIncomeNames.includes(catName);
+      const icon = categoryIcons[catName] || (isInc ? 'TrendingUp' : 'Coins');
+      const note = categoryNotes[catName] || (isInc ? 'Thu nhập' : 'Chi phí');
+      const keywords = categoryKeywords[catName] || '';
+
+      const item = {
+        name: catName,
+        icon,
+        note,
+        keywords
+      };
+
+      if (isInc) {
+        newIncome.push(item);
+      } else {
+        newExpense.push(item);
+      }
+    });
+
+    if (newIncome.length > 0) setIncomeCats(newIncome);
+    if (newExpense.length > 0) setExpenseCats(newExpense);
+  }, [categoryBudgets, categoryTypes, categoryIcons, categoryNotes, categoryKeywords]);
+
   const [isSyncing, setIsSyncing] = React.useState(false);
 
   // Bank receipt classification modal state
@@ -345,20 +418,32 @@ function FlowTab({
     const bVal = parseNumberDots(newCatBudget) || 0;
     const updatedBudgets = { ...categoryBudgets, [nameTrimmed]: bVal };
 
-    // Sync keywords to DB too!
+    // Sync keywords, icons, and notes to DB too!
     const allKeywords: Record<string, string> = {};
-    if (Array.isArray(incomeCats)) {
-      incomeCats.forEach(c => {
-        if (c && c.name && c.keywords) allKeywords[c.name] = c.keywords;
-      });
-    }
-    if (Array.isArray(expenseCats)) {
-      expenseCats.forEach(c => {
-        if (c && c.name && c.keywords) allKeywords[c.name] = c.keywords;
-      });
-    }
+    const allIcons: Record<string, string> = {};
+    const allNotes: Record<string, string> = {};
+
+    const fullIncome = isIncome ? updatedList : (incomeCats || []);
+    const fullExpense = !isIncome ? updatedList : (expenseCats || []);
+
+    fullIncome.forEach(c => {
+      if (c && c.name) {
+        allKeywords[c.name] = c.keywords || '';
+        allIcons[c.name] = c.icon || 'TrendingUp';
+        allNotes[c.name] = c.note || 'Thu nhập';
+      }
+    });
+
+    fullExpense.forEach(c => {
+      if (c && c.name) {
+        allKeywords[c.name] = c.keywords || '';
+        allIcons[c.name] = c.icon || 'Coins';
+        allNotes[c.name] = c.note || 'Chi phí';
+      }
+    });
+
     const updatedCategoryTypes: Record<string, 'income' | 'expense'> = { ...categoryTypes, [nameTrimmed]: isIncome ? 'income' : 'expense' };
-    saveBudgets(currentUser.id, updatedBudgets, allKeywords, updatedCategoryTypes);
+    saveBudgets(currentUser.id, updatedBudgets, allKeywords, updatedCategoryTypes, allIcons, allNotes);
 
     showToast(`Đã thêm danh mục "${nameTrimmed}" mới!`, 'success');
     setAddingCatType(null);
@@ -367,6 +452,85 @@ function FlowTab({
     setNewCatNote('');
     setNewCatBudget('');
     setNewCatKeywords('');
+  };
+
+  const handleSaveCategoryEdit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!editingCat) return;
+
+    const { type, index, name, icon, note, budget, keywords } = editingCat;
+    const nameTrimmed = name.trim();
+    if (!nameTrimmed) {
+      showToast('Vui lòng nhập tên danh mục.', 'error');
+      return;
+    }
+
+    const list = type === 'income' ? (incomeCats || []) : (expenseCats || []);
+    const oldItem = list[index];
+    const oldName = oldItem?.name || nameTrimmed;
+
+    if (nameTrimmed.toLowerCase() !== oldName.toLowerCase()) {
+      if (list.some((c, idx) => idx !== index && c && c.name && c.name.toLowerCase() === nameTrimmed.toLowerCase())) {
+        showToast('Tên danh mục này đã trùng với một danh mục khác.', 'error');
+        return;
+      }
+    }
+
+    const updatedItem = {
+      name: nameTrimmed,
+      icon: icon || (type === 'income' ? 'TrendingUp' : 'Coins'),
+      note: note.trim() || (type === 'income' ? 'Thu nhập' : 'Chi phí'),
+      keywords: (keywords || '').trim()
+    };
+
+    const updatedList = [...list];
+    updatedList[index] = updatedItem;
+
+    if (type === 'income') {
+      setIncomeCats(updatedList);
+    } else {
+      setExpenseCats(updatedList);
+    }
+
+    const updatedBudgets = { ...categoryBudgets };
+    if (oldName !== nameTrimmed) {
+      delete updatedBudgets[oldName];
+    }
+    updatedBudgets[nameTrimmed] = Number(budget) || 0;
+
+    const updatedCategoryTypes: Record<string, 'income' | 'expense'> = { ...categoryTypes };
+    if (oldName !== nameTrimmed) {
+      delete updatedCategoryTypes[oldName];
+    }
+    updatedCategoryTypes[nameTrimmed] = type;
+
+    const allKeywords: Record<string, string> = {};
+    const allIcons: Record<string, string> = {};
+    const allNotes: Record<string, string> = {};
+
+    const fullIncome = type === 'income' ? updatedList : (incomeCats || []);
+    const fullExpense = type === 'expense' ? updatedList : (expenseCats || []);
+
+    fullIncome.forEach(c => {
+      if (c && c.name) {
+        allKeywords[c.name] = c.keywords || '';
+        allIcons[c.name] = c.icon || 'TrendingUp';
+        allNotes[c.name] = c.note || 'Thu nhập';
+      }
+    });
+
+    fullExpense.forEach(c => {
+      if (c && c.name) {
+        allKeywords[c.name] = c.keywords || '';
+        allIcons[c.name] = c.icon || 'Coins';
+        allNotes[c.name] = c.note || 'Chi phí';
+      }
+    });
+
+    saveBudgets(currentUser.id, updatedBudgets, allKeywords, updatedCategoryTypes, allIcons, allNotes);
+
+    showToast(`Đã cập nhật danh mục "${nameTrimmed}"!`, 'success');
+    setEditingCat(null);
   };
 
   const [confirmDeleteCatInfo, setConfirmDeleteCatInfo] = useState<{ type: 'income' | 'expense'; index: number; catName: string } | null>(null);
@@ -572,102 +736,7 @@ function FlowTab({
     return found ? found.icon : 'HelpCircle';
   };
 
-  const handleSaveCategoryEdit = () => {
-    if (!editingCat || !editingCat.name.trim()) return;
-    const { type, index, name: newName, icon: newIcon, note: newNote, budget, keywords } = editingCat;
-    
-    const list = type === 'income' ? incomeCats : expenseCats;
-    if (!list || !list[index]) {
-      showToast('Không tìm thấy danh mục để chỉnh sửa.', 'error');
-      return;
-    }
-    const oldName = list[index].name;
 
-    // Validate keyword uniqueness across categories
-    if (keywords && keywords.trim()) {
-      const currentKws = keywords.split(',').map(k => k.trim().toLowerCase()).filter(Boolean);
-      for (const cat of incomeCats || []) {
-        if (cat && cat.name !== oldName && cat.keywords) {
-          const otherKws = cat.keywords.split(',').map(k => k.trim().toLowerCase()).filter(Boolean);
-          for (const kw of currentKws) {
-            if (otherKws.includes(kw)) {
-              showToast(`Từ khóa "${kw}" đã được sử dụng trong danh mục "${cat.name}". Mỗi từ khóa chỉ được gán cho một danh mục duy nhất.`, 'error');
-              return;
-            }
-          }
-        }
-      }
-      for (const cat of expenseCats || []) {
-        if (cat && cat.name !== oldName && cat.keywords) {
-          const otherKws = cat.keywords.split(',').map(k => k.trim().toLowerCase()).filter(Boolean);
-          for (const kw of currentKws) {
-            if (otherKws.includes(kw)) {
-              showToast(`Từ khóa "${kw}" đã được sử dụng trong danh mục "${cat.name}". Mỗi từ khóa chỉ được gán cho một danh mục duy nhất.`, 'error');
-              return;
-            }
-          }
-        }
-      }
-    }
-
-    // 1. Update list
-    const updatedList = list.map((item, idx) => 
-      idx === index ? { name: newName.trim(), icon: newIcon, note: (newNote || '').trim(), keywords: (keywords || '').trim() } : item
-    );
-
-    if (type === 'income') {
-      setIncomeCats(updatedList);
-      localStorage.setItem(`finance_income_cats_${currentUser.id}`, JSON.stringify(updatedList));
-    } else {
-      setExpenseCats(updatedList);
-      localStorage.setItem(`finance_expense_cats_${currentUser.id}`, JSON.stringify(updatedList));
-    }
-
-    // 2. Transfer and update budget & keywords
-    const updatedBudgets = { ...categoryBudgets };
-    if (oldName !== newName.trim()) {
-      delete updatedBudgets[oldName];
-    }
-    updatedBudgets[newName.trim()] = Number(budget);
-
-    // Build the all-keywords map to sync to Supabase safely
-    const allKeywords: Record<string, string> = {};
-    if (Array.isArray(incomeCats)) {
-      incomeCats.forEach(c => {
-        if (c && c.name && c.keywords) allKeywords[c.name] = c.keywords;
-      });
-    }
-    if (Array.isArray(expenseCats)) {
-      expenseCats.forEach(c => {
-        if (c && c.name && c.keywords) allKeywords[c.name] = c.keywords;
-      });
-    }
-    if (Array.isArray(updatedList)) {
-      updatedList.forEach(c => {
-        if (c && c.name && c.keywords) allKeywords[c.name] = c.keywords;
-      });
-    }
-    if (oldName !== newName.trim()) {
-      delete allKeywords[oldName];
-    }
-    allKeywords[newName.trim()] = (keywords || '').trim();
-
-    saveBudgets(currentUser.id, updatedBudgets, allKeywords);
-
-    // 3. Update transaction items
-    if (oldName !== newName.trim() && saveTransactions) {
-      const updatedTx = (manualTransactions || []).map(tx => {
-        if (tx && tx.category === oldName) {
-          return { ...tx, category: newName.trim() };
-        }
-        return tx;
-      });
-      saveTransactions(currentUser.id, updatedTx);
-    }
-
-    setEditingCat(null);
-    showToast('Đã cập nhật danh mục thành công!', 'success');
-  };
 
   const handleSaveTxEdit = () => {
     if (!editingTx || !editingTx.desc.trim() || Number(editingTx.amount) <= 0) {
@@ -1810,8 +1879,8 @@ function FlowTab({
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider block">Chọn biểu tượng</label>
-                <div className="grid grid-cols-6 gap-2 bg-[#090b10] p-3 rounded-xl border border-white/5 max-h-48 overflow-y-auto">
+                <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider block">Chọn biểu tượng mẫu</label>
+                <div className="grid grid-cols-7 gap-1.5 bg-[#090b10] p-2.5 rounded-xl border border-white/5 max-h-36 overflow-y-auto">
                   {Object.keys(ICON_COMPONENTS).map((iconKey) => {
                     const Icon = ICON_COMPONENTS[iconKey];
                     const isSelected = editingCat.icon === iconKey;
@@ -1826,10 +1895,26 @@ function FlowTab({
                             : 'bg-[#0d1018] border-white/5 text-slate-455 hover:text-slate-200'
                         }`}
                       >
-                        <Icon className="h-4.5 w-4.5 mx-auto" />
+                        <Icon className="h-4 w-4 mx-auto" />
                       </button>
                     );
                   })}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider block">Tự nhập Icon tùy chỉnh / Emoji</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="Nhập emoji hoặc icon (vd: ⚡, 🍕, 🛵, 💡, 🍔, 💊...)"
+                    value={editingCat.icon || ''}
+                    onChange={(e) => setEditingCat(prev => prev ? { ...prev, icon: e.target.value } : null)}
+                    className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 placeholder-slate-600"
+                  />
+                  <div className="h-9 w-9 rounded-xl bg-[#090b10] border border-white/10 flex items-center justify-center text-indigo-400 shrink-0">
+                    <CategoryIcon iconName={editingCat.icon} className="h-5 w-5" />
+                  </div>
                 </div>
               </div>
 
@@ -1929,8 +2014,8 @@ function FlowTab({
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider block">Chọn biểu tượng</label>
-                <div className="grid grid-cols-6 gap-2 bg-[#090b10] p-3 rounded-xl border border-white/5 max-h-40 overflow-y-auto">
+                <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider block">Chọn biểu tượng mẫu</label>
+                <div className="grid grid-cols-7 gap-1.5 bg-[#090b10] p-2.5 rounded-xl border border-white/5 max-h-36 overflow-y-auto">
                   {Object.keys(ICON_COMPONENTS).map((iconKey) => {
                     const Icon = ICON_COMPONENTS[iconKey];
                     const isSelected = newCatIcon === iconKey;
@@ -1945,10 +2030,26 @@ function FlowTab({
                             : 'bg-[#0d1018] border-white/5 text-slate-455 hover:text-slate-200'
                         }`}
                       >
-                        <Icon className="h-4.5 w-4.5 mx-auto" />
+                        <Icon className="h-4 w-4 mx-auto" />
                       </button>
                     );
                   })}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider block">Tự nhập Icon tùy chỉnh / Emoji</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="Nhập emoji hoặc icon (vd: ⚡, 🍕, 🛵, 💡, 🍔, 💊...)"
+                    value={newCatIcon || ''}
+                    onChange={(e) => setNewCatIcon(e.target.value)}
+                    className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 placeholder-slate-600"
+                  />
+                  <div className="h-9 w-9 rounded-xl bg-[#090b10] border border-white/10 flex items-center justify-center text-indigo-400 shrink-0">
+                    <CategoryIcon iconName={newCatIcon} className="h-5 w-5" />
+                  </div>
                 </div>
               </div>
 
