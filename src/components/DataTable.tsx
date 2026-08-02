@@ -926,7 +926,7 @@ export function DataTable<TData>({
         <div className="relative flex-1 min-h-0 flex flex-col">
           <div
             ref={tableScrollRef}
-            className={`overflow-x-auto relative ${useVirt ? 'overflow-y-auto flex-1 min-h-0' : 'overflow-y-visible'}`}
+            className={`overflow-hidden relative ${useVirt ? 'overflow-y-auto flex-1 min-h-0' : 'overflow-y-visible'}`}
             style={{ overscrollBehaviorX: 'contain' }}
           >
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>

@@ -1241,7 +1241,7 @@ function FlowTab({
         return (
           <div className="flex items-center gap-2.5 w-full px-1 min-w-[140px]">
             <span className="text-[10px] font-black text-slate-300 w-8 shrink-0 text-right">{item.pct}%</span>
-            <div className="h-2.5 bg-[#080b15] rounded-full w-full relative overflow-hidden border border-white/10 shadow-[inset_0_1px_3px_rgba(0,0,0,0.9)]">
+            <div className="h-2.5 bg-[#080b15] rounded-full w-full relative overflow-visible border border-white/10 shadow-[inset_0_1px_3px_rgba(0,0,0,0.9)]">
               <div
                 className={`h-full rounded-full transition-all duration-500 ${item.barColorClass}`}
                 style={{ width: `${item.pct}%` }}
@@ -1300,19 +1300,19 @@ function FlowTab({
       let barColorClass = '';
       if (isIncome) {
         if (rawPct <= 40) {
-          barColorClass = 'bg-gradient-to-r from-rose-500 to-red-400 shadow-[0_0_6px_rgba(239,68,68,0.5)]';
+          barColorClass = 'bg-gradient-to-r from-rose-500 to-red-400 shadow-[0_0_16px_rgba(244,63,94,0.95)] drop-shadow-[0_0_10px_rgba(244,63,94,0.9)]';
         } else if (rawPct <= 90) {
-          barColorClass = 'bg-gradient-to-r from-amber-500 to-yellow-400 shadow-[0_0_6px_rgba(245,158,11,0.5)]';
+          barColorClass = 'bg-gradient-to-r from-amber-500 to-yellow-400 shadow-[0_0_16px_rgba(245,158,11,0.95)] drop-shadow-[0_0_10px_rgba(245,158,11,0.9)]';
         } else {
-          barColorClass = 'bg-gradient-to-r from-emerald-500 to-teal-400 shadow-[0_0_6px_rgba(16,185,129,0.5)]';
+          barColorClass = 'bg-gradient-to-r from-emerald-400 to-teal-300 shadow-[0_0_16px_rgba(52,211,153,0.95)] drop-shadow-[0_0_10px_rgba(52,211,153,0.9)]';
         }
       } else {
         if (rawPct <= 40) {
-          barColorClass = 'bg-gradient-to-r from-blue-500 to-cyan-400 shadow-[0_0_6px_rgba(59,130,246,0.5)]';
+          barColorClass = 'bg-gradient-to-r from-blue-500 to-cyan-400 shadow-[0_0_16px_rgba(6,182,212,0.95)] drop-shadow-[0_0_10px_rgba(6,182,212,0.9)]';
         } else if (rawPct <= 90) {
-          barColorClass = 'bg-gradient-to-r from-amber-500 to-yellow-400 shadow-[0_0_6px_rgba(245,158,11,0.5)]';
+          barColorClass = 'bg-gradient-to-r from-amber-500 to-yellow-400 shadow-[0_0_16px_rgba(245,158,11,0.95)] drop-shadow-[0_0_10px_rgba(245,158,11,0.9)]';
         } else {
-          barColorClass = 'bg-gradient-to-r from-rose-500 to-pink-400 shadow-[0_0_6px_rgba(239,68,68,0.5)]';
+          barColorClass = 'bg-gradient-to-r from-rose-500 to-pink-400 shadow-[0_0_16px_rgba(244,63,94,0.95)] drop-shadow-[0_0_10px_rgba(244,63,94,0.9)]';
         }
       }
 
