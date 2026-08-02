@@ -1252,10 +1252,10 @@ function FlowTab({
         return (
           <div className="flex items-center gap-2.5 w-full px-1 min-w-[140px]">
             <span className="text-[10px] font-black text-slate-300 w-8 shrink-0 text-right">{item.pct}%</span>
-            <div className="h-2.5 bg-[#080b15] rounded-full w-full relative overflow-visible border border-white/10 shadow-[inset_0_1px_3px_rgba(0,0,0,0.9)]">
+            <div className="h-2 bg-[#0b0e18] rounded-full overflow-hidden w-full border border-white/5">
               <div
-                className={`h-full rounded-full transition-all duration-500 ${item.barColorClass}`}
-                style={{ width: `${item.pct}%` }}
+                className={`h-full rounded-full transition-all duration-300 ${item.barGradientClass}`}
+                style={{ width: `${item.pct}%`, boxShadow: `0 0 8px ${item.glowColor}` }}
               />
             </div>
             {item.rawPct > 100 && (
@@ -1308,22 +1308,29 @@ function FlowTab({
       const isAchieved = isIncome && budgetVal > 0 && rawPct >= 100;
       const isOver = !isIncome && budgetVal > 0 && rawPct >= 100;
 
-      let barColorClass = '';
+      let barGradientClass = '';
+      let glowColor = '';
       if (isIncome) {
         if (rawPct <= 40) {
-          barColorClass = 'bg-gradient-to-r from-rose-500 to-red-400 shadow-[0_0_16px_rgba(244,63,94,0.95)] drop-shadow-[0_0_10px_rgba(244,63,94,0.9)]';
+          barGradientClass = 'bg-gradient-to-r from-rose-500 to-red-400';
+          glowColor = '#f43f5e';
         } else if (rawPct <= 90) {
-          barColorClass = 'bg-gradient-to-r from-amber-500 to-yellow-400 shadow-[0_0_16px_rgba(245,158,11,0.95)] drop-shadow-[0_0_10px_rgba(245,158,11,0.9)]';
+          barGradientClass = 'bg-gradient-to-r from-amber-500 to-yellow-400';
+          glowColor = '#f59e0b';
         } else {
-          barColorClass = 'bg-gradient-to-r from-emerald-400 to-teal-300 shadow-[0_0_16px_rgba(52,211,153,0.95)] drop-shadow-[0_0_10px_rgba(52,211,153,0.9)]';
+          barGradientClass = 'bg-gradient-to-r from-emerald-500 to-teal-400';
+          glowColor = '#10b981';
         }
       } else {
         if (rawPct <= 40) {
-          barColorClass = 'bg-gradient-to-r from-blue-500 to-cyan-400 shadow-[0_0_16px_rgba(6,182,212,0.95)] drop-shadow-[0_0_10px_rgba(6,182,212,0.9)]';
+          barGradientClass = 'bg-gradient-to-r from-blue-500 to-cyan-400';
+          glowColor = '#06b6d4';
         } else if (rawPct <= 90) {
-          barColorClass = 'bg-gradient-to-r from-amber-500 to-yellow-400 shadow-[0_0_16px_rgba(245,158,11,0.95)] drop-shadow-[0_0_10px_rgba(245,158,11,0.9)]';
+          barGradientClass = 'bg-gradient-to-r from-amber-500 to-yellow-400';
+          glowColor = '#f59e0b';
         } else {
-          barColorClass = 'bg-gradient-to-r from-rose-500 to-pink-400 shadow-[0_0_16px_rgba(244,63,94,0.95)] drop-shadow-[0_0_10px_rgba(244,63,94,0.9)]';
+          barGradientClass = 'bg-gradient-to-r from-rose-500 to-pink-400';
+          glowColor = '#f43f5e';
         }
       }
 
@@ -1340,7 +1347,8 @@ function FlowTab({
         budgetVal,
         rawPct,
         pct,
-        barColorClass,
+        barGradientClass,
+        glowColor,
         keywords: catItem.keywords || '',
         isAchieved,
         isOver
