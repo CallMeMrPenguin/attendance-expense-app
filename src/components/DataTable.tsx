@@ -234,7 +234,7 @@ function ColumnVisibilityDropdown<TData>({
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 z-[60] w-72 bg-[#131929] border border-[#28334e] rounded-2xl shadow-2xl p-3 space-y-2 animate-mac-dropdown">
+        <div className="absolute right-0 top-full mt-2 z-[9999] w-80 max-h-[85vh] overflow-y-auto bg-[#131929] border border-[#28334e] rounded-2xl shadow-2xl p-3.5 space-y-2.5 animate-mac-dropdown scrollbar-thin">
           {/* TAB SWITCHER */}
           <div className="flex bg-[#0b0e19] p-1 rounded-xl border border-white/5 text-xs font-bold">
             <button
@@ -269,7 +269,7 @@ function ColumnVisibilityDropdown<TData>({
                     className="text-[9px] text-slate-400 hover:text-white px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10 transition cursor-pointer">Ẩn hết</button>
                 </div>
               </div>
-              <div className="max-h-60 overflow-y-auto space-y-1 scrollbar-thin pr-1">
+              <div className="max-h-[380px] overflow-y-auto space-y-1 scrollbar-thin pr-1">
                 {allCols.map((col, idx) => (
                   <div key={col.id} className="flex items-center justify-between gap-1 text-xs text-slate-200 px-1.5 py-1 rounded-lg hover:bg-[#1e2740] transition group">
                     <label className="flex items-center gap-2 min-w-0 flex-1 cursor-pointer hover:text-white">
@@ -311,7 +311,7 @@ function ColumnVisibilityDropdown<TData>({
               <div className="text-[10px] font-black uppercase text-indigo-400 tracking-wider border-b border-white/10 pb-1.5 mb-1">
                 <span>Tích = Căn Giữa | Bỏ tích = Trái</span>
               </div>
-              <div className="max-h-60 overflow-y-auto space-y-0.5 scrollbar-thin pr-1">
+              <div className="max-h-[380px] overflow-y-auto space-y-0.5 scrollbar-thin pr-1">
                 {allCols.map(col => {
                   const isCentered = columnAlignments[col.id] === 'center';
                   const colName = typeof col.columnDef.header === 'string' ? col.columnDef.header : col.id;

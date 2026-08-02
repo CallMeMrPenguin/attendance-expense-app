@@ -1183,119 +1183,182 @@ function FlowTab({
     };
   }, [incomes, expenses, manualTransactions, sessions, chartSelectedMonths, isTxInSelectedMonths]);
 
+  const categoryColumns = useMemo<ColumnDef<any>[]>(() => [
+    {
+      id: 'category_info',
+      header: 'Danh Mục & Biểu Tượng',
+      accessorKey: 'name',
+      cell: ({ row }) => {
+        const item = row.original;
+        const isIncome = item.type === 'income';
+        return (
+          <div className="flex items-center gap-3 text-left">
+            <span className={`inline-flex p-2.5 rounded-full border shrink-0 transition-all ${
+              isIncome 
+                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.3)]' 
+                : 'bg-red-500/10 text-red-500 border-red-500/30 shadow-[0_0_10px_rgba(239,68,68,0.3)]'
+            }`}>
+              <CategoryIcon iconName={item.iconName} className="h-4 w-4" />
+            </span>
+            <div className="flex flex-col justify-center text-left min-w-0">
+              <span className={`font-black text-xs truncate ${isIncome ? 'text-emerald-400 text-glow-green' : 'text-red-500 text-glow-red'}`}>
+                {item.name}
+              </span>
+              <span className="text-[10px] text-slate-400 font-semibold truncate mt-0.5" title={item.noteText}>
+                {item.noteText}
+              </span>
+            </div>
+          </div>
+        );
+      }
+    },
+    {
+      id: 'amount_info',
+      header: 'Số Tiền / Hạn Mức',
+      accessorKey: 'actual',
+      cell: ({ row }) => {
+        const item = row.original;
+        return (
+          <div className="flex flex-col justify-center text-left sm:text-center">
+            <span className="text-xs font-black text-white leading-none">
+              {formatVND(item.actual)}
+            </span>
+            <span className="text-[10px] font-bold text-slate-400 leading-none mt-1">
+              / {formatVND(item.budgetVal)}
+            </span>
+          </div>
+        );
+      }
+    },
+    {
+      id: 'progress',
+      header: 'Tiến Độ & Hạn Mức',
+      accessorKey: 'pct',
+      cell: ({ row }) => {
+        const item = row.original;
+        const isIncome = item.type === 'income';
+        return (
+          <div className="flex items-center gap-2.5 w-full px-1 min-w-[140px]">
+            <span className="text-[10px] font-black text-slate-300 w-8 shrink-0 text-right">{item.pct}%</span>
+            <div className="h-2.5 bg-[#080b15] rounded-full w-full relative overflow-hidden border border-white/10 shadow-[inset_0_1px_3px_rgba(0,0,0,0.9)]">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${item.barColorClass}`}
+                style={{ width: `${item.pct}%` }}
+              />
+            </div>
+            {item.rawPct > 100 && (
+              <span className={`${isIncome ? 'text-emerald-400' : 'text-rose-500'} text-[9px] font-black uppercase shrink-0`}>Vượt!</span>
+            )}
+          </div>
+        );
+      }
+    },
+    {
+      id: 'actions',
+      header: 'Thao Tác',
+      enableSorting: false,
+      enableGlobalFilter: false,
+      cell: ({ row }) => {
+        const item = row.original;
+        return (
+          <button
+            onClick={() => setEditingCat({ 
+              type: item.type, 
+              index: item.idx, 
+              name: item.name, 
+              icon: item.iconName, 
+              note: item.noteText,
+              budget: item.budgetVal,
+              keywords: item.keywords || ''
+            })}
+            className="h-7.5 w-7.5 bg-white/[0.04] border border-white/10 hover:border-indigo-500/40 hover:bg-indigo-500/15 rounded-full flex items-center justify-center text-slate-400 hover:text-white transition-all shadow-sm cursor-pointer mx-auto"
+            title="Chỉnh sửa danh mục"
+          >
+            <Edit2 className="h-3.5 w-3.5" />
+          </button>
+        );
+      }
+    }
+  ], [getCategoryIconName]);
+
   const renderCategoryTable = (type: 'income' | 'expense') => {
-    const list = type === 'income' ? incomeCats : expenseCats;
     const isIncome = type === 'income';
+    const cats = isIncome ? incomeCats : expenseCats;
+
+    const rows = cats.map((catItem, idx) => {
+      const cat = catItem.name;
+      const budgetVal = (categoryBudgets[cat] || 0) * chartSelectedMonths.length;
+      const actual = getCategoryActual(cat, !isIncome);
+      const rawPct = budgetVal > 0 ? Math.round((actual / budgetVal) * 100) : 0;
+      const pct = Math.min(100, rawPct);
+      const isAchieved = isIncome && budgetVal > 0 && rawPct >= 100;
+      const isOver = !isIncome && budgetVal > 0 && rawPct >= 100;
+
+      let barColorClass = '';
+      if (isIncome) {
+        if (rawPct <= 40) {
+          barColorClass = 'bg-gradient-to-r from-rose-500 to-red-400 shadow-[0_0_6px_rgba(239,68,68,0.5)]';
+        } else if (rawPct <= 90) {
+          barColorClass = 'bg-gradient-to-r from-amber-500 to-yellow-400 shadow-[0_0_6px_rgba(245,158,11,0.5)]';
+        } else {
+          barColorClass = 'bg-gradient-to-r from-emerald-500 to-teal-400 shadow-[0_0_6px_rgba(16,185,129,0.5)]';
+        }
+      } else {
+        if (rawPct <= 40) {
+          barColorClass = 'bg-gradient-to-r from-blue-500 to-cyan-400 shadow-[0_0_6px_rgba(59,130,246,0.5)]';
+        } else if (rawPct <= 90) {
+          barColorClass = 'bg-gradient-to-r from-amber-500 to-yellow-400 shadow-[0_0_6px_rgba(245,158,11,0.5)]';
+        } else {
+          barColorClass = 'bg-gradient-to-r from-rose-500 to-pink-400 shadow-[0_0_6px_rgba(239,68,68,0.5)]';
+        }
+      }
+
+      const iconName = getCategoryIconName(cat, type);
+      const noteText = catItem.note || (isIncome ? 'Thu nhập khác' : 'Chi phí khác');
+
+      return {
+        idx,
+        name: cat,
+        type,
+        iconName,
+        noteText,
+        actual,
+        budgetVal,
+        rawPct,
+        pct,
+        barColorClass,
+        keywords: catItem.keywords || '',
+        isAchieved,
+        isOver
+      };
+    });
 
     return (
-      <div className="overflow-x-auto scrollbar-thin pb-1.5 pt-0.5 -mx-1 px-1">
-        <div className="flex flex-col gap-2.5 min-w-[340px] sm:min-w-0">
-          {list.map((catItem, idx) => {
-            const cat = catItem.name;
-            const iconName = catItem.icon;
-            const noteText = catItem.note || (isIncome ? 'Thu nhập khác' : 'Chi phí khác');
-            const actual = getCategoryActual(cat, !isIncome);
-            const budgetVal = categoryBudgets[cat] || 0;
-            const rawPct = budgetVal > 0 ? Math.round((actual / budgetVal) * 100) : 0;
-            const pct = Math.min(100, rawPct);
-            const isAchieved = isIncome && budgetVal > 0 && rawPct >= 100;
-            const isOver = !isIncome && budgetVal > 0 && rawPct >= 100;
-
-            let barColorClass = '';
-            if (isIncome) {
-              if (rawPct <= 40) {
-                barColorClass = 'bg-gradient-to-r from-rose-500 to-red-400 shadow-[0_0_6px_rgba(239,68,68,0.5)] drop-shadow-[0_0_3px_rgba(239,68,68,0.4)]';
-              } else if (rawPct <= 90) {
-                barColorClass = 'bg-gradient-to-r from-amber-500 to-yellow-400 shadow-[0_0_6px_rgba(245,158,11,0.5)] drop-shadow-[0_0_3px_rgba(245,158,11,0.4)]';
-              } else {
-                barColorClass = 'bg-gradient-to-r from-emerald-500 to-teal-400 shadow-[0_0_6px_rgba(16,185,129,0.5)] drop-shadow-[0_0_3px_rgba(16,185,129,0.4)]';
-              }
-            } else {
-              if (rawPct <= 40) {
-                barColorClass = 'bg-gradient-to-r from-blue-500 to-cyan-400 shadow-[0_0_6px_rgba(59,130,246,0.5)] drop-shadow-[0_0_3px_rgba(59,130,246,0.4)]';
-              } else if (rawPct <= 90) {
-                barColorClass = 'bg-gradient-to-r from-amber-500 to-yellow-400 shadow-[0_0_6px_rgba(245,158,11,0.5)] drop-shadow-[0_0_3px_rgba(245,158,11,0.4)]';
-              } else {
-                barColorClass = 'bg-gradient-to-r from-rose-500 to-pink-400 shadow-[0_0_6px_rgba(239,68,68,0.5)] drop-shadow-[0_0_3px_rgba(239,68,68,0.4)]';
-              }
-            }
-
-            const cardStyle = isOver
-              ? 'bg-rose-500/10 border-rose-500/40 shadow-[inset_0_0_15px_rgba(239,68,68,0.2)] hover:border-rose-500/60'
-              : isAchieved
-                ? 'bg-emerald-500/10 border-emerald-500/40 shadow-[inset_0_0_15px_rgba(16,185,129,0.2)] hover:border-emerald-500/60'
-                : 'bg-[#151c2d] border-white/10 hover:border-white/20 shadow-md hover:bg-[#182238]';
-
-            return (
-              <div
-                key={cat}
-                className={`p-3.5 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 min-h-[72px] ${cardStyle}`}
-              >
-                {/* Column 1: Icon + Name + Note */}
-                <div className="flex items-center gap-3 shrink-0 min-w-[160px] max-w-full text-left">
-                  <span className={`inline-flex p-2.5 rounded-full border shrink-0 transition-all ${
-                    isIncome 
-                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.35)]' 
-                      : 'bg-red-500/10 text-red-500 border-red-500/30 shadow-[0_0_12px_rgba(239,68,68,0.35)]'
-                  }`}>
-                    <CategoryIcon iconName={iconName} className="h-4 w-4" />
-                  </span>
-                  <div className="flex flex-col justify-center text-left min-w-0 overflow-hidden">
-                    <span className={`font-black text-xs whitespace-nowrap truncate ${isIncome ? 'text-emerald-400 text-glow-green' : 'text-red-500 text-glow-red'}`}>
-                      {cat}
-                    </span>
-                    <span className="text-[10px] text-slate-400 font-semibold whitespace-nowrap truncate mt-0.5" title={noteText}>
-                      {noteText}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Column 2: Actual / Budget Amount */}
-                <div className="flex flex-col justify-center items-start sm:items-center text-left sm:text-center shrink-0 min-w-[110px]">
-                  <span className="text-xs font-black text-white leading-none whitespace-nowrap">
-                    {formatVND(actual)}
-                  </span>
-                  <span className="text-[10px] font-bold text-slate-400 leading-none mt-1 whitespace-nowrap">
-                    / {formatVND(budgetVal)}
-                  </span>
-                </div>
-
-                {/* Column 3: Glowing Progress Bar & Percentage */}
-                <div className="flex-1 flex items-center gap-2.5 min-w-[120px] px-1">
-                  <span className="text-[10px] font-black text-slate-300 w-7 shrink-0 text-right">{pct}%</span>
-                  <div className="h-2 bg-[#080b15] rounded-full w-full relative overflow-hidden border border-white/10 shadow-[inset_0_1px_3px_rgba(0,0,0,0.9)]">
-                    <div
-                      className={`h-full rounded-full transition-all duration-500 ${barColorClass}`}
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                  {rawPct > 100 && (
-                    <span className={`${isIncome ? 'text-emerald-400' : 'text-rose-500'} text-[9px] font-black uppercase shrink-0`}>Vượt!</span>
-                  )}
-                </div>
-
-                {/* Column 4: Edit Pen Action Button */}
-                <div className="shrink-0 flex items-center justify-end">
-                  <button
-                    onClick={() => setEditingCat({ 
-                      type, 
-                      index: idx, 
-                      name: cat, 
-                      icon: iconName, 
-                      note: noteText,
-                      budget: budgetVal,
-                      keywords: catItem.keywords || ''
-                    })}
-                    className="h-8.5 w-8.5 bg-white/[0.04] border border-white/10 hover:border-indigo-500/40 hover:bg-indigo-500/15 rounded-full flex items-center justify-center text-slate-400 hover:text-white transition-all shadow-sm cursor-pointer shrink-0"
-                    title="Chỉnh sửa danh mục"
-                  >
-                    <Edit2 className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+      <div className="space-y-4">
+        <DataTable
+          tableId={`flow_${type}_categories`}
+          userId={currentUser.id}
+          data={rows}
+          columns={categoryColumns}
+          pageSize={20}
+          exportFilename={`danh_sach_loai_${type}`}
+          searchPlaceholder={`Tìm loại ${isIncome ? 'thu nhập' : 'chi tiêu'}...`}
+          toolbarRight={
+            <button
+              type="button"
+              onClick={() => setAddingCatType(type)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 border shadow-sm ${
+                isIncome
+                  ? 'bg-emerald-500/15 hover:bg-emerald-500/25 border-emerald-500/30 text-emerald-300'
+                  : 'bg-rose-500/15 hover:bg-rose-500/25 border-rose-500/30 text-rose-300'
+              }`}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Thêm</span>
+            </button>
+          }
+          emptyMessage={`Chưa có loại ${isIncome ? 'thu nhập' : 'chi tiêu'} nào.`}
+        />
       </div>
     );
   };
