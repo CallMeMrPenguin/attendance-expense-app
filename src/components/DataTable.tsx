@@ -143,6 +143,9 @@ function DraggableHeader({
   const isPinned = header.column.getIsPinned();
   const width = header.getSize();
 
+  const maxW = header.column.columnDef.maxSize ?? 350;
+  const minW = header.column.columnDef.minSize ?? 60;
+
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -151,8 +154,8 @@ function DraggableHeader({
     position: 'relative',
     boxSizing: 'border-box',
     width,
-    minWidth: Math.max(width, 60),
-    maxWidth: 800,
+    minWidth: Math.max(width, minW),
+    maxWidth: maxW,
     ...(isPinned === 'left' ? { position: 'sticky', left: header.column.getStart('left'), zIndex: 10, boxShadow: '2px 0 6px rgba(0,0,0,0.5)' } : {}),
     ...(isPinned === 'right' ? { position: 'sticky', right: header.column.getAfter('right'), zIndex: 10, boxShadow: '-2px 0 6px rgba(0,0,0,0.5)' } : {}),
   };
@@ -1017,6 +1020,9 @@ export function DataTable<TData>({
                             const isSelectCol = cell.column.id === 'select' || cell.column.id === '_expander';
                             const isCentered = isSelectCol || columnAlignments[cell.column.id] === 'center';
 
+                            const cellMaxW = cell.column.columnDef.maxSize ?? 350;
+                            const cellMinW = cell.column.columnDef.minSize ?? 60;
+
                             return (
                               <td
                                 key={cell.id}
@@ -1031,8 +1037,8 @@ export function DataTable<TData>({
                                 style={{
                                   boxSizing: 'border-box',
                                   width: cell.column.getSize(),
-                                  minWidth: Math.max(cell.column.getSize(), 60),
-                                  maxWidth: 800,
+                                  minWidth: Math.max(cell.column.getSize(), cellMinW),
+                                  maxWidth: cellMaxW,
                                   ...(isPinned === 'left' ? { position: 'sticky', left: cell.column.getStart('left'), zIndex: 3, boxShadow: '2px 0 6px rgba(0,0,0,0.4)' } : {}),
                                   ...(isPinned === 'right' ? { position: 'sticky', right: cell.column.getAfter('right'), zIndex: 3, boxShadow: '-2px 0 6px rgba(0,0,0,0.4)' } : {}),
                                   backgroundColor: isPinned

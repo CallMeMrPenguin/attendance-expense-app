@@ -1028,6 +1028,8 @@ function FlowTab({
       accessorKey: 'date',
       header: 'Ngày',
       size: 110,
+      minSize: 90,
+      maxSize: 130,
       cell: ({ row }) => (
         <span className="text-xs font-semibold text-slate-300">{row.original.date}</span>
       )
@@ -1035,6 +1037,9 @@ function FlowTab({
     {
       accessorKey: 'desc',
       header: 'Mô Tả & Loại Giao Dịch',
+      size: 260,
+      minSize: 160,
+      maxSize: 350,
       cell: ({ row }) => {
         const t = row.original;
         const isIncome = t.type === 'income';
@@ -1059,7 +1064,9 @@ function FlowTab({
     {
       accessorKey: 'category',
       header: 'Danh Mục',
-      size: 160,
+      size: 140,
+      minSize: 100,
+      maxSize: 180,
       cell: ({ row }) => {
         const t = row.original;
         const isIncome = t.type === 'income';
@@ -1084,6 +1091,8 @@ function FlowTab({
       accessorKey: 'amount',
       header: 'Số Tiền',
       size: 140,
+      minSize: 100,
+      maxSize: 180,
       cell: ({ row }) => {
         const t = row.original;
         const isIncome = t.type === 'income';
@@ -1098,6 +1107,8 @@ function FlowTab({
       id: 'actions',
       header: 'Thao Tác',
       size: 80,
+      minSize: 80,
+      maxSize: 80,
       enableResizing: false,
       enableSorting: false,
       cell: ({ row }) => {
