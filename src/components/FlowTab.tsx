@@ -336,38 +336,7 @@ function FlowTab({
     return firstMonth ? parseInt(firstMonth.split('-')[0]) : new Date().getFullYear();
   });
 
-  // Initialize categories dynamically from categoryBudgets & categoryTypes props
-  React.useEffect(() => {
-    if (!categoryBudgets) return;
 
-    const budgetKeys = Object.keys(categoryBudgets);
-    if (budgetKeys.length === 0) return;
-
-    const defaultIncomeNames = ['Lương', 'Giáo dục', 'Đầu tư'];
-
-    const newIncome: { name: string; icon: string; note?: string; keywords?: string }[] = [];
-    const newExpense: { name: string; icon: string; note?: string; keywords?: string }[] = [];
-
-    budgetKeys.forEach((catName) => {
-      const isInc = categoryTypes[catName] ? categoryTypes[catName] === 'income' : defaultIncomeNames.includes(catName);
-
-      const item = {
-        name: catName,
-        icon: isInc ? 'TrendingUp' : 'Coins',
-        note: isInc ? 'Thu nhập' : 'Chi phí',
-        keywords: ''
-      };
-
-      if (isInc) {
-        newIncome.push(item);
-      } else {
-        newExpense.push(item);
-      }
-    });
-
-    if (newIncome.length > 0) setIncomeCats(newIncome);
-    if (newExpense.length > 0) setExpenseCats(newExpense);
-  }, [categoryBudgets, categoryTypes]);
 
   // Edit category state (contains budget now)
   const [editingCat, setEditingCat] = React.useState<{

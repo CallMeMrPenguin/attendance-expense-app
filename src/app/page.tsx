@@ -585,24 +585,18 @@ export default function Dashboard() {
 
           budgetRes.data.forEach((b: any) => {
             bMap[b.category] = Number(b.amount) || 0;
-            let type: 'income' | 'expense' = ['Lương', 'Giáo dục', 'Đầu tư', 'Gia Sư'].includes(b.category) ? 'income' : 'expense';
-            let icon = DEFAULT_CATEGORY_ICONS[b.category] || (type === 'income' ? 'TrendingUp' : 'Coins');
-            let note = DEFAULT_CATEGORY_NOTES[b.category] || (type === 'income' ? 'Thu nhập khác' : 'Chi phí khác');
-            let kw = DEFAULT_CATEGORY_KEYWORDS[b.category] || '';
+            let type: 'income' | 'expense' = b.type || (['Lương', 'Giáo dục', 'Đầu tư', 'Gia Sư'].includes(b.category) ? 'income' : 'expense');
+            let icon = b.icon || DEFAULT_CATEGORY_ICONS[b.category] || (type === 'income' ? 'TrendingUp' : 'Coins');
+            let note = b.note || DEFAULT_CATEGORY_NOTES[b.category] || (type === 'income' ? 'Thu nhập khác' : 'Chi phí khác');
+            let kw = b.keywords || DEFAULT_CATEGORY_KEYWORDS[b.category] || '';
 
             if (b.keywords && typeof b.keywords === 'string' && b.keywords.startsWith('{')) {
               try {
                 const parsed = JSON.parse(b.keywords);
                 if (parsed.type) type = parsed.type;
-                if (parsed.icon && (parsed.icon !== 'Coins' && parsed.icon !== 'TrendingUp' || !DEFAULT_CATEGORY_ICONS[b.category])) {
-                  icon = parsed.icon;
-                }
-                if (parsed.note && (parsed.note !== 'Thu nhập' && parsed.note !== 'Chi phí' || !DEFAULT_CATEGORY_NOTES[b.category])) {
-                  note = parsed.note;
-                }
-                if (parsed.kw !== undefined && parsed.kw !== '') {
-                  kw = parsed.kw;
-                }
+                if (parsed.icon !== undefined && parsed.icon !== null) icon = parsed.icon;
+                if (parsed.note !== undefined && parsed.note !== null) note = parsed.note;
+                if (parsed.kw !== undefined && parsed.kw !== null) kw = parsed.kw;
               } catch (e) {}
             }
             tMap[b.category] = type;
