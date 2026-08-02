@@ -163,7 +163,7 @@ function DraggableHeader({
     <th
       ref={setNodeRef}
       style={style}
-      className={`select-none relative border-b border-[#28334e] bg-[#111827] ${
+      className={`select-none relative border-b border-r border-[#212c4b] last:border-r-0 bg-[#111827] ${
         isPinned ? 'bg-[#111827]' : ''
       }`}
     >
@@ -179,16 +179,20 @@ function DraggableHeader({
         {children}
       </div>
 
-      {/* Resize handle */}
+      {/* Resize handle with visible vertical border line */}
       {enableColumnResizing && header.column.getCanResize() && (
         <div
           onMouseDown={header.getResizeHandler()}
           onTouchStart={header.getResizeHandler()}
           title="Kéo để thay đổi độ rộng cột"
-          className={`absolute -right-1 top-1 h-[calc(100%-8px)] w-2.5 cursor-col-resize select-none touch-none rounded-full transition-colors z-30 ${
-            header.column.getIsResizing() ? 'bg-indigo-500' : 'bg-transparent hover:bg-indigo-500/60'
-          }`}
-        />
+          className="absolute -right-1 top-0 h-full w-2.5 flex items-center justify-center cursor-col-resize select-none touch-none transition-colors z-30 group/resize"
+        >
+          <div className={`h-full w-[2px] transition-colors ${
+            header.column.getIsResizing() 
+              ? 'bg-indigo-400 shadow-[0_0_8px_rgba(99,102,241,0.8)]' 
+              : 'bg-[#2a365c] group-hover/resize:bg-indigo-400'
+          }`} />
+        </div>
       )}
     </th>
   );
@@ -1017,7 +1021,7 @@ export function DataTable<TData>({
                                 key={cell.id}
                                 className={`
                                   py-3 ${isSelectCol ? 'px-1' : 'px-3.5'} font-semibold text-slate-200 text-xs sm:text-sm
-                                  border-b border-[#161e30]
+                                  border-b border-r border-[#1a233b] last:border-r-0
                                   ${isCentered ? 'text-center' : 'text-left'}
                                   ${isPinned ? 'bg-inherit' : ''}
                                   ${isLastRow && isFirstCell ? 'rounded-bl-xl' : ''}
