@@ -169,6 +169,51 @@ export const formatAbbreviatedVND = (value: number): string => {
 
 import { useToast } from '@/context/ToastContext';
 
+const DEFAULT_CATEGORY_ICONS: Record<string, string> = {
+  'Lương': 'Briefcase',
+  'Giáo dục': 'GraduationCap',
+  'Đầu tư': 'TrendingUp',
+  'Gia Sư': 'GraduationCap',
+  'Ăn uống': 'Utensils',
+  'Di chuyển': 'Car',
+  'Shopping': 'ShoppingBag',
+  'Hóa đơn': 'Receipt',
+  'Giải trí': 'Film',
+  'Xăng': 'Car',
+  'Đi Chợ': 'ShoppingBag',
+  'Khác': 'Coins'
+};
+
+const DEFAULT_CATEGORY_NOTES: Record<string, string> = {
+  'Lương': 'Thu nhập cố định hàng tháng',
+  'Giáo dục': 'Giảng dạy, chấm công',
+  'Đầu tư': 'Cổ tức, lợi nhuận',
+  'Gia Sư': 'Học phí gia sư',
+  'Ăn uống': 'Nhà hàng, siêu thị, thực phẩm',
+  'Di chuyển': 'Xe máy, taxi, xăng xe',
+  'Shopping': 'Quần áo, đồ dùng cá nhân',
+  'Hóa đơn': 'Điện, nước, internet',
+  'Giải trí': 'Xem phim, du lịch, giải trí',
+  'Xăng': 'Nhiên liệu đi lại',
+  'Đi Chợ': 'Thực phẩm, chợ tươi',
+  'Khác': 'Các khoản chi phí khác'
+};
+
+const DEFAULT_CATEGORY_KEYWORDS: Record<string, string> = {
+  'Lương': 'luong, salary',
+  'Giáo dục': 'day hoc, cham cong, giang day',
+  'Đầu tư': 'dau tu, chung khoan, co tuc',
+  'Gia Sư': 'gia su, hoc phi',
+  'Ăn uống': 'an uong, food, cafe, coffee, nha hang',
+  'Di chuyển': 'di chuyen, grab, be, taxi',
+  'Shopping': 'shopping, mua sam, shopee, lazada, tiki',
+  'Hóa đơn': 'hoa don, dien, nuoc, internet, cuoc',
+  'Giải trí': 'giai tri, cgv, cinema, du lich',
+  'Xăng': 'xang, cay xang, petrolimex',
+  'Đi Chợ': 'di cho, sieu thi, winmart, bach hoa xanh',
+  'Khác': 'khac'
+};
+
 function FlowTab({
   currentUser,
   manualTransactions,
@@ -202,16 +247,16 @@ function FlowTab({
     const budgetKeys = Object.keys(categoryBudgets);
     if (budgetKeys.length === 0) return;
 
-    const defaultIncomeNames = ['Lương', 'Giáo dục', 'Đầu tư'];
+    const defaultIncomeNames = ['Lương', 'Giáo dục', 'Đầu tư', 'Gia Sư'];
 
     const newIncome: { name: string; icon: string; note?: string; keywords?: string }[] = [];
     const newExpense: { name: string; icon: string; note?: string; keywords?: string }[] = [];
 
     budgetKeys.forEach((catName) => {
       const isInc = categoryTypes[catName] ? categoryTypes[catName] === 'income' : defaultIncomeNames.includes(catName);
-      const icon = categoryIcons[catName] || (isInc ? 'TrendingUp' : 'Coins');
-      const note = categoryNotes[catName] || (isInc ? 'Thu nhập' : 'Chi phí');
-      const keywords = categoryKeywords[catName] || '';
+      const icon = categoryIcons[catName] || DEFAULT_CATEGORY_ICONS[catName] || (isInc ? 'TrendingUp' : 'Coins');
+      const note = categoryNotes[catName] || DEFAULT_CATEGORY_NOTES[catName] || (isInc ? 'Thu nhập khác' : 'Chi phí khác');
+      const keywords = categoryKeywords[catName] !== undefined ? categoryKeywords[catName] : (DEFAULT_CATEGORY_KEYWORDS[catName] || '');
 
       const item = {
         name: catName,
@@ -227,8 +272,8 @@ function FlowTab({
       }
     });
 
-    if (newIncome.length > 0) setIncomeCats(newIncome);
-    if (newExpense.length > 0) setExpenseCats(newExpense);
+    setIncomeCats(newIncome);
+    setExpenseCats(newExpense);
   }, [categoryBudgets, categoryTypes, categoryIcons, categoryNotes, categoryKeywords]);
 
   const [isSyncing, setIsSyncing] = React.useState(false);

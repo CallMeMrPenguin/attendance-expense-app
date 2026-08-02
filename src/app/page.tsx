@@ -38,6 +38,51 @@ const cleanString = (str: string): string => {
     .trim();
 };
 
+const DEFAULT_CATEGORY_ICONS: Record<string, string> = {
+  'Lương': 'Briefcase',
+  'Giáo dục': 'GraduationCap',
+  'Đầu tư': 'TrendingUp',
+  'Gia Sư': 'GraduationCap',
+  'Ăn uống': 'Utensils',
+  'Di chuyển': 'Car',
+  'Shopping': 'ShoppingBag',
+  'Hóa đơn': 'Receipt',
+  'Giải trí': 'Film',
+  'Xăng': 'Car',
+  'Đi Chợ': 'ShoppingBag',
+  'Khác': 'Coins'
+};
+
+const DEFAULT_CATEGORY_NOTES: Record<string, string> = {
+  'Lương': 'Thu nhập cố định hàng tháng',
+  'Giáo dục': 'Giảng dạy, chấm công',
+  'Đầu tư': 'Cổ tức, lợi nhuận',
+  'Gia Sư': 'Học phí gia sư',
+  'Ăn uống': 'Nhà hàng, siêu thị, thực phẩm',
+  'Di chuyển': 'Xe máy, taxi, xăng xe',
+  'Shopping': 'Quần áo, đồ dùng cá nhân',
+  'Hóa đơn': 'Điện, nước, internet',
+  'Giải trí': 'Xem phim, du lịch, giải trí',
+  'Xăng': 'Nhiên liệu đi lại',
+  'Đi Chợ': 'Thực phẩm, chợ tươi',
+  'Khác': 'Các khoản chi phí khác'
+};
+
+const DEFAULT_CATEGORY_KEYWORDS: Record<string, string> = {
+  'Lương': 'luong, salary',
+  'Giáo dục': 'day hoc, cham cong, giang day',
+  'Đầu tư': 'dau tu, chung khoan, co tuc',
+  'Gia Sư': 'gia su, hoc phi',
+  'Ăn uống': 'an uong, food, cafe, coffee, nha hang',
+  'Di chuyển': 'di chuyen, grab, be, taxi',
+  'Shopping': 'shopping, mua sam, shopee, lazada, tiki',
+  'Hóa đơn': 'hoa don, dien, nuoc, internet, cuoc',
+  'Giải trí': 'giai tri, cgv, cinema, du lich',
+  'Xăng': 'xang, cay xang, petrolimex',
+  'Đi Chợ': 'di cho, sieu thi, winmart, bach hoa xanh',
+  'Khác': 'khac'
+};
+
 const matchKeyword = (cleanDetails: string, kw: string): boolean => {
   const cleanedKw = cleanString(kw);
   if (!cleanedKw) return false;
@@ -479,17 +524,7 @@ export default function Dashboard() {
     }
   }, [currentUser, activeTab]);
 
-  const [categoryTypes, setCategoryTypes] = useState<Record<string, 'income' | 'expense'>>({
-    'Lương': 'income',
-    'Giáo dục': 'income',
-    'Đầu tư': 'income',
-    'Khác': 'expense',
-    'Ăn uống': 'expense',
-    'Di chuyển': 'expense',
-    'Shopping': 'expense',
-    'Hóa đơn': 'expense',
-    'Giải trí': 'expense'
-  });
+  const [categoryTypes, setCategoryTypes] = useState<Record<string, 'income' | 'expense'>>({});
   const [categoryIcons, setCategoryIcons] = useState<Record<string, string>>({});
   const [categoryNotes, setCategoryNotes] = useState<Record<string, string>>({});
   const [categoryKeywords, setCategoryKeywords] = useState<Record<string, string>>({});
@@ -502,12 +537,15 @@ export default function Dashboard() {
       'Lương': 15000000,
       'Giáo dục': 10000000,
       'Đầu tư': 5000000,
+      'Gia Sư': 4000000,
       'Khác': 1000000,
       'Ăn uống': 4000000,
       'Di chuyển': 1500000,
       'Shopping': 3000000,
       'Hóa đơn': 3000000,
-      'Giải trí': 2000000
+      'Giải trí': 2000000,
+      'Xăng': 500000,
+      'Đi Chợ': 1500000
     };
 
     const fetchFinanceCloud = async () => {
@@ -547,10 +585,10 @@ export default function Dashboard() {
 
           budgetRes.data.forEach((b: any) => {
             bMap[b.category] = Number(b.amount) || 0;
-            let type: 'income' | 'expense' = ['Lương', 'Giáo dục', 'Đầu tư'].includes(b.category) ? 'income' : 'expense';
-            let icon = type === 'income' ? 'TrendingUp' : 'Coins';
-            let note = type === 'income' ? 'Thu nhập' : 'Chi phí';
-            let kw = '';
+            let type: 'income' | 'expense' = ['Lương', 'Giáo dục', 'Đầu tư', 'Gia Sư'].includes(b.category) ? 'income' : 'expense';
+            let icon = DEFAULT_CATEGORY_ICONS[b.category] || (type === 'income' ? 'TrendingUp' : 'Coins');
+            let note = DEFAULT_CATEGORY_NOTES[b.category] || (type === 'income' ? 'Thu nhập khác' : 'Chi phí khác');
+            let kw = DEFAULT_CATEGORY_KEYWORDS[b.category] || '';
 
             if (b.keywords && typeof b.keywords === 'string' && b.keywords.startsWith('{')) {
               try {
@@ -695,36 +733,43 @@ export default function Dashboard() {
     catIcons?: Record<string, string>,
     catNotes?: Record<string, string>
   ) => {
+    // Merge new maps with existing state maps
+    const targetTypes = { ...categoryTypes, ...catTypes };
+    const targetIcons = { ...categoryIcons, ...catIcons };
+    const targetNotes = { ...categoryNotes, ...catNotes };
+    const targetKeywords = { ...categoryKeywords, ...keywords };
+
+    // Remove keys that are no longer in budgets (renamed or deleted categories)
+    const validKeys = new Set(Object.keys(budgets));
+    Object.keys(targetTypes).forEach(k => { if (!validKeys.has(k)) delete targetTypes[k]; });
+    Object.keys(targetIcons).forEach(k => { if (!validKeys.has(k)) delete targetIcons[k]; });
+    Object.keys(targetNotes).forEach(k => { if (!validKeys.has(k)) delete targetNotes[k]; });
+    Object.keys(targetKeywords).forEach(k => { if (!validKeys.has(k)) delete targetKeywords[k]; });
+
     setCategoryBudgets(budgets);
-    if (catTypes) setCategoryTypes(catTypes);
-    if (catIcons) setCategoryIcons(catIcons);
-    if (catNotes) setCategoryNotes(catNotes);
-    if (keywords) setCategoryKeywords(keywords);
+    setCategoryTypes(targetTypes);
+    setCategoryIcons(targetIcons);
+    setCategoryNotes(targetNotes);
+    setCategoryKeywords(targetKeywords);
 
     if (!currentUser) return;
-
-    const targetTypes = catTypes || categoryTypes;
-    const targetIcons = catIcons || categoryIcons;
-    const targetNotes = catNotes || categoryNotes;
-    const targetKeywords = keywords || categoryKeywords;
 
     runBackgroundSave(async () => {
       try {
         const { data: existing } = await supabase.from('category_budgets').select('id');
         if (existing && existing.length > 0) {
           const existingIds = existing.map(e => e.id);
-          const newKeys = new Set(Object.keys(budgets));
-          const idsToDelete = existingIds.filter(id => !newKeys.has(id));
+          const idsToDelete = existingIds.filter(id => !validKeys.has(id));
           if (idsToDelete.length > 0) {
             await supabase.from('category_budgets').delete().in('id', idsToDelete);
           }
         }
 
         const records = Object.keys(budgets).map(cat => {
-          const type = targetTypes[cat] || (['Lương', 'Giáo dục', 'Đầu tư'].includes(cat) ? 'income' : 'expense');
-          const kw = targetKeywords[cat] || '';
-          const icon = targetIcons[cat] || (type === 'income' ? 'TrendingUp' : 'Coins');
-          const note = targetNotes[cat] || (type === 'income' ? 'Thu nhập' : 'Chi phí');
+          const type = targetTypes[cat] || (['Lương', 'Giáo dục', 'Đầu tư', 'Gia Sư'].includes(cat) ? 'income' : 'expense');
+          const kw = targetKeywords[cat] !== undefined ? targetKeywords[cat] : (DEFAULT_CATEGORY_KEYWORDS[cat] || '');
+          const icon = targetIcons[cat] || DEFAULT_CATEGORY_ICONS[cat] || (type === 'income' ? 'TrendingUp' : 'Coins');
+          const note = targetNotes[cat] || DEFAULT_CATEGORY_NOTES[cat] || (type === 'income' ? 'Thu nhập khác' : 'Chi phí khác');
           const metaStr = JSON.stringify({ type, kw, icon, note });
           return {
             id: cat,
