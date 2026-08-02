@@ -1039,8 +1039,8 @@ function FlowTab({
                   </div>
                 </div>
 
-                {/* Column 2: Actual / Budget Amount (Right Aligned) */}
-                <div className="flex flex-col justify-center text-right shrink-0 w-[28%] sm:w-[25%]">
+                {/* Column 2: Actual / Budget Amount (Center Aligned) */}
+                <div className="flex flex-col justify-center items-center text-center shrink-0 w-[30%] sm:w-[28%]">
                   <span className="text-xs font-black text-white leading-none whitespace-nowrap">
                     {formatVND(actual)}
                   </span>
@@ -1766,7 +1766,7 @@ function FlowTab({
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2.5 shrink-0 justify-start">
+                    <div className="flex items-center gap-2.5 shrink-0 justify-center text-center">
                       <span className={`inline-flex p-2 rounded-full border shrink-0 ${
                         isIncome
                           ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.25)]'
@@ -1779,7 +1779,7 @@ function FlowTab({
                       </span>
                     </div>
 
-                    <div className="text-right shrink-0">
+                    <div className="text-center shrink-0 flex items-center justify-center">
                       <span className={`font-black text-sm tracking-wide ${isIncome ? 'text-emerald-400 text-glow-green' : 'text-rose-500 text-glow-red'}`}>
                         {isIncome ? '+' : '-'}{formatVND(t.amount)}
                       </span>
