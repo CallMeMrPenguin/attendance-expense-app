@@ -18,16 +18,14 @@ if (fs.existsSync(envPath)) {
 const supabase = createClient(url, key);
 
 async function inspectColumns() {
-  const tables = ['manual_transactions', 'savings_funds', 'category_budgets', 'savings_history', 'bank_receipts', 'receipt_rules'];
-  for (const table of tables) {
-    const { data, error } = await supabase.from(table).select('*').limit(1);
-    if (error) {
-      console.log(`Table [${table}] Error:`, error.message);
-    } else if (data && data.length > 0) {
-      console.log(`Table [${table}] Columns:`, Object.keys(data[0]).join(', '));
-    } else {
-      console.log(`Table [${table}] is empty.`);
-    }
+  const { data, error } = await supabase.from('category_budgets').select('*').limit(1);
+  if (error) {
+    console.error('Error selecting category_budgets:', error);
+    return;
+  }
+  if (data && data.length > 0) {
+    console.log('Columns in category_budgets:', Object.keys(data[0]));
+    console.log('Sample row:', data[0]);
   }
 }
 

@@ -255,9 +255,18 @@ function FlowTab({
 
     budgetKeys.forEach((catName) => {
       const isInc = categoryTypes[catName] ? categoryTypes[catName] === 'income' : defaultIncomeNames.includes(catName);
-      const icon = (categoryIcons[catName] && categoryIcons[catName] !== 'Coins' && categoryIcons[catName] !== 'TrendingUp') ? categoryIcons[catName] : (DEFAULT_CATEGORY_ICONS[catName] || categoryIcons[catName] || (isInc ? 'TrendingUp' : 'Coins'));
-      const note = (categoryNotes[catName] && categoryNotes[catName] !== 'Thu nhập' && categoryNotes[catName] !== 'Chi phí') ? categoryNotes[catName] : (DEFAULT_CATEGORY_NOTES[catName] || categoryNotes[catName] || (isInc ? 'Thu nhập khác' : 'Chi phí khác'));
-      const keywords = (categoryKeywords[catName] && categoryKeywords[catName].trim() !== '') ? categoryKeywords[catName] : (DEFAULT_CATEGORY_KEYWORDS[catName] || '');
+      
+      const icon = categoryIcons[catName] !== undefined && categoryIcons[catName] !== '' 
+        ? categoryIcons[catName] 
+        : (DEFAULT_CATEGORY_ICONS[catName] || (isInc ? 'TrendingUp' : 'Coins'));
+
+      const note = categoryNotes[catName] !== undefined && categoryNotes[catName] !== '' 
+        ? categoryNotes[catName] 
+        : (DEFAULT_CATEGORY_NOTES[catName] || (isInc ? 'Thu nhập khác' : 'Chi phí khác'));
+
+      const keywords = categoryKeywords[catName] !== undefined 
+        ? categoryKeywords[catName] 
+        : (DEFAULT_CATEGORY_KEYWORDS[catName] || '');
 
       const item = {
         name: catName,
@@ -463,33 +472,13 @@ function FlowTab({
 
     const bVal = parseNumberDots(newCatBudget) || 0;
     const updatedBudgets = { ...categoryBudgets, [nameTrimmed]: bVal };
-
-    // Sync keywords, icons, and notes to DB too!
-    const allKeywords: Record<string, string> = {};
-    const allIcons: Record<string, string> = {};
-    const allNotes: Record<string, string> = {};
-
-    const fullIncome = isIncome ? updatedList : (incomeCats || []);
-    const fullExpense = !isIncome ? updatedList : (expenseCats || []);
-
-    fullIncome.forEach(c => {
-      if (c && c.name) {
-        allKeywords[c.name] = c.keywords || '';
-        allIcons[c.name] = c.icon || 'TrendingUp';
-        allNotes[c.name] = c.note || 'Thu nhập';
-      }
-    });
-
-    fullExpense.forEach(c => {
-      if (c && c.name) {
-        allKeywords[c.name] = c.keywords || '';
-        allIcons[c.name] = c.icon || 'Coins';
-        allNotes[c.name] = c.note || 'Chi phí';
-      }
-    });
-
     const updatedCategoryTypes: Record<string, 'income' | 'expense'> = { ...categoryTypes, [nameTrimmed]: isIncome ? 'income' : 'expense' };
-    saveBudgets(currentUser.id, updatedBudgets, allKeywords, updatedCategoryTypes, allIcons, allNotes);
+
+    const newKeywords = { ...categoryKeywords, [nameTrimmed]: newCatKeywords.trim() };
+    const newIcons = { ...categoryIcons, [nameTrimmed]: newCatIcon || (isIncome ? 'TrendingUp' : 'Coins') };
+    const newNotes = { ...categoryNotes, [nameTrimmed]: newCatNote.trim() || (isIncome ? 'Thu nhập khác' : 'Chi phí khác') };
+
+    saveBudgets(currentUser.id, updatedBudgets, newKeywords, updatedCategoryTypes, newIcons, newNotes);
 
     showToast(`Đã thêm danh mục "${nameTrimmed}" mới!`, 'success');
     setAddingCatType(null);
@@ -550,30 +539,17 @@ function FlowTab({
     }
     updatedCategoryTypes[nameTrimmed] = type;
 
-    const allKeywords: Record<string, string> = {};
-    const allIcons: Record<string, string> = {};
-    const allNotes: Record<string, string> = {};
+    const newKeywords = { ...categoryKeywords, [nameTrimmed]: updatedItem.keywords };
+    const newIcons = { ...categoryIcons, [nameTrimmed]: updatedItem.icon };
+    const newNotes = { ...categoryNotes, [nameTrimmed]: updatedItem.note };
 
-    const fullIncome = type === 'income' ? updatedList : (incomeCats || []);
-    const fullExpense = type === 'expense' ? updatedList : (expenseCats || []);
+    if (oldName !== nameTrimmed) {
+      delete newKeywords[oldName];
+      delete newIcons[oldName];
+      delete newNotes[oldName];
+    }
 
-    fullIncome.forEach(c => {
-      if (c && c.name) {
-        allKeywords[c.name] = c.keywords || '';
-        allIcons[c.name] = c.icon || 'TrendingUp';
-        allNotes[c.name] = c.note || 'Thu nhập';
-      }
-    });
-
-    fullExpense.forEach(c => {
-      if (c && c.name) {
-        allKeywords[c.name] = c.keywords || '';
-        allIcons[c.name] = c.icon || 'Coins';
-        allNotes[c.name] = c.note || 'Chi phí';
-      }
-    });
-
-    saveBudgets(currentUser.id, updatedBudgets, allKeywords, updatedCategoryTypes, allIcons, allNotes);
+    saveBudgets(currentUser.id, updatedBudgets, newKeywords, updatedCategoryTypes, newIcons, newNotes);
 
     showToast(`Đã cập nhật danh mục "${nameTrimmed}"!`, 'success');
     setEditingCat(null);
