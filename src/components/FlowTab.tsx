@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import ConfirmModal from './ConfirmModal';
+import { supabase } from '@/lib/supabase';
 import { 
   Plus, 
   Trash2,
@@ -603,7 +604,25 @@ function FlowTab({
 
     const updatedBudgets = { ...categoryBudgets };
     delete updatedBudgets[catName];
-    saveBudgets(currentUser.id, updatedBudgets);
+
+    const updatedCategoryTypes = { ...categoryTypes };
+    delete updatedCategoryTypes[catName];
+
+    const allKeywords = { ...categoryKeywords };
+    delete allKeywords[catName];
+
+    const allIcons = { ...categoryIcons };
+    delete allIcons[catName];
+
+    const allNotes = { ...categoryNotes };
+    delete allNotes[catName];
+
+    // Explicitly delete target category row from Supabase
+    supabase.from('category_budgets').delete().eq('id', catName).then(({ error }) => {
+      if (error) console.error('Error deleting category from Supabase:', error);
+    });
+
+    saveBudgets(currentUser.id, updatedBudgets, allKeywords, updatedCategoryTypes, allIcons, allNotes);
 
     setEditingCat(null);
     showToast(`Đã xóa danh mục "${catName}".`, 'info');

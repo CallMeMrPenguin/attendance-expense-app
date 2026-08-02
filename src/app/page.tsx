@@ -756,15 +756,6 @@ export default function Dashboard() {
 
     runBackgroundSave(async () => {
       try {
-        const { data: existing } = await supabase.from('category_budgets').select('id');
-        if (existing && existing.length > 0) {
-          const existingIds = existing.map(e => e.id);
-          const idsToDelete = existingIds.filter(id => !validKeys.has(id));
-          if (idsToDelete.length > 0) {
-            await supabase.from('category_budgets').delete().in('id', idsToDelete);
-          }
-        }
-
         const records = Object.keys(budgets).map(cat => {
           const type = targetTypes[cat] || (['Lương', 'Giáo dục', 'Đầu tư', 'Gia Sư'].includes(cat) ? 'income' : 'expense');
           const kw = targetKeywords[cat] !== undefined ? targetKeywords[cat] : (DEFAULT_CATEGORY_KEYWORDS[cat] || '');
