@@ -1018,9 +1018,10 @@ function FlowTab({
             return (
               <div
                 key={cat}
-                className={`px-4 py-3 rounded-2xl border transition-all flex items-center justify-between gap-3 text-left h-[72px] ${cardStyle}`}
+                className={`px-4 py-3 rounded-2xl border transition-all flex items-center justify-between gap-3 h-[72px] ${cardStyle}`}
               >
-                <div className="flex items-center gap-3 shrink-0 min-w-0 max-w-[170px] sm:max-w-[220px]">
+                {/* Column 1: Icon + Name + Note (Left Aligned) */}
+                <div className="flex items-center gap-3 shrink-0 w-[42%] sm:w-[35%] min-w-0 text-left">
                   <span className={`inline-flex p-2.5 rounded-full border shrink-0 transition-all ${
                     isIncome 
                       ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.35)]' 
@@ -1029,25 +1030,27 @@ function FlowTab({
                     <CategoryIcon iconName={iconName} className="h-4 w-4" />
                   </span>
                   <div className="flex flex-col justify-center text-left min-w-0 overflow-hidden">
-                    <span className={`font-black text-xs truncate ${isIncome ? 'text-emerald-400 text-glow-green' : 'text-red-500 text-glow-red'}`}>
+                    <span className={`font-black text-xs whitespace-nowrap truncate ${isIncome ? 'text-emerald-400 text-glow-green' : 'text-red-500 text-glow-red'}`}>
                       {cat}
                     </span>
-                    <span className="text-[10px] text-slate-400 font-semibold truncate mt-0.5">
+                    <span className="text-[10px] text-slate-400 font-semibold whitespace-nowrap truncate mt-0.5" title={noteText}>
                       {noteText}
                     </span>
                   </div>
                 </div>
 
-                <div className="flex flex-col justify-center text-left shrink-0 min-w-[100px]">
-                  <span className="text-xs font-black text-white leading-none">
+                {/* Column 2: Actual / Budget Amount (Right Aligned) */}
+                <div className="flex flex-col justify-center text-right shrink-0 w-[28%] sm:w-[25%]">
+                  <span className="text-xs font-black text-white leading-none whitespace-nowrap">
                     {formatVND(actual)}
                   </span>
-                  <span className="text-[10px] font-bold text-slate-400 leading-none mt-1">
+                  <span className="text-[10px] font-bold text-slate-400 leading-none mt-1 whitespace-nowrap">
                     / {formatVND(budgetVal)}
                   </span>
                 </div>
 
-                <div className="flex-1 max-w-[180px] hidden sm:flex flex-col justify-center min-h-[36px]">
+                {/* Column 3: Progress Bar & Percentage (Center Aligned) */}
+                <div className="flex-1 hidden sm:flex flex-col justify-center text-center px-1">
                   <div className="space-y-1 w-full">
                     <div className="h-2.5 bg-[#070912] rounded-full w-full relative overflow-visible p-[2px] border border-white/10 shadow-[inset_0_1px_3px_rgba(0,0,0,0.8)]">
                       <div
@@ -1055,30 +1058,33 @@ function FlowTab({
                         style={{ width: `${pct}%` }}
                       ></div>
                     </div>
-                    <div className="flex justify-between items-center text-[8px] font-extrabold text-slate-400 pt-0.5 h-3">
-                      <span>{pct}%</span>
+                    <div className="flex justify-between items-center text-[8px] font-extrabold text-slate-400 pt-0.5 h-3 px-0.5">
+                      <span className="whitespace-nowrap">{pct}%</span>
                       {rawPct > 100 && (
-                        <span className={`${isIncome ? 'text-emerald-400' : 'text-rose-500'} font-black uppercase`}>Vượt!</span>
+                        <span className={`${isIncome ? 'text-emerald-400' : 'text-rose-500'} font-black uppercase whitespace-nowrap`}>Vượt!</span>
                       )}
                     </div>
                   </div>
                 </div>
 
-                <button
-                  onClick={() => setEditingCat({ 
-                    type, 
-                    index: idx, 
-                    name: cat, 
-                    icon: iconName, 
-                    note: noteText,
-                    budget: budgetVal,
-                    keywords: (type === 'income' ? incomeCats : expenseCats)[idx]?.keywords || ''
-                  })}
-                  className="h-9 w-9 bg-white/[0.04] border border-white/10 hover:border-white/25 hover:bg-white/10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-all shadow-sm cursor-pointer shrink-0"
-                  title="Chỉnh sửa danh mục"
-                >
-                  <Edit2 className="h-4 w-4" />
-                </button>
+                {/* Column 4: Edit Pen Action Button (Right Aligned) */}
+                <div className="shrink-0 flex items-center justify-end">
+                  <button
+                    onClick={() => setEditingCat({ 
+                      type, 
+                      index: idx, 
+                      name: cat, 
+                      icon: iconName, 
+                      note: noteText,
+                      budget: budgetVal,
+                      keywords: (type === 'income' ? incomeCats : expenseCats)[idx]?.keywords || ''
+                    })}
+                    className="h-9 w-9 bg-white/[0.04] border border-white/10 hover:border-white/25 hover:bg-white/10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-all shadow-sm cursor-pointer shrink-0"
+                    title="Chỉnh sửa danh mục"
+                  >
+                    <Edit2 className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             );
           })}
