@@ -932,12 +932,13 @@ export function DataTable<TData>({
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <SortableContext items={orderedHeaderIds} strategy={horizontalListSortingStrategy}>
                 <table
-                  className="text-left text-sm min-w-full"
+                  className="text-left text-sm w-full min-w-full"
                   style={{
                     borderCollapse: 'separate',
                     borderSpacing: 0,
                     tableLayout: 'fixed',
-                    width: Object.keys(columnSizing).length > 0 ? `${Math.max(table.getTotalSize(), 600)}px` : '100%',
+                    width: '100%',
+                    maxWidth: '100%',
                   }}
                 >
                   <thead className={`bg-[#111827] ${stickyHeader ? 'sticky top-0 z-20' : ''}`}>
@@ -1021,7 +1022,7 @@ export function DataTable<TData>({
                                 key={cell.id}
                                 className={`
                                   py-3 ${isSelectCol ? 'px-1' : 'px-3.5'} font-semibold text-slate-200 text-xs sm:text-sm
-                                  border-b border-r border-[#1a233b] last:border-r-0
+                                  border-b border-[#161e30]
                                   ${isCentered ? 'text-center' : 'text-left'}
                                   ${isPinned ? 'bg-inherit' : ''}
                                   ${isLastRow && isFirstCell ? 'rounded-bl-xl' : ''}

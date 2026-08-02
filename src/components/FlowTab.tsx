@@ -1098,6 +1098,7 @@ function FlowTab({
       id: 'actions',
       header: 'Thao Tác',
       size: 80,
+      enableResizing: false,
       enableSorting: false,
       cell: ({ row }) => {
         const t = row.original;
@@ -1256,6 +1257,8 @@ function FlowTab({
     {
       id: 'actions',
       header: 'Thao Tác',
+      size: 80,
+      enableResizing: false,
       enableSorting: false,
       enableGlobalFilter: false,
       cell: ({ row }) => {
