@@ -594,9 +594,15 @@ export default function Dashboard() {
               try {
                 const parsed = JSON.parse(b.keywords);
                 if (parsed.type) type = parsed.type;
-                if (parsed.icon) icon = parsed.icon;
-                if (parsed.note) note = parsed.note;
-                if (parsed.kw !== undefined) kw = parsed.kw;
+                if (parsed.icon && (parsed.icon !== 'Coins' && parsed.icon !== 'TrendingUp' || !DEFAULT_CATEGORY_ICONS[b.category])) {
+                  icon = parsed.icon;
+                }
+                if (parsed.note && (parsed.note !== 'Thu nhập' && parsed.note !== 'Chi phí' || !DEFAULT_CATEGORY_NOTES[b.category])) {
+                  note = parsed.note;
+                }
+                if (parsed.kw !== undefined && parsed.kw !== '') {
+                  kw = parsed.kw;
+                }
               } catch (e) {}
             }
             tMap[b.category] = type;

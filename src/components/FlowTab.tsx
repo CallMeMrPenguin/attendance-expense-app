@@ -255,9 +255,9 @@ function FlowTab({
 
     budgetKeys.forEach((catName) => {
       const isInc = categoryTypes[catName] ? categoryTypes[catName] === 'income' : defaultIncomeNames.includes(catName);
-      const icon = categoryIcons[catName] || DEFAULT_CATEGORY_ICONS[catName] || (isInc ? 'TrendingUp' : 'Coins');
-      const note = categoryNotes[catName] || DEFAULT_CATEGORY_NOTES[catName] || (isInc ? 'Thu nhập khác' : 'Chi phí khác');
-      const keywords = categoryKeywords[catName] !== undefined ? categoryKeywords[catName] : (DEFAULT_CATEGORY_KEYWORDS[catName] || '');
+      const icon = (categoryIcons[catName] && categoryIcons[catName] !== 'Coins' && categoryIcons[catName] !== 'TrendingUp') ? categoryIcons[catName] : (DEFAULT_CATEGORY_ICONS[catName] || categoryIcons[catName] || (isInc ? 'TrendingUp' : 'Coins'));
+      const note = (categoryNotes[catName] && categoryNotes[catName] !== 'Thu nhập' && categoryNotes[catName] !== 'Chi phí') ? categoryNotes[catName] : (DEFAULT_CATEGORY_NOTES[catName] || categoryNotes[catName] || (isInc ? 'Thu nhập khác' : 'Chi phí khác'));
+      const keywords = (categoryKeywords[catName] && categoryKeywords[catName].trim() !== '') ? categoryKeywords[catName] : (DEFAULT_CATEGORY_KEYWORDS[catName] || '');
 
       const item = {
         name: catName,
