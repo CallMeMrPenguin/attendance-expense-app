@@ -247,7 +247,7 @@ function FlowTab({
   React.useEffect(() => {
     if (!categoryBudgets) return;
 
-    const budgetKeys = Object.keys(categoryBudgets);
+    const budgetKeys = Object.keys(categoryBudgets).filter(k => !k.includes('TABLE_SETTINGS'));
     if (budgetKeys.length === 0) return;
 
     const defaultIncomeNames = ['Lương', 'Giáo dục', 'Đầu tư', 'Gia Sư'];

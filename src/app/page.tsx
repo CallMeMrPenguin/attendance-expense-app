@@ -584,6 +584,7 @@ export default function Dashboard() {
           const kMap: Record<string, string> = {};
 
           budgetRes.data.forEach((b: any) => {
+            if (b.type === 'settings' || b.category?.includes('TABLE_SETTINGS')) return;
             bMap[b.category] = Number(b.amount) || 0;
             let type: 'income' | 'expense' = b.type || (['Lương', 'Giáo dục', 'Đầu tư', 'Gia Sư'].includes(b.category) ? 'income' : 'expense');
             let icon = b.icon || DEFAULT_CATEGORY_ICONS[b.category] || (type === 'income' ? 'TrendingUp' : 'Coins');

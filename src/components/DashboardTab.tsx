@@ -335,27 +335,33 @@ export default function DashboardTab({
     }
   }, [viewMode, selectedYears, chartSelectedMonths, chartYear, manualTransactions, sessions, getMonthlyIncome, getMonthlyExpense, getWeeklyIncome, getWeeklyExpense]);
 
-  // Extended Canvas Dimensions (900 x 420 for long, tall graph)
-  const SVG_WIDTH = 900;
-  const SVG_HEIGHT = 420;
-  const MARGIN_LEFT = 25;
-  const MARGIN_RIGHT = 875;
-  const BASE_Y = 370;
-  const TOP_Y = 30;
+  // Dynamic Canvas Dimensions matching container width (560px height per Rule 5)
+  const chartHeight = 560;
+  const chartWidth = Math.max(chartContainerRef.current?.offsetWidth || 900, 600);
+  const paddingLeft = 55;
+  const paddingRight = 40;
+  const paddingTop = 40;
+  const paddingBottom = 60;
+
+  const plotAreaWidth = chartWidth - paddingLeft - paddingRight;
+  const plotAreaHeight = chartHeight - paddingTop - paddingBottom;
+  const BASE_Y = chartHeight - paddingBottom;
+  const TOP_Y = paddingTop;
 
   const numXPoints = chartDataModel.xLabels.length;
 
   const getXCoordinate = (pointIndex: number) => {
-    if (numXPoints <= 1) return MARGIN_LEFT;
-    return MARGIN_LEFT + pointIndex * ((MARGIN_RIGHT - MARGIN_LEFT) / (numXPoints - 1));
+    if (numXPoints <= 1) return paddingLeft + plotAreaWidth / 2;
+    return paddingLeft + pointIndex * (plotAreaWidth / (numXPoints - 1));
   };
 
   const getYCoordinate = (val: number, maxVal: number) => {
-    return BASE_Y - (val / Math.max(1, maxVal)) * (BASE_Y - TOP_Y);
+    return BASE_Y - (val / Math.max(1, maxVal)) * plotAreaHeight;
   };
 
   const getCurvyPath = (pts: { x: number, y: number }[]) => {
     if (pts.length === 0) return '';
+    if (pts.length === 1) return `M ${pts[0].x} ${pts[0].y}`;
     let d = `M ${pts[0].x} ${pts[0].y}`;
     for (let i = 0; i < pts.length - 1; i++) {
       const p0 = pts[i];
@@ -372,12 +378,12 @@ export default function DashboardTab({
     return `${linePath} L ${pts[pts.length - 1].x} ${BASE_Y} L ${pts[0].x} ${BASE_Y} Z`;
   };
 
-  // Precision Mouse Move Handler: Only shows tooltip when hovering within 32px proximity of an active line/node
+  // Precision Mouse Move Handler
   const handleSvgMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
     if (!svgRef.current || numXPoints === 0 || chartDataModel.series.length === 0) return;
     const rect = svgRef.current.getBoundingClientRect();
-    const mouseX = ((e.clientX - rect.left) / rect.width) * SVG_WIDTH;
-    const mouseY = ((e.clientY - rect.top) / rect.height) * SVG_HEIGHT;
+    const mouseX = ((e.clientX - rect.left) / rect.width) * chartWidth;
+    const mouseY = ((e.clientY - rect.top) / rect.height) * chartHeight;
 
     let minDistance = Infinity;
     let closestIndex = -1;
@@ -408,7 +414,7 @@ export default function DashboardTab({
       });
     });
 
-    if (minDistance <= 32 && closestIndex !== -1) {
+    if (minDistance <= 60 && closestIndex !== -1) {
       setHoveredNodeInfo({
         pointIndex: closestIndex,
         svgX: closestPtX,
@@ -442,34 +448,21 @@ export default function DashboardTab({
   const totalSelectedExp = getSelectedMonthsExpense();
   const C = 314.16;
 
-  const expenseColorsMap: Record<string, string> = {
-    'Ăn uống': '#f59e0b',
-    'Di chuyển': '#3b82f6',
-    'Shopping': '#ec4899',
-    'Hóa đơn': '#a855f7',
-    'Giải trí': '#f43f5e',
-    'Khác': '#64748b'
-  };
-
   const getCategoryColor = (name: string, isExpense: boolean) => {
     if (isExpense) {
-      if (expenseColorsMap[name]) return expenseColorsMap[name];
       const colors = ['#f59e0b', '#3b82f6', '#ec4899', '#a855f7', '#f43f5e', '#64748b', '#e11d48', '#0ea5e9', '#0d9488'];
       let hash = 0;
       for (let i = 0; i < name.length; i++) {
         hash = name.charCodeAt(i) + ((hash << 5) - hash);
       }
-      const index = Math.abs(hash) % colors.length;
-      return colors[index];
+      return colors[Math.abs(hash) % colors.length];
     } else {
-      if (incomeColorsMap[name]) return incomeColorsMap[name];
-      const colors = ['#10b981', '#06b6d4', '#8b5cf6', '#f59e0b', '#14b8a6', '#6366f1', '#ec4899', '#f43f5e'];
+      const colors = ['#10b981', '#06b6d4', '#8b5cf6', '#f59e0b', '#3b82f6', '#ec4899'];
       let hash = 0;
       for (let i = 0; i < name.length; i++) {
         hash = name.charCodeAt(i) + ((hash << 5) - hash);
       }
-      const index = Math.abs(hash) % colors.length;
-      return colors[index];
+      return colors[Math.abs(hash) % colors.length];
     }
   };
 
@@ -512,13 +505,6 @@ export default function DashboardTab({
     value: getActualCategoryAmount(cat)
   }));
   const totalSelectedInc = getSelectedMonthsIncome();
-
-  const incomeColorsMap: Record<string, string> = {
-    'Lương': '#10b981',
-    'Giáo dục': '#06b6d4',
-    'Đầu tư': '#8b5cf6',
-    'Khác': '#f59e0b'
-  };
 
   let accIncDash = 0;
   const incomeSlices = incomeTotals
@@ -571,7 +557,7 @@ export default function DashboardTab({
   return (
     <div className="space-y-6 animate-mac-dropdown select-none">
       
-      {/* 4 Summary Metric Cards (Matching FlowTab UI exactly with Section Title & Icon Glows) */}
+      {/* 4 Summary Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-5 text-left">
         
         {/* Card 1: Cumulative Net Worth */}
@@ -643,7 +629,7 @@ export default function DashboardTab({
           </div>
         </div>
 
-        {/* Card 4: Net Surplus (Renamed to THẶNG DƯ RÒNG) */}
+        {/* Card 4: Net Surplus */}
         <div className="kpi-card-blue p-6 flex flex-col justify-between min-h-[145px] relative overflow-hidden group hover:scale-[1.01] transition-all cursor-default">
           <div className="flex justify-between items-start gap-2">
             <div className="space-y-1">
@@ -668,7 +654,7 @@ export default function DashboardTab({
 
       </div>
 
-      {/* --- MAIN SECTION: Trend Graph Card Header with Glowing Title & Icons, Smooth Animated Slider Pill --- */}
+      {/* --- MAIN SECTION: Trend Graph Card Header with Glowing Title & Icons --- */}
       <div className="calendar-container-depth p-6 bg-[#111422] flex flex-col justify-between space-y-5 text-left rounded-3xl border border-indigo-500/30 shadow-[0_0_30px_rgba(92,54,245,0.15)]">
         
         {/* MERGED CONTROL HEADER */}
@@ -688,7 +674,6 @@ export default function DashboardTab({
             <div className="flex items-center gap-2 flex-wrap">
               
               <div className="relative flex bg-[#090b14] border border-white/10 p-1 rounded-xl w-full sm:w-auto min-w-[320px]">
-                {/* Smooth Animated Sliding Pill Background */}
                 <div
                   className="absolute top-1 bottom-1 rounded-[10px] bg-gradient-to-r from-indigo-500 to-indigo-600 shadow-[0_0_14px_rgba(92,54,245,0.6)] transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] pointer-events-none"
                   style={{
@@ -823,39 +808,40 @@ export default function DashboardTab({
           )}
         </div>
 
-        {/* Responsive SVG Visual Canvas with Expanded Glow Bounds & Precision Hover */}
-        <div ref={chartContainerRef} className="w-full overflow-x-auto scrollbar-thin relative py-2">
+        {/* Responsive Full-Width SVG Visual Canvas (560px Height) */}
+        <div ref={chartContainerRef} className="w-full overflow-hidden relative py-2">
           {chartDataModel.series.length === 0 ? (
-            <div className="h-[420px] flex items-center justify-center text-xs text-slate-500 font-bold bg-[#0b0e18] rounded-2xl border border-white/5">
+            <div className="h-[560px] flex items-center justify-center text-xs text-slate-500 font-bold bg-[#0b0e18] rounded-2xl border border-white/5">
               Vui lòng chọn ít nhất một tháng hoặc năm ở bộ lọc ở trên để hiển thị biểu đồ.
             </div>
           ) : (
-            <div className="relative">
+            <div className="relative w-full">
               <svg 
                 ref={svgRef}
-                className="w-full min-w-[600px] h-[420px] overflow-visible" 
-                viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
+                className="w-full overflow-visible" 
+                style={{ height: `${chartHeight}px` }}
+                viewBox={`0 0 ${chartWidth} ${chartHeight}`}
                 onMouseMove={handleSvgMouseMove}
                 onMouseLeave={() => setHoveredNodeInfo(null)}
               >
                 <defs>
                   {/* Expanded Filter Bounds (300% width/height to eliminate square edge clipping!) */}
                   <filter id="glow-dash-emerald" x="-100%" y="-100%" width="300%" height="300%">
-                    <feGaussianBlur stdDeviation="5" result="blur" />
+                    <feGaussianBlur stdDeviation="6" result="blur" />
                     <feMerge>
                       <feMergeNode in="blur" />
                       <feMergeNode in="SourceGraphic" />
                     </feMerge>
                   </filter>
                   <filter id="glow-dash-rose" x="-100%" y="-100%" width="300%" height="300%">
-                    <feGaussianBlur stdDeviation="5" result="blur" />
+                    <feGaussianBlur stdDeviation="6" result="blur" />
                     <feMerge>
                       <feMergeNode in="blur" />
                       <feMergeNode in="SourceGraphic" />
                     </feMerge>
                   </filter>
                   <filter id="glow-dash-cyan" x="-100%" y="-100%" width="300%" height="300%">
-                    <feGaussianBlur stdDeviation="5" result="blur" />
+                    <feGaussianBlur stdDeviation="6" result="blur" />
                     <feMerge>
                       <feMergeNode in="blur" />
                       <feMergeNode in="SourceGraphic" />
@@ -865,12 +851,12 @@ export default function DashboardTab({
                   {chartDataModel.series.map((s, idx) => (
                     <React.Fragment key={idx}>
                       <linearGradient id={`incGrad-${idx}`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={s.incomeColor} stopOpacity="0.30" />
+                        <stop offset="0%" stopColor={s.incomeColor} stopOpacity="0.35" />
                         <stop offset="70%" stopColor={s.incomeColor} stopOpacity="0.08" />
                         <stop offset="100%" stopColor={s.incomeColor} stopOpacity="0.0" />
                       </linearGradient>
                       <linearGradient id={`expGrad-${idx}`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={s.expenseColor} stopOpacity="0.30" />
+                        <stop offset="0%" stopColor={s.expenseColor} stopOpacity="0.35" />
                         <stop offset="70%" stopColor={s.expenseColor} stopOpacity="0.08" />
                         <stop offset="100%" stopColor={s.expenseColor} stopOpacity="0.0" />
                       </linearGradient>
@@ -879,51 +865,48 @@ export default function DashboardTab({
                 </defs>
 
                 {/* Horizontal Grid Guidelines */}
-                {[30, 115, 200, 285, BASE_Y].map((y, idx) => (
-                  <line
-                    key={idx}
-                    x1={MARGIN_LEFT}
-                    y1={y}
-                    x2={MARGIN_RIGHT}
-                    y2={y}
-                    stroke="rgba(255, 255, 255, 0.07)"
-                    strokeWidth="1"
-                    strokeDasharray={idx === 4 ? "0" : "4 4"}
-                  />
-                ))}
-
-                {/* Y-Axis Value Labels */}
-                {[chartDataModel.maxVal, chartDataModel.maxVal * 0.75, chartDataModel.maxVal * 0.5, chartDataModel.maxVal * 0.25, 0].map((val, idx) => {
-                  const yPoints = [30, 115, 200, 285, BASE_Y];
+                {[0, 0.25, 0.5, 0.75, 1].map((ratio, idx) => {
+                  const y = BASE_Y - ratio * plotAreaHeight;
+                  const val = chartDataModel.maxVal * ratio;
                   return (
-                    <text
-                      key={idx}
-                      x="25"
-                      y={yPoints[idx] + 4}
-                      fill="#64748b"
-                      fontSize="10"
-                      fontWeight="800"
-                      textAnchor="start"
-                    >
-                      {val >= 1000000 ? `${(val / 1000000).toFixed(0)}M` : formatVND(val)}
-                    </text>
+                    <g key={idx}>
+                      <line
+                        x1={paddingLeft}
+                        y1={y}
+                        x2={chartWidth - paddingRight}
+                        y2={y}
+                        stroke="rgba(255, 255, 255, 0.08)"
+                        strokeWidth="1"
+                        strokeDasharray={ratio === 0 ? "0" : "4 4"}
+                      />
+                      <text
+                        x={paddingLeft - 10}
+                        y={y + 4}
+                        fill="#64748b"
+                        fontSize="11"
+                        fontWeight="800"
+                        textAnchor="end"
+                      >
+                        {val >= 1000000 ? `${(val / 1000000).toFixed(0)}M` : formatVND(val)}
+                      </text>
+                    </g>
                   );
                 })}
 
-                {/* Vertical Guideline on Precision Hover */}
+                {/* Vertical Guideline on Hover */}
                 {hoveredNodeInfo && (
                   <line
                     x1={getXCoordinate(hoveredNodeInfo.pointIndex)}
                     y1={TOP_Y}
                     x2={getXCoordinate(hoveredNodeInfo.pointIndex)}
                     y2={BASE_Y}
-                    stroke="rgba(99, 102, 241, 0.7)"
+                    stroke="rgba(99, 102, 241, 0.8)"
                     strokeWidth="1.5"
                     strokeDasharray="4 4"
                   />
                 )}
 
-                {/* Render Series Lines & Gradient Area Fills */}
+                {/* Render Series Curves */}
                 {chartDataModel.series.map((seriesItem, sIdx) => {
                   const incPoints = seriesItem.points.map((p, pIdx) => ({
                     x: getXCoordinate(pIdx),
@@ -945,7 +928,7 @@ export default function DashboardTab({
                         </>
                       )}
 
-                      {/* Income Line */}
+                      {/* Income Curve Line */}
                       <path
                         d={getCurvyPath(incPoints)}
                         fill="none"
@@ -955,7 +938,7 @@ export default function DashboardTab({
                         style={{ filter: `drop-shadow(0 0 8px ${seriesItem.incomeColor})` }}
                       />
 
-                      {/* Expense Line */}
+                      {/* Expense Curve Line */}
                       <path
                         d={getCurvyPath(expPoints)}
                         fill="none"
@@ -965,7 +948,7 @@ export default function DashboardTab({
                         style={{ filter: `drop-shadow(0 0 8px ${seriesItem.expenseColor})` }}
                       />
 
-                      {/* Node Circles */}
+                      {/* Data Point Circles (Always Visible with Glowing Drop Shadow) */}
                       {incPoints.map((pt, pIdx) => {
                         const isNodeHovered = hoveredNodeInfo?.pointIndex === pIdx;
                         return (
@@ -973,10 +956,10 @@ export default function DashboardTab({
                             <circle
                               cx={pt.x}
                               cy={pt.y}
-                              r={isNodeHovered ? "6.5" : "4.5"}
+                              r={isNodeHovered ? "7" : "5"}
                               fill={seriesItem.incomeColor}
                               stroke="#0b0e18"
-                              strokeWidth="2"
+                              strokeWidth="2.5"
                               style={{ 
                                 filter: `drop-shadow(0 0 8px ${seriesItem.incomeColor})`,
                                 transformBox: 'fill-box',
@@ -987,10 +970,10 @@ export default function DashboardTab({
                             <circle
                               cx={expPoints[pIdx].x}
                               cy={expPoints[pIdx].y}
-                              r={isNodeHovered ? "6.5" : "4.5"}
+                              r={isNodeHovered ? "7" : "5"}
                               fill={seriesItem.expenseColor}
                               stroke="#0b0e18"
-                              strokeWidth="2"
+                              strokeWidth="2.5"
                               style={{ 
                                 filter: `drop-shadow(0 0 8px ${seriesItem.expenseColor})`,
                                 transformBox: 'fill-box',
@@ -1005,8 +988,8 @@ export default function DashboardTab({
                   );
                 })}
 
-                {/* Horizontal Baseline */}
-                <line x1={MARGIN_LEFT} y1={BASE_Y} x2={MARGIN_RIGHT} y2={BASE_Y} stroke="rgba(255, 255, 255, 0.15)" strokeWidth="1" />
+                {/* X-Axis Baseline */}
+                <line x1={paddingLeft} y1={BASE_Y} x2={chartWidth - paddingRight} y2={BASE_Y} stroke="rgba(255, 255, 255, 0.2)" strokeWidth="1" />
 
                 {/* X-Axis Reference Point Labels */}
                 {chartDataModel.xLabels.map((lbl, idx) => {
@@ -1016,7 +999,7 @@ export default function DashboardTab({
                     <text
                       key={idx}
                       x={x}
-                      y="395"
+                      y={BASE_Y + 24}
                       fill={isHovered ? "#ffffff" : "#94a3b8"}
                       fontSize={viewMode === 'days' && numXPoints > 20 ? "9" : "11"}
                       fontWeight={isHovered ? "900" : "800"}
@@ -1028,9 +1011,14 @@ export default function DashboardTab({
                 })}
               </svg>
 
-              {/* Precision Hover Tooltip Card Overlay */}
+              {/* Floating Tooltip Card */}
               {hoveredNodeInfo && chartDataModel.series.length > 0 && (
-                <div className="absolute top-4 right-6 bg-[#0c0f1d]/95 border border-indigo-500/40 rounded-2xl p-4 shadow-2xl backdrop-blur-xl animate-mac-dropdown text-xs space-y-2 z-20 pointer-events-none max-w-xs">
+                <div 
+                  className="absolute top-4 bg-[#0c0f1d]/95 border border-indigo-500/40 rounded-2xl p-4 shadow-2xl backdrop-blur-xl animate-mac-dropdown text-xs space-y-2 z-30 pointer-events-none min-w-[200px]"
+                  style={{
+                    left: `${Math.min(Math.max(hoveredNodeInfo.svgX, 100), chartWidth - 220)}px`
+                  }}
+                >
                   <span className="font-black text-indigo-300 block border-b border-white/10 pb-1.5 uppercase tracking-wider text-[11px]">
                     {chartDataModel.xLabels[hoveredNodeInfo.pointIndex]}
                   </span>
