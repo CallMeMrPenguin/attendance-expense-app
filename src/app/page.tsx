@@ -558,7 +558,7 @@ export default function Dashboard() {
                 if (parsed.type) type = parsed.type;
                 if (parsed.icon) icon = parsed.icon;
                 if (parsed.note) note = parsed.note;
-                if (parsed.kw) kw = parsed.kw;
+                if (parsed.kw !== undefined) kw = parsed.kw;
               } catch (e) {}
             }
             tMap[b.category] = type;
@@ -696,12 +696,18 @@ export default function Dashboard() {
     catNotes?: Record<string, string>
   ) => {
     setCategoryBudgets(budgets);
-    if (catTypes) setCategoryTypes(prev => ({ ...prev, ...catTypes }));
-    if (catIcons) setCategoryIcons(prev => ({ ...prev, ...catIcons }));
-    if (catNotes) setCategoryNotes(prev => ({ ...prev, ...catNotes }));
-    if (keywords) setCategoryKeywords(prev => ({ ...prev, ...keywords }));
+    if (catTypes) setCategoryTypes(catTypes);
+    if (catIcons) setCategoryIcons(catIcons);
+    if (catNotes) setCategoryNotes(catNotes);
+    if (keywords) setCategoryKeywords(keywords);
 
     if (!currentUser) return;
+
+    const targetTypes = catTypes || categoryTypes;
+    const targetIcons = catIcons || categoryIcons;
+    const targetNotes = catNotes || categoryNotes;
+    const targetKeywords = keywords || categoryKeywords;
+
     runBackgroundSave(async () => {
       try {
         const { data: existing } = await supabase.from('category_budgets').select('id');
@@ -715,10 +721,10 @@ export default function Dashboard() {
         }
 
         const records = Object.keys(budgets).map(cat => {
-          const type = catTypes?.[cat] || categoryTypes[cat] || (['Lương', 'Giáo dục', 'Đầu tư'].includes(cat) ? 'income' : 'expense');
-          const kw = keywords?.[cat] || categoryKeywords[cat] || '';
-          const icon = catIcons?.[cat] || categoryIcons[cat] || (type === 'income' ? 'TrendingUp' : 'Coins');
-          const note = catNotes?.[cat] || categoryNotes[cat] || '';
+          const type = targetTypes[cat] || (['Lương', 'Giáo dục', 'Đầu tư'].includes(cat) ? 'income' : 'expense');
+          const kw = targetKeywords[cat] || '';
+          const icon = targetIcons[cat] || (type === 'income' ? 'TrendingUp' : 'Coins');
+          const note = targetNotes[cat] || (type === 'income' ? 'Thu nhập' : 'Chi phí');
           const metaStr = JSON.stringify({ type, kw, icon, note });
           return {
             id: cat,
@@ -730,6 +736,7 @@ export default function Dashboard() {
             updated_at: new Date().toISOString()
           };
         });
+
         if (records.length > 0) {
           const { error } = await supabase.from('category_budgets').upsert(records, { onConflict: 'id' });
           if (error) console.error('Supabase category_budgets upsert error:', error);
