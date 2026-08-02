@@ -1018,7 +1018,7 @@ function FlowTab({
             return (
               <div
                 key={cat}
-                className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-3 text-left ${cardStyle}`}
+                className={`px-4 py-3 rounded-2xl border transition-all flex items-center justify-between gap-3 text-left min-h-[68px] ${cardStyle}`}
               >
                 <div className="flex items-center gap-3 shrink-0 min-w-0 max-w-[170px] sm:max-w-[220px]">
                   <span className={`inline-flex p-2.5 rounded-full border shrink-0 transition-all ${
@@ -1028,7 +1028,7 @@ function FlowTab({
                   }`}>
                     <CategoryIcon iconName={iconName} className="h-4 w-4" />
                   </span>
-                  <div className="flex flex-col text-left min-w-0 overflow-hidden">
+                  <div className="flex flex-col justify-center text-left min-w-0 overflow-hidden">
                     <span className={`font-black text-xs truncate ${isIncome ? 'text-emerald-400 text-glow-green' : 'text-red-500 text-glow-red'}`}>
                       {cat}
                     </span>
@@ -1038,7 +1038,7 @@ function FlowTab({
                   </div>
                 </div>
 
-                <div className="flex flex-col text-left shrink-0 min-w-[100px]">
+                <div className="flex flex-col justify-center text-left shrink-0 min-w-[100px]">
                   <span className="text-xs font-black text-white leading-none">
                     {formatVND(actual)}
                   </span>
@@ -1047,15 +1047,15 @@ function FlowTab({
                   </span>
                 </div>
 
-                <div className="flex-1 max-w-[180px] hidden sm:block">
-                  <div className="space-y-1">
+                <div className="flex-1 max-w-[180px] hidden sm:flex flex-col justify-center min-h-[36px]">
+                  <div className="space-y-1 w-full">
                     <div className="h-2.5 bg-[#070912] rounded-full w-full relative overflow-visible p-[2px] border border-white/10 shadow-[inset_0_1px_3px_rgba(0,0,0,0.8)]">
                       <div
                         className={`h-full rounded-full transition-all duration-300 ${barColorClass}`}
                         style={{ width: `${pct}%` }}
                       ></div>
                     </div>
-                    <div className="flex justify-between items-center text-[8px] font-extrabold text-slate-400 pt-0.5">
+                    <div className="flex justify-between items-center text-[8px] font-extrabold text-slate-400 pt-0.5 h-3">
                       <span>{pct}%</span>
                       {rawPct > 100 && (
                         <span className={`${isIncome ? 'text-emerald-400' : 'text-rose-500'} font-black uppercase`}>Vượt!</span>
@@ -1413,7 +1413,7 @@ function FlowTab({
 
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         {/* Income budget block */}
         <div className="calendar-container-depth p-5 bg-[#06080e] rounded-3xl space-y-4 border-2 border-transparent [background:linear-gradient(#06080e,#06080e)_padding-box,linear-gradient(135deg,#10b981,#34d399,#059669)_border-box] shadow-[0_0_25px_rgba(16,185,129,0.35)]">
           <div className="flex items-center justify-between border-b border-white/5 pb-3">

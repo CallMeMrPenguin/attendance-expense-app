@@ -762,15 +762,20 @@ export default function Dashboard() {
           const icon = targetIcons[cat] || DEFAULT_CATEGORY_ICONS[cat] || (type === 'income' ? 'TrendingUp' : 'Coins');
           const note = targetNotes[cat] || DEFAULT_CATEGORY_NOTES[cat] || (type === 'income' ? 'Thu nhập khác' : 'Chi phí khác');
           const metaStr = JSON.stringify({ type, kw, icon, note });
-          return {
+
+          const record: any = {
             id: cat,
             user_id: userId,
             teacher_name: currentUser.teacherName || 'Admin',
             category: cat,
             amount: Number(budgets[cat]) || 0,
+            type: type,
+            icon: icon,
+            note: note,
             keywords: metaStr,
             updated_at: new Date().toISOString()
           };
+          return record;
         });
 
         if (records.length > 0) {
