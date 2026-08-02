@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import ConfirmModal from './ConfirmModal';
+import { DataTable } from './DataTable';
+import { ColumnDef } from '@tanstack/react-table';
 import { supabase } from '@/lib/supabase';
 import { 
   Plus, 
@@ -919,6 +921,215 @@ function FlowTab({
 
   const totalPages = React.useMemo(() => Math.ceil(filteredTransactions.length / itemsPerPage) || 1, [filteredTransactions.length, itemsPerPage]);
 
+  const bankReceiptColumns = useMemo<ColumnDef<any>[]>(() => [
+    {
+      accessorKey: 'trans_date',
+      header: 'Ngày / Mã GD',
+      size: 140,
+      cell: ({ row }) => {
+        const r = row.original;
+        return (
+          <div className="flex flex-col text-left">
+            <span className="font-bold text-white text-xs">{r.trans_date}</span>
+            <span className="text-[10px] text-slate-400">Mã: {r.order_number || 'N/A'}</span>
+          </div>
+        );
+      }
+    },
+    {
+      accessorKey: 'remitter_name',
+      header: 'Người Gửi ➔ Người Nhận',
+      cell: ({ row }) => {
+        const r = row.original;
+        return (
+          <div className="flex flex-col text-left max-w-xs truncate">
+            <span className="font-extrabold text-white text-xs truncate">
+              {r.remitter_name || 'N/A'} ➔ {r.beneficiary_name || 'N/A'}
+            </span>
+            <span className="text-[10px] text-slate-400 truncate">{r.details}</span>
+          </div>
+        );
+      }
+    },
+    {
+      accessorKey: 'category',
+      header: 'Trạng Thái & Phân Loại',
+      size: 200,
+      cell: ({ row }) => {
+        const r = row.original;
+        const isClassified = r.status === 'classified';
+        return (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {isClassified ? (
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                {r.category} ({r.type === 'income' ? 'Thu' : 'Chi'})
+              </span>
+            ) : (
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">
+                Chưa phân loại
+              </span>
+            )}
+          </div>
+        );
+      }
+    },
+    {
+      accessorKey: 'amount',
+      header: 'Số Tiền',
+      size: 130,
+      cell: ({ row }) => (
+        <span className="font-black text-amber-400 text-sm">
+          {formatVND(row.original.amount)}
+        </span>
+      )
+    },
+    {
+      id: 'actions',
+      header: 'Thao Tác',
+      size: 110,
+      enableSorting: false,
+      cell: ({ row }) => {
+        const r = row.original;
+        const isClassified = r.status === 'classified';
+        return (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setClassifyingReceipt(r);
+              const t = r.type || 'expense';
+              setSelectedType(t);
+              if (t === 'saving') {
+                setSelectedCat(r.category || 'Tiết kiệm khẩn cấp');
+              } else if (t === 'income') {
+                setSelectedCat(r.category || incomeCats[0]?.name || 'Lương');
+              } else {
+                setSelectedCat(r.category || expenseCats[0]?.name || 'Ăn uống');
+              }
+              setMatchField('remitter_name');
+              setMatchValue(r.remitter_name || r.details || '');
+            }}
+            className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer shadow-md ${
+              isClassified
+                ? 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10'
+                : 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-[0_0_12px_rgba(245,158,11,0.4)]'
+            }`}
+          >
+            {isClassified ? 'Sửa' : 'Phân loại'}
+          </button>
+        );
+      }
+    }
+  ], [incomeCats, expenseCats]);
+
+  const transactionColumns = useMemo<ColumnDef<any>[]>(() => [
+    {
+      accessorKey: 'date',
+      header: 'Ngày',
+      size: 110,
+      cell: ({ row }) => (
+        <span className="text-xs font-semibold text-slate-300">{row.original.date}</span>
+      )
+    },
+    {
+      accessorKey: 'desc',
+      header: 'Mô Tả & Loại Giao Dịch',
+      cell: ({ row }) => {
+        const t = row.original;
+        const isIncome = t.type === 'income';
+        return (
+          <div className="flex items-center gap-2 truncate text-left">
+            <span className={`font-extrabold text-xs truncate ${isIncome ? 'text-emerald-300' : 'text-rose-300'}`}>
+              {t.desc}
+            </span>
+            {t.isRecurring ? (
+              <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shrink-0">
+                Cố định
+              </span>
+            ) : (
+              <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase bg-slate-500/15 text-slate-400 border border-slate-500/25 shrink-0">
+                Tạm thời
+              </span>
+            )}
+          </div>
+        );
+      }
+    },
+    {
+      accessorKey: 'category',
+      header: 'Danh Mục',
+      size: 160,
+      cell: ({ row }) => {
+        const t = row.original;
+        const isIncome = t.type === 'income';
+        const catIcon = getCategoryIconName(t.category, t.type);
+        return (
+          <div className="flex items-center gap-2 shrink-0 justify-center">
+            <span className={`inline-flex p-1.5 rounded-full border shrink-0 ${
+              isIncome
+                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.25)]'
+                : 'bg-rose-500/10 text-rose-400 border-rose-500/30 shadow-[0_0_10px_rgba(239,68,68,0.25)]'
+            }`}>
+              <CategoryIcon iconName={catIcon} className="h-3.5 w-3.5" />
+            </span>
+            <span className={`font-black text-xs truncate ${isIncome ? 'text-emerald-400' : 'text-rose-400'}`}>
+              {t.category}
+            </span>
+          </div>
+        );
+      }
+    },
+    {
+      accessorKey: 'amount',
+      header: 'Số Tiền',
+      size: 140,
+      cell: ({ row }) => {
+        const t = row.original;
+        const isIncome = t.type === 'income';
+        return (
+          <span className={`font-black text-xs sm:text-sm tracking-wide ${isIncome ? 'text-emerald-400 text-glow-green' : 'text-rose-500 text-glow-red'}`}>
+            {isIncome ? '+' : '-'}{formatVND(t.amount)}
+          </span>
+        );
+      }
+    },
+    {
+      id: 'actions',
+      header: 'Thao Tác',
+      size: 80,
+      enableSorting: false,
+      cell: ({ row }) => {
+        const t = row.original;
+        return t.isManual ? (
+          <button
+            onClick={() => setEditingTx({
+              id: t.id,
+              desc: t.desc,
+              amount: t.amount,
+              type: t.type,
+              category: t.category,
+              date: t.date,
+              isRecurring: !!t.isRecurring
+            })}
+            className="h-7 w-7 bg-white/[0.04] border border-white/10 hover:border-indigo-500/40 hover:bg-indigo-500/10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-all shadow-sm cursor-pointer mx-auto"
+            title="Chỉnh sửa hoặc Xóa giao dịch"
+          >
+            <Edit2 className="h-3.5 w-3.5" />
+          </button>
+        ) : (
+          <button
+            onClick={() => showToast('Giao dịch tự động liên kết với Lịch Trình. Vui lòng chỉnh sửa giá hoặc trạng thái ca dạy trong tab Lịch Trình để cập nhật.', 'info')}
+            className="h-7 w-7 bg-white/[0.04] border border-white/10 hover:border-indigo-500/40 hover:bg-indigo-500/10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-all shadow-sm cursor-pointer mx-auto"
+            title="Thông tin giao dịch tự động"
+          >
+            <Edit2 className="h-3.5 w-3.5" />
+          </button>
+        );
+      }
+    }
+  ], []);
+
   const paginatedTransactions = React.useMemo(() => {
     return filteredTransactions.slice(
       (currentPage - 1) * itemsPerPage,
@@ -1612,229 +1823,45 @@ function FlowTab({
 
         {filterRecurring === 'bien_lai' ? (
           <div className="space-y-4">
-            <div className="flex items-center justify-between border-b border-white/5 pb-2">
-              <span className="text-xs font-black text-amber-400 uppercase tracking-wider">
-                Biên lai ngân hàng Vietcombank ({filteredBankReceipts.length})
-              </span>
-              <button
-                type="button"
-                disabled={isSyncing}
-                onClick={async () => {
-                  if (handleSyncReceipts) {
-                    setIsSyncing(true);
-                    await handleSyncReceipts();
-                    setIsSyncing(false);
-                  }
-                }}
-                className="px-3.5 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-xs font-black rounded-xl transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
-              >
-                <span>{isSyncing ? 'Đang đồng bộ...' : 'Đồng bộ Gmail'}</span>
-              </button>
-            </div>
-
-            <div className="flex flex-col gap-3">
-              {filteredBankReceipts.length === 0 ? (
-                <div className="py-12 text-center text-slate-500 font-bold bg-[#151c2d]/50 border border-white/5 rounded-2xl">
-                  {bankReceipts.length > 0 
-                    ? 'Không có biên lai chuyển tiền nào trong tháng đã chọn.' 
-                    : 'Chưa có biên lai chuyển tiền nào được ghi nhận từ Gmail.'}
-                </div>
-              ) : (
-                filteredBankReceipts.map((r: any) => {
-                  const isClassified = r.status === 'classified';
-
-                  return (
-                    <div
-                      key={r.id}
-                      className={`p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-left ${
-                        isClassified
-                          ? 'bg-[#121829] border-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.1)]'
-                          : 'bg-[#161320] border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.15)]'
-                      }`}
-                    >
-                      <div className="space-y-1 flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs font-black text-white">
-                            {r.remitter_name || 'N/A'} ➔ {r.beneficiary_name || 'N/A'}
-                          </span>
-                          {isClassified ? (
-                            <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                              Đã phân loại: {r.category} ({r.type === 'income' ? 'Thu' : 'Chi'})
-                            </span>
-                          ) : (
-                            <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">
-                              Chưa phân loại
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="text-[11px] font-medium text-slate-400">
-                          Nội dung: <span className="text-slate-200 font-bold">{r.details}</span>
-                        </div>
-
-                        <div className="flex items-center gap-3 text-[10px] text-slate-500 font-semibold flex-wrap">
-                          <span>Mã GD: {r.order_number}</span>
-                          <span>•</span>
-                          <span>Ngày: {r.trans_date}{r.trans_time && !r.trans_date?.includes(r.trans_time) ? ` (${r.trans_time})` : ''}</span>
-                          {r.beneficiary_bank && (
-                            <>
-                              <span>•</span>
-                              <span>NH: {r.beneficiary_bank}</span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-4 shrink-0 justify-between sm:justify-end border-t sm:border-t-0 pt-2 sm:pt-0 border-white/5">
-                        <div className="text-right">
-                          <span className="text-base font-black text-amber-400 text-glow-amber block">
-                            {formatVND(r.amount)}
-                          </span>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setClassifyingReceipt(r);
-                            const t = r.type || 'expense';
-                            setSelectedType(t);
-                            if (t === 'saving') {
-                              setSelectedCat(r.category || 'Tiết kiệm khẩn cấp');
-                            } else if (t === 'income') {
-                              setSelectedCat(r.category || incomeCats[0]?.name || 'Lương');
-                            } else {
-                              setSelectedCat(r.category || expenseCats[0]?.name || 'Ăn uống');
-                            }
-                            setMatchField('remitter_name');
-                            setMatchValue(r.remitter_name || r.details || '');
-                          }}
-                          className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer shadow-md ${
-                            isClassified
-                              ? 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10'
-                              : 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-[0_0_12px_rgba(245,158,11,0.4)]'
-                          }`}
-                        >
-                          {isClassified ? 'Sửa phân loại' : 'Phân loại'}
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
+            <DataTable
+              data={filteredBankReceipts}
+              columns={bankReceiptColumns}
+              pageSize={20}
+              exportFilename="bien_lai_ngan_hang"
+              searchPlaceholder="Tìm kiếm biên lai..."
+              toolbarRight={
+                <button
+                  type="button"
+                  disabled={isSyncing}
+                  onClick={async () => {
+                    if (handleSyncReceipts) {
+                      setIsSyncing(true);
+                      await handleSyncReceipts();
+                      setIsSyncing(false);
+                    }
+                  }}
+                  className="px-3 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-xs font-black rounded-xl transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <span>{isSyncing ? 'Đang đồng bộ...' : 'Đồng bộ Gmail'}</span>
+                </button>
+              }
+              emptyMessage={
+                bankReceipts.length > 0 
+                  ? 'Không có biên lai chuyển tiền nào trong tháng đã chọn.' 
+                  : 'Chưa có biên lai chuyển tiền nào được ghi nhận từ Gmail.'
+              }
+            />
           </div>
         ) : (
-        <div className="overflow-x-auto scrollbar-thin pb-1.5 pt-0.5 -mx-1 px-1">
-          <div className="flex flex-col gap-2.5 min-w-[500px] sm:min-w-0">
-            {paginatedTransactions.length === 0 ? (
-              <div className="py-10 text-center text-slate-500 font-bold bg-[#151c2d]/50 border border-white/5 rounded-2xl">
-                Chưa ghi nhận giao dịch nào.
-              </div>
-            ) : (
-              paginatedTransactions.map((t) => {
-                const isIncome = t.type === 'income';
-                const catIcon = getCategoryIconName(t.category, t.type);
-
-                return (
-                  <div
-                    key={t.id}
-                    className={`p-3.5 rounded-2xl border transition-all grid grid-cols-[minmax(0,1.8fr)_130px_130px_36px] sm:grid-cols-[minmax(0,2fr)_160px_160px_40px] items-center gap-3 text-left ${
-                      isIncome
-                        ? 'bg-[#151c2d] border-emerald-500/35 shadow-[0_0_12px_rgba(16,185,129,0.15)] hover:border-emerald-500/60 hover:bg-[#192238]'
-                        : 'bg-[#151c2d] border-rose-500/35 shadow-[0_0_12px_rgba(239,68,68,0.15)] hover:border-rose-500/60 hover:bg-[#192238]'
-                    }`}
-                  >
-                    <div className="flex flex-col text-left pl-2 min-w-0 pr-2 overflow-hidden">
-                      <div className="flex items-center gap-2 truncate">
-                        <span className={`font-extrabold text-xs truncate ${isIncome ? 'text-emerald-300' : 'text-rose-300'}`}>
-                          {t.desc}
-                        </span>
-                        {t.isRecurring ? (
-                          <span className="px-2 py-0.5 rounded-md text-[8px] font-black uppercase bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shrink-0">
-                            Cố định
-                          </span>
-                        ) : (
-                          <span className="px-2 py-0.5 rounded-md text-[8px] font-black uppercase bg-slate-500/15 text-slate-400 border border-slate-500/25 shrink-0">
-                            Tạm thời
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-[10px] font-semibold text-slate-400 mt-0.5">
-                        {t.date}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2.5 shrink-0 justify-center text-center">
-                      <span className={`inline-flex p-2 rounded-full border shrink-0 ${
-                        isIncome
-                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.25)]'
-                          : 'bg-rose-500/10 text-rose-400 border-rose-500/30 shadow-[0_0_10px_rgba(239,68,68,0.25)]'
-                      }`}>
-                        <CategoryIcon iconName={catIcon} className="h-4 w-4" />
-                      </span>
-                      <span className={`font-black text-xs hidden sm:inline truncate ${isIncome ? 'text-emerald-400' : 'text-rose-400'}`}>
-                        {t.category}
-                      </span>
-                    </div>
-
-                    <div className="text-center shrink-0 flex items-center justify-center">
-                      <span className={`font-black text-sm tracking-wide ${isIncome ? 'text-emerald-400 text-glow-green' : 'text-rose-500 text-glow-red'}`}>
-                        {isIncome ? '+' : '-'}{formatVND(t.amount)}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-end shrink-0 pr-1">
-                      {t.isManual ? (
-                        <button
-                          onClick={() => setEditingTx({
-                            id: t.id,
-                            desc: t.desc,
-                            amount: t.amount,
-                            type: t.type,
-                            category: t.category,
-                            date: t.date,
-                            isRecurring: !!t.isRecurring
-                          })}
-                          className="h-8.5 w-8.5 bg-white/[0.04] border border-white/10 hover:border-indigo-500/40 hover:bg-indigo-500/10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-all shadow-sm cursor-pointer shrink-0"
-                          title="Chỉnh sửa hoặc Xóa giao dịch"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => showToast('Giao dịch tự động liên kết với Lịch Trình. Vui lòng chỉnh sửa giá hoặc trạng thái ca dạy trong tab Lịch Trình để cập nhật.', 'info')}
-                          className="h-8.5 w-8.5 bg-white/[0.04] border border-white/10 hover:border-indigo-500/40 hover:bg-indigo-500/10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-all shadow-sm cursor-pointer shrink-0"
-                          title="Thông tin giao dịch tự động"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-        )}
-
-        {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-1.5 mt-4 pt-3 border-t border-white/5">
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => (
-              <button
-                key={pageNum}
-                onClick={() => setCurrentPage(pageNum)}
-                className={`px-3 py-1.5 rounded-xl border text-[11px] font-black transition-all cursor-pointer ${
-                  currentPage === pageNum 
-                    ? 'bg-indigo-500 text-white border-indigo-500/35 shadow-[0_0_12px_rgba(92,54,245,0.45)]' 
-                    : 'bg-transparent border-white/10 text-slate-400 hover:text-white hover:bg-white/[0.04]'
-                }`}
-              >
-                {pageNum}
-              </button>
-            ))}
+          <div className="space-y-4">
+            <DataTable
+              data={filteredTransactions}
+              columns={transactionColumns}
+              pageSize={20}
+              exportFilename="danh_sach_giao_dich"
+              searchPlaceholder="Tìm kiếm giao dịch..."
+              emptyMessage="Chưa ghi nhận giao dịch nào."
+            />
           </div>
         )}
       </div>

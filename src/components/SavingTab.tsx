@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Shield, 
   TrendingUp, 
@@ -8,6 +8,8 @@ import {
 import { formatVND, formatNumberDots, parseNumberDots } from '@/lib/utils';
 import { useToast } from '@/context/ToastContext';
 import MaterialSymbol from './MaterialSymbol';
+import { DataTable } from './DataTable';
+import { ColumnDef } from '@tanstack/react-table';
 
 interface SavingTabProps {
   currentUser: {
@@ -195,6 +197,75 @@ export default function SavingTab({
     return true;
   });
 
+  const historyColumns = useMemo<ColumnDef<any>[]>(() => [
+    {
+      accessorKey: 'date',
+      header: 'Ngày GD',
+      size: 120,
+      cell: ({ row }) => <span className="font-semibold text-xs text-slate-300">{row.original.date}</span>
+    },
+    {
+      accessorKey: 'fund',
+      header: 'Tên Quỹ',
+      size: 160,
+      cell: ({ row }) => {
+        const h = row.original;
+        const isEmergency = h.fund === 'emergency';
+        const fundTitle = isEmergency ? 'Quỹ Dự Phòng' : 'Quỹ Tích Lũy';
+        return (
+          <div className="flex items-center gap-2">
+            <div className={`p-1.5 rounded-lg border shrink-0 ${
+              isEmergency 
+                ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30 shadow-[0_0_8px_rgba(16,185,129,0.2)]' 
+                : 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30 shadow-[0_0_8px_rgba(6,182,212,0.2)]'
+            }`}>
+              {isEmergency ? <Shield className="h-3.5 w-3.5" /> : <TrendingUp className="h-3.5 w-3.5" />}
+            </div>
+            <span className="font-extrabold text-xs text-white">{fundTitle}</span>
+          </div>
+        );
+      }
+    },
+    {
+      accessorKey: 'type',
+      header: 'Hành Động',
+      size: 130,
+      cell: ({ row }) => {
+        const isDep = row.original.type === 'deposit';
+        return (
+          <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${
+            isDep
+              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+              : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+          }`}>
+            {isDep ? 'Nạp Quỹ' : 'Rút Quỹ'}
+          </span>
+        );
+      }
+    },
+    {
+      accessorKey: 'note',
+      header: 'Ghi Chú',
+      cell: ({ row }) => <span className="text-xs text-slate-400">{row.original.note || 'N/A'}</span>
+    },
+    {
+      accessorKey: 'amount',
+      header: 'Số Tiền',
+      size: 140,
+      cell: ({ row }) => {
+        const h = row.original;
+        const isDep = h.type === 'deposit';
+        return (
+          <span className={`font-black text-xs sm:text-sm tracking-wide ${
+            isDep ? 'text-emerald-400 text-glow-green' : 'text-rose-400 text-glow-red'
+          }`}>
+            {isDep ? '+' : '-'}{formatVND(h.amount)}
+          </span>
+        );
+      }
+    }
+  ], []);
+
   return (
     <div className="space-y-6 animate-mac-dropdown text-left select-none">
       {/* Header section */}
@@ -378,52 +449,15 @@ export default function SavingTab({
             </div>
           </div>
 
-          {/* History Item Rows */}
-          <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1 scrollbar-thin">
-            {filteredHistory.length === 0 ? (
-              <div className="py-12 text-center text-slate-500 font-extrabold text-xs bg-[#101324]/50 border border-white/5 rounded-2xl">
-                Chưa ghi nhận lịch sử nạp / rút tiết kiệm nào.
-              </div>
-            ) : (
-              filteredHistory.map((h) => {
-                const isDep = h.type === 'deposit';
-                const isEmergency = h.fund === 'emergency';
-                const fundTitle = isEmergency ? 'Quỹ Dự Phòng' : 'Quỹ Tích Lũy';
-
-                return (
-                  <div
-                    key={h.id}
-                    className="p-3.5 bg-[#121629]/80 border border-white/10 hover:border-purple-500/40 rounded-2xl flex items-center justify-between gap-4 transition-all hover:bg-[#161b33]"
-                  >
-                    <div className="flex items-center gap-3 min-w-0 pr-2">
-                      <div className={`p-2.5 rounded-2xl border shrink-0 ${
-                        isEmergency 
-                          ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.25)]' 
-                          : 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30 shadow-[0_0_10px_rgba(6,182,212,0.25)]'
-                      }`}>
-                        {isEmergency ? <Shield className="h-4 w-4" /> : <TrendingUp className="h-4 w-4" />}
-                      </div>
-
-                      <div className="flex flex-col text-left min-w-0">
-                        <span className="font-extrabold text-xs text-white truncate">
-                          {fundTitle}
-                        </span>
-                        <span className="text-[10px] font-semibold text-slate-400 mt-0.5">
-                          {h.date} • {isDep ? 'Nạp vào quỹ' : 'Rút khỏi quỹ'}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-end shrink-0 pr-2">
-                      <span className={`text-xs font-black tracking-tight ${isDep ? 'text-emerald-400' : 'text-rose-400'}`}>
-                        {isDep ? '+' : '-'}{formatVND(h.amount)}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
+          {/* History DataTable */}
+          <DataTable
+            data={filteredHistory}
+            columns={historyColumns}
+            pageSize={20}
+            exportFilename="lich_su_tiet_kiem"
+            searchPlaceholder="Tìm kiếm lịch sử..."
+            emptyMessage="Chưa ghi nhận lịch sử nạp / rút tiết kiệm nào."
+          />
         </div>
 
         {/* Right Column (1/3 Width): Tổng quan tài sản tiết kiệm */}

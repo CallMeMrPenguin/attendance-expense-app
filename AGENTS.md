@@ -13,4 +13,6 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - **Scratch Testing Limitations**: Scratch test scripts are allowed provided they DO NOT open any browser with the intention of capturing images or overriding user control.
 - **Supabase Table Data & Schema Inspection**: Never guess or assume table columns, foreign keys, or RLS policies. Always inspect Supabase database tables directly by executing a diagnostic script in `scratch/` (such as `scratch/check_db_sync.cjs`) to query live column keys, relationships, and row counts.
 - **No Browser Web Cache**: Never save application or financial data in browser web cache (`localStorage`). All persistent data must be saved to and retrieved directly from Supabase DB.
+- **TanStack Table Standard — MANDATORY FOR ALL TABLES**: All data tables MUST use the shared `<DataTable />` component from `src/components/DataTable.tsx`. Never use raw card block lists or custom HTML `<table>` elements with manual search/sort/pagination states.
+
 
