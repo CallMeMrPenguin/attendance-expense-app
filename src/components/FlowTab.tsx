@@ -51,6 +51,8 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
+  ChevronUp,
+  GripVertical,
   Filter,
   ArrowUpDown,
   X
@@ -1195,7 +1197,158 @@ function FlowTab({
     };
   }, [incomes, expenses, manualTransactions, sessions, chartSelectedMonths, isTxInSelectedMonths]);
 
+  const handleMoveCategory = (type: 'income' | 'expense', fromIdx: number, direction: 'up' | 'down') => {
+    const isIncome = type === 'income';
+    const catsList = isIncome ? [...incomeCats] : [...expenseCats];
+    const toIdx = direction === 'up' ? fromIdx - 1 : fromIdx + 1;
+
+    if (toIdx < 0 || toIdx >= catsList.length) return;
+
+    const temp = catsList[fromIdx];
+    catsList[fromIdx] = catsList[toIdx];
+    catsList[toIdx] = temp;
+
+    const newIncomeCats = isIncome ? catsList : incomeCats;
+    const newExpenseCats = !isIncome ? catsList : expenseCats;
+
+    const newOrderedBudgets: Record<string, number> = {};
+    newIncomeCats.forEach(item => {
+      newOrderedBudgets[item.name] = categoryBudgets[item.name] || 0;
+    });
+    newExpenseCats.forEach(item => {
+      newOrderedBudgets[item.name] = categoryBudgets[item.name] || 0;
+    });
+    Object.keys(categoryBudgets).forEach(key => {
+      if (!(key in newOrderedBudgets)) {
+        newOrderedBudgets[key] = categoryBudgets[key];
+      }
+    });
+
+    if (isIncome) setIncomeCats(newIncomeCats);
+    else setExpenseCats(newExpenseCats);
+
+    const updatedCategoryTypes: Record<string, 'income' | 'expense'> = {};
+    const updatedIcons: Record<string, string> = {};
+    const updatedNotes: Record<string, string> = {};
+    const updatedKeywords: Record<string, string> = {};
+
+    newIncomeCats.forEach(c => {
+      updatedCategoryTypes[c.name] = 'income';
+      updatedIcons[c.name] = c.icon;
+      updatedNotes[c.name] = c.note || '';
+      updatedKeywords[c.name] = c.keywords || '';
+    });
+    newExpenseCats.forEach(c => {
+      updatedCategoryTypes[c.name] = 'expense';
+      updatedIcons[c.name] = c.icon;
+      updatedNotes[c.name] = c.note || '';
+      updatedKeywords[c.name] = c.keywords || '';
+    });
+
+    saveBudgets(
+      currentUser.id,
+      newOrderedBudgets,
+      updatedKeywords,
+      updatedCategoryTypes,
+      updatedIcons,
+      updatedNotes
+    );
+  };
+
+  const handleReorderCategory = (type: 'income' | 'expense', fromIdx: number, toIdx: number) => {
+    if (fromIdx === toIdx) return;
+    const isIncome = type === 'income';
+    const catsList = isIncome ? [...incomeCats] : [...expenseCats];
+    if (fromIdx < 0 || fromIdx >= catsList.length || toIdx < 0 || toIdx >= catsList.length) return;
+
+    const [movedItem] = catsList.splice(fromIdx, 1);
+    catsList.splice(toIdx, 0, movedItem);
+
+    const newIncomeCats = isIncome ? catsList : incomeCats;
+    const newExpenseCats = !isIncome ? catsList : expenseCats;
+
+    const newOrderedBudgets: Record<string, number> = {};
+    newIncomeCats.forEach(item => {
+      newOrderedBudgets[item.name] = categoryBudgets[item.name] || 0;
+    });
+    newExpenseCats.forEach(item => {
+      newOrderedBudgets[item.name] = categoryBudgets[item.name] || 0;
+    });
+    Object.keys(categoryBudgets).forEach(key => {
+      if (!(key in newOrderedBudgets)) {
+        newOrderedBudgets[key] = categoryBudgets[key];
+      }
+    });
+
+    if (isIncome) setIncomeCats(newIncomeCats);
+    else setExpenseCats(newExpenseCats);
+
+    const updatedCategoryTypes: Record<string, 'income' | 'expense'> = {};
+    const updatedIcons: Record<string, string> = {};
+    const updatedNotes: Record<string, string> = {};
+    const updatedKeywords: Record<string, string> = {};
+
+    newIncomeCats.forEach(c => {
+      updatedCategoryTypes[c.name] = 'income';
+      updatedIcons[c.name] = c.icon;
+      updatedNotes[c.name] = c.note || '';
+      updatedKeywords[c.name] = c.keywords || '';
+    });
+    newExpenseCats.forEach(c => {
+      updatedCategoryTypes[c.name] = 'expense';
+      updatedIcons[c.name] = c.icon;
+      updatedNotes[c.name] = c.note || '';
+      updatedKeywords[c.name] = c.keywords || '';
+    });
+
+    saveBudgets(
+      currentUser.id,
+      newOrderedBudgets,
+      updatedKeywords,
+      updatedCategoryTypes,
+      updatedIcons,
+      updatedNotes
+    );
+  };
+
   const categoryColumns = useMemo<ColumnDef<any>[]>(() => [
+    {
+      id: 'reorder',
+      header: 'Thứ Tự',
+      size: 80,
+      enableResizing: false,
+      enableSorting: false,
+      enableGlobalFilter: false,
+      cell: ({ row }) => {
+        const item = row.original;
+        const totalCount = item.totalCount || 0;
+        return (
+          <div className="flex items-center gap-1 justify-center select-none" onClick={(e) => e.stopPropagation()}>
+            <span className="text-slate-500 hover:text-slate-300 cursor-grab active:cursor-grabbing p-1" title="Kéo thả dòng để đổi thứ tự">
+              <GripVertical className="h-3.5 w-3.5" />
+            </span>
+            <button
+              type="button"
+              disabled={item.idx === 0}
+              onClick={() => handleMoveCategory(item.type, item.idx, 'up')}
+              className="p-1 rounded bg-white/5 hover:bg-indigo-500/20 text-slate-400 hover:text-indigo-300 disabled:opacity-20 disabled:pointer-events-none transition cursor-pointer"
+              title="Di chuyển lên"
+            >
+              <ChevronUp className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              disabled={item.idx === totalCount - 1}
+              onClick={() => handleMoveCategory(item.type, item.idx, 'down')}
+              className="p-1 rounded bg-white/5 hover:bg-indigo-500/20 text-slate-400 hover:text-indigo-300 disabled:opacity-20 disabled:pointer-events-none transition cursor-pointer"
+              title="Di chuyển xuống"
+            >
+              <ChevronDown className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        );
+      }
+    },
     {
       id: 'category_info',
       header: 'Danh Mục & Biểu Tượng',
@@ -1296,7 +1449,7 @@ function FlowTab({
         );
       }
     }
-  ], [getCategoryIconName]);
+  ], [getCategoryIconName, incomeCats, expenseCats, categoryBudgets]);
 
   const renderCategoryTable = (type: 'income' | 'expense') => {
     const isIncome = type === 'income';
@@ -1342,6 +1495,7 @@ function FlowTab({
 
       return {
         idx,
+        totalCount: cats.length,
         name: cat,
         type,
         iconName,
@@ -1366,6 +1520,8 @@ function FlowTab({
           data={rows}
           columns={categoryColumns}
           pageSize={20}
+          enableRowReorder={true}
+          onRowReorder={(fromIdx, toIdx) => handleReorderCategory(type, fromIdx, toIdx)}
           exportFilename={`danh_sach_loai_${type}`}
           searchPlaceholder={`Tìm loại ${isIncome ? 'thu nhập' : 'chi tiêu'}...`}
           toolbarRight={

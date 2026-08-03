@@ -73,6 +73,8 @@ export interface DataTableProps<TData> {
   enableMultiSort?: boolean;
   enableVirtualization?: boolean;   // auto-on when data.length > 500
   enableExport?: boolean;
+  enableRowReorder?: boolean;
+  onRowReorder?: (fromIndex: number, toIndex: number) => void;
 
   // Sticky layout
   stickyHeader?: boolean;
@@ -501,6 +503,8 @@ export function DataTable<TData>({
   enableMultiSort = true,
   enableVirtualization,
   enableExport = true,
+  enableRowReorder = false,
+  onRowReorder,
   stickyHeader = true,
   stickyFirstColumn = false,
   initialSorting = [],
@@ -517,6 +521,8 @@ export function DataTable<TData>({
   userId,
   teacherName,
 }: DataTableProps<TData>) {
+
+  const [draggedRowIdx, setDraggedRowIdx] = useState<number | null>(null);
 
   const storageKey = `dt_layout_${tableId || exportFilename}`;
 
@@ -929,19 +935,19 @@ export function DataTable<TData>({
         <div className="relative flex-1 min-h-0 flex flex-col">
           <div
             ref={tableScrollRef}
-            className={`overflow-hidden relative ${useVirt ? 'overflow-y-auto flex-1 min-h-0' : 'overflow-y-visible'}`}
-            style={{ overscrollBehaviorX: 'contain' }}
+            className={`overflow-x-auto max-w-full relative ${useVirt ? 'overflow-y-auto flex-1 min-h-0' : 'overflow-y-visible'}`}
+            style={{ overscrollBehaviorX: 'contain', WebkitOverflowScrolling: 'touch' }}
           >
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <SortableContext items={orderedHeaderIds} strategy={horizontalListSortingStrategy}>
                 <table
-                  className="text-left text-sm w-full min-w-full"
+                  className="text-left text-sm w-full min-w-full max-md:min-w-[650px]"
                   style={{
                     borderCollapse: 'separate',
                     borderSpacing: 0,
                     tableLayout: 'fixed',
                     width: '100%',
-                    maxWidth: '100%',
+                    minWidth: '100%',
                   }}
                 >
                   <thead className={`bg-[#111827] ${stickyHeader ? 'sticky top-0 z-20' : ''}`}>
@@ -1001,9 +1007,34 @@ export function DataTable<TData>({
                     {(useVirt ? virtualRows!.map(vr => allRows[vr.index]) : allRows).map((row, rowIdx) => (
                       <Fragment key={row.id}>
                         <tr
+                          draggable={enableRowReorder}
+                          onDragStart={(e) => {
+                            if (enableRowReorder) {
+                              e.dataTransfer.setData('text/plain', rowIdx.toString());
+                              setDraggedRowIdx(rowIdx);
+                            }
+                          }}
+                          onDragOver={(e) => {
+                            if (enableRowReorder) {
+                              e.preventDefault();
+                            }
+                          }}
+                          onDrop={(e) => {
+                            if (enableRowReorder && draggedRowIdx !== null) {
+                              e.preventDefault();
+                              if (draggedRowIdx !== rowIdx) {
+                                onRowReorder?.(draggedRowIdx, rowIdx);
+                              }
+                              setDraggedRowIdx(null);
+                            }
+                          }}
+                          onDragEnd={() => {
+                            setDraggedRowIdx(null);
+                          }}
                           className={`
                             group transition-colors duration-150
-                            ${onRowClick ? 'cursor-pointer' : ''}
+                            ${enableRowReorder ? 'cursor-grab active:cursor-grabbing' : onRowClick ? 'cursor-pointer' : ''}
+                            ${draggedRowIdx === rowIdx ? 'opacity-40 bg-indigo-500/20' : ''}
                             ${row.getIsSelected()
                               ? 'bg-indigo-500/10 hover:bg-indigo-500/15'
                               : rowIdx % 2 === 0
