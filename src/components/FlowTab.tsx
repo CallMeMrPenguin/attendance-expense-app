@@ -669,59 +669,52 @@ function FlowTab({
   const categoryActualsMap = React.useMemo(() => {
     const map: Record<string, number> = {};
     
-    if (distMode === 'avg_year') {
-      const yearStr = String(distYear);
-      incomeCats.forEach(catItem => {
-        const catName = catItem.name;
-        const totalYearInc = manualTransactions
-          .filter(t => t.type === 'income' && t.category === catName && t.date && t.date.startsWith(yearStr))
-          .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-        map[catName] = Math.round(totalYearInc / 12);
-      });
+    incomeCats.forEach(catItem => {
+      const catName = catItem.name;
+      const manualInc = manualTransactions
+        .filter(t => t.type === 'income' && t.category === catName && isTxInSelectedMonths(t, chartSelectedMonths))
+        .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+      
+      map[catName] = manualInc;
+    });
 
-      expenseCats.forEach(catItem => {
-        const catName = catItem.name;
-        const totalYearExp = manualTransactions
-          .filter(t => t.type === 'expense' && t.category === catName && t.date && t.date.startsWith(yearStr))
-          .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-        map[catName] = Math.round(totalYearExp / 12);
-      });
-    } else {
-      incomeCats.forEach(catItem => {
-        const catName = catItem.name;
-        const manualInc = manualTransactions
-          .filter(t => t.type === 'income' && t.category === catName && isTxInSelectedMonths(t, chartSelectedMonths))
-          .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-        
-        map[catName] = manualInc;
-      });
-
-      expenseCats.forEach(catItem => {
-        const catName = catItem.name;
-        map[catName] = manualTransactions
-          .filter(t => t.type === 'expense' && t.category === catName && isTxInSelectedMonths(t, chartSelectedMonths))
-          .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-      });
-    }
+    expenseCats.forEach(catItem => {
+      const catName = catItem.name;
+      map[catName] = manualTransactions
+        .filter(t => t.type === 'expense' && t.category === catName && isTxInSelectedMonths(t, chartSelectedMonths))
+        .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+    });
 
     return map;
-  }, [incomeCats, expenseCats, manualTransactions, chartSelectedMonths, isTxInSelectedMonths, distMode, distYear]);
+  }, [incomeCats, expenseCats, manualTransactions, chartSelectedMonths, isTxInSelectedMonths]);
 
   const getCategoryActual = React.useCallback((catName: string, isExpense?: boolean) => {
     return categoryActualsMap[catName] || 0;
   }, [categoryActualsMap]);
 
-  // Memoized Income and Expense Donut Chart Slices for FlowTab
+  // Memoized Income and Expense Donut Chart Slices for FlowTab (Supports distribution section average view mode)
   const { incomeSlices, expenseSlices, totalPieInc, totalPieExp } = React.useMemo(() => {
-    const incomePieTotals = incomeCats.map(cat => ({
-      name: cat.name,
-      value: categoryActualsMap[cat.name] || 0
-    }));
+    const incomePieTotals = incomeCats.map(cat => {
+      if (distMode === 'avg_year') {
+        const yearStr = String(distYear);
+        const totalYearInc = manualTransactions
+          .filter(t => t.type === 'income' && t.category === cat.name && t.date && t.date.startsWith(yearStr))
+          .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+        return { name: cat.name, value: Math.round(totalYearInc / 12) };
+      }
+      return { name: cat.name, value: categoryActualsMap[cat.name] || 0 };
+    });
 
-    const expensePieTotals = expenseCats.map(cat => ({
-      name: cat.name,
-      value: categoryActualsMap[cat.name] || 0
-    }));
+    const expensePieTotals = expenseCats.map(cat => {
+      if (distMode === 'avg_year') {
+        const yearStr = String(distYear);
+        const totalYearExp = manualTransactions
+          .filter(t => t.type === 'expense' && t.category === cat.name && t.date && t.date.startsWith(yearStr))
+          .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+        return { name: cat.name, value: Math.round(totalYearExp / 12) };
+      }
+      return { name: cat.name, value: categoryActualsMap[cat.name] || 0 };
+    });
 
     const totInc = incomePieTotals.reduce((sum, e) => sum + e.value, 0);
     const totExp = expensePieTotals.reduce((sum, e) => sum + e.value, 0);
