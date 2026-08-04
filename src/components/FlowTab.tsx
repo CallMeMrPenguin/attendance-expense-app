@@ -1743,7 +1743,7 @@ function FlowTab({
                       strokeDashoffset={s.dashOffset}
                       strokeLinecap={incomeSlices.length > 1 ? 'butt' : 'round'}
                       className="transition-all duration-300 hover:opacity-80 cursor-pointer"
-                      style={{ filter: `drop-shadow(0 0 6px ${s.color})` }}
+                      style={{ filter: `drop-shadow(0 0 8px ${s.color}) drop-shadow(0 0 16px ${s.color}b3)` }}
                     />
                   ))}
                 </svg>
@@ -1761,7 +1761,7 @@ function FlowTab({
                   <div key={idx} className="space-y-1">
                     <div className="flex items-center justify-between text-xs font-bold">
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ backgroundColor: s.color, boxShadow: `0 0 6px ${s.color}` }} />
+                        <span className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ backgroundColor: s.color, boxShadow: `0 0 10px ${s.color}, 0 0 18px ${s.color}b3` }} />
                         <span className="text-slate-200 truncate">{s.name}</span>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
@@ -1769,8 +1769,8 @@ function FlowTab({
                         <span className="text-white font-black">{s.pct}%</span>
                       </div>
                     </div>
-                    <div className="h-2 bg-[#090c18] rounded-full overflow-hidden w-full border border-white/5">
-                      <div className="h-full rounded-full transition-all duration-300" style={{ width: `${s.pct}%`, backgroundColor: s.color, boxShadow: `0 0 8px ${s.color}` }}></div>
+                    <div className="h-2.5 bg-[#080c18] rounded-full relative overflow-visible w-full border border-white/10 shadow-[inset_0_1px_3px_rgba(0,0,0,0.8)]">
+                      <div className="h-full rounded-full transition-all duration-300 relative" style={{ width: `${s.pct}%`, backgroundColor: s.color, boxShadow: `0 0 14px ${s.color}, 0 0 26px ${s.color}cc, 0 0 38px ${s.color}66` }}></div>
                     </div>
                   </div>
                 ))}
@@ -1816,7 +1816,7 @@ function FlowTab({
                       strokeDashoffset={s.dashOffset}
                       strokeLinecap={expenseSlices.length > 1 ? 'butt' : 'round'}
                       className="transition-all duration-300 hover:opacity-80 cursor-pointer"
-                      style={{ filter: `drop-shadow(0 0 6px ${s.color})` }}
+                      style={{ filter: `drop-shadow(0 0 8px ${s.color}) drop-shadow(0 0 16px ${s.color}b3)` }}
                     />
                   ))}
                 </svg>
@@ -1834,7 +1834,7 @@ function FlowTab({
                   <div key={idx} className="space-y-1">
                     <div className="flex items-center justify-between text-xs font-bold">
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ backgroundColor: s.color, boxShadow: `0 0 6px ${s.color}` }} />
+                        <span className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ backgroundColor: s.color, boxShadow: `0 0 10px ${s.color}, 0 0 18px ${s.color}b3` }} />
                         <span className="text-slate-200 truncate">{s.name}</span>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
@@ -1842,8 +1842,8 @@ function FlowTab({
                         <span className="text-white font-black">{s.pct}%</span>
                       </div>
                     </div>
-                    <div className="h-2 bg-[#090c18] rounded-full overflow-hidden w-full border border-white/5">
-                      <div className="h-full rounded-full transition-all duration-300" style={{ width: `${s.pct}%`, backgroundColor: s.color, boxShadow: `0 0 8px ${s.color}` }}></div>
+                    <div className="h-2.5 bg-[#080c18] rounded-full relative overflow-visible w-full border border-white/10 shadow-[inset_0_1px_3px_rgba(0,0,0,0.8)]">
+                      <div className="h-full rounded-full transition-all duration-300 relative" style={{ width: `${s.pct}%`, backgroundColor: s.color, boxShadow: `0 0 14px ${s.color}, 0 0 26px ${s.color}cc, 0 0 38px ${s.color}66` }}></div>
                     </div>
                   </div>
                 ))}
