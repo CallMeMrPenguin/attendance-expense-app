@@ -198,7 +198,7 @@ export default function AddSessionModal({
         insertError.message?.includes('Could not find') ||
         insertError.message?.includes('does not exist')
       )) {
-        const cleanCandidates = candidatesToInsert.map(({ auto_check_in, auto_checkin, loai_hinh_lich, loai_hinh, category, income_category, student_name, teacher_name, ...rest }) => rest);
+        const cleanCandidates = candidatesToInsert.map(({ student_name, teacher_name, category, ...rest }) => rest);
         const retryRes = await supabase.from('sessions').insert(cleanCandidates);
         insertError = retryRes.error;
       }
@@ -609,18 +609,20 @@ export default function AddSessionModal({
               </div>
 
               <div className="space-y-1.5 flex flex-col justify-end pb-0.5">
-                <div className="flex items-center gap-2.5 h-10 px-4 bg-[#0d1018] border border-white/10 rounded-xl">
-                  <input
-                    id="autoCheckIn"
-                    type="checkbox"
-                    checked={autoCheckIn}
-                    onChange={(e) => setAutoCheckIn(e.target.checked)}
-                    className="w-4 h-4 rounded text-indigo-650 bg-[#0d1018] border-white/10 focus:ring-indigo-500 focus:ring-offset-0 cursor-pointer"
-                  />
-                  <label htmlFor="autoCheckIn" className="text-slate-350 text-xs font-bold uppercase tracking-wider cursor-pointer select-none">
-                    Tự động điểm danh
-                  </label>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setAutoCheckIn(prev => !prev)}
+                  className={`w-full h-10 flex items-center justify-between px-3.5 rounded-xl border transition-all text-xs font-bold cursor-pointer select-none ${
+                    autoCheckIn
+                      ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400'
+                      : 'bg-[#0d1018] border-white/10 text-slate-400'
+                  }`}
+                >
+                  <span className="text-[11px] font-bold uppercase tracking-wider">{autoCheckIn ? 'Tự động điểm danh: Bật' : 'Tự động điểm danh: Tắt'}</span>
+                  <div className={`w-8 h-4.5 rounded-full transition-colors relative ${autoCheckIn ? 'bg-emerald-500' : 'bg-slate-700'}`}>
+                    <div className={`w-3.5 h-3.5 bg-white rounded-full absolute top-0.5 transition-transform ${autoCheckIn ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                  </div>
+                </button>
               </div>
             </div>
 

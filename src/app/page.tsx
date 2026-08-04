@@ -995,7 +995,7 @@ export default function Dashboard() {
         .select('*');
 
       if (insertErr) {
-        const cleanCandidates = newCandidates.map(({ auto_check_in, auto_checkin, loai_hinh_lich, loai_hinh, category, income_category, student_name, teacher_name, ...rest }: any) => rest);
+        const cleanCandidates = newCandidates.map(({ student_name, teacher_name, category, ...rest }: any) => rest);
         const retryRes = await supabase.from('sessions').insert(cleanCandidates).select('*');
         insertedData = retryRes.data;
         insertErr = retryRes.error;

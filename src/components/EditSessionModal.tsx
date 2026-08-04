@@ -161,7 +161,7 @@ export default function EditSessionModal({
     setDuration(session.duration || 1.5);
     setLoaiHinh((session.loai_hinh || session.loai_hinh_lich) === 'tam_thoi' ? 'tam_thoi' : 'co_dinh');
     setIncomeCategory(session.income_category || session.category || 'Giáo dục');
-    setAutoCheckin(session.auto_checkin ?? session.auto_check_in ?? false);
+    setAutoCheckin(session.auto_checkin ?? session.auto_check_in ?? true);
     
     const studentColor = session.color || getStudentColor(session.student_name);
     setColor(studentColor);
@@ -386,7 +386,7 @@ export default function EditSessionModal({
           upsertError.message?.includes('Could not find') ||
           upsertError.message?.includes('does not exist')
         )) {
-          const cleanSessions = cleanPayload.map(({ auto_check_in, auto_checkin, loai_hinh_lich, loai_hinh, category, income_category, student_name, teacher_name, ...rest }) => rest);
+          const cleanSessions = cleanPayload.map(({ student_name, teacher_name, category, ...rest }) => rest);
           const retryRes = await supabase.from('sessions').upsert(cleanSessions);
           upsertError = retryRes.error;
         }
