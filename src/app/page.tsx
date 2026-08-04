@@ -553,7 +553,7 @@ export default function Dashboard() {
         const [txRes, fundRes, budgetRes, histRes] = await Promise.all([
           supabase.from('manual_transactions').select('id, user_id, teacher_name, desc_text, amount, type, category, date, created_at').order('date', { ascending: false }),
           supabase.from('savings_funds').select('user_id, teacher_name, emergency_current, emergency_target, accumulation_current, accumulation_target, updated_at').order('updated_at', { ascending: false }).limit(1).maybeSingle(),
-          supabase.from('category_budgets').select('*'),
+          supabase.from('category_budgets').select('*').order('updated_at', { ascending: true }),
           supabase.from('savings_history').select('id, user_id, teacher_name, fund, type, amount, date, created_at').order('date', { ascending: false })
         ]);
 
@@ -757,7 +757,7 @@ export default function Dashboard() {
 
     runBackgroundSave(async () => {
       try {
-        const records = Object.keys(budgets).map(cat => {
+        const records = Object.keys(budgets).map((cat, idx) => {
           const type = targetTypes[cat] || (['Lương', 'Giáo dục', 'Đầu tư', 'Gia Sư'].includes(cat) ? 'income' : 'expense');
           const kw = targetKeywords[cat] !== undefined ? targetKeywords[cat] : (DEFAULT_CATEGORY_KEYWORDS[cat] || '');
           const icon = targetIcons[cat] || DEFAULT_CATEGORY_ICONS[cat] || (type === 'income' ? 'TrendingUp' : 'Coins');
@@ -772,7 +772,7 @@ export default function Dashboard() {
             icon: icon,
             note: note,
             keywords: kw,
-            updated_at: new Date().toISOString()
+            updated_at: new Date(Date.now() + idx * 100).toISOString()
           };
           return record;
         });

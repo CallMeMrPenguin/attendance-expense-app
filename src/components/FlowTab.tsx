@@ -609,6 +609,43 @@ function FlowTab({
     setConfirmDeleteCatInfo(null);
   };
 
+  const handleReorderCategory = (type: 'income' | 'expense', fromIdx: number, toIdx: number) => {
+    const list = type === 'income' ? [...incomeCats] : [...expenseCats];
+    if (fromIdx < 0 || fromIdx >= list.length || toIdx < 0 || toIdx >= list.length || fromIdx === toIdx) {
+      return;
+    }
+    const [moved] = list.splice(fromIdx, 1);
+    list.splice(toIdx, 0, moved);
+
+    if (type === 'income') {
+      setIncomeCats(list);
+    } else {
+      setExpenseCats(list);
+    }
+
+    const newIncomeList = type === 'income' ? list : incomeCats;
+    const newExpenseList = type === 'expense' ? list : expenseCats;
+
+    const updatedBudgets: Record<string, number> = {};
+    newIncomeList.forEach(item => {
+      updatedBudgets[item.name] = categoryBudgets[item.name] || 0;
+    });
+    newExpenseList.forEach(item => {
+      updatedBudgets[item.name] = categoryBudgets[item.name] || 0;
+    });
+
+    saveBudgets(
+      currentUser.id, 
+      updatedBudgets, 
+      categoryKeywords, 
+      categoryTypes, 
+      categoryIcons, 
+      categoryNotes
+    );
+
+    showToast(`Đã lưu thứ tự mới cho danh mục ${type === 'income' ? 'thu nhập' : 'chi tiêu'}!`, 'success');
+  };
+
   // Filter, Sort & Pagination states for Giao dịch section
   const [filterType, setFilterType] = React.useState<'all' | 'income' | 'expense'>('all');
   const [filterCategory, setFilterCategory] = React.useState<string>('all');
@@ -1216,62 +1253,6 @@ function FlowTab({
     const temp = catsList[fromIdx];
     catsList[fromIdx] = catsList[toIdx];
     catsList[toIdx] = temp;
-
-    const newIncomeCats = isIncome ? catsList : incomeCats;
-    const newExpenseCats = !isIncome ? catsList : expenseCats;
-
-    const newOrderedBudgets: Record<string, number> = {};
-    newIncomeCats.forEach(item => {
-      newOrderedBudgets[item.name] = categoryBudgets[item.name] || 0;
-    });
-    newExpenseCats.forEach(item => {
-      newOrderedBudgets[item.name] = categoryBudgets[item.name] || 0;
-    });
-    Object.keys(categoryBudgets).forEach(key => {
-      if (!(key in newOrderedBudgets)) {
-        newOrderedBudgets[key] = categoryBudgets[key];
-      }
-    });
-
-    if (isIncome) setIncomeCats(newIncomeCats);
-    else setExpenseCats(newExpenseCats);
-
-    const updatedCategoryTypes: Record<string, 'income' | 'expense'> = {};
-    const updatedIcons: Record<string, string> = {};
-    const updatedNotes: Record<string, string> = {};
-    const updatedKeywords: Record<string, string> = {};
-
-    newIncomeCats.forEach(c => {
-      updatedCategoryTypes[c.name] = 'income';
-      updatedIcons[c.name] = c.icon;
-      updatedNotes[c.name] = c.note || '';
-      updatedKeywords[c.name] = c.keywords || '';
-    });
-    newExpenseCats.forEach(c => {
-      updatedCategoryTypes[c.name] = 'expense';
-      updatedIcons[c.name] = c.icon;
-      updatedNotes[c.name] = c.note || '';
-      updatedKeywords[c.name] = c.keywords || '';
-    });
-
-    saveBudgets(
-      currentUser.id,
-      newOrderedBudgets,
-      updatedKeywords,
-      updatedCategoryTypes,
-      updatedIcons,
-      updatedNotes
-    );
-  };
-
-  const handleReorderCategory = (type: 'income' | 'expense', fromIdx: number, toIdx: number) => {
-    if (fromIdx === toIdx) return;
-    const isIncome = type === 'income';
-    const catsList = isIncome ? [...incomeCats] : [...expenseCats];
-    if (fromIdx < 0 || fromIdx >= catsList.length || toIdx < 0 || toIdx >= catsList.length) return;
-
-    const [movedItem] = catsList.splice(fromIdx, 1);
-    catsList.splice(toIdx, 0, movedItem);
 
     const newIncomeCats = isIncome ? catsList : incomeCats;
     const newExpenseCats = !isIncome ? catsList : expenseCats;
