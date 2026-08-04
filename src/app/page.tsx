@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Menu, Users, Key, LogOut, X, ChevronDown, Wallet } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { Session, formatCleanTimeString, getDatesForWeekday } from '@/lib/utils';
+import { Session, formatCleanTimeString, getDatesForWeekday, getNextMonthStr, getPrevMonthStr } from '@/lib/utils';
 
 // Import newly refactored modular components
 import Sidebar from '@/components/Sidebar';
@@ -1048,9 +1048,11 @@ export default function Dashboard() {
       calculateStats([]);
     }
 
-    // 2. Fetch all sessions for all teachers in chartSelectedMonths (for admin cash flow)
+    // 2. Fetch all sessions for all teachers in chartSelectedMonths & prior payout months (for admin cash flow)
     if (currentUser?.role === 'admin') {
-      const monthsToFetch = chartSelectedMonths.length > 0 ? chartSelectedMonths : [selectedMonth];
+      const selectedList = chartSelectedMonths.length > 0 ? chartSelectedMonths : [selectedMonth];
+      const priorList = selectedList.map(m => getPrevMonthStr(m));
+      const monthsToFetch = Array.from(new Set([...selectedList, ...priorList]));
       const { data, error } = await supabase
         .from('sessions')
         .select('*')
@@ -1152,7 +1154,7 @@ export default function Dashboard() {
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
 
     const prevAutoInc = targetSessions
-      .filter(s => (s.status === 'Đã làm' || s.status === 'Đã dạy') && s.date && s.date.substring(0, 7) < targetMonthStr)
+      .filter(s => (s.status === 'Đã làm' || s.status === 'Đã dạy') && s.month_year && getNextMonthStr(s.month_year) < targetMonthStr)
       .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
 
     const prevManualExp = manualTransactions
@@ -1166,13 +1168,13 @@ export default function Dashboard() {
   const getTotalIncome = useCallback(() => {
     const targetSessions = currentUser?.role === 'admin' ? allSessions : sessions;
     const sbInc = targetSessions
-      .filter(s => s.status === 'Đã làm' || s.status === 'Đã dạy')
+      .filter(s => (s.status === 'Đã làm' || s.status === 'Đã dạy') && chartSelectedMonths.includes(getNextMonthStr(s.month_year)))
       .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
     const manualInc = manualTransactions
       .filter(t => t.type === 'income')
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
     return sbInc + manualInc;
-  }, [sessions, allSessions, manualTransactions, currentUser]);
+  }, [sessions, allSessions, manualTransactions, chartSelectedMonths, currentUser]);
 
   const getTotalExpense = useCallback(() => {
     return manualTransactions

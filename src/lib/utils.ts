@@ -52,6 +52,24 @@ export function formatCleanTimeString(timeStr: string): string {
   }
   return '18:00';
 }
+export function getNextMonthStr(monthStr: string): string {
+  if (!monthStr || !monthStr.includes('-')) return '';
+  const [y, m] = monthStr.split('-').map(Number);
+  const date = new Date(y, m, 1);
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  return `${yyyy}-${mm}`;
+}
+
+// Helper to get previous month string ("2026-08" -> "2026-07")
+export function getPrevMonthStr(monthStr: string): string {
+  if (!monthStr || !monthStr.includes('-')) return '';
+  const [y, m] = monthStr.split('-').map(Number);
+  const date = new Date(y, m - 2, 1);
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  return `${yyyy}-${mm}`;
+}
 
 // Generate dates in a month that match a specific day of week
 // monthYearStr: "2026-07", dayOfWeekStr: "Thứ 2"

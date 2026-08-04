@@ -57,7 +57,7 @@ import {
   ArrowUpDown,
   X
 } from 'lucide-react';
-import { formatVND, Session, formatDateVN, formatNumberDots, parseNumberDots } from '@/lib/utils';
+import { formatVND, Session, formatDateVN, formatNumberDots, parseNumberDots, getNextMonthStr, getPrevMonthStr } from '@/lib/utils';
 import CustomDatePicker from './CustomDatePicker';
 import MaterialSymbol from './MaterialSymbol';
 
@@ -645,7 +645,7 @@ function FlowTab({
         .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
       
       const autoInc = sessions
-        .filter(s => s.status === 'Đã dạy' && chartSelectedMonths.includes(s.month_year) && ((s as any).income_category || s.category || incomeCats[1]?.name || 'Giáo dục') === catName)
+        .filter(s => (s.status === 'Đã dạy' || s.status === 'Đã làm') && chartSelectedMonths.includes(getNextMonthStr(s.month_year)) && ((s as any).income_category || s.category || incomeCats[1]?.name || 'Giáo dục') === catName)
         .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
 
       map[catName] = manualInc + autoInc;
@@ -794,10 +794,10 @@ function FlowTab({
       }));
 
     const auto = sessions
-      .filter(s => s.status === 'Đã dạy' && chartSelectedMonths.includes(s.month_year))
+      .filter(s => (s.status === 'Đã dạy' || s.status === 'Đã làm') && chartSelectedMonths.includes(getNextMonthStr(s.month_year)))
       .map(s => ({
         id: `session-${s.id}`,
-        desc: `Thu nhập chấm công: ${s.student_name}`,
+        desc: `Thu nhập chấm công: ${s.student_name || (s as any).job_name} (Lương dạy Th.${parseInt(s.month_year.split('-')[1])})`,
         amount: Number(s.price) || 0,
         category: (s as any).income_category || s.category || 'Giáo dục',
         date: s.date,
@@ -1170,7 +1170,7 @@ function FlowTab({
       .filter(t => t.type === 'income' && isTxInSelectedMonths(t, prevMonthsList))
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0) +
       sessions
-        .filter(s => s.status === 'Đã dạy' && prevMonthsList.includes(s.month_year))
+        .filter(s => (s.status === 'Đã dạy' || s.status === 'Đã làm') && prevMonthsList.includes(getNextMonthStr(s.month_year)))
         .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
 
     const pExp = manualTransactions
@@ -1550,7 +1550,7 @@ function FlowTab({
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
 
     const sessionInc = sessions
-      .filter(s => s.status !== 'Hủy' && chartSelectedMonths.includes(s.month_year))
+      .filter(s => s.status !== 'Hủy' && chartSelectedMonths.includes(getNextMonthStr(s.month_year)))
       .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
 
     return manualInc + sessionInc;
