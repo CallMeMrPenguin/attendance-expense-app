@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Menu, Users, Key, LogOut, X, ChevronDown, Wallet } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { Session, formatCleanTimeString } from '@/lib/utils';
+import { Session, formatCleanTimeString, getDatesForWeekday } from '@/lib/utils';
 
 // Import newly refactored modular components
 import Sidebar from '@/components/Sidebar';
@@ -898,6 +898,122 @@ export default function Dashboard() {
     });
   }, []);
 
+  // Helper to carry forward fixed schedules (loai_hinh === 'co_dinh') into target month if missing
+  const syncFixedSchedulesForMonth = useCallback(async (targetMonth: string, currentMonthData: any[], teacherName: string) => {
+    if (!targetMonth || !teacherName) return currentMonthData;
+    try {
+      // 1. Fetch prior sessions marked co_dinh for this teacher
+      const { data: priorFixed, error: priorErr } = await supabase
+        .from('sessions')
+        .select('*')
+        .or(`user_name.eq.${teacherName},teacher_name.eq.${teacherName}`)
+        .lt('month_year', targetMonth);
+
+      if (priorErr || !priorFixed || priorFixed.length === 0) {
+        return currentMonthData;
+      }
+
+      // Filter only co_dinh items
+      const coDinhItems = priorFixed.filter((s: any) => (s.loai_hinh || s.loai_hinh_lich) === 'co_dinh');
+      if (coDinhItems.length === 0) return currentMonthData;
+
+      // Find the most recent prior month
+      const priorMonths = Array.from(new Set(coDinhItems.map((s: any) => s.month_year))).sort();
+      const mostRecentPriorMonth = priorMonths[priorMonths.length - 1];
+      if (!mostRecentPriorMonth) return currentMonthData;
+
+      const latestPriorSessions = coDinhItems.filter((s: any) => s.month_year === mostRecentPriorMonth);
+
+      // Existing student names in current month
+      const existingStudentNames = new Set(
+        currentMonthData.map((s: any) => (s.student_name || s.job_name || '').trim().toLowerCase())
+      );
+
+      // Collect prior fixed sessions for students not in current month
+      const studentsToCarryForwardMap = new Map<string, any[]>();
+      for (const s of latestPriorSessions) {
+        const sName = (s.student_name || s.job_name || '').trim();
+        if (!sName) continue;
+        const key = sName.toLowerCase();
+        if (!existingStudentNames.has(key)) {
+          if (!studentsToCarryForwardMap.has(key)) {
+            studentsToCarryForwardMap.set(key, []);
+          }
+          studentsToCarryForwardMap.get(key)!.push(s);
+        }
+      }
+
+      if (studentsToCarryForwardMap.size === 0) {
+        return currentMonthData;
+      }
+
+      const newCandidates: any[] = [];
+      studentsToCarryForwardMap.forEach((sessionsList) => {
+        // Deduplicate pattern by (day_of_week, time)
+        const patternMap = new Map<string, any>();
+        sessionsList.forEach((s) => {
+          const patternKey = `${s.day_of_week}_${s.time}`;
+          if (!patternMap.has(patternKey)) {
+            patternMap.set(patternKey, s);
+          }
+        });
+
+        patternMap.forEach((templateSession) => {
+          const dates = getDatesForWeekday(targetMonth, templateSession.day_of_week);
+          dates.forEach((dStr) => {
+            newCandidates.push({
+              user_name: teacherName,
+              teacher_name: teacherName,
+              job_name: templateSession.job_name || templateSession.student_name,
+              student_name: templateSession.student_name || templateSession.job_name,
+              day_of_week: templateSession.day_of_week,
+              time: formatCleanTimeString(templateSession.time),
+              duration: Number(templateSession.duration || 1.5),
+              price: Number(templateSession.price || 0),
+              status: 'Chưa làm',
+              month_year: targetMonth,
+              color: templateSession.color || '#7c3aed',
+              date: dStr,
+              auto_check_in: templateSession.auto_check_in ?? templateSession.auto_checkin ?? true,
+              auto_checkin: templateSession.auto_checkin ?? templateSession.auto_check_in ?? true,
+              loai_hinh_lich: 'co_dinh',
+              loai_hinh: 'co_dinh',
+              income_category: templateSession.income_category || templateSession.category || 'Giáo dục'
+            });
+          });
+        });
+      });
+
+      if (newCandidates.length === 0) return currentMonthData;
+
+      // Insert into Supabase
+      let { data: insertedData, error: insertErr } = await supabase
+        .from('sessions')
+        .insert(newCandidates)
+        .select('*');
+
+      if (insertErr && (
+        insertErr.message?.includes('schema cache') || 
+        insertErr.message?.includes('Could not find') ||
+        insertErr.message?.includes('does not exist')
+      )) {
+        const cleanCandidates = newCandidates.map(({ auto_check_in, auto_checkin, loai_hinh_lich, loai_hinh, category, income_category, student_name, teacher_name, ...rest }) => rest);
+        const retryRes = await supabase.from('sessions').insert(cleanCandidates).select('*');
+        insertedData = retryRes.data;
+        insertErr = retryRes.error;
+      }
+
+      if (!insertErr && insertedData && insertedData.length > 0) {
+        return [...currentMonthData, ...insertedData];
+      } else if (newCandidates.length > 0) {
+        return [...currentMonthData, ...newCandidates];
+      }
+    } catch (err) {
+      console.error('Error syncing fixed schedules:', err);
+    }
+    return currentMonthData;
+  }, []);
+
   // Fetch session schedule data
   const fetchSessions = useCallback(async () => {
     if (!selectedMonth) return;
@@ -923,15 +1039,12 @@ export default function Dashboard() {
         }
       }
 
-      if (!error && data) {
-        const normalized = normalizeSessionList(data);
-        const processed = await processAutoCheckIn(normalized);
-        setSessions(processed);
-        calculateStats(processed);
-      } else {
-        setSessions([]);
-        calculateStats([]);
-      }
+      const initialData = data || [];
+      const syncedData = await syncFixedSchedulesForMonth(selectedMonth, initialData, activeTeacherName);
+      const normalized = normalizeSessionList(syncedData);
+      const processed = await processAutoCheckIn(normalized);
+      setSessions(processed);
+      calculateStats(processed);
     } else {
       setSessions([]);
       calculateStats([]);
