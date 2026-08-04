@@ -297,7 +297,7 @@ function FlowTab({
   const [selectedType, setSelectedType] = React.useState<'income' | 'expense' | 'saving'>('expense');
   const [selectedCat, setSelectedCat] = React.useState<string>('Ăn uống');
   const [createRule, setCreateRule] = React.useState<boolean>(true);
-  const [matchField, setMatchField] = React.useState<'remitter_name' | 'beneficiary_name' | 'details' | 'remitter_beneficiary_details'>('remitter_name');
+  const [matchField, setMatchField] = React.useState<'remitter_name' | 'credit_account' | 'details' | 'remitter_beneficiary_details'>('credit_account');
   const [matchValue, setMatchValue] = React.useState<string>('');
   const [isSavingClassification, setIsSavingClassification] = React.useState(false);
 
@@ -1009,8 +1009,8 @@ function FlowTab({
               } else {
                 setSelectedCat(r.category || expenseCats[0]?.name || 'Ăn uống');
               }
-              setMatchField('remitter_name');
-              setMatchValue(r.remitter_name || r.details || '');
+              setMatchField('credit_account');
+              setMatchValue(r.credit_account || r.details || '');
             }}
             className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer shadow-md ${
               isClassified
@@ -2650,14 +2650,16 @@ function FlowTab({
                         onChange={(e) => {
                           const f = e.target.value as any;
                           setMatchField(f);
-                          if (f === 'beneficiary_name') setMatchValue(classifyingReceipt.beneficiary_name || '');
+                          if (f === 'credit_account') setMatchValue(classifyingReceipt.credit_account || '');
                           else if (f === 'details' || f === 'remitter_beneficiary_details') setMatchValue(classifyingReceipt.details || '');
+                          else if (f === 'remitter_name') setMatchValue(classifyingReceipt.remitter_name || '');
                         }}
                         className="w-full bg-[#0d1018] border border-white/10 text-[11px] font-semibold text-white rounded-lg px-2.5 py-1.5 focus:outline-none"
                       >
+                        <option value="credit_account">Số tài khoản nhận (Credit Account Number)</option>
                         <option value="remitter_beneficiary_details">BÙI ĐỨC HÙNG ➔ PHẠM THỊ THU TRANG (Khớp theo Nội dung)</option>
                         <option value="details">Nội dung chuyển tiền (Details of Payment)</option>
-                        <option value="beneficiary_name">Người hưởng (Beneficiary Name)</option>
+                        <option value="remitter_name">Người chuyển (Remitter Name)</option>
                       </select>
                     </div>
 

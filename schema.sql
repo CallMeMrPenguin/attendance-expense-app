@@ -236,7 +236,7 @@ CREATE TABLE IF NOT EXISTS public.bank_receipts (
 CREATE TABLE IF NOT EXISTS public.receipt_rules (
     id text PRIMARY KEY,
     user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
-    match_field text NOT NULL CHECK (match_field IN ('remitter_name', 'beneficiary_name', 'details', 'sender')),
+    match_field text NOT NULL CHECK (match_field IN ('remitter_name', 'credit_account', 'details', 'sender', 'beneficiary_name', 'remitter_beneficiary_details')),
     match_value text NOT NULL,
     target_type text NOT NULL CHECK (target_type IN ('income', 'expense', 'saving')),
     target_category text NOT NULL,

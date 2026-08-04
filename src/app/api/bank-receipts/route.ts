@@ -102,7 +102,7 @@ export async function POST(req: Request) {
       const ruleRecord = {
         id: ruleId,
         user_id: userId || receipt.user_id,
-        match_field: matchField,
+        match_field: matchField === 'credit_account' ? 'details' : matchField,
         match_value: matchValue,
         target_type: type,
         target_category: category
@@ -124,8 +124,9 @@ export async function POST(req: Request) {
       for (const unRec of dbUnclassified) {
         let fieldVal = '';
         if (matchField === 'remitter_name') fieldVal = unRec.remitter_name || '';
-        else if (matchField === 'beneficiary_name') fieldVal = unRec.beneficiary_name || '';
-        else if (matchField === 'details') fieldVal = unRec.details || '';
+        else if (matchField === 'credit_account') fieldVal = unRec.credit_account || '';
+        else if (matchField === 'details') fieldVal = `${unRec.details || ''} ${unRec.credit_account || ''}`;
+        else if (matchField === 'beneficiary_name') fieldVal = `${unRec.credit_account || ''} ${unRec.beneficiary_name || ''}`;
 
         if (fieldVal && fieldVal.toLowerCase().includes(matchValue.toLowerCase())) {
           const classifiedUnRec: BankReceipt = {

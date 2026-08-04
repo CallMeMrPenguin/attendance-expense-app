@@ -24,7 +24,7 @@ export interface BankReceipt {
 export interface ReceiptRule {
   id: string;
   user_id?: string;
-  match_field: 'remitter_name' | 'beneficiary_name' | 'details' | 'sender' | 'remitter_beneficiary_details';
+  match_field: 'remitter_name' | 'credit_account' | 'details' | 'sender' | 'remitter_beneficiary_details' | 'beneficiary_name';
   match_value: string;
   target_type: 'income' | 'expense' | 'saving';
   target_category: string;
@@ -518,8 +518,9 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
             for (const rule of ruleList) {
               let valToMatch = '';
               if (rule.match_field === 'remitter_name') valToMatch = receiptData.remitter_name || '';
-              else if (rule.match_field === 'beneficiary_name') valToMatch = receiptData.beneficiary_name || '';
-              else if (rule.match_field === 'details') valToMatch = receiptData.details || '';
+              else if (rule.match_field === 'credit_account') valToMatch = receiptData.credit_account || '';
+              else if (rule.match_field === 'details') valToMatch = `${receiptData.details || ''} ${receiptData.credit_account || ''}`;
+              else if (rule.match_field === 'beneficiary_name') valToMatch = `${receiptData.credit_account || ''} ${receiptData.beneficiary_name || ''}`;
               else if (rule.match_field === 'sender') valToMatch = sender;
               else if (rule.match_field === 'remitter_beneficiary_details') {
                 const rName = (receiptData.remitter_name || '').toUpperCase();
