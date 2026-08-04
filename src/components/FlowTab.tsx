@@ -644,11 +644,7 @@ function FlowTab({
         .filter(t => t.type === 'income' && t.category === catName && isTxInSelectedMonths(t, chartSelectedMonths))
         .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
       
-      const autoInc = sessions
-        .filter(s => (s.status === 'Đã dạy' || s.status === 'Đã làm') && chartSelectedMonths.includes(getNextMonthStr(s.month_year)) && ((s as any).income_category || s.category || incomeCats[1]?.name || 'Giáo dục') === catName)
-        .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
-
-      map[catName] = manualInc + autoInc;
+      map[catName] = manualInc;
     });
 
     expenseCats.forEach(catItem => {
@@ -793,21 +789,8 @@ function FlowTab({
         type: 'income' as const
       }));
 
-    const auto = sessions
-      .filter(s => (s.status === 'Đã dạy' || s.status === 'Đã làm') && chartSelectedMonths.includes(getNextMonthStr(s.month_year)))
-      .map(s => ({
-        id: `session-${s.id}`,
-        desc: `Thu nhập chấm công: ${s.student_name || (s as any).job_name} (Lương dạy Th.${parseInt(s.month_year.split('-')[1])})`,
-        amount: Number(s.price) || 0,
-        category: (s as any).income_category || s.category || 'Giáo dục',
-        date: s.date,
-        isManual: false,
-        isRecurring: (s.loai_hinh || s.loai_hinh_lich) === 'co_dinh',
-        type: 'income' as const
-      }));
-
-    return [...manual, ...auto].sort((a, b) => b.date.localeCompare(a.date));
-  }, [manualTransactions, sessions, chartSelectedMonths, isTxInSelectedMonths]);
+    return manual.sort((a, b) => b.date.localeCompare(a.date));
+  }, [manualTransactions, chartSelectedMonths, isTxInSelectedMonths]);
 
   const expenses = React.useMemo(() => {
     return manualTransactions
@@ -1168,10 +1151,7 @@ function FlowTab({
 
     const pInc = manualTransactions
       .filter(t => t.type === 'income' && isTxInSelectedMonths(t, prevMonthsList))
-      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0) +
-      sessions
-        .filter(s => (s.status === 'Đã dạy' || s.status === 'Đã làm') && prevMonthsList.includes(getNextMonthStr(s.month_year)))
-        .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
 
     const pExp = manualTransactions
       .filter(t => t.type === 'expense' && isTxInSelectedMonths(t, prevMonthsList))

@@ -1147,34 +1147,24 @@ export default function Dashboard() {
   // Preceding Roll-Over Surplus calculation (leftover money from previous months)
   const getPrecedingRollOverBalance = useCallback((targetMonthStr: string) => {
     if (!targetMonthStr) return 0;
-    const targetSessions = currentUser?.role === 'admin' ? allSessions : sessions;
 
     const prevManualInc = manualTransactions
       .filter(t => t.type === 'income' && t.date && t.date.substring(0, 7) < targetMonthStr)
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
 
-    const prevAutoInc = targetSessions
-      .filter(s => (s.status === 'Đã làm' || s.status === 'Đã dạy') && s.month_year && getNextMonthStr(s.month_year) < targetMonthStr)
-      .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
-
     const prevManualExp = manualTransactions
       .filter(t => t.type === 'expense' && t.date && t.date.substring(0, 7) < targetMonthStr)
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
 
-    const prevNetSurplus = (prevManualInc + prevAutoInc) - prevManualExp;
+    const prevNetSurplus = prevManualInc - prevManualExp;
     return Math.max(0, prevNetSurplus);
-  }, [sessions, allSessions, manualTransactions, currentUser]);
+  }, [manualTransactions]);
 
   const getTotalIncome = useCallback(() => {
-    const targetSessions = currentUser?.role === 'admin' ? allSessions : sessions;
-    const sbInc = targetSessions
-      .filter(s => (s.status === 'Đã làm' || s.status === 'Đã dạy') && chartSelectedMonths.includes(getNextMonthStr(s.month_year)))
-      .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
-    const manualInc = manualTransactions
+    return manualTransactions
       .filter(t => t.type === 'income')
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-    return sbInc + manualInc;
-  }, [sessions, allSessions, manualTransactions, chartSelectedMonths, currentUser]);
+  }, [manualTransactions]);
 
   const getTotalExpense = useCallback(() => {
     return manualTransactions
