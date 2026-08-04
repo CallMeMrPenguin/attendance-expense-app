@@ -1525,16 +1525,10 @@ function FlowTab({
   };
 
   const projectedIncome = React.useMemo(() => {
-    const manualInc = manualTransactions
-      .filter(t => t.type === 'income' && isTxInSelectedMonths(t, chartSelectedMonths))
-      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-
-    const sessionInc = sessions
-      .filter(s => s.status !== 'Hủy' && chartSelectedMonths.includes(getNextMonthStr(s.month_year)))
-      .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
-
-    return manualInc + sessionInc;
-  }, [manualTransactions, sessions, chartSelectedMonths, isTxInSelectedMonths]);
+    const totalCategoryTargets = incomeCats.reduce((sum, cat) => sum + (Number(categoryBudgets[cat.name]) || 0), 0);
+    const monthsMultiplier = Math.max(1, chartSelectedMonths.length);
+    return totalCategoryTargets * monthsMultiplier;
+  }, [incomeCats, categoryBudgets, chartSelectedMonths]);
 
   return (
     <div className="space-y-6 animate-mac-dropdown">
@@ -1631,7 +1625,7 @@ function FlowTab({
               <span className="text-xl font-black text-purple-400 text-glow-purple tracking-tight block">{formatVND(projectedIncome)}</span>
               <div className="flex items-center gap-1 select-none">
                 <span className="text-[9px] font-black text-purple-300/80">
-                  Dự kiến theo lịch trình
+                  Tổng hạn mức dự kiến theo danh mục
                 </span>
               </div>
             </div>
