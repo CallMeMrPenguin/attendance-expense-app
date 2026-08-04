@@ -898,23 +898,25 @@ export default function Dashboard() {
     });
   }, []);
 
-  // Helper to carry forward fixed schedules (loai_hinh === 'co_dinh') into target month if missing
+  // Helper to carry forward fixed schedules into target month if missing
   const syncFixedSchedulesForMonth = useCallback(async (targetMonth: string, currentMonthData: any[], teacherName: string) => {
     if (!targetMonth || !teacherName) return currentMonthData;
     try {
-      // 1. Fetch prior sessions marked co_dinh for this teacher
-      const { data: priorFixed, error: priorErr } = await supabase
+      // 1. Fetch prior sessions for this teacher (user_name) from months before targetMonth
+      const { data: priorSessions, error: priorErr } = await supabase
         .from('sessions')
         .select('*')
-        .or(`user_name.eq.${teacherName},teacher_name.eq.${teacherName}`)
+        .ilike('user_name', teacherName)
         .lt('month_year', targetMonth);
 
-      if (priorErr || !priorFixed || priorFixed.length === 0) {
+      if (priorErr || !priorSessions || priorSessions.length === 0) {
         return currentMonthData;
       }
 
-      // Filter only co_dinh items
-      const coDinhItems = priorFixed.filter((s: any) => (s.loai_hinh || s.loai_hinh_lich) === 'co_dinh');
+      // Filter for non-temporary sessions (i.e. co_dinh or default fixed schedules)
+      const coDinhItems = priorSessions.filter((s: any) => 
+        (s.loai_hinh || s.loai_hinh_lich) !== 'tam_thoi'
+      );
       if (coDinhItems.length === 0) return currentMonthData;
 
       // Find the most recent prior month
@@ -992,12 +994,8 @@ export default function Dashboard() {
         .insert(newCandidates)
         .select('*');
 
-      if (insertErr && (
-        insertErr.message?.includes('schema cache') || 
-        insertErr.message?.includes('Could not find') ||
-        insertErr.message?.includes('does not exist')
-      )) {
-        const cleanCandidates = newCandidates.map(({ auto_check_in, auto_checkin, loai_hinh_lich, loai_hinh, category, income_category, student_name, teacher_name, ...rest }) => rest);
+      if (insertErr) {
+        const cleanCandidates = newCandidates.map(({ auto_check_in, auto_checkin, loai_hinh_lich, loai_hinh, category, income_category, student_name, teacher_name, ...rest }: any) => rest);
         const retryRes = await supabase.from('sessions').insert(cleanCandidates).select('*');
         insertedData = retryRes.data;
         insertErr = retryRes.error;
