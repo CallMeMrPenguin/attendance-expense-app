@@ -99,6 +99,30 @@ const CategoryIcon = React.memo(({ iconName, className }: { iconName: string, cl
   return <span className={`inline-flex items-center justify-center leading-none select-none text-sm ${className || 'h-4 w-4'}`}>{iconName}</span>;
 });
 
+const CATEGORY_VIBRANT_PALETTE = [
+  '#10b981', '#3b82f6', '#ec4899', '#f59e0b', '#8b5cf6', '#06b6d4', 
+  '#f43f5e', '#14b8a6', '#a855f7', '#f97316', '#eab308', '#84cc16', 
+  '#6366f1', '#d946ef', '#0284c7', '#fb7185', '#2dd4bf', '#c084fc', 
+  '#fbbf24', '#38bdf8', '#fb923c', '#a3e635', '#e879f9', '#64748b'
+];
+
+export function getCategoryPaletteColor(catName: string, catIndex: number, type: 'income' | 'expense' = 'expense'): string {
+  const knownMap: Record<string, string> = {
+    'Lương': '#10b981',
+    'Giáo dục': '#06b6d4',
+    'Đầu tư': '#8b5cf6',
+    'Ăn uống': '#f59e0b',
+    'Di chuyển': '#3b82f6',
+    'Shopping': '#ec4899',
+    'Hóa đơn': '#a855f7',
+    'Giải trí': '#f43f5e'
+  };
+  if (knownMap[catName]) return knownMap[catName];
+  const offset = type === 'income' ? 0 : 3;
+  const idx = (catIndex + offset) % CATEGORY_VIBRANT_PALETTE.length;
+  return CATEGORY_VIBRANT_PALETTE[idx];
+}
+
 interface FlowTabProps {
   currentUser: {
     id: string;
@@ -677,22 +701,6 @@ function FlowTab({
     const totExp = expensePieTotals.reduce((sum, e) => sum + e.value, 0);
     const C_PIE = 314.16;
 
-    const incomeColors: Record<string, string> = {
-      'Lương': '#10b981',
-      'Giáo dục': '#06b6d4',
-      'Đầu tư': '#8b5cf6',
-      'Khác': '#f59e0b'
-    };
-
-    const expenseColors: Record<string, string> = {
-      'Ăn uống': '#f59e0b',
-      'Di chuyển': '#3b82f6',
-      'Shopping': '#ec4899',
-      'Hóa đơn': '#a855f7',
-      'Giải trí': '#f43f5e',
-      'Khác': '#64748b'
-    };
-
     let accInc = 0;
     const incSlices = incomePieTotals
       .filter(e => e.value > 0)
@@ -701,12 +709,13 @@ function FlowTab({
         const len = totInc > 0 ? (e.value / totInc) * C_PIE : 0;
         const offset = accInc;
         accInc += len;
-        const fallbackColors = ['#10b981', '#06b6d4', '#8b5cf6', '#f59e0b', '#3b82f6', '#ec4899'];
+        const catIdx = incomeCats.findIndex(c => c.name === e.name);
+        const color = getCategoryPaletteColor(e.name, catIdx >= 0 ? catIdx : idx, 'income');
         return {
           name: e.name,
           value: e.value,
           pct: Math.round(pct),
-          color: incomeColors[e.name] || fallbackColors[idx % fallbackColors.length],
+          color,
           dashArray: `${len} ${C_PIE}`,
           dashOffset: -offset
         };
@@ -720,12 +729,13 @@ function FlowTab({
         const len = totExp > 0 ? (e.value / totExp) * C_PIE : 0;
         const offset = accExp;
         accExp += len;
-        const fallbackColors = ['#f59e0b', '#3b82f6', '#ec4899', '#a855f7', '#f43f5e', '#64748b'];
+        const catIdx = expenseCats.findIndex(c => c.name === e.name);
+        const color = getCategoryPaletteColor(e.name, catIdx >= 0 ? catIdx : idx, 'expense');
         return {
           name: e.name,
           value: e.value,
           pct: Math.round(pct),
-          color: expenseColors[e.name] || fallbackColors[idx % fallbackColors.length],
+          color,
           dashArray: `${len} ${C_PIE}`,
           dashOffset: -offset
         };
