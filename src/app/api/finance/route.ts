@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
     // 3. Fetch category_budgets (shared budget limits and keywords)
     const { data: budgetsData, error: budgetsError } = await admin
       .from('category_budgets')
-      .select('id, user_id, teacher_name, category, amount, keywords, updated_at');
+      .select('id, user_id, teacher_name, category, amount, note, updated_at');
 
     // 4. Fetch savings_history (shared savings history)
     const { data: historyData, error: historyError } = await admin
@@ -217,12 +217,18 @@ export async function POST(request: NextRequest) {
         teacher_name: teacherName,
         category: cat,
         amount: Number(budgetsMap[cat]) || 0,
+        note: JSON.stringify({ text: '', kw: keywordsMap[cat] || '' }),
         keywords: keywordsMap[cat] || null,
         updated_at: new Date().toISOString()
       }));
 
       if (records.length > 0) {
-        const { error: bErr } = await admin.from('category_budgets').upsert(records as any, { onConflict: 'id' });
+        let { error: bErr } = await admin.from('category_budgets').upsert(records as any, { onConflict: 'id' });
+        if (bErr && bErr.code === 'PGRST204') {
+          const cleanRecords = records.map(({ keywords, ...rest }: any) => rest);
+          const { error: retryErr } = await admin.from('category_budgets').upsert(cleanRecords as any, { onConflict: 'id' });
+          bErr = retryErr;
+        }
         if (bErr) {
           console.error('Failed to upsert category_budgets in Supabase:', bErr);
           return NextResponse.json({ error: bErr.message, code: bErr.code }, { status: 400 });

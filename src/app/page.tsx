@@ -137,6 +137,10 @@ export default function Dashboard() {
   const [accumulationTarget, setAccumulationTarget] = useState<number>(150000000);
   const [savingsHistory, setSavingsHistory] = useState<any[]>([]);
   const [categoryBudgets, setCategoryBudgets] = useState<Record<string, number>>({});
+  const [categoryTypes, setCategoryTypes] = useState<Record<string, 'income' | 'expense'>>({});
+  const [categoryIcons, setCategoryIcons] = useState<Record<string, string>>({});
+  const [categoryNotes, setCategoryNotes] = useState<Record<string, string>>({});
+  const [categoryKeywords, setCategoryKeywords] = useState<Record<string, string>>({});
 
   // Unified pop-up Transaction Modal toggle state
   const [txModalOpen, setTxModalOpen] = useState(false);
@@ -282,25 +286,12 @@ export default function Dashboard() {
 
   const handleSyncReceipts = useCallback(async () => {
     try {
-      const mergedKeywords: Record<string, string> = {
-        'Lương': 'luong',
-        'Giáo dục': 'day hoc, day, cham cong',
-        'Đầu tư': 'dau tu, chung khoan',
-        'Khác': 'khac',
-        'Di chuyển': 'xang, grab, taxi, di lai, xe',
-        'Ăn uống': 'an uong, do an, food, com, nhahang, quanan, cafe, trasua, bua an, tien an, mon an',
-        'Shopping': 'shopping, mua sam, shopee, lazada',
-        'Hóa đơn': 'hoa don, dien nuoc, wifi',
-        'Giải trí': 'giai tri, xem phim, du lich',
-        'Tiết kiệm khẩn cấp': 'tiet kiem khan cap, khan cap',
-        'Tích lũy dài hạn': 'tich luy dai han, tich luy',
-        'Tiết kiệm khác': 'tiet kiem khac'
-      };
+      const activeKeywords = { ...DEFAULT_CATEGORY_KEYWORDS, ...categoryKeywords };
 
       const res = await fetch('/api/bank-receipts/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ keywords: mergedKeywords, userId: currentUser?.id })
+        body: JSON.stringify({ keywords: activeKeywords, userId: currentUser?.id })
       });
       if (res.ok) {
         const data = await res.json();
@@ -327,7 +318,7 @@ export default function Dashboard() {
       console.error('Error syncing receipts:', err);
       showToast('Có lỗi xảy ra khi đồng bộ Gmail.', 'error');
     }
-  }, [showToast, updateReceiptsState, currentUser?.id, deletedTxIds]);
+  }, [showToast, updateReceiptsState, currentUser?.id, deletedTxIds, categoryKeywords]);
 
   // Trigger Gmail IMAP scan automatically whenever user switches to Dòng tiền (Flow) tab
   useEffect(() => {
@@ -524,11 +515,6 @@ export default function Dashboard() {
     }
   }, [currentUser, activeTab]);
 
-  const [categoryTypes, setCategoryTypes] = useState<Record<string, 'income' | 'expense'>>({});
-  const [categoryIcons, setCategoryIcons] = useState<Record<string, string>>({});
-  const [categoryNotes, setCategoryNotes] = useState<Record<string, string>>({});
-  const [categoryKeywords, setCategoryKeywords] = useState<Record<string, string>>({});
-
   // Load financial data directly from Supabase DB (shared across all admins)
   useEffect(() => {
     if (!currentUser) return;
@@ -598,6 +584,15 @@ export default function Dashboard() {
                 if (parsed.icon !== undefined && parsed.icon !== null) icon = parsed.icon;
                 if (parsed.note !== undefined && parsed.note !== null) note = parsed.note;
                 if (parsed.kw !== undefined && parsed.kw !== null) kw = parsed.kw;
+              } catch (e) {}
+            }
+
+            if (b.note && typeof b.note === 'string' && b.note.startsWith('{')) {
+              try {
+                const parsed = JSON.parse(b.note);
+                if (parsed.text !== undefined) note = parsed.text;
+                if (parsed.kw !== undefined && parsed.kw !== null) kw = parsed.kw;
+                if (parsed.icon !== undefined && parsed.icon !== null) icon = parsed.icon;
               } catch (e) {}
             }
             tMap[b.category] = type;
@@ -761,7 +756,8 @@ export default function Dashboard() {
           const type = targetTypes[cat] || (['Lương', 'Giáo dục', 'Đầu tư', 'Gia Sư'].includes(cat) ? 'income' : 'expense');
           const kw = targetKeywords[cat] !== undefined ? targetKeywords[cat] : (DEFAULT_CATEGORY_KEYWORDS[cat] || '');
           const icon = targetIcons[cat] || DEFAULT_CATEGORY_ICONS[cat] || (type === 'income' ? 'TrendingUp' : 'Coins');
-          const note = targetNotes[cat] || DEFAULT_CATEGORY_NOTES[cat] || (type === 'income' ? 'Thu nhập khác' : 'Chi phí khác');
+          const noteText = targetNotes[cat] || DEFAULT_CATEGORY_NOTES[cat] || (type === 'income' ? 'Thu nhập khác' : 'Chi phí khác');
+          const notePayload = JSON.stringify({ text: noteText, kw: kw });
           const record: any = {
             id: cat,
             user_id: userId,
@@ -770,7 +766,7 @@ export default function Dashboard() {
             amount: Number(budgets[cat]) || 0,
             type: type,
             icon: icon,
-            note: note,
+            note: notePayload,
             keywords: kw,
             updated_at: new Date(Date.now() + idx * 100).toISOString()
           };
