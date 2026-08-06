@@ -17,47 +17,75 @@ if (fs.existsSync(envPath)) {
 
 const supabase = createClient(url, key);
 
-async function testFullSaveCycle() {
-  console.log('--- Testing Full Save & Read Cycle ---');
-
-  const userId = '2d3a11e1-4d71-474c-b8df-abb85394e9c8';
-  const newCatName = 'Ăn Trưa';
-  const icon = '🍔';
-  const note = 'Cơm trưa văn phòng';
-  const kw = 'com trua, pho, bun cha';
-  const type = 'expense';
-  const amount = 3000000;
-
-  const metaStr = JSON.stringify({ type, kw, icon, note });
-
-  const record = {
-    id: newCatName,
-    user_id: userId,
-    teacher_name: 'Admin',
-    category: newCatName,
-    amount: amount,
-    keywords: metaStr,
-    updated_at: new Date().toISOString()
+function parseTxRow(t) {
+  const rawDesc = t.desc_text || t.desc || '';
+  const isRecurring = !!(t.isRecurring || t.is_recurring || /^\[(CỐ ĐỊNH|RECURRING)\]/i.test(rawDesc));
+  const desc = rawDesc.replace(/^\[(CỐ ĐỊNH|RECURRING)\]\s*/i, '');
+  return {
+    id: t.id,
+    desc,
+    amount: Number(t.amount) || 0,
+    type: t.type,
+    category: t.category,
+    date: t.date,
+    isRecurring
   };
-
-  console.log('1. Upserting custom category:', record);
-  const { data: upsertData, error: upsertErr } = await supabase.from('category_budgets').upsert([record], { onConflict: 'id' }).select('*');
-  if (upsertErr) {
-    console.error('Upsert Error:', upsertErr);
-    return;
-  }
-  console.log('Upsert result:', upsertData);
-
-  console.log('\n2. Querying all category_budgets from Supabase...');
-  const { data: fetchBudgets, error: fetchErr } = await supabase.from('category_budgets').select('*');
-  if (fetchErr) {
-    console.error('Fetch Error:', fetchErr);
-    return;
-  }
-
-  fetchBudgets.forEach(b => {
-    console.log(`- "${b.category}": amount=${b.amount}, raw keywords payload: ${b.keywords}`);
-  });
 }
 
-testFullSaveCycle().catch(console.error);
+function formatTxRecord(t, userId, teacherName) {
+  const isRecurring = !!(t.isRecurring || t.is_recurring);
+  let cleanDesc = (t.desc || '').replace(/^\[(CỐ ĐỊNH|RECURRING)\]\s*/i, '');
+  const desc_text = isRecurring ? `[CỐ ĐỊNH] ${cleanDesc}` : cleanDesc;
+  return {
+    id: t.id || `tx-${Date.now()}-${Math.random()}`,
+    user_id: userId,
+    teacher_name: teacherName,
+    desc_text,
+    amount: Number(t.amount) || 0,
+    type: t.type,
+    category: t.category,
+    date: t.date
+  };
+}
+
+async function testRecurringSync() {
+  const testId = 'tx-test-recurring-123';
+  const testTxFixed = {
+    id: testId,
+    desc: 'Lương cố định tháng',
+    amount: 15000000,
+    type: 'income',
+    category: 'Lương',
+    date: '2026-08-01',
+    isRecurring: true
+  };
+
+  // 1. Save as Cố định
+  const recFixed = formatTxRecord(testTxFixed, '2d3a11e1-4d71-474c-b8df-abb85394e9c8', 'Admin');
+  console.log('Formatted record for fixed:', recFixed);
+  const { error: err1 } = await supabase.from('manual_transactions').upsert([recFixed], { onConflict: 'id' });
+  if (err1) console.error('Save error fixed:', err1);
+
+  // 2. Fetch and parse
+  const { data: fetch1 } = await supabase.from('manual_transactions').select('*').eq('id', testId);
+  const parsed1 = parseTxRow(fetch1[0]);
+  console.log('Fetched & parsed fixed:', parsed1);
+
+  // 3. Update to Tạm thời
+  const testTxTemp = { ...parsed1, isRecurring: false };
+  const recTemp = formatTxRecord(testTxTemp, '2d3a11e1-4d71-474c-b8df-abb85394e9c8', 'Admin');
+  console.log('Formatted record for temp:', recTemp);
+  const { error: err2 } = await supabase.from('manual_transactions').upsert([recTemp], { onConflict: 'id' });
+  if (err2) console.error('Save error temp:', err2);
+
+  // 4. Fetch and parse again
+  const { data: fetch2 } = await supabase.from('manual_transactions').select('*').eq('id', testId);
+  const parsed2 = parseTxRow(fetch2[0]);
+  console.log('Fetched & parsed temp:', parsed2);
+
+  // Clean up test row
+  await supabase.from('manual_transactions').delete().eq('id', testId);
+  console.log('Test complete and cleaned up.');
+}
+
+testRecurringSync().catch(console.error);

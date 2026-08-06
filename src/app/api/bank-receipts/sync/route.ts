@@ -42,14 +42,20 @@ export async function POST(req: Request) {
     const dbRules = rulesRes.data || [];
     const dbTxs = txsRes.data || [];
 
-    const formattedTxs = dbTxs.map((t: any) => ({
-      id: t.id,
-      desc: t.desc_text || '',
-      amount: Number(t.amount) || 0,
-      type: t.type,
-      category: t.category,
-      date: t.date
-    }));
+    const formattedTxs = dbTxs.map((t: any) => {
+      const rawDesc = t.desc_text || t.desc || '';
+      const isRecurring = !!(t.isRecurring || t.is_recurring || /^\[(CỐ ĐỊNH|RECURRING)\]/i.test(rawDesc));
+      const desc = rawDesc.replace(/^\[(CỐ ĐỊNH|RECURRING)\]\s*/i, '');
+      return {
+        id: t.id,
+        desc,
+        amount: Number(t.amount) || 0,
+        type: t.type,
+        category: t.category,
+        date: t.date,
+        isRecurring
+      };
+    });
 
     return NextResponse.json({
       success: true,

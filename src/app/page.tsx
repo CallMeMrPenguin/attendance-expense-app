@@ -265,14 +265,20 @@ export default function Dashboard() {
                 .select('id, user_id, teacher_name, desc_text, amount, type, category, date, created_at')
                 .order('date', { ascending: false });
               if (txRes.data) {
-                const formatted = txRes.data.map((t: any) => ({
-                  id: t.id,
-                  desc: t.desc_text || t.desc || '',
-                  amount: Number(t.amount) || 0,
-                  type: t.type,
-                  category: t.category,
-                  date: t.date
-                }));
+                const formatted = txRes.data.map((t: any) => {
+                  const rawDesc = t.desc_text || t.desc || '';
+                  const isRecurring = !!(t.isRecurring || t.is_recurring || /^\[(CỐ ĐỊNH|RECURRING)\]/i.test(rawDesc));
+                  const desc = rawDesc.replace(/^\[(CỐ ĐỊNH|RECURRING)\]\s*/i, '');
+                  return {
+                    id: t.id,
+                    desc,
+                    amount: Number(t.amount) || 0,
+                    type: t.type,
+                    category: t.category,
+                    date: t.date,
+                    isRecurring
+                  };
+                });
                 setManualTransactions(formatted);
               }
             } catch (e) {}
@@ -544,14 +550,20 @@ export default function Dashboard() {
         ]);
 
         if (txRes.data) {
-          const formatted = txRes.data.map((t: any) => ({
-            id: t.id,
-            desc: t.desc_text || t.desc || '',
-            amount: Number(t.amount) || 0,
-            type: t.type,
-            category: t.category,
-            date: t.date
-          }));
+          const formatted = txRes.data.map((t: any) => {
+            const rawDesc = t.desc_text || t.desc || '';
+            const isRecurring = !!(t.isRecurring || t.is_recurring || /^\[(CỐ ĐỊNH|RECURRING)\]/i.test(rawDesc));
+            const desc = rawDesc.replace(/^\[(CỐ ĐỊNH|RECURRING)\]\s*/i, '');
+            return {
+              id: t.id,
+              desc,
+              amount: Number(t.amount) || 0,
+              type: t.type,
+              category: t.category,
+              date: t.date,
+              isRecurring
+            };
+          });
           setManualTransactions(formatted);
         }
 
@@ -636,16 +648,21 @@ export default function Dashboard() {
     runBackgroundSave(async () => {
       try {
         if (data.length > 0) {
-          const records = data.map(t => ({
-            id: t.id || `tx-${Date.now()}-${Math.random()}`,
-            user_id: userId,
-            teacher_name: teacherName,
-            desc_text: t.desc || '',
-            amount: Number(t.amount) || 0,
-            type: t.type,
-            category: t.category,
-            date: t.date
-          }));
+          const records = data.map(t => {
+            const isRecurring = !!(t.isRecurring || t.is_recurring);
+            const cleanDesc = (t.desc || t.desc_text || '').replace(/^\[(CỐ ĐỊNH|RECURRING)\]\s*/i, '');
+            const desc_text = isRecurring ? `[CỐ ĐỊNH] ${cleanDesc}` : cleanDesc;
+            return {
+              id: t.id || `tx-${Date.now()}-${Math.random()}`,
+              user_id: userId,
+              teacher_name: teacherName,
+              desc_text,
+              amount: Number(t.amount) || 0,
+              type: t.type,
+              category: t.category,
+              date: t.date
+            };
+          });
           const { error } = await supabase.from('manual_transactions').upsert(records, { onConflict: 'id' });
           if (error) console.error('Supabase manual_transactions upsert error:', error);
         }

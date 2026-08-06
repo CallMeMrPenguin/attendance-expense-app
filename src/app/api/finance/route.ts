@@ -81,14 +81,20 @@ export async function GET(request: NextRequest) {
     }
 
     // Format transactions array
-    const formattedTx = (txData || []).map((t: any) => ({
-      id: t.id,
-      desc: t.desc_text || t.desc || '',
-      amount: Number(t.amount) || 0,
-      type: t.type,
-      category: t.category,
-      date: t.date
-    }));
+    const formattedTx = (txData || []).map((t: any) => {
+      const rawDesc = t.desc_text || t.desc || '';
+      const isRecurring = !!(t.isRecurring || t.is_recurring || /^\[(CỐ ĐỊNH|RECURRING)\]/i.test(rawDesc));
+      const desc = rawDesc.replace(/^\[(CỐ ĐỊNH|RECURRING)\]\s*/i, '');
+      return {
+        id: t.id,
+        desc,
+        amount: Number(t.amount) || 0,
+        type: t.type,
+        category: t.category,
+        date: t.date,
+        isRecurring
+      };
+    });
 
     // Format savings history array
     const formattedHistory = (historyData || []).map((h: any) => ({
@@ -167,16 +173,21 @@ export async function POST(request: NextRequest) {
     // Type 1: Sync manual transactions via Upsert
     if (type === 'transactions' && Array.isArray(transactions)) {
       if (transactions.length > 0) {
-        const records = transactions.map((t: any) => ({
-          id: t.id || `tx-${Date.now()}-${Math.random()}`,
-          user_id: userId,
-          teacher_name: teacherName,
-          desc_text: t.desc || '',
-          amount: Number(t.amount) || 0,
-          type: t.type,
-          category: t.category,
-          date: t.date
-        }));
+        const records = transactions.map((t: any) => {
+          const isRecurring = !!(t.isRecurring || t.is_recurring);
+          const cleanDesc = (t.desc || t.desc_text || '').replace(/^\[(CỐ ĐỊNH|RECURRING)\]\s*/i, '');
+          const desc_text = isRecurring ? `[CỐ ĐỊNH] ${cleanDesc}` : cleanDesc;
+          return {
+            id: t.id || `tx-${Date.now()}-${Math.random()}`,
+            user_id: userId,
+            teacher_name: teacherName,
+            desc_text,
+            amount: Number(t.amount) || 0,
+            type: t.type,
+            category: t.category,
+            date: t.date
+          };
+        });
 
         const { error: insErr } = await admin.from('manual_transactions').upsert(records as any, { onConflict: 'id' });
         if (insErr) {
