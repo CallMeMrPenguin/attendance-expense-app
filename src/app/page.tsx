@@ -221,7 +221,8 @@ export default function Dashboard() {
     category: string,
     createRule: boolean,
     matchField: string,
-    matchValue: string
+    matchValue: string,
+    note?: string
   ) => {
     // Remove from deletedTxIds if user explicitly re-classifies manually
     if (currentUser?.id) {
@@ -232,13 +233,58 @@ export default function Dashboard() {
       });
     }
 
-    // 1. Optimistic instant local update
+    const trimmedNote = (note || '').trim();
+
+    // 1. Optimistic instant local update for receipts
     setBankReceipts(prev => {
-      return prev.map(r => r.id === receiptId ? { ...r, status: 'classified', type, category } : r);
+      return prev.map(r => {
+        if (r.id === receiptId) {
+          const baseDetails = (r.details || '').split(' | Ghi chú: ')[0];
+          const updatedDetails = trimmedNote ? `${baseDetails} | Ghi chú: ${trimmedNote}` : baseDetails;
+          return {
+            ...r,
+            status: 'classified',
+            type,
+            category,
+            note: trimmedNote,
+            details: updatedDetails
+          };
+        }
+        return r;
+      });
     });
+
+    // 2. Optimistic instant local update for manual transactions
+    const targetReceipt = bankReceipts.find(r => r.id === receiptId);
+    if (targetReceipt) {
+      const baseDetails = (targetReceipt.details || '').split(' | Ghi chú: ')[0];
+      const notePrefix = trimmedNote ? `${trimmedNote} ` : '';
+      const descText = `${notePrefix}[Biên lai Vietcombank] ${targetReceipt.remitter_name || ''} ➔ ${targetReceipt.beneficiary_name || ''}: ${baseDetails}`;
+      const txId = `tx-receipt-${receiptId.startsWith('vcb-') ? receiptId.replace('vcb-', '') : receiptId}`;
+      const newTxObj = {
+        id: txId,
+        desc: descText,
+        amount: Number(targetReceipt.amount) || 0,
+        type: type === 'saving' ? 'expense' : type,
+        category,
+        date: targetReceipt.trans_date || new Date().toISOString().split('T')[0],
+        isRecurring: false
+      };
+      setManualTransactions(prev => {
+        const existingIndex = prev.findIndex(t => t.id === txId || t.id === `tx-receipt-${receiptId}`);
+        if (existingIndex >= 0) {
+          const nextArr = [...prev];
+          nextArr[existingIndex] = newTxObj;
+          return nextArr;
+        } else {
+          return [newTxObj, ...prev];
+        }
+      });
+    }
+
     showToast('Đã phân loại biên lai!', 'success');
 
-    // 2. Non-blocking background save to API & Supabase
+    // 3. Non-blocking background save to API & Supabase
     runBackgroundSave(async () => {
       try {
         const res = await fetch('/api/bank-receipts', {
@@ -251,7 +297,8 @@ export default function Dashboard() {
             userId: currentUser?.id,
             createRule,
             matchField,
-            matchValue
+            matchValue,
+            note: trimmedNote
           })
         });
 
@@ -288,7 +335,7 @@ export default function Dashboard() {
         console.error('Error in background receipt classification:', err);
       }
     });
-  }, [currentUser, showToast, updateReceiptsState, runBackgroundSave]);
+  }, [currentUser, bankReceipts, showToast, updateReceiptsState, runBackgroundSave]);
 
   const handleSyncReceipts = useCallback(async () => {
     try {

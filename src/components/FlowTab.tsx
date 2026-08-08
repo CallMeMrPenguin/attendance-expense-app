@@ -149,7 +149,7 @@ interface FlowTabProps {
   ) => void;
   saveTransactions?: (userId: string, data: any[]) => void;
   toggleChartMonth?: (mStr: string) => void;
-  handleClassifyReceipt?: (receiptId: string, type: 'income' | 'expense' | 'saving', category: string, createRule: boolean, matchField: string, matchValue: string) => void | Promise<void>;
+  handleClassifyReceipt?: (receiptId: string, type: 'income' | 'expense' | 'saving', category: string, createRule: boolean, matchField: string, matchValue: string, note?: string) => void | Promise<void>;
   handleSyncReceipts?: () => Promise<void>;
 }
 
@@ -320,6 +320,7 @@ function FlowTab({
   const [classifyingReceipt, setClassifyingReceipt] = React.useState<any | null>(null);
   const [selectedType, setSelectedType] = React.useState<'income' | 'expense' | 'saving'>('expense');
   const [selectedCat, setSelectedCat] = React.useState<string>('Ăn uống');
+  const [receiptNote, setReceiptNote] = React.useState<string>('');
   const [createRule, setCreateRule] = React.useState<boolean>(true);
   const [matchField, setMatchField] = React.useState<'remitter_name' | 'credit_account' | 'details' | 'remitter_beneficiary_details'>('credit_account');
   const [matchValue, setMatchValue] = React.useState<string>('');
@@ -352,8 +353,16 @@ function FlowTab({
         setSelectedCat(classifyingReceipt.category || expenseCats[0]?.name || 'Ăn uống');
       }
 
+      const detailsStr = classifyingReceipt.details || '';
+      const cleanDetails = detailsStr.split(' | Ghi chú: ')[0];
       setMatchField('details');
-      setMatchValue(classifyingReceipt.details || '');
+      setMatchValue(cleanDetails);
+
+      let existingNote = classifyingReceipt.note || '';
+      if (!existingNote && detailsStr.includes(' | Ghi chú: ')) {
+        existingNote = detailsStr.split(' | Ghi chú: ')[1] || '';
+      }
+      setReceiptNote(existingNote);
     }
   }, [classifyingReceipt, expenseCats]);
 
@@ -992,12 +1001,21 @@ function FlowTab({
       header: 'Người Gửi ➔ Người Nhận',
       cell: ({ row }) => {
         const r = row.original;
+        const detailsStr = r.details || '';
+        const hasNoteInDetails = detailsStr.includes(' | Ghi chú: ');
+        const mainDetails = hasNoteInDetails ? detailsStr.split(' | Ghi chú: ')[0] : detailsStr;
+        const noteText = r.note || (hasNoteInDetails ? detailsStr.split(' | Ghi chú: ')[1] : '');
         return (
           <div className="flex flex-col text-left max-w-xs truncate">
             <span className="font-extrabold text-white text-xs truncate">
               {r.remitter_name || 'N/A'} ➔ {r.beneficiary_name || 'N/A'}
             </span>
-            <span className="text-[10px] text-slate-400 truncate">{r.details}</span>
+            <span className="text-[10px] text-slate-400 truncate">{mainDetails}</span>
+            {noteText ? (
+              <span className="text-[10px] text-amber-300 font-semibold truncate block mt-0.5">
+                📝 Ghi chú: {noteText}
+              </span>
+            ) : null}
           </div>
         );
       }
@@ -2666,6 +2684,18 @@ function FlowTab({
                 </select>
               </div>
 
+              {/* Note / Ghi chú input */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Ghi chú (Note)</label>
+                <input
+                  type="text"
+                  value={receiptNote}
+                  onChange={(e) => setReceiptNote(e.target.value)}
+                  placeholder="Nhập ghi chú thêm cho giao dịch (tùy chọn)..."
+                  className="w-full bg-[#0d1018] border border-white/10 text-xs font-semibold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
               {/* Auto-classification Rule Settings */}
               <div className="p-3 bg-[#090b10] rounded-xl border border-amber-500/20 space-y-2.5">
                 <div className="flex items-center gap-2">
@@ -2737,7 +2767,8 @@ function FlowTab({
                         selectedCat,
                         createRule,
                         matchField,
-                        matchValue
+                        matchValue,
+                        receiptNote
                       );
                       setIsSavingClassification(false);
                       setClassifyingReceipt(null);

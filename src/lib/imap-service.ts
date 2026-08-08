@@ -17,6 +17,7 @@ export interface BankReceipt {
   status: 'unclassified' | 'classified';
   type?: 'income' | 'expense' | 'saving';
   category?: string;
+  note?: string;
   user_id?: string;
   created_at?: string;
 }

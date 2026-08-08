@@ -40,13 +40,14 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { receiptId, type, category, userId, createRule, matchField, matchValue } = body;
+    const { receiptId, type, category, userId, createRule, matchField, matchValue, note } = body;
 
     if (!receiptId || !type || !category) {
       return NextResponse.json({ success: false, error: 'Missing required parameters' }, { status: 400 });
     }
 
     const supabaseAdmin = getSupabaseAdmin();
+    const trimmedNote = note ? String(note).trim() : '';
 
     // 1. Fetch targeted receipt from DB
     let receipt: BankReceipt | undefined;
@@ -63,12 +64,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Receipt not found' }, { status: 404 });
     }
 
+    const baseDetails = (receipt.details || '').split(' | Ghi chú: ')[0];
+    const updatedDetails = trimmedNote ? `${baseDetails} | Ghi chú: ${trimmedNote}` : baseDetails;
+
     // 2. Update receipt classification in DB
     const updatedReceipt: BankReceipt = {
       ...receipt,
       status: 'classified',
       type,
       category,
+      details: updatedDetails,
       user_id: userId || receipt.user_id
     };
 
@@ -81,11 +86,14 @@ export async function POST(req: Request) {
 
     // 3. Create or update manual_transaction
     const txId = `tx-receipt-${receiptId}`;
+    const notePrefix = trimmedNote ? `${trimmedNote} ` : '';
+    const descText = `${notePrefix}[Biên lai Vietcombank] ${receipt.remitter_name || ''} ➔ ${receipt.beneficiary_name || ''}: ${baseDetails}`;
+
     const txRecord = {
       id: txId,
       user_id: userId || receipt.user_id,
       teacher_name: 'Admin',
-      desc_text: `[Biên lai Vietcombank] ${receipt.remitter_name || ''} ➔ ${receipt.beneficiary_name || ''}: ${receipt.details}`,
+      desc_text: descText,
       amount: Number(receipt.amount),
       type: type === 'saving' ? 'expense' : type,
       category,
@@ -129,11 +137,15 @@ export async function POST(req: Request) {
         else if (matchField === 'beneficiary_name') fieldVal = `${unRec.credit_account || ''} ${unRec.beneficiary_name || ''}`;
 
         if (fieldVal && fieldVal.toLowerCase().includes(matchValue.toLowerCase())) {
+          const unBaseDetails = (unRec.details || '').split(' | Ghi chú: ')[0];
+          const unUpdatedDetails = trimmedNote ? `${unBaseDetails} | Ghi chú: ${trimmedNote}` : unBaseDetails;
+
           const classifiedUnRec: BankReceipt = {
             ...unRec,
             status: 'classified',
             type,
-            category
+            category,
+            details: unUpdatedDetails
           };
 
           try {
@@ -146,7 +158,7 @@ export async function POST(req: Request) {
               id: `tx-receipt-${unRec.id}`,
               user_id: userId || unRec.user_id,
               teacher_name: 'Admin',
-              desc_text: `[Biên lai Vietcombank] ${unRec.remitter_name || ''} ➔ ${unRec.beneficiary_name || ''}: ${unRec.details}`,
+              desc_text: `${notePrefix}[Biên lai Vietcombank] ${unRec.remitter_name || ''} ➔ ${unRec.beneficiary_name || ''}: ${unBaseDetails}`,
               amount: Number(unRec.amount),
               type: type === 'saving' ? 'expense' : type,
               category,
