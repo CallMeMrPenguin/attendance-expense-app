@@ -9,6 +9,7 @@ export interface BankReceipt {
   trans_time?: string;
   debit_account: string;
   remitter_name: string;
+  sender_name?: string;
   credit_account: string;
   beneficiary_name: string;
   beneficiary_bank: string;
@@ -25,7 +26,7 @@ export interface BankReceipt {
 export interface ReceiptRule {
   id: string;
   user_id?: string;
-  match_field: 'remitter_name' | 'credit_account' | 'details' | 'sender' | 'remitter_beneficiary_details' | 'beneficiary_name';
+  match_field: 'sender_name' | 'remitter_name' | 'credit_account' | 'details' | 'sender' | 'remitter_beneficiary_details' | 'beneficiary_name';
   match_value: string;
   target_type: 'income' | 'expense' | 'saving';
   target_category: string;
@@ -162,12 +163,31 @@ export function parseVietcombankEmail(html: string, text: string, emailHeaderDat
     finalOrderNumber = `AUTO-${transDate.replace(/-/g, '')}-${amount}-${cleanDet}`;
   }
 
+  // Account mappings:
+  // 1030723743 -> BUI DUC HUNG
+  // 9981397845 -> PHAM THI THU TRANG
+  let senderName = remitterName;
+  const combinedInfo = `${debitAccount} ${remitterName} ${details}`.toUpperCase();
+
+  if (debitAccount.includes('1030723743') || combinedInfo.includes('1030723743')) {
+    senderName = 'BUI DUC HUNG';
+  } else if (debitAccount.includes('9981397845') || combinedInfo.includes('9981397845')) {
+    senderName = 'PHAM THI THU TRANG';
+  } else if (!senderName || senderName === 'N/A') {
+    if (combinedInfo.includes('PHAM THI THU TRANG') || combinedInfo.includes('THU TRANG')) {
+      senderName = 'PHAM THI THU TRANG';
+    } else {
+      senderName = 'BUI DUC HUNG';
+    }
+  }
+
   return {
     order_number: finalOrderNumber,
     trans_date: fullTransDate,
     trans_time: transTime,
     debit_account: debitAccount,
-    remitter_name: remitterName,
+    remitter_name: senderName,
+    sender_name: senderName,
     credit_account: creditAccount,
     beneficiary_name: beneficiaryName,
     beneficiary_bank: beneficiaryBank,
@@ -553,7 +573,7 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
               }
 
               let valToMatch = '';
-              if (rule.match_field === 'remitter_name') valToMatch = receiptData.remitter_name || '';
+              if (rule.match_field === 'sender_name' || rule.match_field === 'remitter_name') valToMatch = receiptData.sender_name || receiptData.remitter_name || '';
               else if (rule.match_field === 'credit_account') valToMatch = receiptData.credit_account || '';
               else if (rule.match_field === 'details') valToMatch = `${receiptData.details || ''} ${receiptData.credit_account || ''}`;
               else if (rule.match_field === 'beneficiary_name') valToMatch = `${receiptData.credit_account || ''} ${receiptData.beneficiary_name || ''}`;

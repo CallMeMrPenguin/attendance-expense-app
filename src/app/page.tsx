@@ -141,6 +141,7 @@ export default function Dashboard() {
   const [categoryIcons, setCategoryIcons] = useState<Record<string, string>>({});
   const [categoryNotes, setCategoryNotes] = useState<Record<string, string>>({});
   const [categoryKeywords, setCategoryKeywords] = useState<Record<string, string>>({});
+  const [trangAccountBalance, setTrangAccountBalance] = useState<number>(5000000);
 
   // Unified pop-up Transaction Modal toggle state
   const [txModalOpen, setTxModalOpen] = useState(false);
@@ -259,7 +260,7 @@ export default function Dashboard() {
     if (targetReceipt) {
       const baseDetails = (targetReceipt.details || '').split(' | Ghi chú: ')[0];
       const notePrefix = trimmedNote ? `${trimmedNote} ` : '';
-      const descText = `${notePrefix}[Biên lai Vietcombank] ${targetReceipt.remitter_name || ''} ➔ ${targetReceipt.beneficiary_name || ''}: ${baseDetails}`;
+      const descText = `${notePrefix}[Biên lai Vietcombank] ${targetReceipt.sender_name || targetReceipt.remitter_name || ''} ➔ ${targetReceipt.beneficiary_name || ''}: ${baseDetails}`;
       const txId = `tx-receipt-${receiptId.startsWith('vcb-') ? receiptId.replace('vcb-', '') : receiptId}`;
       const newTxObj = {
         id: txId,
@@ -684,6 +685,10 @@ export default function Dashboard() {
           const kMap: Record<string, string> = {};
 
           budgetRes.data.forEach((b: any) => {
+            if (b.category === '__TRANG_ACCOUNT_BALANCE__') {
+              setTrangAccountBalance(Number(b.amount) || 5000000);
+              return;
+            }
             if (b.type === 'settings' || b.category?.includes('TABLE_SETTINGS')) return;
             bMap[b.category] = Number(b.amount) || 0;
             let type: 'income' | 'expense' = b.type || (['Lương', 'Giáo dục', 'Đầu tư', 'Gia Sư'].includes(b.category) ? 'income' : 'expense');
@@ -907,6 +912,27 @@ export default function Dashboard() {
       }
     });
   }, [currentUser, runBackgroundSave, categoryTypes, categoryIcons, categoryNotes, categoryKeywords]);
+
+  const saveTrangAccountBalance = useCallback((val: number) => {
+    setTrangAccountBalance(val);
+    if (!currentUser) return;
+
+    runBackgroundSave(async () => {
+      try {
+        await (supabase.from('category_budgets') as any).upsert({
+          id: 'trang_account_balance',
+          user_id: currentUser.id,
+          teacher_name: 'ADMIN',
+          category: '__TRANG_ACCOUNT_BALANCE__',
+          amount: val,
+          type: 'settings',
+          icon: 'Wallet',
+          note: JSON.stringify({ initial_balance: val }),
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'category' });
+      } catch (e) {}
+    });
+  }, [currentUser, runBackgroundSave]);
 
   // Fetch teachers list
   const fetchTeachers = useCallback(async () => {
@@ -1566,6 +1592,8 @@ export default function Dashboard() {
               handleClassifyReceipt={handleClassifyReceipt}
               handleUnclassifyReceipt={handleUnclassifyReceipt}
               handleSyncReceipts={handleSyncReceipts}
+              trangAccountBalance={trangAccountBalance}
+              saveTrangAccountBalance={saveTrangAccountBalance}
             />
           )}
 

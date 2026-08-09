@@ -172,7 +172,7 @@ export async function POST(req: Request) {
 
       for (const unRec of dbUnclassified) {
         let fieldVal = '';
-        if (matchField === 'remitter_name') fieldVal = unRec.remitter_name || '';
+        if (matchField === 'sender_name' || matchField === 'remitter_name') fieldVal = unRec.sender_name || unRec.remitter_name || '';
         else if (matchField === 'credit_account') fieldVal = unRec.credit_account || '';
         else if (matchField === 'details') fieldVal = `${unRec.details || ''} ${unRec.credit_account || ''}`;
         else if (matchField === 'beneficiary_name') fieldVal = `${unRec.credit_account || ''} ${unRec.beneficiary_name || ''}`;
@@ -199,7 +199,7 @@ export async function POST(req: Request) {
               id: `tx-receipt-${unRec.id}`,
               user_id: userId || unRec.user_id,
               teacher_name: 'Admin',
-              desc_text: `${notePrefix}[Biên lai Vietcombank] ${unRec.remitter_name || ''} ➔ ${unRec.beneficiary_name || ''}: ${unBaseDetails}`,
+              desc_text: `${notePrefix}[Biên lai Vietcombank] ${unRec.sender_name || unRec.remitter_name || ''} ➔ ${unRec.beneficiary_name || ''}: ${unBaseDetails}`,
               amount: Number(unRec.amount),
               type: type === 'saving' ? 'expense' : type,
               category,

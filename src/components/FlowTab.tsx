@@ -56,6 +56,8 @@ import {
   Filter,
   ArrowUpDown,
   RotateCcw,
+  Wallet,
+  Edit3,
   X
 } from 'lucide-react';
 import { formatVND, Session, formatDateVN, formatNumberDots, parseNumberDots, getNextMonthStr, getPrevMonthStr } from '@/lib/utils';
@@ -181,6 +183,8 @@ interface FlowTabProps {
   handleClassifyReceipt?: (receiptId: string, type: 'income' | 'expense' | 'saving', category: string, createRule: boolean, matchField: string, matchValue: string, note?: string) => void | Promise<void>;
   handleUnclassifyReceipt?: (receiptId: string) => void | Promise<void>;
   handleSyncReceipts?: () => Promise<void>;
+  trangAccountBalance?: number;
+  saveTrangAccountBalance?: (val: number) => void;
 }
 
 export const formatAbbreviatedVND = (value: number): string => {
@@ -292,7 +296,9 @@ function FlowTab({
   toggleChartMonth,
   handleClassifyReceipt,
   handleUnclassifyReceipt,
-  handleSyncReceipts
+  handleSyncReceipts,
+  trangAccountBalance = 5000000,
+  saveTrangAccountBalance
 }: FlowTabProps) {
   const { showToast } = useToast();
   const [mounted, setMounted] = React.useState(false);
@@ -353,9 +359,13 @@ function FlowTab({
   const [selectedCat, setSelectedCat] = React.useState<string>('Ăn uống');
   const [receiptNote, setReceiptNote] = React.useState<string>('');
   const [createRule, setCreateRule] = React.useState<boolean>(true);
-  const [matchField, setMatchField] = React.useState<'remitter_name' | 'credit_account' | 'details' | 'remitter_beneficiary_details'>('credit_account');
+  const [matchField, setMatchField] = React.useState<'sender_name' | 'remitter_name' | 'credit_account' | 'details' | 'remitter_beneficiary_details'>('credit_account');
   const [matchValue, setMatchValue] = React.useState<string>('');
   const [isSavingClassification, setIsSavingClassification] = React.useState(false);
+
+  // Trang account balance modal state
+  const [isTrangModalOpen, setIsTrangModalOpen] = React.useState(false);
+  const [trangInputVal, setTrangInputVal] = React.useState('');
 
   // Dynamic custom categories lists
   const [incomeCats, setIncomeCats] = React.useState<{name: string, icon: string, note?: string, keywords?: string}[]>([
@@ -1030,7 +1040,7 @@ function FlowTab({
       }
     },
     {
-      accessorKey: 'remitter_name',
+      accessorKey: 'sender_name',
       header: 'Người Gửi ➔ Người Nhận',
       cell: ({ row }) => {
         const r = row.original;
@@ -1038,10 +1048,11 @@ function FlowTab({
         const hasNoteInDetails = detailsStr.includes(' | Ghi chú: ');
         const mainDetails = hasNoteInDetails ? detailsStr.split(' | Ghi chú: ')[0] : detailsStr;
         const noteText = r.note || (hasNoteInDetails ? detailsStr.split(' | Ghi chú: ')[1] : '');
+        const sender = r.sender_name || r.remitter_name || 'N/A';
         return (
           <div className="flex flex-col text-left max-w-xs truncate">
             <span className="font-extrabold text-white text-xs truncate">
-              {r.remitter_name || 'N/A'} ➔ {r.beneficiary_name || 'N/A'}
+              {sender} ➔ {r.beneficiary_name || 'N/A'}
             </span>
             <span className="text-[10px] text-slate-400 truncate">{mainDetails}</span>
             {noteText ? (
@@ -1962,8 +1973,10 @@ function FlowTab({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-        {/* Income budget block */}
-        <div className="calendar-container-depth p-5 bg-[#06080e] rounded-3xl space-y-4 border-2 border-transparent [background:linear-gradient(#06080e,#06080e)_padding-box,linear-gradient(135deg,#10b981,#34d399,#059669)_border-box] shadow-[0_0_25px_rgba(16,185,129,0.35)]">
+        {/* Left Column: Income budget block + Tài Khoản Trang */}
+        <div className="space-y-6">
+          {/* Income budget block */}
+          <div className="calendar-container-depth p-5 bg-[#06080e] rounded-3xl space-y-4 border-2 border-transparent [background:linear-gradient(#06080e,#06080e)_padding-box,linear-gradient(135deg,#10b981,#34d399,#059669)_border-box] shadow-[0_0_25px_rgba(16,185,129,0.35)]">
           <div className="flex items-center justify-between border-b border-white/5 pb-3">
             <div className="flex items-center gap-2">
               <div className="p-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-lg shadow-[0_0_8px_rgba(16,185,129,0.35)] shrink-0">
@@ -1986,7 +1999,117 @@ function FlowTab({
               <span>Thêm</span>
             </button>
           </div>
-          {renderCategoryTable('income')}
+    {renderCategoryTable('income')}
+          </div>
+
+          {/* Trang Account Balance Tracking Section */}
+          {(() => {
+            const trangInitialBalance = trangAccountBalance;
+            const isTrangTx = (item: any) => {
+              const sName = (item.sender_name || item.remitter_name || '').toUpperCase();
+              const dAcc = (item.debit_account || '').toString();
+              const detailsStr = (item.details || item.desc || '').toUpperCase();
+              return (
+                sName.includes('PHAM THI THU TRANG') ||
+                dAcc.includes('9981397845') ||
+                detailsStr.includes('9981397845') ||
+                detailsStr.includes('PHAM THI THU TRANG') ||
+                detailsStr.includes('THU TRANG')
+              );
+            };
+
+            const receiptsTrang = bankReceipts.filter(r => isTrangTx(r)).map(r => ({
+              id: r.id,
+              desc: r.details,
+              amount: Number(r.amount) || 0,
+              date: r.trans_date || r.created_at,
+              category: r.category || 'Chi tiêu'
+            }));
+
+            const manualTrang = manualTransactions.filter(t => isTrangTx(t) && t.type === 'expense').map(t => ({
+              id: t.id,
+              desc: t.desc,
+              amount: Number(t.amount) || 0,
+              date: t.date,
+              category: t.category || 'Chi tiêu'
+            }));
+
+            const map = new Map();
+            [...manualTrang, ...receiptsTrang].forEach(t => {
+              const cleanId = String(t.id).replace('tx-receipt-', '').replace('vcb-', '');
+              if (!map.has(cleanId)) map.set(cleanId, t);
+            });
+            const trangTxs = Array.from(map.values()).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+            const trangSpentAmount = trangTxs.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+            const trangCurrentBalance = trangInitialBalance - trangSpentAmount;
+
+            return (
+              <div className="calendar-container-depth p-5 bg-[#06080e] rounded-3xl space-y-4 border-2 border-transparent [background:linear-gradient(#06080e,#06080e)_padding-box,linear-gradient(135deg,#c084fc,#a855f7,#7e22ce)_border-box] shadow-[0_0_25px_rgba(168,85,247,0.35)]">
+                <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1 bg-purple-500/10 text-purple-400 border border-purple-500/30 rounded-lg shadow-[0_0_8px_rgba(168,85,247,0.35)] shrink-0">
+                      <Wallet className="h-4 w-4" />
+                    </div>
+                    <h3 className="text-[15px] font-black text-purple-400 text-glow-purple uppercase tracking-wider">Tài Khoản Trang</h3>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setTrangInputVal(formatNumberDots(trangInitialBalance));
+                      setIsTrangModalOpen(true);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/30 rounded-xl text-xs font-black transition-all cursor-pointer shadow-[0_0_10px_rgba(168,85,247,0.2)] hover:scale-[1.02]"
+                    title="Thiết lập hoặc sửa số dư ban đầu của Trang"
+                  >
+                    <Edit3 className="h-3.5 w-3.5" />
+                    <span>Sửa số dư</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="p-3 bg-[#0b0e1a] border border-purple-500/20 rounded-2xl flex flex-col justify-center text-left">
+                    <span className="text-[10px] font-black text-purple-300 uppercase tracking-wider">Số dư ban đầu</span>
+                    <span className="text-xs font-black text-white mt-1">{formatVND(trangInitialBalance)}</span>
+                  </div>
+                  <div className="p-3 bg-[#0b0e1a] border border-rose-500/20 rounded-2xl flex flex-col justify-center text-left">
+                    <span className="text-[10px] font-black text-rose-400 uppercase tracking-wider">Trang đã chi trả</span>
+                    <span className="text-xs font-black text-rose-400 mt-1">-{formatVND(trangSpentAmount)}</span>
+                  </div>
+                  <div className="p-3 bg-purple-950/30 border border-purple-400/40 rounded-2xl flex flex-col justify-center text-left shadow-[0_0_15px_rgba(168,85,247,0.25)]">
+                    <span className="text-[10px] font-black text-purple-300 uppercase tracking-wider text-glow-purple">Số dư hiện tại</span>
+                    <span className={`text-xs font-black mt-1 ${trangCurrentBalance >= 0 ? 'text-emerald-400 text-glow-green' : 'text-rose-400 text-glow-red'}`}>
+                      {formatVND(trangCurrentBalance)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-2 pt-1 text-left">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-300">
+                    <span>Lịch sử chi trả bởi Trang (STK: 9981397845)</span>
+                    <span className="text-[10px] font-semibold text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-md border border-purple-500/20">
+                      {trangTxs.length} giao dịch
+                    </span>
+                  </div>
+                  {trangTxs.length === 0 ? (
+                    <div className="p-4 bg-[#090c18] rounded-2xl text-center text-xs text-slate-500 font-bold border border-white/5">
+                      Chưa ghi nhận giao dịch chi trả nào từ tài khoản Trang.
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                      {trangTxs.slice(0, 6).map((t, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-2.5 bg-[#090c18] hover:bg-[#0f1426] border border-white/5 rounded-xl text-xs transition-colors">
+                          <div className="flex flex-col min-w-0 pr-2">
+                            <span className="font-bold text-slate-200 truncate">{t.desc || 'Thanh toán'}</span>
+                            <span className="text-[10px] text-slate-400">{t.date}</span>
+                          </div>
+                          <span className="font-black text-rose-400 shrink-0">-{formatVND(t.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Expense budget block */}
@@ -2760,9 +2883,9 @@ function FlowTab({
                         className="w-full bg-[#0d1018] border border-white/10 text-[11px] font-semibold text-white rounded-lg px-2.5 py-1.5 focus:outline-none"
                       >
                         <option value="credit_account">Số tài khoản nhận (Credit Account Number)</option>
+                        <option value="sender_name">Tên / STK Người gửi (Sender Name)</option>
                         <option value="remitter_beneficiary_details">BÙI ĐỨC HÙNG ➔ PHẠM THỊ THU TRANG (Khớp theo Nội dung)</option>
                         <option value="details">Nội dung chuyển tiền (Details of Payment)</option>
-                        <option value="remitter_name">Người chuyển (Remitter Name)</option>
                       </select>
                     </div>
 
@@ -2841,6 +2964,66 @@ function FlowTab({
           </div>
         </div>,
         document.body
+      )}
+
+      {/* Modal Edit Trang Balance */}
+      {isTrangModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4">
+          <div className="bg-[#0c0f1e] border border-purple-500/30 rounded-2xl p-6 w-full max-w-md space-y-4 shadow-[0_0_30px_rgba(168,85,247,0.3)]">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div className="flex items-center gap-2">
+                <Wallet className="h-5 w-5 text-purple-400" />
+                <h3 className="text-base font-black text-white">Thiết Lập Số Dư Ban Đầu - Tài Khoản Trang</h3>
+              </div>
+              <button
+                onClick={() => setIsTrangModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-white/5"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-left">
+              <p className="text-xs text-slate-300">
+                Nhập số tiền ban đầu trong tài khoản của Trang (STK: 9981397845). Mọi giao dịch chi trả do Trang thực hiện sẽ tự động trừ vào số dư này.
+              </p>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-purple-400 uppercase">Số dư ban đầu (VNĐ)</label>
+                <input
+                  type="text"
+                  value={trangInputVal}
+                  onChange={(e) => setTrangInputVal(formatNumberDots(parseNumberDots(e.target.value)))}
+                  placeholder="Ví dụ: 5.000.000"
+                  className="w-full bg-[#0d1018] border border-purple-500/30 text-base font-black text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-purple-400"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2 border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => setIsTrangModalOpen(false)}
+                className="px-4 py-2 bg-white/5 hover:bg-white/10 text-slate-300 font-bold text-xs rounded-xl cursor-pointer"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const num = parseNumberDots(trangInputVal);
+                  if (saveTrangAccountBalance) {
+                    saveTrangAccountBalance(num);
+                    showToast('Đã cập nhật số dư ban đầu của Tài Khoản Trang!', 'success');
+                  }
+                  setIsTrangModalOpen(false);
+                }}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-xs rounded-xl cursor-pointer shadow-[0_0_12px_rgba(168,85,247,0.4)]"
+              >
+                Lưu Thay Đổi
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Custom Confirm Category Deletion Modal */}
