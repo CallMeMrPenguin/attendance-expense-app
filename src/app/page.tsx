@@ -142,7 +142,13 @@ export default function Dashboard() {
   const [categoryIcons, setCategoryIcons] = useState<Record<string, string>>({});
   const [categoryNotes, setCategoryNotes] = useState<Record<string, string>>({});
   const [categoryKeywords, setCategoryKeywords] = useState<Record<string, string>>({});
-  const [trangAccountBalance, setTrangAccountBalance] = useState<number>(5000000);
+  const [trangAccountBalance, setTrangAccountBalance] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('__TRANG_ACCOUNT_BALANCE__');
+      if (saved && !isNaN(Number(saved))) return Number(saved);
+    }
+    return 5000000;
+  });
 
   // Unified pop-up Transaction Modal toggle state
   const [txModalOpen, setTxModalOpen] = useState(false);
@@ -688,8 +694,10 @@ export default function Dashboard() {
           const kMap: Record<string, string> = {};
 
           budgetRes.data.forEach((b: any) => {
-            if (b.category === '__TRANG_ACCOUNT_BALANCE__') {
-              setTrangAccountBalance(Number(b.amount) || 5000000);
+            if (b.category === '__TRANG_ACCOUNT_BALANCE__' || b.id === 'trang_account_balance') {
+              const val = Number(b.amount) || 5000000;
+              setTrangAccountBalance(val);
+              if (typeof window !== 'undefined') localStorage.setItem('__TRANG_ACCOUNT_BALANCE__', String(val));
               return;
             }
             if (b.type === 'settings' || b.category?.includes('TABLE_SETTINGS')) return;
@@ -922,22 +930,29 @@ export default function Dashboard() {
 
   const saveTrangAccountBalance = useCallback((val: number) => {
     setTrangAccountBalance(val);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('__TRANG_ACCOUNT_BALANCE__', String(val));
+    }
     if (!currentUser) return;
 
     runBackgroundSave(async () => {
       try {
-        await (supabase.from('category_budgets') as any).upsert({
+        const payload = {
           id: 'trang_account_balance',
           user_id: currentUser.id,
-          user_name: 'ADMIN',
-          teacher_name: 'ADMIN',
+          user_name: currentUser.userName || currentUser.teacherName || 'ADMIN',
           category: '__TRANG_ACCOUNT_BALANCE__',
           amount: val,
           type: 'settings',
           icon: 'Wallet',
           note: JSON.stringify({ initial_balance: val }),
           updated_at: new Date().toISOString()
-        }, { onConflict: 'category' });
+        };
+        const { error } = await (supabase.from('category_budgets') as any).upsert(payload, { onConflict: 'id' });
+        if (error && error.code === 'PGRST204') {
+          const { user_name, ...cleanPayload } = payload;
+          await (supabase.from('category_budgets') as any).upsert(cleanPayload, { onConflict: 'id' });
+        }
       } catch (e) {}
     });
   }, [currentUser, runBackgroundSave]);
