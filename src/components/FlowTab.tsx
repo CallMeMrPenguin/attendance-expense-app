@@ -1253,7 +1253,11 @@ function FlowTab({
 
   // Month-over-Month Comparison Metrics
   const { totalIncome, totalExpense, netValue, prevIncome, prevExpense, prevNet, incomeChange, expenseChange, netChange } = React.useMemo(() => {
-    const totInc = incomes.reduce((sum, t) => sum + t.amount, 0);
+    const sessionInc = sessions
+      .filter(s => (s.status === 'Đã làm' || s.status === 'Đã dạy') && chartSelectedMonths.includes(s.month_year))
+      .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+
+    const totInc = incomes.reduce((sum, t) => sum + t.amount, 0) + sessionInc;
     const totExp = expenses.reduce((sum, t) => sum + t.amount, 0);
     const net = totInc - totExp;
 
