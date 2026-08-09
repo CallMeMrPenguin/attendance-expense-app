@@ -199,14 +199,14 @@ export const cleanString = (str: string): string => {
 
 export function matchKeyword(cleanDetails: string, kw: string): boolean {
   const cleanedKw = cleanString(kw);
-  if (!cleanedKw) return false;
+  const cleanedText = cleanString(cleanDetails);
+  if (!cleanedKw || !cleanedText) return false;
 
-  if (cleanedKw.includes(' ')) {
-    return cleanDetails.includes(cleanedKw);
-  } else {
-    const words = cleanDetails.split(/[\s,._-]+/).filter(Boolean);
-    return words.includes(cleanedKw) || new RegExp(`\\b${cleanedKw}\\b`, 'i').test(cleanDetails);
-  }
+  const trimmedText = cleanedText.replace(/[\s,._:;-]+$/, '');
+  const escapedKw = cleanedKw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`(?:^|[\\s,._:;-])${escapedKw}[\\s,._:;-]*$`, 'm');
+
+  return regex.test(trimmedText);
 }
 
 export async function stopImapIdleListener() {
@@ -364,13 +364,12 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
     const unclassifiedReceipts = dbReceipts.filter((r: any) => r.status === 'unclassified');
     if (unclassifiedReceipts.length > 0 && categoryBudgetsList.length > 0) {
       for (const receipt of unclassifiedReceipts) {
-        const cleanDetails = cleanString(`${receipt.details || ''} ${receipt.remitter_name || ''} ${receipt.beneficiary_name || ''} ${receipt.beneficiary_bank || ''}`);
         let matched = false;
         for (const budget of categoryBudgetsList) {
           if (budget.keywords) {
             const kwList = budget.keywords.split(',').map((kw: string) => cleanString(kw)).filter(Boolean);
             for (const kw of kwList) {
-              if (matchKeyword(cleanDetails, kw)) {
+              if (matchKeyword(receipt.details || '', kw) || matchKeyword(receipt.remitter_name || '', kw) || matchKeyword(receipt.beneficiary_name || '', kw)) {
                 const savingCats = ['Tiết kiệm khẩn cấp', 'Tích lũy dài hạn', 'Tiết kiệm khác', 'Tiết kiệm'];
                 const matchedType: 'income' | 'expense' | 'saving' = savingCats.includes(budget.category) ? 'saving' : 'expense';
                 
@@ -502,13 +501,11 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
           let matchedType: 'income' | 'expense' | 'saving' | undefined = undefined;
           let matchedCategory: string | undefined = undefined;
 
-          // 1. Match against category-specific keywords in details, names, and bank
-          const cleanDetails = cleanString(`${receiptData.details || ''} ${receiptData.remitter_name || ''} ${receiptData.beneficiary_name || ''} ${receiptData.beneficiary_bank || ''}`);
           for (const budget of categoryBudgetsList) {
             if (budget.keywords) {
               const kwList = budget.keywords.split(',').map((kw: string) => cleanString(kw)).filter(Boolean);
               for (const kw of kwList) {
-                if (matchKeyword(cleanDetails, kw)) {
+                if (matchKeyword(receiptData.details || '', kw) || matchKeyword(receiptData.remitter_name || '', kw) || matchKeyword(receiptData.beneficiary_name || '', kw)) {
                   status = 'classified';
                   matchedCategory = budget.category;
                   const savingCats = ['Tiết kiệm khẩn cấp', 'Tích lũy dài hạn', 'Tiết kiệm khác', 'Tiết kiệm'];

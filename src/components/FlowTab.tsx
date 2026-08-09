@@ -80,14 +80,14 @@ const cleanString = (str: string): string => {
 
 const matchKeyword = (cleanDetails: string, kw: string): boolean => {
   const cleanedKw = cleanString(kw);
-  if (!cleanedKw) return false;
+  const cleanedText = cleanString(cleanDetails);
+  if (!cleanedKw || !cleanedText) return false;
 
-  if (cleanedKw.includes(' ')) {
-    return cleanDetails.includes(cleanedKw);
-  } else {
-    const words = cleanDetails.split(/[\s,._-]+/).filter(Boolean);
-    return words.includes(cleanedKw) || new RegExp(`\\b${cleanedKw}\\b`, 'i').test(cleanDetails);
-  }
+  const trimmedText = cleanedText.replace(/[\s,._:;-]+$/, '');
+  const escapedKw = cleanedKw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`(?:^|[\\s,._:;-])${escapedKw}[\\s,._:;-]*$`, 'm');
+
+  return regex.test(trimmedText);
 };
 
 const CategoryIcon = React.memo(({ iconName, className }: { iconName: string, className?: string }) => {
