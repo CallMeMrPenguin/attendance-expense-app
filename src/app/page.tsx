@@ -337,6 +337,59 @@ export default function Dashboard() {
     });
   }, [currentUser, bankReceipts, showToast, updateReceiptsState, runBackgroundSave]);
 
+  const handleUnclassifyReceipt = useCallback((receiptId: string) => {
+    const rawId = receiptId.replace(/^tx-receipt-/, '').replace(/^vcb-/, '');
+    const txId = `tx-receipt-${rawId}`;
+
+    if (currentUser?.id) {
+      setDeletedTxIds(prev => [...prev, txId, receiptId, rawId, `vcb-${rawId}`]);
+    }
+
+    setBankReceipts(prev => {
+      return prev.map(r => {
+        if (r.id === receiptId || r.id === rawId || r.id === `vcb-${rawId}`) {
+          const baseDetails = (r.details || '').split(' | Ghi chú: ')[0];
+          return {
+            ...r,
+            status: 'unclassified' as const,
+            type: undefined,
+            category: undefined,
+            details: baseDetails,
+            note: undefined
+          };
+        }
+        return r;
+      });
+    });
+
+    setManualTransactions(prev => prev.filter(t => t.id !== txId && t.id !== receiptId && t.id !== rawId && t.id !== `vcb-${rawId}`));
+
+    showToast('Đã chuyển biên lai về Chưa phân loại!', 'success');
+
+    runBackgroundSave(async () => {
+      try {
+        const res = await fetch('/api/bank-receipts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            receiptId,
+            unclassify: true,
+            userId: currentUser?.id
+          })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.receipts)) {
+            updateReceiptsState(data.receipts);
+          }
+        }
+      } catch (err) {
+        console.error('handleUnclassifyReceipt error:', err);
+      }
+    });
+  }, [currentUser, updateReceiptsState, showToast, runBackgroundSave]);
+
   const handleSyncReceipts = useCallback(async () => {
     try {
       const activeKeywords = { ...DEFAULT_CATEGORY_KEYWORDS, ...categoryKeywords };
@@ -1536,6 +1589,7 @@ export default function Dashboard() {
               saveTransactions={saveTransactions}
               toggleChartMonth={toggleChartMonth}
               handleClassifyReceipt={handleClassifyReceipt}
+              handleUnclassifyReceipt={handleUnclassifyReceipt}
               handleSyncReceipts={handleSyncReceipts}
             />
           )}

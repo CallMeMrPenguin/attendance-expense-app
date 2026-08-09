@@ -55,6 +55,7 @@ import {
   GripVertical,
   Filter,
   ArrowUpDown,
+  RotateCcw,
   X
 } from 'lucide-react';
 import { formatVND, Session, formatDateVN, formatNumberDots, parseNumberDots, getNextMonthStr, getPrevMonthStr } from '@/lib/utils';
@@ -150,6 +151,7 @@ interface FlowTabProps {
   saveTransactions?: (userId: string, data: any[]) => void;
   toggleChartMonth?: (mStr: string) => void;
   handleClassifyReceipt?: (receiptId: string, type: 'income' | 'expense' | 'saving', category: string, createRule: boolean, matchField: string, matchValue: string, note?: string) => void | Promise<void>;
+  handleUnclassifyReceipt?: (receiptId: string) => void | Promise<void>;
   handleSyncReceipts?: () => Promise<void>;
 }
 
@@ -261,6 +263,7 @@ function FlowTab({
   saveTransactions,
   toggleChartMonth,
   handleClassifyReceipt,
+  handleUnclassifyReceipt,
   handleSyncReceipts
 }: FlowTabProps) {
   const { showToast } = useToast();
@@ -1061,36 +1064,52 @@ function FlowTab({
         const r = row.original;
         const isClassified = r.status === 'classified';
         return (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setClassifyingReceipt(r);
-              const t = r.type || 'expense';
-              setSelectedType(t);
-              if (t === 'saving') {
-                setSelectedCat(r.category || 'Tiết kiệm khẩn cấp');
-              } else if (t === 'income') {
-                setSelectedCat(r.category || incomeCats[0]?.name || 'Lương');
-              } else {
-                setSelectedCat(r.category || expenseCats[0]?.name || 'Ăn uống');
-              }
-              setMatchField('credit_account');
-              setMatchValue(r.credit_account || r.details || '');
-            }}
-            className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer shadow-md ${
-              isClassified
-                ? 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10'
-                : 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-[0_0_12px_rgba(245,158,11,0.4)]'
-            }`}
-          >
-            {isClassified ? 'Sửa' : 'Phân loại'}
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setClassifyingReceipt(r);
+                const t = r.type || 'expense';
+                setSelectedType(t);
+                if (t === 'saving') {
+                  setSelectedCat(r.category || 'Tiết kiệm khẩn cấp');
+                } else if (t === 'income') {
+                  setSelectedCat(r.category || incomeCats[0]?.name || 'Lương');
+                } else {
+                  setSelectedCat(r.category || expenseCats[0]?.name || 'Ăn uống');
+                }
+                setMatchField('credit_account');
+                setMatchValue(r.credit_account || r.details || '');
+              }}
+              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer shadow-md ${
+                isClassified
+                  ? 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10'
+                  : 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-[0_0_12px_rgba(245,158,11,0.4)]'
+              }`}
+            >
+              {isClassified ? 'Sửa' : 'Phân loại'}
+            </button>
+            {isClassified && handleUnclassifyReceipt && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleUnclassifyReceipt(r.id);
+                }}
+                title="Chuyển về Chưa phân loại"
+                className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-xl transition-all cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         );
       }
     }
-  ], [incomeCats, expenseCats]);
+  ], [incomeCats, expenseCats, handleUnclassifyReceipt]);
 
   const transactionColumns = useMemo<ColumnDef<any>[]>(() => [
     {
@@ -2748,6 +2767,24 @@ function FlowTab({
               </div>
 
               <div className="flex gap-2.5 pt-2">
+                {classifyingReceipt.status === 'classified' && handleUnclassifyReceipt && (
+                  <button
+                    type="button"
+                    disabled={isSavingClassification}
+                    onClick={async () => {
+                      if (handleUnclassifyReceipt && classifyingReceipt) {
+                        setIsSavingClassification(true);
+                        await handleUnclassifyReceipt(classifyingReceipt.id);
+                        setIsSavingClassification(false);
+                        setClassifyingReceipt(null);
+                      }
+                    }}
+                    className="px-3.5 py-2.5 bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 font-bold text-xs rounded-xl transition-all cursor-pointer text-center disabled:opacity-50 flex items-center justify-center gap-1.5 shrink-0"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Bỏ phân loại</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setClassifyingReceipt(null)}

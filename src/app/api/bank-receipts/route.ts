@@ -40,13 +40,52 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { receiptId, type, category, userId, createRule, matchField, matchValue, note } = body;
+    const { receiptId, type, category, userId, createRule, matchField, matchValue, note, unclassify } = body;
 
-    if (!receiptId || !type || !category) {
+    if (!receiptId) {
       return NextResponse.json({ success: false, error: 'Missing required parameters' }, { status: 400 });
     }
 
     const supabaseAdmin = getSupabaseAdmin();
+
+    if (unclassify) {
+      const rawId = String(receiptId).replace(/^tx-receipt-/, '').replace(/^vcb-/, '');
+      const txId = `tx-receipt-${rawId}`;
+
+      try {
+        await (supabaseAdmin
+          .from('bank_receipts') as any)
+          .update({
+            status: 'unclassified',
+            type: null,
+            category: null
+          })
+          .eq('id', receiptId);
+
+        await supabaseAdmin
+          .from('manual_transactions')
+          .delete()
+          .in('id', [receiptId, txId, rawId, `vcb-${rawId}`]);
+      } catch (e) {}
+
+      let finalReceipts: BankReceipt[] = [];
+      try {
+        const { data } = await supabaseAdmin
+          .from('bank_receipts')
+          .select('id, user_id, order_number, trans_date, debit_account, remitter_name, credit_account, beneficiary_name, beneficiary_bank, amount, details, status, type, category, created_at')
+          .order('created_at', { ascending: false });
+        finalReceipts = (data as BankReceipt[]) || [];
+      } catch (e) {}
+
+      return NextResponse.json({
+        success: true,
+        receipts: finalReceipts
+      });
+    }
+
+    if (!type || !category) {
+      return NextResponse.json({ success: false, error: 'Missing type or category' }, { status: 400 });
+    }
     const trimmedNote = note ? String(note).trim() : '';
 
     // 1. Fetch targeted receipt from DB
