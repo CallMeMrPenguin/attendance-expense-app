@@ -557,14 +557,23 @@ export function DataTable<TData>({
     const fetchDbLayout = async () => {
       try {
         const settingId = `tbl_cfg_${tableId}`;
-        const { data, error } = await supabase
-          .from('category_budgets')
-          .select('note')
+        const { data: tData } = await (supabase.from('table_settings') as any)
+          .select('layout')
           .eq('id', settingId)
           .maybeSingle();
 
-        if (!error && data && data.note && isMounted) {
-          const parsed = JSON.parse(data.note);
+        let rawLayout = tData?.layout;
+        if (!rawLayout) {
+          const { data: cData } = await supabase
+            .from('category_budgets')
+            .select('note')
+            .eq('id', settingId)
+            .maybeSingle();
+          rawLayout = cData?.note;
+        }
+
+        if (rawLayout && isMounted) {
+          const parsed = typeof rawLayout === 'string' ? JSON.parse(rawLayout) : rawLayout;
           if (parsed) {
             if (parsed.sizing) setColumnSizing(parsed.sizing);
             if (parsed.visibility) setColumnVisibility(parsed.visibility);
@@ -581,7 +590,7 @@ export function DataTable<TData>({
     return () => { isMounted = false; };
   }, [tableId, storageKey]);
 
-  // Save table layout updates to both LocalStorage and Supabase DB
+  // Save table layout updates to LocalStorage, table_settings table, and legacy category_budgets
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -612,18 +621,27 @@ export function DataTable<TData>({
         }
 
         if (uId) {
-          await supabase.from('category_budgets').upsert({
+          const { error: tsErr } = await (supabase.from('table_settings') as any).upsert({
             id: settingId,
+            table_id: tableId,
             user_id: uId,
-            user_name: tName,
-            teacher_name: tName,
-            category: `__TABLE_SETTINGS_${tableId}__`,
-            amount: 0,
-            type: 'settings',
-            icon: 'SlidersHorizontal',
-            note: JSON.stringify(layout),
+            layout: JSON.stringify(layout),
             updated_at: new Date().toISOString()
           }, { onConflict: 'id' });
+
+          if (tsErr) {
+            await (supabase.from('category_budgets') as any).upsert({
+              id: settingId,
+              user_id: uId,
+              user_name: tName,
+              category: `__TABLE_SETTINGS_${tableId}__`,
+              amount: 0,
+              type: 'settings',
+              icon: 'SlidersHorizontal',
+              note: JSON.stringify(layout),
+              updated_at: new Date().toISOString()
+            }, { onConflict: 'id' });
+          }
         }
       } catch (e) {}
     }, 500);

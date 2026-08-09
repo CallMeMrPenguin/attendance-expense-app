@@ -899,27 +899,24 @@ export default function Dashboard() {
           const record: any = {
             id: cat,
             user_id: userId,
-            user_name: currentUser.teacherName || 'Admin',
-            teacher_name: currentUser.teacherName || 'Admin',
+            user_name: currentUser.userName || currentUser.teacherName || 'Admin',
             category: cat,
             amount: Number(budgets[cat]) || 0,
             type: type,
             icon: icon,
             note: notePayload,
-            keywords: kw,
             updated_at: new Date(Date.now() + idx * 100).toISOString()
           };
           return record;
         });
 
         if (records.length > 0) {
-          const { error } = await supabase.from('category_budgets').upsert(records, { onConflict: 'id' });
-          if (error && error.code === 'PGRST204') {
-            const cleanRecords = records.map(({ keywords, ...rest }: any) => rest);
-            const { error: retryErr } = await supabase.from('category_budgets').upsert(cleanRecords, { onConflict: 'id' });
-            if (retryErr) console.error('Retry upsert category_budgets error:', retryErr);
-          } else if (error) {
-            console.error('Supabase category_budgets upsert error:', error);
+          const { error } = await (supabase.from('category_budgets') as any).upsert(records, { onConflict: 'id' });
+          if (error) {
+            console.error('Supabase category_budgets upsert error:', error.message);
+            // Fallback retry for legacy schema
+            const fallbackRecords = records.map(({ user_name, ...rest }: any) => ({ ...rest, teacher_name: user_name }));
+            await (supabase.from('category_budgets') as any).upsert(fallbackRecords, { onConflict: 'id' });
           }
         }
       } catch (err) {
