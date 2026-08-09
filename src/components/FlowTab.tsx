@@ -748,11 +748,11 @@ function FlowTab({
     
     incomeCats.forEach(catItem => {
       const catName = catItem.name;
-      const manualInc = manualTransactions
-        .filter(t => t.type === 'income' && t.category === catName && isTxInSelectedMonths(t, chartSelectedMonths))
-        .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-      
-      map[catName] = manualInc;
+      map[catName] = getActualCategoryAmount 
+        ? getActualCategoryAmount(catName)
+        : manualTransactions
+            .filter(t => t.type === 'income' && t.category === catName && isTxInSelectedMonths(t, chartSelectedMonths))
+            .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
     });
 
     expenseCats.forEach(catItem => {
