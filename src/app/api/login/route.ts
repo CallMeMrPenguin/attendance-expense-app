@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     // 1. Find profile in profiles table (bypassing RLS using admin client)
     const { data: profile, error: profileError } = await admin
       .from('profiles')
-      .select('id, email, password, username, teacher_name, role')
+      .select('*')
       .or(`username.eq.${cleanInput},email.eq.${cleanInput}`)
       .maybeSingle();
 

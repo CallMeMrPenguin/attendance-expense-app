@@ -34,7 +34,7 @@ export async function POST(req: Request) {
         .order('created_at', { ascending: false }),
       supabaseAdmin
         .from('manual_transactions')
-        .select('id, user_id, teacher_name, desc_text, amount, type, category, date, created_at')
+        .select('*')
         .order('date', { ascending: false })
     ]);
 

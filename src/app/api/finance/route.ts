@@ -35,13 +35,13 @@ export async function GET(request: NextRequest) {
     // 1. Fetch manual_transactions (shared across admins)
     const { data: txData, error: txError } = await admin
       .from('manual_transactions')
-      .select('id, user_id, teacher_name, desc_text, amount, type, category, date, created_at')
+      .select('*')
       .order('date', { ascending: false });
 
     // 2. Fetch savings_funds (shared latest fund balance)
     const { data: fundsData, error: fundsError } = await admin
       .from('savings_funds')
-      .select('user_id, teacher_name, emergency_current, emergency_target, accumulation_current, accumulation_target, updated_at')
+      .select('*')
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -49,12 +49,12 @@ export async function GET(request: NextRequest) {
     // 3. Fetch category_budgets (shared budget limits and keywords)
     const { data: budgetsData, error: budgetsError } = await admin
       .from('category_budgets')
-      .select('id, user_id, teacher_name, category, amount, note, updated_at');
+      .select('*');
 
     // 4. Fetch savings_history (shared savings history)
     const { data: historyData, error: historyError } = await admin
       .from('savings_history')
-      .select('id, user_id, teacher_name, fund, type, amount, date, created_at')
+      .select('*')
       .order('date', { ascending: false });
 
     // Check if tables are missing in Postgres DB (Code 42P01)
@@ -155,11 +155,11 @@ export async function POST(request: NextRequest) {
 
     const { data: profile } = await admin
       .from('profiles')
-      .select('teacher_name')
+      .select('*')
       .eq('id', userId)
       .maybeSingle();
 
-    const teacherName = (profile as any)?.teacher_name || 'Admin';
+    const teacherName = (profile as any)?.user_name || (profile as any)?.teacher_name || 'Admin';
     const body = await request.json();
 
     const {

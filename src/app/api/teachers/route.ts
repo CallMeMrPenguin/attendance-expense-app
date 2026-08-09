@@ -179,8 +179,8 @@ export async function PUT(request: NextRequest) {
     // 1. Find profile of the teacher
     const { data: profile } = await userClient
       .from('profiles')
-      .select('id, username, teacher_name, role')
-      .eq('teacher_name', trimmedOld)
+      .select('*')
+      .or(`user_name.eq.${trimmedOld},teacher_name.eq.${trimmedOld}`)
       .maybeSingle();
 
     // Rename teacher row if changed

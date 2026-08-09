@@ -329,7 +329,7 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
     const [receiptsRes, rulesRes, budgetsRes] = await Promise.all([
       clientAdmin.from('bank_receipts').select('id, user_id, order_number, trans_date, debit_account, remitter_name, credit_account, beneficiary_name, beneficiary_bank, amount, details, status, type, category, created_at').order('created_at', { ascending: false }),
       clientAdmin.from('receipt_rules').select('id, user_id, match_field, match_value, target_type, target_category, created_at').order('created_at', { ascending: false }),
-      clientAdmin.from('category_budgets').select('id, user_id, teacher_name, category, amount, note, updated_at')
+      clientAdmin.from('category_budgets').select('*')
     ]);
 
     let dbReceipts: BankReceipt[] = [];

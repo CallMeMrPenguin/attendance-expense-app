@@ -317,7 +317,7 @@ export default function Dashboard() {
             try {
               const txRes = await supabase
                 .from('manual_transactions')
-                .select('id, user_id, teacher_name, desc_text, amount, type, category, date, created_at')
+                .select('*')
                 .order('date', { ascending: false });
               if (txRes.data) {
                 const formatted = txRes.data.map((t: any) => {
@@ -598,7 +598,7 @@ export default function Dashboard() {
       if (session) {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('username, teacher_name, role')
+          .select('*')
           .eq('id', session.user.id)
           .maybeSingle();
 
@@ -655,10 +655,10 @@ export default function Dashboard() {
     const fetchFinanceCloud = async () => {
       try {
         const [txRes, fundRes, budgetRes, histRes] = await Promise.all([
-          supabase.from('manual_transactions').select('id, user_id, teacher_name, desc_text, amount, type, category, date, created_at').order('date', { ascending: false }),
-          supabase.from('savings_funds').select('user_id, teacher_name, emergency_current, emergency_target, accumulation_current, accumulation_target, updated_at').order('updated_at', { ascending: false }).limit(1).maybeSingle(),
+          supabase.from('manual_transactions').select('*').order('date', { ascending: false }),
+          supabase.from('savings_funds').select('*').order('updated_at', { ascending: false }).limit(1).maybeSingle(),
           supabase.from('category_budgets').select('*').order('updated_at', { ascending: true }),
-          supabase.from('savings_history').select('id, user_id, teacher_name, fund, type, amount, date, created_at').order('date', { ascending: false })
+          supabase.from('savings_history').select('*').order('date', { ascending: false })
         ]);
 
         if (txRes.data) {
@@ -981,10 +981,9 @@ export default function Dashboard() {
     if (list.length === 0) {
       const { data: profileData } = await supabase
         .from('profiles')
-        .select('teacher_name')
-        .order('teacher_name', { ascending: true });
+        .select('*');
       if (profileData) {
-        list = [...new Set(profileData.map((p) => p.teacher_name).filter((n) => n && n !== 'Giáo Viên 1'))];
+        list = [...new Set(profileData.map((p: any) => p.user_name || p.teacher_name).filter((n) => n && n !== 'Giáo Viên 1'))];
       }
     }
 
