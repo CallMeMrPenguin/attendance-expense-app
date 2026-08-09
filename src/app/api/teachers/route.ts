@@ -88,6 +88,7 @@ export async function POST(request: NextRequest) {
         email_confirm: true,
         user_metadata: {
           role: finalRole,
+          user_name: trimmedName,
           teacher_name: trimmedName,
           username: finalUsername
         }
@@ -135,6 +136,7 @@ export async function POST(request: NextRequest) {
       .upsert({
         id: userId,
         username: finalUsername,
+        user_name: trimmedName,
         teacher_name: trimmedName,
         role: finalRole,
         email: mockEmail,
@@ -197,6 +199,7 @@ export async function PUT(request: NextRequest) {
     const profileUpdates: any = {
       id: profileId,
       username: trimmedNewUsername,
+      user_name: trimmedNewName,
       teacher_name: trimmedNewName,
       role: finalRole
     };

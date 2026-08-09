@@ -159,7 +159,7 @@ export default function LoginPage() {
       // 3. Auth succeeded - read the profile (session is active, RLS passes)
       const { data: userProfile } = await supabase
         .from('profiles')
-        .select('username, teacher_name, role')
+        .select('*')
         .eq('id', authData.user.id)
         .maybeSingle();
 
@@ -169,10 +169,13 @@ export default function LoginPage() {
         return;
       }
 
+      const uName = (userProfile as any).user_name || userProfile.teacher_name || 'User';
+
       // Store custom teacher session in localStorage for seamless dashboard access
       localStorage.setItem('custom_teacher_session', JSON.stringify({
         username: userProfile.username,
-        teacherName: userProfile.teacher_name,
+        teacherName: uName,
+        userName: uName,
         role: userProfile.role
       }));
 

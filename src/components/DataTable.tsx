@@ -615,6 +615,7 @@ export function DataTable<TData>({
           await supabase.from('category_budgets').upsert({
             id: settingId,
             user_id: uId,
+            user_name: tName,
             teacher_name: tName,
             category: `__TABLE_SETTINGS_${tableId}__`,
             amount: 0,

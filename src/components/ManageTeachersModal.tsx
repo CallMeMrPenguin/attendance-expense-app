@@ -77,12 +77,13 @@ export default function ManageTeachersModal({
     try {
       const { data, error: dbError } = await supabase
         .from('profiles')
-        .select('username, teacher_name, role');
+        .select('*');
         
       if (!dbError && data) {
         const profileMap: Record<string, TeacherProfile> = {};
         data.forEach((p: any) => {
-          profileMap[p.teacher_name] = p;
+          const uName = p.user_name || p.teacher_name;
+          if (uName) profileMap[uName] = { ...p, teacher_name: uName, user_name: uName };
         });
         setTeacherProfiles(profileMap);
       } else if (dbError) {
