@@ -2010,22 +2010,20 @@ function FlowTab({
               const dAcc = (item.debit_account || '').toString();
               const detailsStr = (item.details || item.desc || '').toUpperCase();
 
-              // Check if Trang is the receiver / beneficiary
-              const bName = (item.beneficiary_name || '').toUpperCase();
-              const cAcc = (item.credit_account || '').toString();
-              const isReceiver = bName.includes('PHAM THI THU TRANG') || cAcc.includes('9981397845');
+              // If sender is explicitly BUI DUC HUNG or account 1030723743, it is HUNG'S payment, NEVER Trang's!
+              const isHungSender = sName.includes('BUI DUC HUNG') || dAcc.includes('1030723743') || detailsStr.includes('BUI DUC HUNG CHUYEN TIEN');
+              if (isHungSender) return false;
 
               // Check if Trang is the sender
-              const isSender = (
+              const isTrangSender = (
                 sName.includes('PHAM THI THU TRANG') ||
                 dAcc.includes('9981397845') ||
+                detailsStr.includes('9981397845') ||
                 detailsStr.includes('DEBIT: 9981397845') ||
-                detailsStr.includes('SENDER: PHAM THI THU TRANG') ||
-                (detailsStr.includes('PHAM THI THU TRANG') && !isReceiver)
+                detailsStr.includes('SENDER: PHAM THI THU TRANG')
               );
 
-              if (isReceiver && !isSender) return false;
-              return isSender;
+              return isTrangSender;
             };
 
             const receiptsTrang = bankReceipts.filter(r => r.status === 'classified' && (r.type === 'expense' || !r.type) && isTrangTx(r)).map(r => ({
