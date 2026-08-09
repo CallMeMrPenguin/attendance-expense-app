@@ -4,116 +4,13 @@ import ConfirmModal from './ConfirmModal';
 import { DataTable } from './DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 import { supabase } from '@/lib/supabase';
-import { 
-  Plus, 
-  Trash2,
-  DollarSign,
-  Edit2,
-  Briefcase,
-  GraduationCap,
-  TrendingUp,
-  TrendingDown,
-  Coins,
-  HelpCircle,
-  Utensils,
-  Car,
-  ShoppingBag,
-  Receipt,
-  Film,
-  MoreHorizontal,
-  Home,
-  Heart,
-  Plane,
-  Gift,
-  Phone,
-  Shield,
-  Cpu,
-  Coffee,
-  Zap,
-  BookOpen,
-  Music,
-  Smile,
-  CreditCard,
-  PiggyBank,
-  Percent,
-  Truck,
-  Wrench,
-  Key,
-  Wifi,
-  Tv,
-  Camera,
-  Package,
-  Bookmark,
-  Sparkles,
-  Globe,
-  Tag,
-  Calendar as CalendarIcon,
-  ChevronLeft,
-  ChevronRight,
-  ChevronDown,
-  ChevronUp,
-  GripVertical,
-  Filter,
-  ArrowUpDown,
-  RotateCcw,
-  Wallet,
-  Edit3,
-  X,
-  Laptop,
-  Smartphone,
-  Battery,
-  Dumbbell,
-  Scissors,
-  Shirt,
-  Baby,
-  Dog,
-  Cat,
-  Flower2,
-  Building,
-  Bus,
-  Bike,
-  ShoppingCart,
-  Activity,
-  Apple,
-  ShieldAlert,
-  Anchor,
-  Cloud,
-  Compass,
-  Sun,
-  Moon,
-  Star,
-  Award,
-  Bell,
-  Box,
-  Calculator,
-  Folder,
-  Grid,
-  Layers,
-  Lock,
-  Mail,
-  MapPin,
-  Printer,
-  Search,
-  Share2,
-  Sliders,
-  User,
-  Users
-} from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
+import { HelpCircle, Trash2, Plus, DollarSign, Edit2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, GripVertical, Filter, ArrowUpDown, RotateCcw, Edit3, X, Wallet, Calendar as CalendarIcon, TrendingUp, TrendingDown, Coins } from 'lucide-react';
 import { formatVND, Session, formatDateVN, formatNumberDots, parseNumberDots, getNextMonthStr, getPrevMonthStr } from '@/lib/utils';
 import CustomDatePicker from './CustomDatePicker';
 import MaterialSymbol from './MaterialSymbol';
 
-const ICON_COMPONENTS: Record<string, React.ComponentType<any>> = {
-  Briefcase, GraduationCap, TrendingUp, Coins, HelpCircle,
-  Utensils, Car, ShoppingBag, Receipt, Film, MoreHorizontal,
-  Home, Heart, Plane, Gift, Phone, Shield, Cpu, Coffee,
-  Zap, BookOpen, Music, Smile, CreditCard, PiggyBank, Percent,
-  Truck, Wrench, Key, Wifi, Tv, Camera, Package, Bookmark, Sparkles, Globe, Tag,
-  Laptop, Smartphone, Battery, Dumbbell, Scissors, Shirt, Baby, Dog, Cat, Flower2,
-  Building, Bus, Bike, ShoppingCart, Activity, Apple, ShieldAlert, Anchor, Cloud,
-  Compass, Sun, Moon, Star, Award, Bell, Box, Calculator, Folder, Grid, Layers,
-  Lock, Mail, MapPin, Printer, Search, Share2, Sliders, User, Users, Wallet
-};
+
 
 const cleanString = (str: string): string => {
   return (str || '')
@@ -166,11 +63,24 @@ const isDefaultTransferDetails = (text: string): boolean => {
 
 const CategoryIcon = React.memo(({ iconName, className }: { iconName: string, className?: string }) => {
   if (!iconName) return <HelpCircle className={className} />;
-  const IconComp = ICON_COMPONENTS[iconName];
-  if (IconComp) {
-    return <IconComp className={className} />;
+  
+  // 1. Direct Lucide icon lookup (exact case)
+  const exactLucide = (LucideIcons as any)[iconName];
+  if (exactLucide) {
+    const Component = exactLucide;
+    return <Component className={className} />;
   }
-  return <span className={`inline-flex items-center justify-center leading-none select-none text-sm ${className || 'h-4 w-4'}`}>{iconName}</span>;
+
+  // 2. Capitalized Lucide icon name lookup (e.g. "coffee" -> "Coffee", "pizza" -> "Pizza")
+  const capitalized = iconName.charAt(0).toUpperCase() + iconName.slice(1);
+  const capLucide = (LucideIcons as any)[capitalized];
+  if (capLucide) {
+    const Component = capLucide;
+    return <Component className={className} />;
+  }
+
+  // 3. Fallback to Material Symbol or Raw Text / Emoji
+  return <MaterialSymbol icon={iconName} className={className} size={16} />;
 });
 
 const CATEGORY_VIBRANT_PALETTE = [
@@ -2391,40 +2301,16 @@ function FlowTab({
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider block">Chọn biểu tượng mẫu</label>
-                <div className="grid grid-cols-7 gap-1.5 bg-[#090b10] p-2.5 rounded-xl border border-white/5 max-h-36 overflow-y-auto">
-                  {Object.keys(ICON_COMPONENTS).map((iconKey) => {
-                    const Icon = ICON_COMPONENTS[iconKey];
-                    const isSelected = editingCat.icon === iconKey;
-                    return (
-                      <button
-                        type="button"
-                        key={iconKey}
-                        onClick={() => setEditingCat(prev => prev ? { ...prev, icon: iconKey } : null)}
-                        className={`p-2 rounded-lg border transition-all cursor-pointer ${
-                          isSelected
-                            ? 'bg-indigo-500/20 border-indigo-500 text-indigo-400 shadow-[0_0_10px_rgba(92,54,245,0.3)]'
-                            : 'bg-[#0d1018] border-white/5 text-slate-455 hover:text-slate-200'
-                        }`}
-                      >
-                        <Icon className="h-4 w-4 mx-auto" />
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider block">Tự nhập Icon tùy chỉnh / Emoji</label>
+                <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider block">Tên Icon hoặc Emoji (Ví dụ: Coffee, Utensils, Coins, Flame, 🍕, 🛵...)</label>
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
-                    placeholder="Nhập emoji hoặc icon (vd: ⚡, 🍕, 🛵, 💡, 🍔, 💊...)"
+                    placeholder="Nhập tên icon Lucide, Material Symbol hoặc Emoji..."
                     value={editingCat.icon || ''}
                     onChange={(e) => setEditingCat(prev => prev ? { ...prev, icon: e.target.value } : null)}
                     className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 placeholder-slate-600"
                   />
-                  <div className="h-9 w-9 rounded-xl bg-[#090b10] border border-white/10 flex items-center justify-center text-indigo-400 shrink-0">
+                  <div className="h-10 w-10 rounded-xl bg-[#090b10] border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0 shadow-sm">
                     <CategoryIcon iconName={editingCat.icon} className="h-5 w-5" />
                   </div>
                 </div>
@@ -2526,40 +2412,16 @@ function FlowTab({
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider block">Chọn biểu tượng mẫu</label>
-                <div className="grid grid-cols-7 gap-1.5 bg-[#090b10] p-2.5 rounded-xl border border-white/5 max-h-36 overflow-y-auto">
-                  {Object.keys(ICON_COMPONENTS).map((iconKey) => {
-                    const Icon = ICON_COMPONENTS[iconKey];
-                    const isSelected = newCatIcon === iconKey;
-                    return (
-                      <button
-                        type="button"
-                        key={iconKey}
-                        onClick={() => setNewCatIcon(iconKey)}
-                        className={`p-2 rounded-lg border transition-all cursor-pointer ${
-                          isSelected
-                            ? 'bg-indigo-500/20 border-indigo-500 text-indigo-400 shadow-[0_0_10px_rgba(92,54,245,0.3)]'
-                            : 'bg-[#0d1018] border-white/5 text-slate-455 hover:text-slate-200'
-                        }`}
-                      >
-                        <Icon className="h-4 w-4 mx-auto" />
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider block">Tự nhập Icon tùy chỉnh / Emoji</label>
+                <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider block">Tên Icon hoặc Emoji (Ví dụ: Coffee, Utensils, Coins, Flame, 🍕, 🛵...)</label>
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
-                    placeholder="Nhập emoji hoặc icon (vd: ⚡, 🍕, 🛵, 💡, 🍔, 💊...)"
+                    placeholder="Nhập tên icon Lucide, Material Symbol hoặc Emoji..."
                     value={newCatIcon || ''}
                     onChange={(e) => setNewCatIcon(e.target.value)}
                     className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 placeholder-slate-600"
                   />
-                  <div className="h-9 w-9 rounded-xl bg-[#090b10] border border-white/10 flex items-center justify-center text-indigo-400 shrink-0">
+                  <div className="h-10 w-10 rounded-xl bg-[#090b10] border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0 shadow-sm">
                     <CategoryIcon iconName={newCatIcon} className="h-5 w-5" />
                   </div>
                 </div>
