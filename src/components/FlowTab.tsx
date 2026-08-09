@@ -703,12 +703,14 @@ function FlowTab({
   const [typeFilterOpen, setTypeFilterOpen] = React.useState(false);
   const [catFilterOpen, setCatFilterOpen] = React.useState(false);
 
-  // Auto-scan Gmail 1 time whenever user switches to the 'Biên lai' sub-tab
+  // Auto-scan Gmail ONLY when user switches to the 'Biên lai' sub-tab from another sub-tab
+  const prevFilterRef = React.useRef<string>(filterRecurring);
   React.useEffect(() => {
-    if (filterRecurring === 'bien_lai' && handleSyncReceipts) {
+    if (filterRecurring === 'bien_lai' && prevFilterRef.current !== 'bien_lai' && handleSyncReceipts) {
       handleSyncReceipts();
     }
-  }, [filterRecurring, handleSyncReceipts]);
+    prevFilterRef.current = filterRecurring;
+  }, [filterRecurring]);
 
   // Helper for matching transactions against selected months (supports fixed/recurring transactions)
   const isTxInSelectedMonths = React.useCallback((t: any, months: string[]) => {

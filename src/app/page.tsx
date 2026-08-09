@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Menu, Users, Key, LogOut, X, ChevronDown, Wallet } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -426,12 +426,14 @@ export default function Dashboard() {
     }
   }, [showToast, updateReceiptsState, currentUser?.id, deletedTxIds, categoryKeywords]);
 
-  // Trigger Gmail IMAP scan automatically whenever user switches to Dòng tiền (Flow) tab
+  // Trigger Gmail IMAP scan ONLY when user switches to Dòng tiền (Flow) tab from another tab
+  const prevActiveTabRef = useRef<string>(activeTab);
   useEffect(() => {
-    if (activeTab === 'flow' && currentUser?.id) {
+    if (activeTab === 'flow' && prevActiveTabRef.current !== 'flow' && currentUser?.id) {
       handleSyncReceipts();
     }
-  }, [activeTab, currentUser?.id, handleSyncReceipts]);
+    prevActiveTabRef.current = activeTab;
+  }, [activeTab, currentUser?.id]);
 
   // Fetch bank receipts on mount, window focus, and 60-second periodic poll
   useEffect(() => {
