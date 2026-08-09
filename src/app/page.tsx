@@ -25,6 +25,7 @@ interface UserProfile {
   id: string;
   username: string;
   teacherName: string;
+  userName?: string;
   role: 'admin' | 'teacher' | 'user';
   token: string;
 }
@@ -596,14 +597,16 @@ export default function Dashboard() {
           .maybeSingle();
 
         if (profile) {
+          const uName = (profile as any).user_name || profile.teacher_name || 'Admin';
           setCurrentUser({
             id: session.user.id,
             username: profile.username,
-            teacherName: profile.teacher_name,
+            teacherName: uName,
+            userName: uName,
             role: profile.role as any,
             token: session.access_token,
           });
-          setActiveTeacherName(profile.teacher_name);
+          setActiveTeacherName(uName);
           if (profile.role !== 'admin') {
             setActiveTab('schedule');
           }
@@ -762,6 +765,7 @@ export default function Dashboard() {
             return {
               id: t.id || `tx-${Date.now()}-${Math.random()}`,
               user_id: userId,
+              user_name: teacherName,
               teacher_name: teacherName,
               desc_text,
               amount: Number(t.amount) || 0,
@@ -785,6 +789,7 @@ export default function Dashboard() {
       try {
         const payload = {
           user_id: 'aae79676-8bc1-4cce-8f5d-e78379a6abc4',
+          user_name: 'Shared Admin',
           teacher_name: 'Shared Admin',
           emergency_current: emCurr,
           emergency_target: emTar,
@@ -830,6 +835,7 @@ export default function Dashboard() {
           const records = data.map(h => ({
             id: h.id || `sh-${Date.now()}-${Math.random()}`,
             user_id: userId,
+            user_name: currentUser.teacherName || 'Admin',
             teacher_name: currentUser.teacherName || 'Admin',
             fund: h.fund,
             type: h.type,
@@ -885,6 +891,7 @@ export default function Dashboard() {
           const record: any = {
             id: cat,
             user_id: userId,
+            user_name: currentUser.teacherName || 'Admin',
             teacher_name: currentUser.teacherName || 'Admin',
             category: cat,
             amount: Number(budgets[cat]) || 0,
@@ -922,6 +929,7 @@ export default function Dashboard() {
         await (supabase.from('category_budgets') as any).upsert({
           id: 'trang_account_balance',
           user_id: currentUser.id,
+          user_name: 'ADMIN',
           teacher_name: 'ADMIN',
           category: '__TRANG_ACCOUNT_BALANCE__',
           amount: val,

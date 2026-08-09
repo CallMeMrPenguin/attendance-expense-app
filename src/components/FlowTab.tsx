@@ -2018,7 +2018,7 @@ function FlowTab({
               );
             };
 
-            const receiptsTrang = bankReceipts.filter(r => isTrangTx(r)).map(r => ({
+            const receiptsTrang = bankReceipts.filter(r => r.status === 'classified' && isTrangTx(r)).map(r => ({
               id: r.id,
               desc: r.details,
               amount: Number(r.amount) || 0,
@@ -2071,7 +2071,7 @@ function FlowTab({
                     <span className="text-xs font-black text-white mt-1">{formatVND(trangInitialBalance)}</span>
                   </div>
                   <div className="p-3 bg-[#0b0e1a] border border-rose-500/20 rounded-2xl flex flex-col justify-center text-left">
-                    <span className="text-[10px] font-black text-rose-400 uppercase tracking-wider">Trang đã chi trả</span>
+                    <span className="text-[10px] font-black text-rose-400 uppercase tracking-wider">Trang đã chi trả ({trangTxs.length})</span>
                     <span className="text-xs font-black text-rose-400 mt-1">-{formatVND(trangSpentAmount)}</span>
                   </div>
                   <div className="p-3 bg-purple-950/30 border border-purple-400/40 rounded-2xl flex flex-col justify-center text-left shadow-[0_0_15px_rgba(168,85,247,0.25)]">
@@ -2080,32 +2080,6 @@ function FlowTab({
                       {formatVND(trangCurrentBalance)}
                     </span>
                   </div>
-                </div>
-
-                <div className="space-y-2 pt-1 text-left">
-                  <div className="flex items-center justify-between text-xs font-bold text-slate-300">
-                    <span>Lịch sử chi trả bởi Trang (STK: 9981397845)</span>
-                    <span className="text-[10px] font-semibold text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-md border border-purple-500/20">
-                      {trangTxs.length} giao dịch
-                    </span>
-                  </div>
-                  {trangTxs.length === 0 ? (
-                    <div className="p-4 bg-[#090c18] rounded-2xl text-center text-xs text-slate-500 font-bold border border-white/5">
-                      Chưa ghi nhận giao dịch chi trả nào từ tài khoản Trang.
-                    </div>
-                  ) : (
-                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                      {trangTxs.slice(0, 6).map((t, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-2.5 bg-[#090c18] hover:bg-[#0f1426] border border-white/5 rounded-xl text-xs transition-colors">
-                          <div className="flex flex-col min-w-0 pr-2">
-                            <span className="font-bold text-slate-200 truncate">{t.desc || 'Thanh toán'}</span>
-                            <span className="text-[10px] text-slate-400">{t.date}</span>
-                          </div>
-                          <span className="font-black text-rose-400 shrink-0">-{formatVND(t.amount)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
               </div>
             );

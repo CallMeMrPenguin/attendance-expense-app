@@ -4,7 +4,7 @@ export interface Session {
   id: string;
   user_name?: string;
   job_name?: string;
-  teacher_name: string;
+  teacher_name?: string;
   student_name: string;
   day_of_week: string;
   time: string;
