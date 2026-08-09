@@ -774,7 +774,6 @@ export default function Dashboard() {
               id: t.id || `tx-${Date.now()}-${Math.random()}`,
               user_id: userId,
               user_name: teacherName,
-              teacher_name: teacherName,
               desc_text,
               amount: Number(t.amount) || 0,
               type: t.type,
@@ -782,8 +781,12 @@ export default function Dashboard() {
               date: t.date
             };
           });
-          const { error } = await supabase.from('manual_transactions').upsert(records, { onConflict: 'id' });
-          if (error) console.error('Supabase manual_transactions upsert error:', error);
+          const { error } = await (supabase.from('manual_transactions') as any).upsert(records, { onConflict: 'id' });
+          if (error) {
+            console.error('Supabase manual_transactions upsert error:', error.message);
+            const fallbackRecords = records.map(({ user_name, ...rest }: any) => ({ ...rest, teacher_name: user_name }));
+            await (supabase.from('manual_transactions') as any).upsert(fallbackRecords, { onConflict: 'id' });
+          }
         }
       } catch (err) {
         console.error('Direct saveTransactions error:', err);
@@ -798,15 +801,19 @@ export default function Dashboard() {
         const payload = {
           user_id: 'aae79676-8bc1-4cce-8f5d-e78379a6abc4',
           user_name: 'Shared Admin',
-          teacher_name: 'Shared Admin',
           emergency_current: emCurr,
           emergency_target: emTar,
           accumulation_current: acCurr,
           accumulation_target: acTar,
           updated_at: new Date().toISOString()
         };
-        const { error } = await supabase.from('savings_funds').upsert(payload, { onConflict: 'user_id' });
-        if (error) console.error('Supabase savings_funds upsert error:', error);
+        const { error } = await (supabase.from('savings_funds') as any).upsert(payload, { onConflict: 'user_id' });
+        if (error) {
+          console.error('Supabase savings_funds upsert error:', error.message);
+          const { user_name, ...fallbackPayload } = payload as any;
+          fallbackPayload.teacher_name = user_name;
+          await (supabase.from('savings_funds') as any).upsert(fallbackPayload, { onConflict: 'user_id' });
+        }
       } catch (err) {
         console.error('Direct saveSavingsFunds error:', err);
       }
@@ -844,14 +851,17 @@ export default function Dashboard() {
             id: h.id || `sh-${Date.now()}-${Math.random()}`,
             user_id: userId,
             user_name: currentUser.teacherName || 'Admin',
-            teacher_name: currentUser.teacherName || 'Admin',
             fund: h.fund,
             type: h.type,
             amount: Number(h.amount) || 0,
             date: h.date
           }));
-          const { error } = await supabase.from('savings_history').upsert(records, { onConflict: 'id' });
-          if (error) console.error('Supabase savings_history upsert error:', error);
+          const { error } = await (supabase.from('savings_history') as any).upsert(records, { onConflict: 'id' });
+          if (error) {
+            console.error('Supabase savings_history upsert error:', error.message);
+            const fallbackRecords = records.map(({ user_name, ...rest }: any) => ({ ...rest, teacher_name: user_name }));
+            await (supabase.from('savings_history') as any).upsert(fallbackRecords, { onConflict: 'id' });
+          }
         }
       } catch (err) {
         console.error('Direct saveSavingsHistory error:', err);

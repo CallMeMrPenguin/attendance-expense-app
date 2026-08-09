@@ -58,7 +58,46 @@ import {
   RotateCcw,
   Wallet,
   Edit3,
-  X
+  X,
+  Laptop,
+  Smartphone,
+  Battery,
+  Dumbbell,
+  Scissors,
+  Shirt,
+  Baby,
+  Dog,
+  Cat,
+  Flower2,
+  Building,
+  Bus,
+  Bike,
+  ShoppingCart,
+  Activity,
+  Apple,
+  ShieldAlert,
+  Anchor,
+  Cloud,
+  Compass,
+  Sun,
+  Moon,
+  Star,
+  Award,
+  Bell,
+  Box,
+  Calculator,
+  Folder,
+  Grid,
+  Layers,
+  Lock,
+  Mail,
+  MapPin,
+  Printer,
+  Search,
+  Share2,
+  Sliders,
+  User,
+  Users
 } from 'lucide-react';
 import { formatVND, Session, formatDateVN, formatNumberDots, parseNumberDots, getNextMonthStr, getPrevMonthStr } from '@/lib/utils';
 import CustomDatePicker from './CustomDatePicker';
@@ -69,7 +108,11 @@ const ICON_COMPONENTS: Record<string, React.ComponentType<any>> = {
   Utensils, Car, ShoppingBag, Receipt, Film, MoreHorizontal,
   Home, Heart, Plane, Gift, Phone, Shield, Cpu, Coffee,
   Zap, BookOpen, Music, Smile, CreditCard, PiggyBank, Percent,
-  Truck, Wrench, Key, Wifi, Tv, Camera, Package, Bookmark, Sparkles, Globe, Tag
+  Truck, Wrench, Key, Wifi, Tv, Camera, Package, Bookmark, Sparkles, Globe, Tag,
+  Laptop, Smartphone, Battery, Dumbbell, Scissors, Shirt, Baby, Dog, Cat, Flower2,
+  Building, Bus, Bike, ShoppingCart, Activity, Apple, ShieldAlert, Anchor, Cloud,
+  Compass, Sun, Moon, Star, Award, Bell, Box, Calculator, Folder, Grid, Layers,
+  Lock, Mail, MapPin, Printer, Search, Share2, Sliders, User, Users, Wallet
 };
 
 const cleanString = (str: string): string => {

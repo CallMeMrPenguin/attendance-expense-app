@@ -132,7 +132,6 @@ export async function POST(req: Request) {
       id: txId,
       user_id: userId || receipt.user_id,
       user_name: 'Admin',
-      teacher_name: 'Admin',
       desc_text: descText,
       amount: Number(receipt.amount),
       type: type === 'saving' ? 'expense' : type,
@@ -141,7 +140,12 @@ export async function POST(req: Request) {
     };
 
     try {
-      await supabaseAdmin.from('manual_transactions').upsert(txRecord as any, { onConflict: 'id' });
+      const { error } = await supabaseAdmin.from('manual_transactions').upsert(txRecord as any, { onConflict: 'id' });
+      if (error) {
+        const { user_name, ...fallbackTx } = txRecord as any;
+        fallbackTx.teacher_name = user_name;
+        await supabaseAdmin.from('manual_transactions').upsert(fallbackTx as any, { onConflict: 'id' });
+      }
     } catch (e) {}
 
     // 4. Save auto-classification rule if requested (ignore default transfer descriptions like 'bui duc hung chuyen tien')

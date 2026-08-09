@@ -180,7 +180,7 @@ export async function POST(request: NextRequest) {
           return {
             id: t.id || `tx-${Date.now()}-${Math.random()}`,
             user_id: userId,
-            teacher_name: teacherName,
+            user_name: teacherName,
             desc_text,
             amount: Number(t.amount) || 0,
             type: t.type,
@@ -189,7 +189,12 @@ export async function POST(request: NextRequest) {
           };
         });
 
-        const { error: insErr } = await admin.from('manual_transactions').upsert(records as any, { onConflict: 'id' });
+        let { error: insErr } = await admin.from('manual_transactions').upsert(records as any, { onConflict: 'id' });
+        if (insErr && insErr.code === 'PGRST204') {
+          const fallbackRecords = records.map(({ user_name, ...rest }: any) => ({ ...rest, teacher_name: user_name }));
+          const { error: retryErr } = await admin.from('manual_transactions').upsert(fallbackRecords as any, { onConflict: 'id' });
+          insErr = retryErr;
+        }
         if (insErr) {
           if (insErr.code === '42P01') {
             return NextResponse.json({ tablesMissing: true, error: insErr.message }, { status: 400 });
@@ -202,15 +207,22 @@ export async function POST(request: NextRequest) {
 
     // Type 2: Sync savings funds
     if (type === 'savings_funds' && savingsFunds) {
-      const { error: fundErr } = await admin.from('savings_funds').upsert({
+      const fundPayload: any = {
         user_id: userId,
-        teacher_name: teacherName,
+        user_name: teacherName,
         emergency_current: Number(savingsFunds.emergencyCurrent) || 0,
         emergency_target: Number(savingsFunds.emergencyTarget) || 30000000,
         accumulation_current: Number(savingsFunds.accumulationCurrent) || 0,
         accumulation_target: Number(savingsFunds.accumulationTarget) || 150000000,
         updated_at: new Date().toISOString()
-      } as any, { onConflict: 'user_id' });
+      };
+      let { error: fundErr } = await admin.from('savings_funds').upsert(fundPayload, { onConflict: 'user_id' });
+      if (fundErr && fundErr.code === 'PGRST204') {
+        const { user_name, ...cleanFund } = fundPayload;
+        cleanFund.teacher_name = user_name;
+        const { error: retryErr } = await admin.from('savings_funds').upsert(cleanFund, { onConflict: 'user_id' });
+        fundErr = retryErr;
+      }
 
       if (fundErr) {
         console.error('Failed to upsert savings_funds in Supabase:', fundErr);
@@ -225,19 +237,18 @@ export async function POST(request: NextRequest) {
       const records = Object.keys(budgetsMap).map(cat => ({
         id: cat,
         user_id: userId,
-        teacher_name: teacherName,
+        user_name: teacherName,
         category: cat,
         amount: Number(budgetsMap[cat]) || 0,
         note: JSON.stringify({ text: '', kw: keywordsMap[cat] || '' }),
-        keywords: keywordsMap[cat] || null,
         updated_at: new Date().toISOString()
       }));
 
       if (records.length > 0) {
         let { error: bErr } = await admin.from('category_budgets').upsert(records as any, { onConflict: 'id' });
         if (bErr && bErr.code === 'PGRST204') {
-          const cleanRecords = records.map(({ keywords, ...rest }: any) => rest);
-          const { error: retryErr } = await admin.from('category_budgets').upsert(cleanRecords as any, { onConflict: 'id' });
+          const fallbackRecords = records.map(({ user_name, ...rest }: any) => ({ ...rest, teacher_name: user_name }));
+          const { error: retryErr } = await admin.from('category_budgets').upsert(fallbackRecords as any, { onConflict: 'id' });
           bErr = retryErr;
         }
         if (bErr) {
@@ -253,14 +264,19 @@ export async function POST(request: NextRequest) {
         const records = savingsHistory.map((h: any) => ({
           id: h.id || `sh-${Date.now()}-${Math.random()}`,
           user_id: userId,
-          teacher_name: teacherName,
+          user_name: teacherName,
           fund: h.fund,
           type: h.type,
           amount: Number(h.amount) || 0,
           date: h.date
         }));
 
-        const { error: insHistErr } = await admin.from('savings_history').upsert(records as any, { onConflict: 'id' });
+        let { error: insHistErr } = await admin.from('savings_history').upsert(records as any, { onConflict: 'id' });
+        if (insHistErr && insHistErr.code === 'PGRST204') {
+          const fallbackRecords = records.map(({ user_name, ...rest }: any) => ({ ...rest, teacher_name: user_name }));
+          const { error: retryErr } = await admin.from('savings_history').upsert(fallbackRecords as any, { onConflict: 'id' });
+          insHistErr = retryErr;
+        }
         if (insHistErr) {
           if (insHistErr.code === '42P01') {
             return NextResponse.json({ tablesMissing: true, error: insHistErr.message }, { status: 400 });

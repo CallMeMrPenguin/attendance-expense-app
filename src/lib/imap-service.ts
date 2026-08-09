@@ -440,14 +440,18 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
                         id: `tx-receipt-${receipt.id}`,
                         user_id: targetUserId,
                         user_name: 'Admin',
-                        teacher_name: 'Admin',
                         desc_text: `[Biên lai] ${updatedReceipt.remitter_name || ''} ➔ ${updatedReceipt.beneficiary_name || ''}: ${updatedReceipt.details}`,
                         amount: updatedReceipt.amount,
                         type: matchedType === 'saving' ? 'expense' : matchedType,
                         category: budget.category,
                         date: updatedReceipt.trans_date
                       };
-                      await clientAdmin.from('manual_transactions').upsert(txRecord as any, { onConflict: 'id' });
+                      const { error: insErr } = await clientAdmin.from('manual_transactions').upsert(txRecord as any, { onConflict: 'id' });
+                      if (insErr) {
+                        const { user_name, ...fallbackTx } = txRecord as any;
+                        fallbackTx.teacher_name = user_name;
+                        await clientAdmin.from('manual_transactions').upsert(fallbackTx as any, { onConflict: 'id' });
+                      }
                     }
                   } catch (dbErr) {
                     console.error('[IMAP Sync] DB background update failed:', dbErr);
@@ -628,14 +632,18 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
                 id: `tx-receipt-${receiptId}`,
                 user_id: targetUserId,
                 user_name: 'Admin',
-                teacher_name: 'Admin',
                 desc_text: `[Biên lai Vietcombank] ${newReceipt.remitter_name || ''} ➔ ${newReceipt.beneficiary_name || ''}: ${newReceipt.details}`,
                 amount: newReceipt.amount,
                 type: matchedType === 'saving' ? 'expense' : matchedType,
                 category: matchedCategory,
                 date: newReceipt.trans_date
               };
-              await clientAdmin.from('manual_transactions').upsert(txRecord as any, { onConflict: 'id' });
+              const { error: insErr } = await clientAdmin.from('manual_transactions').upsert(txRecord as any, { onConflict: 'id' });
+              if (insErr) {
+                const { user_name, ...fallbackTx } = txRecord as any;
+                fallbackTx.teacher_name = user_name;
+                await clientAdmin.from('manual_transactions').upsert(fallbackTx as any, { onConflict: 'id' });
+              }
             }
           } catch (e) {}
         }
