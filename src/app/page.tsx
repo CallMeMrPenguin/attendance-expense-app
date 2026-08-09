@@ -1288,18 +1288,13 @@ export default function Dashboard() {
   }, [manualTransactions]);
 
   const getMonthlyIncome = useCallback((monthStr: string) => {
-    const targetSessions = currentUser?.role === 'admin' ? allSessions : sessions;
-    const sbEarned = targetSessions
-      .filter(s => (s.status === 'Đã làm' || s.status === 'Đã dạy') && s.month_year === monthStr)
-      .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
-      
     const manualInc = manualTransactions
       .filter(t => t.type === 'income' && t.date.startsWith(monthStr))
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
 
     const rollOver = getPrecedingRollOverBalance(monthStr);
-    return sbEarned + manualInc + rollOver;
-  }, [sessions, allSessions, manualTransactions, currentUser, getPrecedingRollOverBalance]);
+    return manualInc + rollOver;
+  }, [manualTransactions, getPrecedingRollOverBalance]);
 
   const getMonthlyExpense = useCallback((monthStr: string) => {
     return manualTransactions
@@ -1309,11 +1304,6 @@ export default function Dashboard() {
 
   // Filtered values by selected months (including previous month roll-over balance)
   const getSelectedMonthsIncome = useCallback(() => {
-    const targetSessions = currentUser?.role === 'admin' ? allSessions : sessions;
-    const sbEarned = targetSessions
-      .filter(s => (s.status === 'Đã làm' || s.status === 'Đã dạy') && chartSelectedMonths.includes(s.month_year))
-      .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
-      
     const manualInc = manualTransactions
       .filter(t => t.type === 'income' && chartSelectedMonths.includes(t.date.substring(0, 7)))
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
@@ -1322,8 +1312,8 @@ export default function Dashboard() {
     const earliestMonth = sortedMonths[0];
     const rollOver = earliestMonth ? getPrecedingRollOverBalance(earliestMonth) : 0;
       
-    return sbEarned + manualInc + rollOver;
-  }, [sessions, allSessions, manualTransactions, chartSelectedMonths, currentUser, getPrecedingRollOverBalance]);
+    return manualInc + rollOver;
+  }, [manualTransactions, chartSelectedMonths, getPrecedingRollOverBalance]);
 
   const getSelectedMonthsExpense = useCallback(() => {
     return manualTransactions
@@ -1333,25 +1323,14 @@ export default function Dashboard() {
 
   // Weekly calculations for single-month line view
   const getWeeklyIncome = useCallback((monthStr: string, startDay: number, endDay: number) => {
-    const targetSessions = currentUser?.role === 'admin' ? allSessions : sessions;
-    const sbEarned = targetSessions
-      .filter(s => {
-        if (s.month_year !== monthStr || (s.status !== 'Đã làm' && s.status !== 'Đã dạy')) return false;
-        const d = Number(s.date.split('-')[2]) || 1;
-        return d >= startDay && d <= endDay;
-      })
-      .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
-      
-    const manualInc = manualTransactions
+    return manualTransactions
       .filter(t => {
         if (t.type !== 'income' || !t.date.startsWith(monthStr)) return false;
         const d = Number(t.date.split('-')[2]) || 1;
         return d >= startDay && d <= endDay;
       })
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-      
-    return sbEarned + manualInc;
-  }, [sessions, allSessions, manualTransactions, currentUser]);
+  }, [manualTransactions]);
 
   const getWeeklyExpense = useCallback((monthStr: string, startDay: number, endDay: number) => {
     return manualTransactions
@@ -1371,17 +1350,11 @@ export default function Dashboard() {
         .filter(t => t.type === 'expense' && t.category === cat && chartSelectedMonths.includes(t.date.substring(0, 7)))
         .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
     } else {
-      const manualInc = manualTransactions
+      return manualTransactions
         .filter(t => t.type === 'income' && t.category === cat && chartSelectedMonths.includes(t.date.substring(0, 7)))
         .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-      
-      const targetSessions = currentUser?.role === 'admin' ? allSessions : sessions;
-      const sbInc = targetSessions
-        .filter(s => (s.status === 'Đã làm' || s.status === 'Đã dạy') && chartSelectedMonths.includes(s.month_year) && ((s as any).income_category || s.category || 'Giáo dục') === cat)
-        .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
-      return manualInc + sbInc;
     }
-  }, [manualTransactions, sessions, allSessions, chartSelectedMonths, currentUser]);
+  }, [manualTransactions, chartSelectedMonths]);
 
   // Toggle multi-select months
   const toggleChartMonth = useCallback((mStr: string) => {

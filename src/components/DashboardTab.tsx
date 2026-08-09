@@ -137,13 +137,9 @@ export default function DashboardTab({
   // Helper for daily income calculation
   const getDailyIncome = (monthStr: string, day: number) => {
     const dayStr = `${monthStr}-${String(day).padStart(2, '0')}`;
-    const manual = manualTransactions
+    return manualTransactions
       .filter(t => t.type === 'income' && t.date === dayStr)
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-    const auto = sessions
-      .filter(s => s.status === 'Đã dạy' && s.date === dayStr)
-      .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
-    return manual + auto;
   };
 
   // Helper for daily expense calculation
