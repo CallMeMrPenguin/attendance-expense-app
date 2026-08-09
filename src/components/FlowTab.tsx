@@ -2008,22 +2008,9 @@ function FlowTab({
             const isTrangTx = (item: any) => {
               const sName = (item.sender_name || item.remitter_name || '').toUpperCase();
               const dAcc = (item.debit_account || '').toString();
-              const detailsStr = (item.details || item.desc || '').toUpperCase();
 
-              // If sender is explicitly BUI DUC HUNG or account 1030723743, it is HUNG'S payment, NEVER Trang's!
-              const isHungSender = sName.includes('BUI DUC HUNG') || dAcc.includes('1030723743') || detailsStr.includes('BUI DUC HUNG CHUYEN TIEN');
-              if (isHungSender) return false;
-
-              // Check if Trang is the sender
-              const isTrangSender = (
-                sName.includes('PHAM THI THU TRANG') ||
-                dAcc.includes('9981397845') ||
-                detailsStr.includes('9981397845') ||
-                detailsStr.includes('DEBIT: 9981397845') ||
-                detailsStr.includes('SENDER: PHAM THI THU TRANG')
-              );
-
-              return isTrangSender;
+              // Strictly check remitter/sender name or debit account only
+              return sName.includes('PHAM THI THU TRANG') || dAcc.includes('9981397845');
             };
 
             const receiptsTrang = bankReceipts.filter(r => r.status === 'classified' && (r.type === 'expense' || !r.type) && isTrangTx(r)).map(r => ({
