@@ -223,8 +223,7 @@ export function isDefaultTransferDetails(text: string): boolean {
     
     const nameWords = new Set([
       'bui', 'duc', 'hung', 'pham', 'thi', 'thu', 'trang', 'nguyen', 'van', 'a', 'b', 'c',
-      'tran', 'le', 'hoang', 'vo', 'dang', 'do', 'ngo', 'duong', 'ly', 'vu', 'dinh', 'tuan',
-      'anh', 'minh', 'nam', 'ha', 'linh', 'mai', 'phuong', 'quan', 'son', 'thang', 'thanh'
+      'tran', 'le', 'hoang', 'vo', 'dang', 'do', 'ngo', 'duong', 'ly', 'vu', 'dinh', 'tuan'
     ]);
 
     const remainingWords = stripped.split(' ').filter(Boolean);
