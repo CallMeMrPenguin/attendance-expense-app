@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
-import { BankReceipt, ReceiptRule } from '@/lib/imap-service';
+import { BankReceipt, ReceiptRule, isDefaultTransferDetails } from '@/lib/imap-service';
 
 export async function GET() {
   try {
@@ -143,8 +143,10 @@ export async function POST(req: Request) {
       await supabaseAdmin.from('manual_transactions').upsert(txRecord as any, { onConflict: 'id' });
     } catch (e) {}
 
-    // 4. Save auto-classification rule if requested
-    if (createRule && matchField && matchValue) {
+    // 4. Save auto-classification rule if requested (ignore default transfer descriptions like 'bui duc hung chuyen tien')
+    const isDefault = (matchField === 'details' || matchField === 'remitter_beneficiary_details') && isDefaultTransferDetails(matchValue);
+
+    if (createRule && matchField && matchValue && !isDefault) {
       const ruleId = `rule-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
       const ruleRecord = {
         id: ruleId,

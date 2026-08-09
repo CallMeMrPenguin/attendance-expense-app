@@ -91,6 +91,35 @@ const matchKeyword = (cleanDetails: string, kw: string): boolean => {
   return regex.test(trimmedText);
 };
 
+const isDefaultTransferDetails = (text: string): boolean => {
+  const clean = cleanString(text);
+  if (!clean) return true;
+
+  const defaultPattern = /^(?:[a-z0-9]+\s+)*(?:chuyen\s*tien|chuyen\s*khoang|chuyen\s*tk|thanh\s*toan)(?:\s+[a-z0-9]+)*$/i;
+  
+  if (defaultPattern.test(clean)) {
+    const stripped = clean
+      .replace(/\b(?:chuyen\s*tien|chuyen\s*khoang|chuyen\s*tk|thanh\s*toan|chuyen|tien|khoang|tk)\b/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    
+    const nameWords = new Set([
+      'bui', 'duc', 'hung', 'pham', 'thi', 'thu', 'trang', 'nguyen', 'van', 'a', 'b', 'c',
+      'tran', 'le', 'hoang', 'vo', 'dang', 'do', 'ngo', 'duong', 'ly', 'vu', 'dinh', 'tuan',
+      'anh', 'minh', 'nam', 'ha', 'linh', 'mai', 'phuong', 'quan', 'son', 'thang', 'thanh'
+    ]);
+
+    const remainingWords = stripped.split(' ').filter(Boolean);
+    const hasNonNameWord = remainingWords.some(w => !nameWords.has(w));
+    
+    if (!hasNonNameWord) {
+      return true;
+    }
+  }
+  
+  return false;
+};
+
 const CategoryIcon = React.memo(({ iconName, className }: { iconName: string, className?: string }) => {
   if (!iconName) return <HelpCircle className={className} />;
   const IconComp = ICON_COMPONENTS[iconName];
@@ -1064,52 +1093,36 @@ function FlowTab({
         const r = row.original;
         const isClassified = r.status === 'classified';
         return (
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setClassifyingReceipt(r);
-                const t = r.type || 'expense';
-                setSelectedType(t);
-                if (t === 'saving') {
-                  setSelectedCat(r.category || 'Tiết kiệm khẩn cấp');
-                } else if (t === 'income') {
-                  setSelectedCat(r.category || incomeCats[0]?.name || 'Lương');
-                } else {
-                  setSelectedCat(r.category || expenseCats[0]?.name || 'Ăn uống');
-                }
-                setMatchField('credit_account');
-                setMatchValue(r.credit_account || r.details || '');
-              }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer shadow-md ${
-                isClassified
-                  ? 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10'
-                  : 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-[0_0_12px_rgba(245,158,11,0.4)]'
-              }`}
-            >
-              {isClassified ? 'Sửa' : 'Phân loại'}
-            </button>
-            {isClassified && handleUnclassifyReceipt && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleUnclassifyReceipt(r.id);
-                }}
-                title="Chuyển về Chưa phân loại"
-                className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-xl transition-all cursor-pointer"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setClassifyingReceipt(r);
+              const t = r.type || 'expense';
+              setSelectedType(t);
+              if (t === 'saving') {
+                setSelectedCat(r.category || 'Tiết kiệm khẩn cấp');
+              } else if (t === 'income') {
+                setSelectedCat(r.category || incomeCats[0]?.name || 'Lương');
+              } else {
+                setSelectedCat(r.category || expenseCats[0]?.name || 'Ăn uống');
+              }
+              setMatchField('credit_account');
+              setMatchValue(r.credit_account || r.details || '');
+            }}
+            className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer shadow-md ${
+              isClassified
+                ? 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10'
+                : 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-[0_0_12px_rgba(245,158,11,0.4)]'
+            }`}
+          >
+            {isClassified ? 'Sửa' : 'Phân loại'}
+          </button>
         );
       }
     }
-  ], [incomeCats, expenseCats, handleUnclassifyReceipt]);
+  ], [incomeCats, expenseCats]);
 
   const transactionColumns = useMemo<ColumnDef<any>[]>(() => [
     {
@@ -2798,11 +2811,18 @@ function FlowTab({
                   onClick={async () => {
                     if (handleClassifyReceipt && classifyingReceipt) {
                       setIsSavingClassification(true);
+                      const isDefaultMatch = (matchField === 'details' || matchField === 'remitter_beneficiary_details') && isDefaultTransferDetails(matchValue);
+                      const willCreateRule = createRule && !isDefaultMatch;
+
+                      if (createRule && isDefaultMatch) {
+                        showToast('Không tạo quy tắc tự động cho nội dung mặc định!', 'info');
+                      }
+
                       await handleClassifyReceipt(
                         classifyingReceipt.id,
                         selectedType,
                         selectedCat,
-                        createRule,
+                        willCreateRule,
                         matchField,
                         matchValue,
                         receiptNote

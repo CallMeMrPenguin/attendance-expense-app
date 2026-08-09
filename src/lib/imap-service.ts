@@ -209,6 +209,35 @@ export function matchKeyword(cleanDetails: string, kw: string): boolean {
   return regex.test(trimmedText);
 }
 
+export function isDefaultTransferDetails(text: string): boolean {
+  const clean = cleanString(text);
+  if (!clean) return true;
+
+  const defaultPattern = /^(?:[a-z0-9]+\s+)*(?:chuyen\s*tien|chuyen\s*khoang|chuyen\s*tk|thanh\s*toan)(?:\s+[a-z0-9]+)*$/i;
+  
+  if (defaultPattern.test(clean)) {
+    const stripped = clean
+      .replace(/\b(?:chuyen\s*tien|chuyen\s*khoang|chuyen\s*tk|thanh\s*toan|chuyen|tien|khoang|tk)\b/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    
+    const nameWords = new Set([
+      'bui', 'duc', 'hung', 'pham', 'thi', 'thu', 'trang', 'nguyen', 'van', 'a', 'b', 'c',
+      'tran', 'le', 'hoang', 'vo', 'dang', 'do', 'ngo', 'duong', 'ly', 'vu', 'dinh', 'tuan',
+      'anh', 'minh', 'nam', 'ha', 'linh', 'mai', 'phuong', 'quan', 'son', 'thang', 'thanh'
+    ]);
+
+    const remainingWords = stripped.split(' ').filter(Boolean);
+    const hasNonNameWord = remainingWords.some(w => !nameWords.has(w));
+    
+    if (!hasNonNameWord) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
 export async function stopImapIdleListener() {
   if (imapClientInstance) {
     try {
@@ -520,6 +549,10 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
           // 2. Fallback to existing ruleList matching
           if (status !== 'classified') {
             for (const rule of ruleList) {
+              if (rule.match_field === 'details' || rule.match_field === 'remitter_beneficiary_details') {
+                if (isDefaultTransferDetails(rule.match_value)) continue;
+              }
+
               let valToMatch = '';
               if (rule.match_field === 'remitter_name') valToMatch = receiptData.remitter_name || '';
               else if (rule.match_field === 'credit_account') valToMatch = receiptData.credit_account || '';
