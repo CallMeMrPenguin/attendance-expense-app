@@ -522,7 +522,19 @@ export default function EditSessionModal({
   };
 
   const executeDeleteSessions = async () => {
-    const checkedIds = siblings.filter((s) => s.checked).map((s) => s.id);
+    let checkedIds = siblings
+      .filter((s) => s.checked && s.id)
+      .map((s) => s.id as string);
+
+    if (checkedIds.length === 0 && session?.id) {
+      checkedIds = [session.id];
+    }
+
+    if (checkedIds.length === 0) {
+      setError('Không tìm thấy ca dạy cần xóa.');
+      return;
+    }
+
     setLoading(true);
     setError('');
     setShowDeleteConfirmModal(false);
@@ -538,6 +550,7 @@ export default function EditSessionModal({
       onSave();
       onClose();
     } catch (err: any) {
+      console.error('Error deleting sessions:', err);
       setError(err.message || 'Lỗi khi xóa ca dạy.');
     } finally {
       setLoading(false);
@@ -545,8 +558,8 @@ export default function EditSessionModal({
   };
 
   const handleDeleteSessions = () => {
-    const checkedIds = siblings.filter((s) => s.checked).map((s) => s.id);
-    if (checkedIds.length === 0) {
+    const validCheckedIds = siblings.filter((s) => s.checked && s.id).map((s) => s.id as string);
+    if (validCheckedIds.length === 0 && !session?.id) {
       setError('Vui lòng tích chọn ít nhất 1 ca để xóa!');
       return;
     }
@@ -596,7 +609,7 @@ export default function EditSessionModal({
               <span>Xác Nhận Xóa Ca Dạy</span>
             </div>
             <p className="text-xs text-slate-300 font-medium leading-relaxed bg-slate-900/80 p-3.5 rounded-xl border border-white/5">
-              Xóa <strong className="text-white">{siblings.filter((s) => s.checked).length}</strong> ca dạy đã chọn? Các ca này sẽ bị xóa khỏi hệ thống vĩnh viễn.
+              Xóa <strong className="text-white">{siblings.filter((s) => s.checked && s.id).length || 1}</strong> ca dạy đã chọn? Các ca này sẽ bị xóa khỏi hệ thống vĩnh viễn.
             </p>
             <div className="flex justify-end gap-3 pt-2">
               <button
