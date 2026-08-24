@@ -1024,11 +1024,20 @@ function FlowTab({
       cell: ({ row }) => {
         const r = row.original;
         const isClassified = r.status === 'classified';
+        const isIncome = r.type === 'income';
+        const isSaving = r.type === 'saving';
+        const badgeStyle = isIncome
+          ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+          : isSaving
+          ? 'bg-purple-500/20 text-purple-400 border-purple-500/30'
+          : 'bg-rose-500/20 text-rose-400 border-rose-500/30';
+        const typeLabel = isIncome ? 'Thu' : isSaving ? 'Tiết kiệm' : 'Chi';
+
         return (
           <div className="flex items-center gap-1.5 flex-wrap">
             {isClassified ? (
-              <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                {r.category} ({r.type === 'income' ? 'Thu' : 'Chi'})
+              <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase border ${badgeStyle}`}>
+                {r.category} ({typeLabel})
               </span>
             ) : (
               <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">
@@ -1043,11 +1052,18 @@ function FlowTab({
       accessorKey: 'amount',
       header: 'Số Tiền',
       size: 130,
-      cell: ({ row }) => (
-        <span className="font-black text-amber-400 text-sm">
-          {formatVND(row.original.amount)}
-        </span>
-      )
+      cell: ({ row }) => {
+        const r = row.original;
+        const isIncome = r.type === 'income';
+        const isSaving = r.type === 'saving';
+        const colorClass = isIncome ? 'text-emerald-400' : isSaving ? 'text-purple-400' : 'text-rose-400';
+        const prefix = isIncome ? '+' : '-';
+        return (
+          <span className={`font-black text-sm ${colorClass}`}>
+            {prefix}{formatVND(r.amount)}
+          </span>
+        );
+      }
     },
     {
       id: 'actions',
