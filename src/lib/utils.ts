@@ -207,3 +207,35 @@ export function parseNumberDots(val: string): number {
   const digits = val.replace(/\D/g, '');
   return Number(digits) || 0;
 }
+
+// Strictly 1-decimal truncation without rounding up/down (Rule #17)
+export function trunc1Dec(num: number | string): string {
+  const n = typeof num === 'string' ? parseFloat(num) : num;
+  if (isNaN(n) || !isFinite(n)) return '0.0';
+  const str = n.toString();
+  const dotIndex = str.indexOf('.');
+  if (dotIndex === -1) {
+    return `${str}.0`;
+  }
+  return str.substring(0, dotIndex + 2);
+}
+
+export interface ScheduleWorkSummary {
+  id: string;
+  name: string;
+  color: string;
+  loai_hinh: 'co_dinh' | 'tam_thoi';
+  income_category: string;
+  price: number;
+  duration: number;
+  time: string;
+  daysOfWeek: string[];
+  totalShifts: number;
+  completedShifts: number;
+  pendingShifts: number;
+  cancelledShifts: number;
+  completionRate: number;
+  earnedIncome: number;
+  projectedIncome: number;
+  sessions: Session[];
+}

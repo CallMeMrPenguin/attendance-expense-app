@@ -164,7 +164,7 @@ export default function Dashboard() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [allSessions, setAllSessions] = useState<Session[]>([]);
   const [selectedMonth, setSelectedMonth] = useState('');
-  const [currentView, setCurrentView] = useState<'month' | 'week'>('month');
+  const [currentView, setCurrentView] = useState<'month' | 'week' | 'stats'>('month');
 
   // Modal open states for Scheduler & Profiles
   const [addModalOpen, setAddModalOpen] = useState(false);
