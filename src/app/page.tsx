@@ -1068,10 +1068,58 @@ export default function Dashboard() {
     });
   }, []);
 
-  // Helper to carry forward fixed schedules into target month if missing
+  // Helper to get exclusions key
+  const getScheduleExclusionsKey = (teacherName: string) => `schedule_exclusions_${cleanString(teacherName)}`;
+
+  // Helper to fetch exclusions from Supabase category_budgets
+  const fetchScheduleExclusions = useCallback(async (teacherName: string): Promise<Record<string, string[]>> => {
+    if (!teacherName) return {};
+    try {
+      const { data } = await supabase
+        .from('category_budgets')
+        .select('note')
+        .eq('id', getScheduleExclusionsKey(teacherName))
+        .maybeSingle();
+      if (data?.note) {
+        const parsed = JSON.parse(data.note);
+        if (parsed && typeof parsed === 'object') return parsed;
+      }
+    } catch (err) {
+      console.error('Error reading schedule exclusions:', err);
+    }
+    return {};
+  }, []);
+
+  // Helper to save exclusions to Supabase category_budgets
+  const saveScheduleExclusions = useCallback(async (teacherName: string, exclusions: Record<string, string[]>, userId?: string) => {
+    if (!teacherName) return;
+    try {
+      const record = {
+        id: getScheduleExclusionsKey(teacherName),
+        user_id: userId || '2d3a11e1-4d71-474c-b8df-abb85394e9c8',
+        user_name: teacherName,
+        category: '__SCHEDULE_EXCLUSIONS__',
+        amount: 0,
+        type: 'settings',
+        icon: 'CalendarX',
+        note: JSON.stringify(exclusions),
+        updated_at: new Date().toISOString()
+      };
+      await (supabase.from('category_budgets') as any).upsert(record, { onConflict: 'id' });
+    } catch (err) {
+      console.error('Error saving schedule exclusions:', err);
+    }
+  }, []);
+
+  // Helper to carry forward fixed schedules into target month if missing, skipping excluded/deleted schedules
   const syncFixedSchedulesForMonth = useCallback(async (targetMonth: string, currentMonthData: any[], teacherName: string) => {
     if (!targetMonth || !teacherName) return currentMonthData;
     try {
+      // 0. Load exclusions for this teacher
+      const exclusions = await fetchScheduleExclusions(teacherName);
+      const monthExclusions = (exclusions[targetMonth] || []).map(x => x.toLowerCase().trim());
+      const allExclusions = (exclusions['all'] || []).map(x => x.toLowerCase().trim());
+
       // 1. Fetch prior sessions for this teacher (user_name) from months before targetMonth
       const { data: priorSessions, error: priorErr } = await supabase
         .from('sessions')
@@ -1101,12 +1149,18 @@ export default function Dashboard() {
         currentMonthData.map((s: any) => (s.student_name || s.job_name || '').trim().toLowerCase())
       );
 
-      // Collect prior fixed sessions for students not in current month
+      // Collect prior fixed sessions for students not in current month AND not excluded
       const studentsToCarryForwardMap = new Map<string, any[]>();
       for (const s of latestPriorSessions) {
         const sName = (s.student_name || s.job_name || '').trim();
         if (!sName) continue;
         const key = sName.toLowerCase();
+
+        // Strictly check if schedule was excluded by user
+        if (monthExclusions.includes(key) || allExclusions.includes(key)) {
+          continue;
+        }
+
         if (!existingStudentNames.has(key)) {
           if (!studentsToCarryForwardMap.has(key)) {
             studentsToCarryForwardMap.set(key, []);
@@ -1180,7 +1234,7 @@ export default function Dashboard() {
       console.error('Error syncing fixed schedules:', err);
     }
     return currentMonthData;
-  }, []);
+  }, [fetchScheduleExclusions]);
 
   // Fetch session schedule data
   const fetchSessions = useCallback(async () => {
@@ -1240,6 +1294,131 @@ export default function Dashboard() {
 
     setLoading(false);
   }, [activeTeacherName, selectedMonth, chartSelectedMonths, currentUser, processAutoCheckIn]);
+
+  // Handler to delete a schedule either for the current month or permanently across all months
+  const handleDeleteSchedule = useCallback(async (jobName: string, scope: 'month' | 'all') => {
+    if (!jobName || !activeTeacherName) return;
+    setLoading(true);
+    try {
+      const cleanName = jobName.trim();
+      const cleanKey = cleanName.toLowerCase();
+
+      if (scope === 'month') {
+        // 1. Delete all sessions of this schedule in selectedMonth
+        const { data: monthMatches } = await supabase
+          .from('sessions')
+          .select('id, user_name, teacher_name, job_name, student_name')
+          .eq('month_year', selectedMonth);
+
+        const idsToDelete = (monthMatches || []).filter(s => {
+          const tName = (s.user_name || s.teacher_name || '').trim().toLowerCase();
+          const actTeacher = activeTeacherName.trim().toLowerCase();
+          const jName = (s.job_name || s.student_name || '').trim().toLowerCase();
+          return (!actTeacher || !tName || tName === actTeacher) && (jName === cleanKey);
+        }).map(s => s.id);
+
+        if (idsToDelete.length > 0) {
+          const { error: delErr } = await supabase
+            .from('sessions')
+            .delete()
+            .in('id', idsToDelete);
+          if (delErr) console.error('Delete sessions error:', delErr);
+        }
+
+        // 2. Add to exclusions for selectedMonth so auto-sync never brings it back
+        const exclusions = await fetchScheduleExclusions(activeTeacherName);
+        const currentMonthList = exclusions[selectedMonth] || [];
+        if (!currentMonthList.some(x => x.toLowerCase() === cleanKey)) {
+          exclusions[selectedMonth] = [...currentMonthList, cleanKey];
+          await saveScheduleExclusions(activeTeacherName, exclusions, currentUser?.id);
+        }
+
+        showToast(`Đã xóa lịch trình "${cleanName}" trong tháng ${selectedMonth}!`, 'success');
+      } else {
+        // 1. Delete all sessions of this schedule across ALL months
+        const { data: allMatches } = await supabase
+          .from('sessions')
+          .select('id, user_name, teacher_name, job_name, student_name');
+
+        const idsToDelete = (allMatches || []).filter(s => {
+          const tName = (s.user_name || s.teacher_name || '').trim().toLowerCase();
+          const actTeacher = activeTeacherName.trim().toLowerCase();
+          const jName = (s.job_name || s.student_name || '').trim().toLowerCase();
+          return (!actTeacher || !tName || tName === actTeacher) && (jName === cleanKey);
+        }).map(s => s.id);
+
+        if (idsToDelete.length > 0) {
+          const { error: delErr } = await supabase
+            .from('sessions')
+            .delete()
+            .in('id', idsToDelete);
+          if (delErr) console.error('Delete all sessions error:', delErr);
+        }
+
+        // 2. Add to exclusions for 'all' so auto-sync never brings it back in any month
+        const exclusions = await fetchScheduleExclusions(activeTeacherName);
+        const allList = exclusions['all'] || [];
+        if (!allList.some(x => x.toLowerCase() === cleanKey)) {
+          exclusions['all'] = [...allList, cleanKey];
+          await saveScheduleExclusions(activeTeacherName, exclusions, currentUser?.id);
+        }
+
+        showToast(`Đã xóa vĩnh viễn lịch trình "${cleanName}" khỏi hệ thống!`, 'success');
+      }
+
+      await fetchSessions();
+    } catch (err: any) {
+      console.error('Error in handleDeleteSchedule:', err);
+      showToast(err.message || 'Lỗi khi xóa lịch trình.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [activeTeacherName, selectedMonth, currentUser, fetchScheduleExclusions, saveScheduleExclusions, fetchSessions, showToast]);
+
+  // Handler to delete a single session by ID
+  const handleDeleteSingleSession = useCallback(async (sessionId: string) => {
+    if (!sessionId) return;
+    setLoading(true);
+    try {
+      const { error: delErr } = await supabase
+        .from('sessions')
+        .delete()
+        .eq('id', sessionId);
+
+      if (delErr) throw new Error(delErr.message);
+
+      showToast('Đã xóa ca làm việc thành công!', 'success');
+      await fetchSessions();
+    } catch (err: any) {
+      console.error('Error in handleDeleteSingleSession:', err);
+      showToast(err.message || 'Lỗi khi xóa ca làm việc.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchSessions, showToast]);
+
+  // Helper to clear exclusions if user manually re-adds a schedule
+  const handleClearScheduleExclusion = useCallback(async (jobName: string, month: string) => {
+    if (!jobName || !activeTeacherName) return;
+    try {
+      const key = jobName.trim().toLowerCase();
+      const exclusions = await fetchScheduleExclusions(activeTeacherName);
+      let changed = false;
+      if (exclusions[month]) {
+        exclusions[month] = exclusions[month].filter(x => x.toLowerCase() !== key);
+        changed = true;
+      }
+      if (exclusions['all']) {
+        exclusions['all'] = exclusions['all'].filter(x => x.toLowerCase() !== key);
+        changed = true;
+      }
+      if (changed) {
+        await saveScheduleExclusions(activeTeacherName, exclusions, currentUser?.id);
+      }
+    } catch (err) {
+      console.error('Error clearing schedule exclusion:', err);
+    }
+  }, [activeTeacherName, currentUser, fetchScheduleExclusions, saveScheduleExclusions]);
 
   // Sync teachers and sessions when user or parameters change
   useEffect(() => {
@@ -1667,6 +1846,8 @@ export default function Dashboard() {
                 setPreSelectedAddDate(dateStr);
                 setAddModalOpen(true);
               }}
+              onDeleteSchedule={handleDeleteSchedule}
+              onDeleteSingleSession={handleDeleteSingleSession}
             />
           )}
 
@@ -1764,6 +1945,7 @@ export default function Dashboard() {
           teachers={teachers}
           currentUser={currentUser}
           preSelectedDate={preSelectedAddDate}
+          onClearExclusion={(jobName) => handleClearScheduleExclusion(jobName, selectedMonth)}
         />
       )}
 
@@ -1780,6 +1962,8 @@ export default function Dashboard() {
           existingSessions={sessions}
           teachers={teachers}
           currentUser={currentUser}
+          onDeleteSchedule={handleDeleteSchedule}
+          onDeleteSingleSession={handleDeleteSingleSession}
         />
       )}
 

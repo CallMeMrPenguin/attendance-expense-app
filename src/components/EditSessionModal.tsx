@@ -40,6 +40,8 @@ interface EditSessionModalProps {
     role: 'admin' | 'teacher' | 'user';
     teacherName: string;
   };
+  onDeleteSchedule?: (jobName: string, scope: 'month' | 'all') => Promise<void>;
+  onDeleteSingleSession?: (sessionId: string) => Promise<void>;
 }
 
 interface SiblingCheck {
@@ -89,7 +91,9 @@ export default function EditSessionModal({
   onSave,
   onSwitchSession,
   teachers = [],
-  currentUser
+  currentUser,
+  onDeleteSchedule,
+  onDeleteSingleSession
 }: EditSessionModalProps) {
   const [assignedTeacherName, setAssignedTeacherName] = useState(session?.teacher_name || '');
   const [studentName, setStudentName] = useState('');
@@ -137,6 +141,7 @@ export default function EditSessionModal({
   const [pendingSiblingSessions, setPendingSiblingSessions] = useState<any[]>([]);
   const [pendingOldSiblingIds, setPendingOldSiblingIds] = useState<string[]>([]);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [deleteScope, setDeleteScope] = useState<'single' | 'month' | 'all'>('single');
 
   const loadedSessionIdRef = React.useRef<string | null>(null);
 
@@ -167,13 +172,17 @@ export default function EditSessionModal({
     setColor(studentColor);
     setIsColorCustomized(!!session.color && session.color !== getStudentColor(session.student_name));
 
-    // Find siblings
-    const related = existingSessions.filter(
-      (s) =>
-        s.student_name === session.student_name &&
-        s.month_year === session.month_year &&
-        s.teacher_name === session.teacher_name
-    );
+    // Find siblings using case-insensitive trimmed matching
+    const curJob = (session.job_name || session.student_name || '').trim().toLowerCase();
+    const curTeacher = (session.user_name || session.teacher_name || '').trim().toLowerCase();
+    const related = existingSessions.filter((s) => {
+      const sJob = (s.job_name || s.student_name || '').trim().toLowerCase();
+      const sTeacher = (s.user_name || s.teacher_name || '').trim().toLowerCase();
+      const matchJob = sJob === curJob;
+      const matchMonth = s.month_year === session.month_year;
+      const matchTeacher = !curTeacher || !sTeacher || sTeacher === curTeacher;
+      return matchJob && matchMonth && matchTeacher;
+    });
 
     // Set recurring weekdays configs first so we can use it to populate siblings
     const recurringMap: Record<string, RecurringDayConfig> = DAYS.reduce((acc, day) => {
@@ -430,12 +439,16 @@ export default function EditSessionModal({
         throw new Error('Vui lòng chọn ít nhất 1 thứ trong lịch định kỳ!');
       }
 
-      const oldSiblings = existingSessions.filter(
-        (s) =>
-          s.student_name === session.student_name &&
-          s.month_year === session.month_year &&
-          s.teacher_name === session.teacher_name
-      );
+      const curJob = (session.job_name || session.student_name || '').trim().toLowerCase();
+      const curTeacher = (session.user_name || session.teacher_name || '').trim().toLowerCase();
+      const oldSiblings = existingSessions.filter((s) => {
+        const sJob = (s.job_name || s.student_name || '').trim().toLowerCase();
+        const sTeacher = (s.user_name || s.teacher_name || '').trim().toLowerCase();
+        const matchJob = sJob === curJob;
+        const matchMonth = s.month_year === session.month_year;
+        const matchTeacher = !curTeacher || !sTeacher || sTeacher === curTeacher;
+        return matchJob && matchMonth && matchTeacher;
+      });
       const oldSiblingIds = oldSiblings.map((s) => s.id);
       const existingOtherSessions = existingSessions.filter((s) => !oldSiblingIds.includes(s.id));
 
@@ -522,32 +535,53 @@ export default function EditSessionModal({
   };
 
   const executeDeleteSessions = async () => {
-    let checkedIds = siblings
-      .filter((s) => s.checked && s.id)
-      .map((s) => s.id as string);
-
-    if (checkedIds.length === 0 && session?.id) {
-      checkedIds = [session.id];
-    }
-
-    if (checkedIds.length === 0) {
-      setError('Không tìm thấy ca dạy cần xóa.');
-      return;
-    }
-
+    if (!session) return;
     setLoading(true);
     setError('');
     setShowDeleteConfirmModal(false);
 
     try {
-      const { error: deleteError } = await supabase
-        .from('sessions')
-        .delete()
-        .in('id', checkedIds);
+      const jobName = session.job_name || session.student_name || '';
 
-      if (deleteError) throw new Error(deleteError.message);
+      if (deleteScope === 'single') {
+        if (onDeleteSingleSession && session.id) {
+          await onDeleteSingleSession(session.id);
+        } else if (session.id) {
+          const { error: delErr } = await supabase
+            .from('sessions')
+            .delete()
+            .eq('id', session.id);
+          if (delErr) throw new Error(delErr.message);
+          onSave();
+        }
+      } else if (deleteScope === 'month') {
+        if (onDeleteSchedule && jobName) {
+          await onDeleteSchedule(jobName, 'month');
+        } else {
+          let checkedIds = siblings
+            .filter((s) => s.id)
+            .map((s) => s.id as string);
+          if (checkedIds.length === 0 && session.id) checkedIds = [session.id];
+          const { error: delErr } = await supabase
+            .from('sessions')
+            .delete()
+            .in('id', checkedIds);
+          if (delErr) throw new Error(delErr.message);
+          onSave();
+        }
+      } else if (deleteScope === 'all') {
+        if (onDeleteSchedule && jobName) {
+          await onDeleteSchedule(jobName, 'all');
+        } else {
+          const { error: delErr } = await supabase
+            .from('sessions')
+            .delete()
+            .or(`job_name.ilike.${jobName},student_name.ilike.${jobName}`);
+          if (delErr) throw new Error(delErr.message);
+          onSave();
+        }
+      }
 
-      onSave();
       onClose();
     } catch (err: any) {
       console.error('Error deleting sessions:', err);
@@ -558,11 +592,7 @@ export default function EditSessionModal({
   };
 
   const handleDeleteSessions = () => {
-    const validCheckedIds = siblings.filter((s) => s.checked && s.id).map((s) => s.id as string);
-    if (validCheckedIds.length === 0 && !session?.id) {
-      setError('Vui lòng tích chọn ít nhất 1 ca để xóa!');
-      return;
-    }
+    setDeleteScope('single');
     setShowDeleteConfirmModal(true);
   };
 
@@ -600,29 +630,114 @@ export default function EditSessionModal({
         </div>
       )}
 
-      {/* Delete Sessions Custom Modal */}
-      {showDeleteConfirmModal && (
-        <div className="fixed inset-0 bg-black/80 z-[120] flex items-center justify-center p-4 animate-mac-backdrop">
-          <div className="bg-[#121624] border border-rose-500/40 rounded-2xl p-6 max-w-md w-full shadow-2xl flex flex-col gap-4 text-left animate-mac-modal">
+      {/* Delete Sessions Custom Modal with Scope Selection */}
+      {showDeleteConfirmModal && session && (
+        <div className="fixed inset-0 bg-black/85 z-[120] flex items-center justify-center p-4 animate-mac-backdrop">
+          <div className="bg-[#121624] border border-rose-500/40 rounded-2xl p-6 max-w-lg w-full shadow-2xl flex flex-col gap-4 text-left animate-mac-modal">
             <div className="flex items-center gap-2 text-rose-400 font-black text-base">
               <Trash2 className="h-5 w-5 shrink-0" />
-              <span>Xác Nhận Xóa Ca Dạy</span>
+              <span>Xác Nhận Xóa Lịch / Ca Dạy</span>
             </div>
-            <p className="text-xs text-slate-300 font-medium leading-relaxed bg-slate-900/80 p-3.5 rounded-xl border border-white/5">
-              Xóa <strong className="text-white">{siblings.filter((s) => s.checked && s.id).length || 1}</strong> ca dạy đã chọn? Các ca này sẽ bị xóa khỏi hệ thống vĩnh viễn.
+
+            <p className="text-xs text-slate-300 font-medium leading-relaxed">
+              Bạn đang thao tác với ca dạy của <strong className="text-white">"{session.job_name || session.student_name}"</strong>. Vui lòng chọn phạm vi xóa:
             </p>
-            <div className="flex justify-end gap-3 pt-2">
+
+            {/* Scope Selection Options */}
+            <div className="space-y-2.5">
+              <label
+                onClick={() => setDeleteScope('single')}
+                className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                  deleteScope === 'single'
+                    ? 'bg-rose-500/15 border-rose-500/40 text-white'
+                    : 'bg-[#0d1018] border-white/5 text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="editDeleteScope"
+                  checked={deleteScope === 'single'}
+                  onChange={() => setDeleteScope('single')}
+                  className="mt-0.5 accent-rose-500 cursor-pointer"
+                />
+                <div className="text-xs">
+                  <span className="font-black block text-white">
+                    Chỉ xóa ca này (ngày {formatDateVN(session.date)})
+                  </span>
+                  <span className="text-[11px] text-slate-400 mt-0.5 block leading-normal">
+                    Chỉ xóa buổi học vào ngày {formatDateVN(session.date)}, các buổi học khác trong tháng vẫn giữ nguyên.
+                  </span>
+                </div>
+              </label>
+
+              <label
+                onClick={() => setDeleteScope('month')}
+                className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                  deleteScope === 'month'
+                    ? 'bg-rose-500/15 border-rose-500/40 text-white'
+                    : 'bg-[#0d1018] border-white/5 text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="editDeleteScope"
+                  checked={deleteScope === 'month'}
+                  onChange={() => setDeleteScope('month')}
+                  className="mt-0.5 accent-rose-500 cursor-pointer"
+                />
+                <div className="text-xs">
+                  <span className="font-black block text-white">
+                    Xóa tất cả ca trong tháng {session.month_year} ({siblings.filter((s) => s.id).length || 1} ca)
+                  </span>
+                  <span className="text-[11px] text-slate-400 mt-0.5 block leading-normal">
+                    Hủy toàn bộ lịch này trong tháng {session.month_year} và không tự động khôi phục lại.
+                  </span>
+                </div>
+              </label>
+
+              <label
+                onClick={() => setDeleteScope('all')}
+                className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                  deleteScope === 'all'
+                    ? 'bg-rose-500/15 border-rose-500/40 text-white'
+                    : 'bg-[#0d1018] border-white/5 text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="editDeleteScope"
+                  checked={deleteScope === 'all'}
+                  onChange={() => setDeleteScope('all')}
+                  className="mt-0.5 accent-rose-500 cursor-pointer"
+                />
+                <div className="text-xs">
+                  <span className="font-black block text-white">
+                    Xóa vĩnh viễn lịch làm này (tất cả các tháng)
+                  </span>
+                  <span className="text-[11px] text-slate-400 mt-0.5 block leading-normal">
+                    Xóa hoàn toàn lịch này trên toàn bộ hệ thống từ trước đến nay và không bao giờ tự động tạo lại.
+                  </span>
+                </div>
+              </label>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2 border-t border-white/10">
               <button
+                type="button"
+                disabled={loading}
                 onClick={() => setShowDeleteConfirmModal(false)}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl cursor-pointer"
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl cursor-pointer disabled:opacity-50"
               >
                 Hủy Bỏ
               </button>
               <button
+                type="button"
+                disabled={loading}
                 onClick={executeDeleteSessions}
-                className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-black rounded-xl shadow-[0_0_15px_rgba(244,63,94,0.4)] cursor-pointer"
+                className="flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-black rounded-xl shadow-[0_0_15px_rgba(244,63,94,0.4)] cursor-pointer disabled:opacity-50"
               >
-                Đồng Ý Xóa
+                {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                <span>{loading ? 'Đang xóa...' : 'Đồng Ý Xóa'}</span>
               </button>
             </div>
           </div>

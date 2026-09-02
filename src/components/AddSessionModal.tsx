@@ -28,6 +28,7 @@ interface AddSessionModalProps {
     teacherName: string;
   };
   preSelectedDate?: string | null;
+  onClearExclusion?: (jobName: string) => Promise<void>;
 }
 
 interface DayConfig {
@@ -58,7 +59,8 @@ export default function AddSessionModal({
   onSave,
   teachers = [],
   currentUser,
-  preSelectedDate
+  preSelectedDate,
+  onClearExclusion
 }: AddSessionModalProps) {
   const [assignedTeacherName, setAssignedTeacherName] = useState(activeTeacherName);
   const [studentName, setStudentName] = useState('');
@@ -226,6 +228,14 @@ export default function AddSessionModal({
           return acc;
         }, {} as Record<string, DayConfig>)
       );
+
+      if (onClearExclusion && studentName.trim()) {
+        try {
+          await onClearExclusion(studentName.trim());
+        } catch (exErr) {
+          console.error('Error in onClearExclusion:', exErr);
+        }
+      }
 
       onSave();
       onClose();

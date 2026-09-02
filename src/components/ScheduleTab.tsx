@@ -21,7 +21,9 @@ import {
   CalendarDays,
   Sparkles,
   ArrowRight,
-  Briefcase
+  Briefcase,
+  Trash2,
+  Loader2
 } from 'lucide-react';
 import { 
   formatVND, 
@@ -60,6 +62,8 @@ interface ScheduleTabProps {
   setSelectedSession: (session: Session | null) => void;
   setEditModalOpen: (open: boolean) => void;
   onAddSessionOnDate?: (dateStr: string) => void;
+  onDeleteSchedule?: (jobName: string, scope: 'month' | 'all') => Promise<void>;
+  onDeleteSingleSession?: (sessionId: string) => Promise<void>;
 }
 
 export default function ScheduleTab({
@@ -80,12 +84,31 @@ export default function ScheduleTab({
   setAddModalOpen,
   setSelectedSession,
   setEditModalOpen,
-  onAddSessionOnDate
+  onAddSessionOnDate,
+  onDeleteSchedule,
+  onDeleteSingleSession
 }: ScheduleTabProps) {
   const [heroTeacherDropOpen, setHeroTeacherDropOpen] = useState(false);
   const [monthPickerOpen, setMonthPickerOpen] = useState(false);
   const [pickerYear, setPickerYear] = useState(() => new Date().getFullYear());
   const [selectedDetailSchedule, setSelectedDetailSchedule] = useState<ScheduleWorkSummary | null>(null);
+  const [showDeleteScheduleModal, setShowDeleteScheduleModal] = useState(false);
+  const [deleteScheduleScope, setDeleteScheduleScope] = useState<'month' | 'all'>('month');
+  const [isDeletingSchedule, setIsDeletingSchedule] = useState(false);
+
+  const handleConfirmDeleteSchedule = async () => {
+    if (!selectedDetailSchedule || !onDeleteSchedule) return;
+    setIsDeletingSchedule(true);
+    try {
+      await onDeleteSchedule(selectedDetailSchedule.name, deleteScheduleScope);
+      setShowDeleteScheduleModal(false);
+      setSelectedDetailSchedule(null);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsDeletingSchedule(false);
+    }
+  };
 
   // Group and compute statistics for each work schedule (lịch làm)
   const schedulesSummary = useMemo<ScheduleWorkSummary[]>(() => {
@@ -1023,15 +1046,125 @@ export default function ScheduleTab({
             </div>
 
             {/* Modal Footer */}
-            <div className="pt-4 border-t border-white/10 flex justify-between items-center shrink-0">
-              <span className="text-xs font-bold text-slate-400">
-                Nhấp vào từng ca để chỉnh sửa thông tin hoặc trạng thái.
-              </span>
-              <button
-                onClick={() => setSelectedDetailSchedule(null)}
-                className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white font-extrabold text-xs transition-colors cursor-pointer"
+            <div className="pt-4 border-t border-white/10 flex flex-wrap justify-between items-center gap-3 shrink-0">
+              {onDeleteSchedule && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDeleteScheduleScope('month');
+                    setShowDeleteScheduleModal(true);
+                  }}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 hover:text-white font-black text-xs transition-all cursor-pointer shadow-sm active:scale-95 shrink-0"
+                  title="Xóa lịch trình này"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  <span>Xóa Lịch Trình Này</span>
+                </button>
+              )}
+
+              <div className="flex items-center gap-3 ml-auto">
+                <span className="hidden sm:inline text-xs font-bold text-slate-400">
+                  Nhấp vào từng ca để chỉnh sửa thông tin hoặc trạng thái.
+                </span>
+                <button
+                  onClick={() => setSelectedDetailSchedule(null)}
+                  className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white font-extrabold text-xs transition-colors cursor-pointer"
+                >
+                  Đóng
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Schedule Confirmation Modal (Rule #13: Solid Dark Backdrop, Zero Blur) */}
+      {showDeleteScheduleModal && selectedDetailSchedule && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-black/85 transition-opacity cursor-pointer"
+            onClick={() => !isDeletingSchedule && setShowDeleteScheduleModal(false)}
+          />
+          <div className="relative w-full max-w-md bg-[#0d1018] border border-rose-500/40 rounded-2xl p-6 shadow-2xl z-10 flex flex-col gap-4 text-left animate-mac-dropdown">
+            <div className="flex items-center gap-2 text-rose-400 font-black text-base">
+              <Trash2 className="h-5 w-5 shrink-0" />
+              <span>Xác Nhận Xóa Lịch Trình</span>
+            </div>
+
+            <p className="text-xs text-slate-300 font-medium leading-relaxed">
+              Bạn đang chọn xóa lịch làm việc <strong className="text-white">"{selectedDetailSchedule.name}"</strong>. Vui lòng chọn phạm vi xóa:
+            </p>
+
+            {/* Scope selection cards */}
+            <div className="space-y-2.5">
+              <label
+                onClick={() => setDeleteScheduleScope('month')}
+                className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                  deleteScheduleScope === 'month'
+                    ? 'bg-rose-500/15 border-rose-500/40 text-white'
+                    : 'bg-[#141824] border-white/5 text-slate-400 hover:text-slate-200'
+                }`}
               >
-                Đóng
+                <input
+                  type="radio"
+                  name="scheduleScope"
+                  checked={deleteScheduleScope === 'month'}
+                  onChange={() => setDeleteScheduleScope('month')}
+                  className="mt-0.5 accent-rose-500 cursor-pointer"
+                />
+                <div className="text-xs">
+                  <span className="font-black block text-white">
+                    Xóa trong tháng {selectedMonth} ({selectedDetailSchedule.totalShifts} ca)
+                  </span>
+                  <span className="text-[11px] text-slate-400 mt-0.5 block leading-normal">
+                    Xóa tất cả các ca trong tháng này. Hệ thống sẽ ghi nhận loại trừ và không tự động khôi phục lại lịch này trong tháng {selectedMonth}.
+                  </span>
+                </div>
+              </label>
+
+              <label
+                onClick={() => setDeleteScheduleScope('all')}
+                className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                  deleteScheduleScope === 'all'
+                    ? 'bg-rose-500/15 border-rose-500/40 text-white'
+                    : 'bg-[#141824] border-white/5 text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="scheduleScope"
+                  checked={deleteScheduleScope === 'all'}
+                  onChange={() => setDeleteScheduleScope('all')}
+                  className="mt-0.5 accent-rose-500 cursor-pointer"
+                />
+                <div className="text-xs">
+                  <span className="font-black block text-white">
+                    Xóa vĩnh viễn (tất cả các tháng)
+                  </span>
+                  <span className="text-[11px] text-slate-400 mt-0.5 block leading-normal">
+                    Xóa hoàn toàn lịch trình này trên toàn bộ hệ thống từ trước đến nay và không bao giờ tự động tạo lại.
+                  </span>
+                </div>
+              </label>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2 border-t border-white/10">
+              <button
+                type="button"
+                disabled={isDeletingSchedule}
+                onClick={() => setShowDeleteScheduleModal(false)}
+                className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-slate-300 font-extrabold text-xs transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Hủy Bỏ
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingSchedule}
+                onClick={handleConfirmDeleteSchedule}
+                className="flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white font-black text-xs rounded-xl shadow-[0_0_15px_rgba(244,63,94,0.4)] transition-all cursor-pointer disabled:opacity-50"
+              >
+                {isDeletingSchedule && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                <span>{isDeletingSchedule ? 'Đang xóa...' : 'Đồng Ý Xóa'}</span>
               </button>
             </div>
           </div>
