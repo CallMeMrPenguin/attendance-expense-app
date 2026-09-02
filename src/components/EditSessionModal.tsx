@@ -576,7 +576,7 @@ export default function EditSessionModal({
           const { error: delErr } = await supabase
             .from('sessions')
             .delete()
-            .or(`job_name.ilike.${jobName},student_name.ilike.${jobName}`);
+            .ilike('job_name', jobName);
           if (delErr) throw new Error(delErr.message);
           onSave();
         }

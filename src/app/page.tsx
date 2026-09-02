@@ -1305,25 +1305,27 @@ export default function Dashboard() {
 
       if (scope === 'month') {
         // 1. Delete all sessions of this schedule in selectedMonth
-        const { data: monthMatches } = await supabase
+        const { data: delRows } = await supabase
           .from('sessions')
-          .select('id, user_name, teacher_name, job_name, student_name')
-          .eq('month_year', selectedMonth);
+          .delete()
+          .ilike('user_name', activeTeacherName)
+          .ilike('job_name', cleanName)
+          .eq('month_year', selectedMonth)
+          .select('id');
 
-        const idsToDelete = (monthMatches || []).filter(s => {
-          const tName = (s.user_name || s.teacher_name || '').trim().toLowerCase();
-          const actTeacher = activeTeacherName.trim().toLowerCase();
-          const jName = (s.job_name || s.student_name || '').trim().toLowerCase();
-          return (!actTeacher || !tName || tName === actTeacher) && (jName === cleanKey);
-        }).map(s => s.id);
-
-        if (idsToDelete.length > 0) {
-          const { error: delErr } = await supabase
+        if (!delRows || delRows.length === 0) {
+          await supabase
             .from('sessions')
             .delete()
-            .in('id', idsToDelete);
-          if (delErr) console.error('Delete sessions error:', delErr);
+            .ilike('job_name', cleanName)
+            .eq('month_year', selectedMonth);
         }
+
+        // Immediately update React local state
+        setSessions(prev => prev.filter(s => {
+          const jName = (s.job_name || s.student_name || '').trim().toLowerCase();
+          return jName !== cleanKey;
+        }));
 
         // 2. Add to exclusions for selectedMonth so auto-sync never brings it back
         const exclusions = await fetchScheduleExclusions(activeTeacherName);
@@ -1336,24 +1338,25 @@ export default function Dashboard() {
         showToast(`Đã xóa lịch trình "${cleanName}" trong tháng ${selectedMonth}!`, 'success');
       } else {
         // 1. Delete all sessions of this schedule across ALL months
-        const { data: allMatches } = await supabase
+        const { data: delRows } = await supabase
           .from('sessions')
-          .select('id, user_name, teacher_name, job_name, student_name');
+          .delete()
+          .ilike('user_name', activeTeacherName)
+          .ilike('job_name', cleanName)
+          .select('id');
 
-        const idsToDelete = (allMatches || []).filter(s => {
-          const tName = (s.user_name || s.teacher_name || '').trim().toLowerCase();
-          const actTeacher = activeTeacherName.trim().toLowerCase();
-          const jName = (s.job_name || s.student_name || '').trim().toLowerCase();
-          return (!actTeacher || !tName || tName === actTeacher) && (jName === cleanKey);
-        }).map(s => s.id);
-
-        if (idsToDelete.length > 0) {
-          const { error: delErr } = await supabase
+        if (!delRows || delRows.length === 0) {
+          await supabase
             .from('sessions')
             .delete()
-            .in('id', idsToDelete);
-          if (delErr) console.error('Delete all sessions error:', delErr);
+            .ilike('job_name', cleanName);
         }
+
+        // Immediately update React local state
+        setSessions(prev => prev.filter(s => {
+          const jName = (s.job_name || s.student_name || '').trim().toLowerCase();
+          return jName !== cleanKey;
+        }));
 
         // 2. Add to exclusions for 'all' so auto-sync never brings it back in any month
         const exclusions = await fetchScheduleExclusions(activeTeacherName);
