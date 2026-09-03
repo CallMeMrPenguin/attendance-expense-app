@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Menu, Users, Key, LogOut, X, ChevronDown, Wallet } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { Session, formatCleanTimeString, getDatesForWeekday, getNextMonthStr, getPrevMonthStr } from '@/lib/utils';
+import { Session, formatCleanTimeString, getDatesForWeekday, getNextMonthStr, getPrevMonthStr, isHungTrangVcbTransfer } from '@/lib/utils';
 
 // Import newly refactored modular components
 import Sidebar from '@/components/Sidebar';
@@ -489,7 +489,7 @@ export default function Dashboard() {
       let category = r.category;
       let type = r.type;
 
-      if (status !== 'classified' && r.details) {
+      if (status !== 'classified' && r.details && !isHungTrangVcbTransfer(r)) {
         const cleanDetails = cleanString(r.details);
         for (const catName of Object.keys(mergedKwMap)) {
           const kwStr = mergedKwMap[catName];

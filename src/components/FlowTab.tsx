@@ -6,7 +6,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import { supabase } from '@/lib/supabase';
 import * as LucideIcons from 'lucide-react';
 import { HelpCircle, Trash2, Plus, DollarSign, Edit2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, GripVertical, Filter, ArrowUpDown, RotateCcw, Edit3, X, Wallet, Calendar as CalendarIcon, TrendingUp, TrendingDown, Coins } from 'lucide-react';
-import { formatVND, Session, formatDateVN, formatNumberDots, parseNumberDots, getNextMonthStr, getPrevMonthStr } from '@/lib/utils';
+import { formatVND, Session, formatDateVN, formatNumberDots, parseNumberDots, getNextMonthStr, getPrevMonthStr, isHungTrangVcbTransfer } from '@/lib/utils';
 import CustomDatePicker from './CustomDatePicker';
 import MaterialSymbol from './MaterialSymbol';
 
@@ -311,7 +311,7 @@ function FlowTab({
   const [selectedType, setSelectedType] = React.useState<'income' | 'expense' | 'saving'>('expense');
   const [selectedCat, setSelectedCat] = React.useState<string>('Ăn uống');
   const [receiptNote, setReceiptNote] = React.useState<string>('');
-  const [createRule, setCreateRule] = React.useState<boolean>(true);
+  const [createRule, setCreateRule] = React.useState<boolean>(false);
   const [matchField, setMatchField] = React.useState<'sender_name' | 'remitter_name' | 'credit_account' | 'details' | 'remitter_beneficiary_details'>('credit_account');
   const [matchValue, setMatchValue] = React.useState<string>('');
   const [isSavingClassification, setIsSavingClassification] = React.useState(false);
@@ -358,6 +358,7 @@ function FlowTab({
         existingNote = detailsStr.split(' | Ghi chú: ')[1] || '';
       }
       setReceiptNote(existingNote);
+      setCreateRule(false);
     }
   }, [classifyingReceipt, expenseCats]);
 
@@ -901,7 +902,7 @@ function FlowTab({
       let category = r.category;
       let type = r.type;
 
-      if (status !== 'classified' && r.details) {
+      if (status !== 'classified' && r.details && !isHungTrangVcbTransfer(r)) {
         const cleanDetails = cleanString(r.details);
         for (const catObj of allCats) {
           if (catObj.keywords) {
@@ -935,7 +936,8 @@ function FlowTab({
         (r.remitter_name || '').toLowerCase().includes(q) ||
         (r.beneficiary_name || '').toLowerCase().includes(q) ||
         (r.details || '').toLowerCase().includes(q) ||
-        (r.order_number || '').toLowerCase().includes(q);
+        (r.order_number || '').toLowerCase().includes(q) ||
+        (isHungTrangVcbTransfer(r) && ('trao doi'.includes(q) || 'trao đổi'.includes(q)));
 
       return matchesMonth && matchesSearch;
     });
@@ -1012,7 +1014,7 @@ function FlowTab({
             <span className="text-[10px] text-slate-400 truncate">{mainDetails}</span>
             {noteText ? (
               <span className="text-[10px] text-amber-300 font-semibold truncate block mt-0.5">
-                📝 Ghi chú: {noteText}
+                Ghi chú: {noteText}
               </span>
             ) : null}
           </div>
@@ -1026,6 +1028,7 @@ function FlowTab({
       cell: ({ row }) => {
         const r = row.original;
         const isClassified = r.status === 'classified';
+        const isInternalExchange = isHungTrangVcbTransfer(r);
         const isIncome = r.type === 'income';
         const isSaving = r.type === 'saving';
         const badgeStyle = isIncome
@@ -1040,6 +1043,10 @@ function FlowTab({
             {isClassified ? (
               <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase border ${badgeStyle}`}>
                 {r.category} ({typeLabel})
+              </span>
+            ) : isInternalExchange ? (
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 shadow-[0_0_8px_rgba(6,182,212,0.2)]">
+                Trao đổi
               </span>
             ) : (
               <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">
@@ -1056,6 +1063,15 @@ function FlowTab({
       size: 130,
       cell: ({ row }) => {
         const r = row.original;
+        const isInternalExchange = isHungTrangVcbTransfer(r);
+        if (isInternalExchange && !r.type) {
+          return (
+            <span className="font-black text-sm text-cyan-300">
+              {formatVND(r.amount)}
+            </span>
+          );
+        }
+
         const isIncome = r.type === 'income';
         const isSaving = r.type === 'saving';
         const colorClass = isIncome ? 'text-emerald-400' : isSaving ? 'text-purple-400' : 'text-rose-400';
@@ -1075,6 +1091,7 @@ function FlowTab({
       cell: ({ row }) => {
         const r = row.original;
         const isClassified = r.status === 'classified';
+        const isInternalExchange = isHungTrangVcbTransfer(r);
         return (
           <button
             type="button"
@@ -1082,6 +1099,7 @@ function FlowTab({
               e.preventDefault();
               e.stopPropagation();
               setClassifyingReceipt(r);
+              setCreateRule(false);
               const t = r.type || 'expense';
               setSelectedType(t);
               if (t === 'saving') {
@@ -1089,7 +1107,7 @@ function FlowTab({
               } else if (t === 'income') {
                 setSelectedCat(r.category || incomeCats[0]?.name || 'Lương');
               } else {
-                setSelectedCat(r.category || expenseCats[0]?.name || 'Ăn uống');
+                setSelectedCat(r.category || (isInternalExchange ? 'Trao đổi' : (expenseCats[0]?.name || 'Ăn uống')));
               }
               setMatchField('credit_account');
               setMatchValue(r.credit_account || r.details || '');
@@ -1097,10 +1115,12 @@ function FlowTab({
             className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer shadow-md ${
               isClassified
                 ? 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10'
+                : isInternalExchange
+                ? 'bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 hover:scale-[1.02]'
                 : 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-[0_0_12px_rgba(245,158,11,0.4)]'
             }`}
           >
-            {isClassified ? 'Sửa' : 'Phân loại'}
+            {isClassified ? 'Sửa' : isInternalExchange ? 'Trao đổi' : 'Phân loại'}
           </button>
         );
       }
@@ -2732,6 +2752,13 @@ function FlowTab({
             </div>
 
             <div className="space-y-4 text-left">
+              {isHungTrangVcbTransfer(classifyingReceipt) && (
+                <div className="p-2.5 bg-cyan-500/10 border border-cyan-500/25 rounded-xl flex items-center gap-2 text-xs text-cyan-300 font-semibold">
+                  <MaterialSymbol icon="sync_alt" size={16} />
+                  <span>Giao dịch lưu thông tiền nội bộ giữa Bùi Đức Hùng VCB và Phạm Thị Thu Trang VCB.</span>
+                </div>
+              )}
+
               {/* Type selection with 2-way animated sliding tab toggle */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Loại Giao Dịch</label>
@@ -2795,11 +2822,16 @@ function FlowTab({
                       <option value="Tiết kiệm khác">Tiết kiệm khác</option>
                     </>
                   ) : (
-                    expenseCats.map(cat => (
-                      <option key={cat.name} value={cat.name}>
-                        {cat.name} {cat.note ? `(${cat.note})` : ''}
-                      </option>
-                    ))
+                    <>
+                      {isHungTrangVcbTransfer(classifyingReceipt) && (
+                        <option value="Trao đổi">Trao đổi (Lưu thông nội bộ)</option>
+                      )}
+                      {expenseCats.map(cat => (
+                        <option key={cat.name} value={cat.name}>
+                          {cat.name} {cat.note ? `(${cat.note})` : ''}
+                        </option>
+                      ))}
+                    </>
                   )}
                 </select>
               </div>

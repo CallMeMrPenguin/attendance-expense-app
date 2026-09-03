@@ -239,3 +239,28 @@ export interface ScheduleWorkSummary {
   projectedIncome: number;
   sessions: Session[];
 }
+
+// Detect internal transfer between Bui Duc Hung (VCB 1030723743) and Pham Thi Thu Trang (VCB 9981397845)
+export function isHungTrangVcbTransfer(r: any): boolean {
+  if (!r) return false;
+  const sName = (r.sender_name || r.remitter_name || '').toUpperCase();
+  const dAcc = (r.debit_account || '').toString();
+  const bName = (r.beneficiary_name || '').toUpperCase();
+  const cAcc = (r.credit_account || '').toString();
+  const details = (r.details || '').toUpperCase();
+
+  const isHungSender = sName.includes('BUI DUC HUNG') || dAcc.includes('1030723743');
+  const isTrangSender = sName.includes('PHAM THI THU TRANG') || sName.includes('THU TRANG') || dAcc.includes('9981397845');
+
+  const isHungReceiver = bName.includes('BUI DUC HUNG') || cAcc.includes('1030723743');
+  const isTrangReceiver = bName.includes('PHAM THI THU TRANG') || bName.includes('THU TRANG') || cAcc.includes('9981397845');
+
+  const isBetween = (isHungSender && isTrangReceiver) || (isTrangSender && isHungReceiver);
+  if (!isBetween) return false;
+
+  const isTrangVcb = dAcc.includes('9981397845') || cAcc.includes('9981397845') || details.includes('9981397845') || (r.beneficiary_bank || '').toUpperCase().includes('VIETCOMBANK');
+  const isVietinBank = dAcc.includes('106872262054') || cAcc.includes('106872262054');
+
+  return isTrangVcb && !isVietinBank;
+}
+
