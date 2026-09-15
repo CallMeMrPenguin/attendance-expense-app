@@ -164,6 +164,10 @@ export default function Dashboard() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [allSessions, setAllSessions] = useState<Session[]>([]);
   const [sessionStudentConfigs, setSessionStudentConfigs] = useState<Record<string, { student_count: number; price_per_student: number; original_student_count?: number }>>({});
+  const sessionStudentConfigsRef = useRef<Record<string, any>>({});
+  useEffect(() => {
+    sessionStudentConfigsRef.current = sessionStudentConfigs;
+  }, [sessionStudentConfigs]);
   const [selectedMonth, setSelectedMonth] = useState('');
   const [currentView, setCurrentView] = useState<'month' | 'week' | 'stats'>('month');
 
@@ -1100,6 +1104,7 @@ export default function Dashboard() {
   // Helper to normalize session properties
   const normalizeSessionList = useCallback((rawList: any[], configs?: Record<string, any>): Session[] => {
     if (!Array.isArray(rawList)) return [];
+    const cfgMap = configs || sessionStudentConfigsRef.current || {};
     return rawList.map(s => {
       const userName = s.user_name || s.teacher_name || 'Admin';
       const jobName = s.job_name || s.student_name || 'Công việc';
@@ -1107,7 +1112,6 @@ export default function Dashboard() {
       if (st === 'Chưa dạy') st = 'Chưa làm';
       if (st === 'Đã dạy') st = 'Đã làm';
 
-      const cfgMap = configs || sessionStudentConfigs;
       const cleanJobKey = cleanString(jobName);
       const specificCfg = cfgMap[`sess_${s.id}`];
       const classCfg = cfgMap[`class_${cleanJobKey}`];
@@ -1131,7 +1135,7 @@ export default function Dashboard() {
         original_student_count: originalStudentCount
       };
     });
-  }, [sessionStudentConfigs]);
+  }, []);
 
   // Helper to get session student configs key
   const getSessionStudentConfigsKey = (teacherName: string) => `session_student_configs_${cleanString(teacherName)}`;
@@ -1159,6 +1163,7 @@ export default function Dashboard() {
   const saveSessionStudentConfigs = useCallback(async (teacherName: string, configs: Record<string, { student_count: number; price_per_student: number; original_student_count?: number }>, userId?: string) => {
     if (!teacherName) return;
     try {
+      sessionStudentConfigsRef.current = configs;
       setSessionStudentConfigs(configs);
       const record = {
         id: getSessionStudentConfigsKey(teacherName),
@@ -1368,6 +1373,9 @@ export default function Dashboard() {
   }, []);
 
   // Fetch session schedule data
+  const chartSelectedMonthsKey = chartSelectedMonths.join(',');
+  const currentUserRole = currentUser?.role;
+
   const fetchSessions = useCallback(async () => {
     if (!selectedMonth) return;
     setLoading(true);
@@ -1376,7 +1384,10 @@ export default function Dashboard() {
     let studentConfigs: Record<string, any> = {};
     if (activeTeacherName) {
       studentConfigs = await fetchSessionStudentConfigs(activeTeacherName);
-      setSessionStudentConfigs(studentConfigs);
+      if (JSON.stringify(studentConfigs) !== JSON.stringify(sessionStudentConfigsRef.current)) {
+        sessionStudentConfigsRef.current = studentConfigs;
+        setSessionStudentConfigs(studentConfigs);
+      }
 
       let { data, error } = await supabase
         .from('sessions')
@@ -1408,7 +1419,7 @@ export default function Dashboard() {
     }
 
     // 2. Fetch all sessions for all teachers in chartSelectedMonths & prior payout months (for admin cash flow)
-    if (currentUser?.role === 'admin') {
+    if (currentUserRole === 'admin') {
       const selectedList = chartSelectedMonths.length > 0 ? chartSelectedMonths : [selectedMonth];
       const priorList = selectedList.map(m => getPrevMonthStr(m));
       const monthsToFetch = Array.from(new Set([...selectedList, ...priorList]));
@@ -1428,7 +1439,7 @@ export default function Dashboard() {
     }
 
     setLoading(false);
-  }, [activeTeacherName, selectedMonth, chartSelectedMonths, currentUser, processAutoCheckIn, fetchSessionStudentConfigs, normalizeSessionList, syncFixedSchedulesForMonth, calculateStats]);
+  }, [activeTeacherName, selectedMonth, chartSelectedMonthsKey, currentUserRole, processAutoCheckIn, fetchSessionStudentConfigs, normalizeSessionList, syncFixedSchedulesForMonth, calculateStats]);
 
   // Handler to delete a schedule either for the current month or permanently across all months
   const handleDeleteSchedule = useCallback(async (jobName: string, scope: 'month' | 'all') => {
@@ -1565,33 +1576,43 @@ export default function Dashboard() {
     }
   }, [currentUser, fetchTeachers]);
 
+  const fetchSessionsRef = useRef(fetchSessions);
+  fetchSessionsRef.current = fetchSessions;
+
+  const sessionsRef = useRef(sessions);
+  sessionsRef.current = sessions;
+  const allSessionsRef = useRef(allSessions);
+  allSessionsRef.current = allSessions;
+
   useEffect(() => {
     if (selectedMonth) {
-      fetchSessions();
+      fetchSessionsRef.current();
     }
-  }, [selectedMonth, chartSelectedMonths, fetchSessions]);
+  }, [selectedMonth, activeTeacherName, chartSelectedMonthsKey, currentUser?.id]);
 
   // Periodic timer for live auto check-in every 30 seconds
   useEffect(() => {
-    if (!sessions || sessions.length === 0) return;
-
     const interval = setInterval(async () => {
-      const updatedSessions = await processAutoCheckIn(sessions);
-      if (updatedSessions !== sessions) {
-        setSessions(updatedSessions);
-        calculateStats(updatedSessions);
+      const currentSessions = sessionsRef.current;
+      if (currentSessions && currentSessions.length > 0) {
+        const updatedSessions = await processAutoCheckIn(currentSessions);
+        if (updatedSessions !== currentSessions) {
+          setSessions(updatedSessions);
+          calculateStats(updatedSessions);
+        }
       }
 
-      if (allSessions.length > 0) {
-        const updatedAll = await processAutoCheckIn(allSessions);
-        if (updatedAll !== allSessions) {
+      const currentAll = allSessionsRef.current;
+      if (currentAll && currentAll.length > 0) {
+        const updatedAll = await processAutoCheckIn(currentAll);
+        if (updatedAll !== currentAll) {
           setAllSessions(updatedAll);
         }
       }
     }, 30000);
 
     return () => clearInterval(interval);
-  }, [sessions, allSessions, processAutoCheckIn]);
+  }, [processAutoCheckIn, calculateStats]);
 
   // Guard tab view permissions for non-admin roles
   useEffect(() => {
