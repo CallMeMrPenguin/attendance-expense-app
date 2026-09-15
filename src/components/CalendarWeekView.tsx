@@ -190,14 +190,28 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
 
                               {/* Info Column */}
                               <div className="flex-grow p-2 flex flex-col justify-between overflow-hidden">
-                                <h4 
-                                  className="text-[12px] font-black truncate leading-tight text-left tracking-tight text-white"
-                                >
-                                  {jobName}
-                                </h4>
+                                <div className="flex items-center justify-between gap-1">
+                                  <h4 
+                                    className="text-[12px] font-black truncate leading-tight text-left tracking-tight text-white"
+                                  >
+                                    {jobName}
+                                  </h4>
+                                  {(s.student_count ?? 1) < (s.original_student_count ?? (s.student_count ?? 1)) ? (
+                                    <span 
+                                      className="text-[8px] font-black px-1 py-0.2 rounded bg-amber-500/25 text-amber-300 border border-amber-500/40 animate-pulse shrink-0" 
+                                      title={`Giảm ${(s.original_student_count || 0) - (s.student_count || 0)} HS vắng mặt`}
+                                    >
+                                      {s.student_count}/{s.original_student_count} HS
+                                    </span>
+                                  ) : (s.student_count ?? 1) > 1 ? (
+                                    <span className="text-[8px] font-black px-1 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shrink-0">
+                                      {s.student_count} HS
+                                    </span>
+                                  ) : null}
+                                </div>
                                 <div 
                                   className="text-[10px] font-extrabold mt-0.5 select-none leading-none text-left"
-                                  style={{ color: vStyle.priceColor }}
+                                  style={{ color: (s.student_count ?? 1) < (s.original_student_count ?? (s.student_count ?? 1)) ? '#fbbf24' : vStyle.priceColor }}
                                 >
                                   {formatVND(s.price)}
                                 </div>

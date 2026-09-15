@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, ChevronDown, Calendar } from 'lucide-react';
 import { formatDateVN, formatNumberDots, parseNumberDots } from '@/lib/utils';
 import CustomDatePicker from './CustomDatePicker';
+import CustomSelect from './CustomSelect';
 import { useToast } from '@/context/ToastContext';
 
 const INCOME_CATEGORIES = ['Lương', 'Giáo dục', 'Đầu tư', 'Khác'];
@@ -128,8 +129,10 @@ export default function TransactionModal({
     if (modalTxType === 'saving') {
       let currentVal = modalSavingFund === 'emergency' ? emergencyCurrent : accumulationCurrent;
       let newVal = currentVal;
+      const isDeposit = modalSavingAction === 'deposit';
+      const fundTitle = modalSavingFund === 'emergency' ? 'Quỹ Dự Phòng' : 'Quỹ Tích Lũy';
       
-      if (modalSavingAction === 'deposit') {
+      if (isDeposit) {
         newVal += amt;
       } else {
         if (amt > currentVal) {
@@ -150,10 +153,29 @@ export default function TransactionModal({
         fund: modalSavingFund,
         type: modalSavingAction,
         amount: amt,
-        date: modalDate
+        date: modalDate,
+        note: isDeposit ? `Chuyển tiền vào ${fundTitle}` : `Rút tiền từ ${fundTitle}`
       };
       saveSavingsHistory(userId, [newHist, ...savingsHistory]);
-      showToast('Đã cập nhật giao dịch quỹ tiết kiệm thành công!', 'success');
+
+      // Deduct from monthly money pool (expense) on deposit, or add to monthly money pool (income) on withdraw
+      const savingTx = {
+        id: `tx-sh-${newHist.id}`,
+        desc: isDeposit ? `Chuyển tiền vào ${fundTitle}` : `Rút tiền từ ${fundTitle}`,
+        amount: amt,
+        type: isDeposit ? ('expense' as const) : ('income' as const),
+        category: modalSavingFund === 'emergency' ? 'Tiết kiệm khẩn cấp' : 'Tích lũy dài hạn',
+        date: modalDate,
+        isRecurring: false,
+        is_recurring: false
+      };
+      saveTransactions(userId, [savingTx, ...manualTransactions]);
+      showToast(
+        isDeposit
+          ? 'Đã chuyển tiền vào quỹ tiết kiệm và trừ thặng dư tháng!'
+          : 'Đã rút tiền từ quỹ tiết kiệm về dòng tiền tháng!',
+        'success'
+      );
     } else {
       if (!modalDesc.trim()) {
         showToast('Vui lòng điền mô tả giao dịch.', 'error');
@@ -271,32 +293,26 @@ export default function TransactionModal({
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Quỹ tiết kiệm</label>
-                <div className="relative">
-                  <select
-                    value={modalSavingFund}
-                    onChange={(e) => setModalSavingFund(e.target.value as any)}
-                    className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 cursor-pointer block"
-                  >
-                    <option value="emergency" className="bg-[#0d1018] text-white">Quỹ dự phòng</option>
-                    <option value="accumulation" className="bg-[#0d1018] text-white">Quỹ tích lũy</option>
-                  </select>
-                  <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-                </div>
+                <CustomSelect
+                  value={modalSavingFund}
+                  onChange={(val) => setModalSavingFund(val as any)}
+                  options={[
+                    { value: 'emergency', label: 'Quỹ Dự Phòng' },
+                    { value: 'accumulation', label: 'Quỹ Tích Lũy' }
+                  ]}
+                />
               </div>
 
               <div className="space-y-1.5">
                 <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Hành động</label>
-                <div className="relative">
-                  <select
-                    value={modalSavingAction}
-                    onChange={(e) => setModalSavingAction(e.target.value as any)}
-                    className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 cursor-pointer block"
-                  >
-                    <option value="deposit" className="bg-[#0d1018] text-white">Nạp tiền (Gửi vào)</option>
-                    <option value="withdraw" className="bg-[#0d1018] text-white">Rút tiền</option>
-                  </select>
-                  <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-                </div>
+                <CustomSelect
+                  value={modalSavingAction}
+                  onChange={(val) => setModalSavingAction(val as any)}
+                  options={[
+                    { value: 'deposit', label: 'Nạp tiền (Gửi vào)' },
+                    { value: 'withdraw', label: 'Rút tiền' }
+                  ]}
+                />
               </div>
             </div>
           </div>
@@ -328,20 +344,11 @@ export default function TransactionModal({
           <div className={modalTxType !== 'saving' ? 'block space-y-3' : 'hidden'}>
             <div className="space-y-1.5">
               <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Danh mục</label>
-              <div className="relative">
-                <select
-                  value={modalCategory}
-                  onChange={(e) => setModalCategory(e.target.value)}
-                  className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 cursor-pointer block"
-                >
-                  {(modalTxType === 'income' ? incomeCategories : expenseCategories).map((c) => (
-                    <option key={c} value={c} className="bg-[#0d1018] text-white">
-                      {c}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-              </div>
+              <CustomSelect
+                value={modalCategory}
+                onChange={setModalCategory}
+                options={modalTxType === 'income' ? incomeCategories : expenseCategories}
+              />
             </div>
 
             {/* Recurring toggle box */}

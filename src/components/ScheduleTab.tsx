@@ -149,6 +149,8 @@ export default function ScheduleTab({
       const price = Number(sample.price) || 0;
       const duration = Number(sample.duration) || 1.5;
       const time = sample.time || '18:00';
+      const student_count = sample.student_count || 1;
+      const price_per_student = sample.price_per_student || (student_count > 0 ? Math.round(price / student_count) : price);
 
       // Unique days of week
       const uniqueDays = Array.from(new Set(sortedSessions.map((s) => s.day_of_week).filter(Boolean)));
@@ -200,6 +202,8 @@ export default function ScheduleTab({
         completionRate,
         earnedIncome: earnedInc,
         projectedIncome: projectedInc,
+        student_count,
+        price_per_student,
         sessions: sortedSessions,
       });
     });
@@ -266,12 +270,23 @@ export default function ScheduleTab({
     },
     {
       accessorKey: 'price',
-      header: () => <div className="text-right">Đơn Giá / Ca</div>,
-      cell: ({ getValue }) => (
-        <div className="text-right font-extrabold text-xs text-slate-200">
-          {formatVND(getValue<number>())}
-        </div>
-      ),
+      header: () => <div className="text-right">Học Phí / Ca</div>,
+      cell: ({ row, getValue }) => {
+        const item = row.original;
+        const count = item.student_count ?? 1;
+        return (
+          <div className="text-right">
+            <div className="font-extrabold text-xs text-slate-200">
+              {formatVND(getValue<number>())}
+            </div>
+            {count > 1 && (
+              <div className="text-[9.5px] text-indigo-400 font-bold">
+                {count} HS ({formatVND(item.price_per_student || 0)}/HS)
+              </div>
+            )}
+          </div>
+        );
+      },
     },
     {
       accessorKey: 'totalShifts',
@@ -708,7 +723,7 @@ export default function ScheduleTab({
                         {formatVND(item.price)}
                       </span>
                       <span className="text-[9px] font-bold text-slate-400 block">
-                        / ca ({item.duration}h)
+                        {(item.student_count ?? 1) > 1 ? `${item.student_count} HS • ` : ''}/ ca ({item.duration}h)
                       </span>
                     </div>
                   </div>
@@ -842,6 +857,7 @@ export default function ScheduleTab({
                         {item.sessions.map((s) => {
                           const isDone = s.status === 'Đã làm' || s.status === 'Đã dạy';
                           const isCancel = s.status === 'Hủy';
+                          const isReduced = (s.student_count ?? 1) < (s.original_student_count ?? (s.student_count ?? 1));
                           return (
                             <div
                               key={s.id}
@@ -852,10 +868,22 @@ export default function ScheduleTab({
                               className="p-2.5 rounded-xl bg-[#141824] hover:bg-[#1c2234] border border-white/5 hover:border-indigo-500/30 transition-all cursor-pointer flex flex-col justify-between gap-2 shadow-sm"
                             >
                               <div className="flex items-center justify-between">
-                                <span className="text-[11px] font-black text-white">
-                                  {formatDateVN(s.date)}
-                                </span>
-                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded border ${
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <span className="text-[11px] font-black text-white truncate">
+                                    {formatDateVN(s.date)}
+                                  </span>
+                                  {(s.student_count ?? 1) > 1 && !isReduced && (
+                                    <span className="text-[8.5px] font-black px-1 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shrink-0">
+                                      {s.student_count} HS
+                                    </span>
+                                  )}
+                                  {isReduced && (
+                                    <span className="text-[8.5px] font-black px-1.5 py-0.2 rounded bg-amber-500/25 text-amber-300 border border-amber-500/40 animate-pulse shrink-0" title={`Giảm ${(s.original_student_count || 0) - (s.student_count || 0)} học sinh vắng mặt`}>
+                                      {s.student_count}/{s.original_student_count} HS (vắng)
+                                    </span>
+                                  )}
+                                </div>
+                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded border shrink-0 ${
                                   isDone
                                     ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
                                     : isCancel
@@ -868,7 +896,7 @@ export default function ScheduleTab({
 
                               <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold">
                                 <span>{formatCleanTimeString(s.time)} - {getEndTime(formatCleanTimeString(s.time), s.duration)}</span>
-                                <span className="text-slate-200 font-black">{formatVND(s.price)}</span>
+                                <span className={`font-black ${isReduced ? 'text-amber-400' : 'text-slate-200'}`}>{formatVND(s.price)}</span>
                               </div>
                             </div>
                           );
@@ -1018,10 +1046,18 @@ export default function ScheduleTab({
                         <span className="text-xs font-extrabold text-white block group-hover:text-indigo-300 transition-colors">
                           {formatDateVN(s.date)}
                         </span>
-                        <div className="flex items-center gap-2 mt-0.5 text-[10px] text-slate-400 font-bold">
+                        <div className="flex items-center gap-2 mt-0.5 text-[10px] text-slate-400 font-bold flex-wrap">
                           <span>{formatCleanTimeString(s.time)} - {getEndTime(formatCleanTimeString(s.time), s.duration)} ({s.duration}h)</span>
                           <span>|</span>
-                          <span className="text-slate-300">{formatVND(s.price)}</span>
+                          <span className="text-slate-300 font-black">{formatVND(s.price)}</span>
+                          {((s.student_count ?? 1) > 1 || (s.original_student_count ?? 1) > 1) && (
+                            <>
+                              <span>|</span>
+                              <span className={(s.student_count ?? 1) < (s.original_student_count ?? (s.student_count ?? 1)) ? 'text-amber-300 font-black bg-amber-500/15 px-1.5 py-0.5 rounded border border-amber-500/30' : 'text-indigo-300 font-extrabold'}>
+                                {s.student_count}{(s.student_count ?? 1) < (s.original_student_count ?? (s.student_count ?? 1)) ? `/${s.original_student_count}` : ''} HS ({formatVND(s.price_per_student || 0)}/HS)
+                              </span>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>

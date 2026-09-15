@@ -9,9 +9,12 @@ import {
   formatCleanTimeString, 
   getEndTime, 
   formatDateVN, 
+  formatVND,
   Session,
   formatNumberDots,
-  parseNumberDots
+  parseNumberDots,
+  sanitizeSessionPayload,
+  cleanString
 } from '@/lib/utils';
 
 interface AddSessionModalProps {
@@ -29,6 +32,8 @@ interface AddSessionModalProps {
   };
   preSelectedDate?: string | null;
   onClearExclusion?: (jobName: string) => Promise<void>;
+  sessionStudentConfigs?: Record<string, any>;
+  onSaveSessionStudentConfigs?: (teacherName: string, configs: Record<string, any>) => void;
 }
 
 interface DayConfig {
@@ -60,10 +65,14 @@ export default function AddSessionModal({
   teachers = [],
   currentUser,
   preSelectedDate,
-  onClearExclusion
+  onClearExclusion,
+  sessionStudentConfigs,
+  onSaveSessionStudentConfigs
 }: AddSessionModalProps) {
   const [assignedTeacherName, setAssignedTeacherName] = useState(activeTeacherName);
   const [studentName, setStudentName] = useState('');
+  const [studentCount, setStudentCount] = useState<number>(1);
+  const [pricePerStudent, setPricePerStudent] = useState<string>('');
   const [price, setPrice] = useState('');
   const [status, setStatus] = useState('Chưa dạy');
   const [incomeCategory, setIncomeCategory] = useState('Giáo dục');
@@ -117,6 +126,8 @@ export default function AddSessionModal({
         setSingleDate(`${selectedMonth}-01`);
       }
       setStudentName('');
+      setStudentCount(1);
+      setPricePerStudent('');
       setPrice('');
       setStatus('Chưa dạy');
       setColor('#7c3aed');
@@ -137,6 +148,38 @@ export default function AddSessionModal({
       );
     }
   }, [isOpen, preSelectedDate, selectedMonth]);
+
+  const handlePriceChange = (valStr: string) => {
+    const rawVal = parseNumberDots(valStr);
+    const val = rawVal ? rawVal.toString() : '';
+    setPrice(val);
+    if (val && studentCount > 0) {
+      setPricePerStudent(Math.round(Number(val) / studentCount).toString());
+    } else if (!val) {
+      setPricePerStudent('');
+    }
+  };
+
+  const handlePricePerStudentChange = (valStr: string) => {
+    const rawVal = parseNumberDots(valStr);
+    const val = rawVal ? rawVal.toString() : '';
+    setPricePerStudent(val);
+    if (val) {
+      setPrice((Number(val) * studentCount).toString());
+    } else {
+      setPrice('');
+    }
+  };
+
+  const handleStudentCountChange = (newCount: number) => {
+    const validCount = Math.max(1, newCount);
+    setStudentCount(validCount);
+    if (pricePerStudent) {
+      setPrice((Number(pricePerStudent) * validCount).toString());
+    } else if (price) {
+      setPricePerStudent(Math.round(Number(price) / validCount).toString());
+    }
+  };
 
   const [warningMsg, setWarningMsg] = useState('');
   const [showWarningModal, setShowWarningModal] = useState(false);
@@ -191,19 +234,10 @@ export default function AddSessionModal({
     setLoading(true);
     setError('');
     try {
-      let { error: insertError } = await supabase
+      const sanitized = candidatesToInsert.map(sanitizeSessionPayload);
+      const { error: insertError } = await supabase
         .from('sessions')
-        .insert(candidatesToInsert);
-
-      if (insertError && (
-        insertError.message?.includes('schema cache') || 
-        insertError.message?.includes('Could not find') ||
-        insertError.message?.includes('does not exist')
-      )) {
-        const cleanCandidates = candidatesToInsert.map(({ student_name, teacher_name, category, ...rest }) => rest);
-        const retryRes = await supabase.from('sessions').insert(cleanCandidates);
-        insertError = retryRes.error;
-      }
+        .insert(sanitized);
 
       if (insertError) {
         throw new Error(insertError.message);
@@ -275,6 +309,7 @@ export default function AddSessionModal({
     try {
       const sessionColor = color;
       const candidates: any[] = [];
+      const pPerStudent = Number(pricePerStudent) || (studentCount > 0 ? Math.round(Number(price) / studentCount) : Number(price));
 
       if (isSingleSession) {
         if (!singleDate) {
@@ -303,6 +338,9 @@ export default function AddSessionModal({
           loai_hinh_lich: loaiHinh,
           loai_hinh: loaiHinh,
           income_category: incomeCategory,
+          student_count: studentCount,
+          price_per_student: pPerStudent,
+          original_student_count: studentCount,
         });
       } else {
         const selectedDays = Object.entries(dayConfigs).filter(([_, config]) => config.checked);
@@ -331,9 +369,26 @@ export default function AddSessionModal({
               loai_hinh_lich: loaiHinh,
               loai_hinh: loaiHinh,
               income_category: incomeCategory,
+              student_count: studentCount,
+              price_per_student: pPerStudent,
+              original_student_count: studentCount,
             });
           });
         });
+      }
+
+      // Save class student configuration to Supabase
+      if (onSaveSessionStudentConfigs && studentName.trim()) {
+        const classKey = `class_${cleanString(studentName.trim())}`;
+        const updatedConfigs = {
+          ...(sessionStudentConfigs || {}),
+          [classKey]: {
+            student_count: studentCount,
+            price_per_student: pPerStudent,
+            original_student_count: studentCount,
+          },
+        };
+        onSaveSessionStudentConfigs(assignedTeacherName, updatedConfigs);
       }
 
       const overlaps = checkOverlaps(candidates, existingSessions);
@@ -498,17 +553,72 @@ export default function AddSessionModal({
               </div>
 
               <div className="space-y-1.5">
-                <label htmlFor="price" className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider block">
-                  Học phí / Thù lao (VNĐ) *
+                <label className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider block">
+                  Số lượng học sinh / buổi
                 </label>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleStudentCountChange(studentCount - 1)}
+                    className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-white font-black text-base flex items-center justify-center cursor-pointer transition-colors border border-slate-200 dark:border-slate-700"
+                  >
+                    -
+                  </button>
+                  <input
+                    type="number"
+                    min={1}
+                    value={studentCount}
+                    onChange={(e) => handleStudentCountChange(parseInt(e.target.value) || 1)}
+                    className="w-16 text-center font-black px-2 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleStudentCountChange(studentCount + 1)}
+                    className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-white font-black text-base flex items-center justify-center cursor-pointer transition-colors border border-slate-200 dark:border-slate-700"
+                  >
+                    +
+                  </button>
+                  <span className="text-xs text-slate-500 dark:text-slate-400 font-bold ml-1">
+                    {studentCount > 1 ? `${studentCount} học sinh` : '1 học sinh'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label htmlFor="pricePerStudent" className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider block">
+                  Học phí / 1 học sinh (VNĐ)
+                </label>
+                <input
+                  id="pricePerStudent"
+                  type="text"
+                  value={pricePerStudent ? formatNumberDots(pricePerStudent) : ''}
+                  onChange={(e) => handlePricePerStudentChange(e.target.value)}
+                  placeholder="VD: 100.000"
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label htmlFor="price" className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider block">
+                    Tổng học phí buổi học (VNĐ) *
+                  </label>
+                  {studentCount > 1 && (
+                    <span className="text-[10px] text-indigo-400 font-extrabold bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-md">
+                      = {studentCount} HS × {formatVND(Number(pricePerStudent) || 0)}
+                    </span>
+                  )}
+                </div>
                 <input
                   id="price"
                   type="text"
                   required
                   value={price ? formatNumberDots(price) : ''}
-                  onChange={(e) => setPrice(String(parseNumberDots(e.target.value)))}
+                  onChange={(e) => handlePriceChange(e.target.value)}
                   placeholder="VD: 300.000"
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-black text-emerald-600 dark:text-emerald-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                 />
               </div>
             </div>

@@ -163,6 +163,7 @@ export default function Dashboard() {
   const [activeTeacherName, setActiveTeacherName] = useState('');
   const [sessions, setSessions] = useState<Session[]>([]);
   const [allSessions, setAllSessions] = useState<Session[]>([]);
+  const [sessionStudentConfigs, setSessionStudentConfigs] = useState<Record<string, { student_count: number; price_per_student: number; original_student_count?: number }>>({});
   const [selectedMonth, setSelectedMonth] = useState('');
   const [currentView, setCurrentView] = useState<'month' | 'week' | 'stats'>('month');
 
@@ -748,6 +749,54 @@ export default function Dashboard() {
             date: h.date
           }));
           setSavingsHistory(formatted);
+
+          // Auto-sync missing savings history entries into manual transactions to ensure monthly surplus is deducted/credited
+          if (txRes.data && currentUser?.id) {
+            const existingTxIds = new Set(txRes.data.map((t: any) => t.id));
+            const missingSavingsTxs: any[] = [];
+            for (const h of formatted) {
+              const cleanId = String(h.id).replace(/^sh-/, '');
+              const possibleIds = [`tx-sh-${h.id}`, `tx-sh-${cleanId}`, `tx-sh-sh-${cleanId}`];
+              const exists = possibleIds.some(id => existingTxIds.has(id));
+              if (!exists) {
+                const isDeposit = h.type === 'deposit';
+                const fundTitle = h.fund === 'emergency' ? 'Quỹ Dự Phòng' : 'Quỹ Tích Lũy';
+                const cat = h.fund === 'emergency' ? 'Tiết kiệm khẩn cấp' : 'Tích lũy dài hạn';
+                missingSavingsTxs.push({
+                  id: `tx-sh-${h.id}`,
+                  user_id: currentUser.id,
+                  user_name: currentUser.teacherName || 'ADMIN',
+                  desc_text: isDeposit ? `Chuyển tiền vào ${fundTitle}` : `Rút tiền từ ${fundTitle}`,
+                  amount: Number(h.amount) || 0,
+                  type: isDeposit ? 'expense' : 'income',
+                  category: cat,
+                  date: h.date || new Date().toISOString().split('T')[0]
+                });
+              }
+            }
+
+            if (missingSavingsTxs.length > 0) {
+              await (supabase.from('manual_transactions') as any).upsert(missingSavingsTxs, { onConflict: 'id' });
+              const { data: refreshedTxs } = await supabase.from('manual_transactions').select('*').order('date', { ascending: false });
+              if (refreshedTxs) {
+                const updatedList = refreshedTxs.map((t: any) => {
+                  const rawDesc = t.desc_text || t.desc || '';
+                  const isRecurring = !!(t.isRecurring || t.is_recurring || /^\[(CỐ ĐỊNH|RECURRING)\]/i.test(rawDesc));
+                  const desc = rawDesc.replace(/^\[(CỐ ĐỊNH|RECURRING)\]\s*/i, '');
+                  return {
+                    id: t.id,
+                    desc,
+                    amount: Number(t.amount) || 0,
+                    type: t.type,
+                    category: t.category,
+                    date: t.date,
+                    isRecurring
+                  };
+                });
+                setManualTransactions(updatedList);
+              }
+            }
+          }
         }
       } catch (err) {
         console.error('Direct Supabase cloud fetch error:', err);
@@ -1049,7 +1098,7 @@ export default function Dashboard() {
   }, []);
 
   // Helper to normalize session properties
-  const normalizeSessionList = useCallback((rawList: any[]): Session[] => {
+  const normalizeSessionList = useCallback((rawList: any[], configs?: Record<string, any>): Session[] => {
     if (!Array.isArray(rawList)) return [];
     return rawList.map(s => {
       const userName = s.user_name || s.teacher_name || 'Admin';
@@ -1057,15 +1106,75 @@ export default function Dashboard() {
       let st = s.status || 'Chưa làm';
       if (st === 'Chưa dạy') st = 'Chưa làm';
       if (st === 'Đã dạy') st = 'Đã làm';
+
+      const cfgMap = configs || sessionStudentConfigs;
+      const cleanJobKey = cleanString(jobName);
+      const specificCfg = cfgMap[`sess_${s.id}`];
+      const classCfg = cfgMap[`class_${cleanJobKey}`];
+      const cfg = specificCfg || classCfg || {};
+
+      const studentCount = s.student_count ?? cfg.student_count ?? 1;
+      const originalStudentCount = s.original_student_count ?? cfg.original_student_count ?? classCfg?.student_count ?? studentCount;
+      const pricePerStudent = s.price_per_student ?? cfg.price_per_student ?? (studentCount > 0 ? Math.round((Number(s.price) || 0) / studentCount) : Number(s.price) || 0);
+      const computedPrice = studentCount < originalStudentCount ? (studentCount * pricePerStudent) : (Number(s.price) || (studentCount * pricePerStudent));
+
       return {
         ...s,
         user_name: userName,
         teacher_name: userName,
         job_name: jobName,
         student_name: jobName,
-        status: st
+        status: st,
+        price: computedPrice,
+        student_count: studentCount,
+        price_per_student: pricePerStudent,
+        original_student_count: originalStudentCount
       };
     });
+  }, [sessionStudentConfigs]);
+
+  // Helper to get session student configs key
+  const getSessionStudentConfigsKey = (teacherName: string) => `session_student_configs_${cleanString(teacherName)}`;
+
+  // Helper to fetch session student configs from Supabase category_budgets
+  const fetchSessionStudentConfigs = useCallback(async (teacherName: string): Promise<Record<string, { student_count: number; price_per_student: number; original_student_count?: number }>> => {
+    if (!teacherName) return {};
+    try {
+      const { data } = await supabase
+        .from('category_budgets')
+        .select('note')
+        .eq('id', getSessionStudentConfigsKey(teacherName))
+        .maybeSingle();
+      if (data?.note) {
+        const parsed = JSON.parse(data.note);
+        if (parsed && typeof parsed === 'object') return parsed;
+      }
+    } catch (err) {
+      console.error('Error reading session student configs:', err);
+    }
+    return {};
+  }, []);
+
+  // Helper to save session student configs to Supabase category_budgets
+  const saveSessionStudentConfigs = useCallback(async (teacherName: string, configs: Record<string, { student_count: number; price_per_student: number; original_student_count?: number }>, userId?: string) => {
+    if (!teacherName) return;
+    try {
+      setSessionStudentConfigs(configs);
+      const record = {
+        id: getSessionStudentConfigsKey(teacherName),
+        user_id: userId || '2d3a11e1-4d71-474c-b8df-abb85394e9c8',
+        user_name: teacherName,
+        category: '__SESSION_STUDENT_CONFIGS__',
+        amount: 0,
+        type: 'settings',
+        icon: 'Users',
+        note: JSON.stringify(configs),
+        updated_at: new Date().toISOString()
+      };
+      await (supabase.from('category_budgets') as any).upsert(record, { onConflict: 'id' });
+    } catch (err) {
+      console.error('Error saving session student configs:', err);
+    }
   }, []);
 
   // Helper to get exclusions key
@@ -1236,13 +1345,39 @@ export default function Dashboard() {
     return currentMonthData;
   }, [fetchScheduleExclusions]);
 
+  const calculateStats = useCallback((items: Session[]) => {
+    let total = items.length;
+    let completed = 0;
+    let earned = 0;
+    let projected = 0;
+
+    items.forEach((s) => {
+      if (s.status === 'Đã làm' || s.status === 'Đã dạy') {
+        completed++;
+        earned += Number(s.price) || 0;
+      }
+      if (s.status !== 'Hủy') {
+        projected += Number(s.price) || 0;
+      }
+    });
+
+    setTotalSessions(total);
+    setCompletedSessions(completed);
+    setEarnedIncome(earned);
+    setProjectedIncome(projected);
+  }, []);
+
   // Fetch session schedule data
   const fetchSessions = useCallback(async () => {
     if (!selectedMonth) return;
     setLoading(true);
 
     // 1. Fetch sessions for the active user/teacher in selectedMonth (for scheduler)
+    let studentConfigs: Record<string, any> = {};
     if (activeTeacherName) {
+      studentConfigs = await fetchSessionStudentConfigs(activeTeacherName);
+      setSessionStudentConfigs(studentConfigs);
+
       let { data, error } = await supabase
         .from('sessions')
         .select('*')
@@ -1263,7 +1398,7 @@ export default function Dashboard() {
 
       const initialData = data || [];
       const syncedData = await syncFixedSchedulesForMonth(selectedMonth, initialData, activeTeacherName);
-      const normalized = normalizeSessionList(syncedData);
+      const normalized = normalizeSessionList(syncedData, studentConfigs);
       const processed = await processAutoCheckIn(normalized);
       setSessions(processed);
       calculateStats(processed);
@@ -1282,7 +1417,7 @@ export default function Dashboard() {
         .select('*')
         .in('month_year', monthsToFetch);
       if (!error && data) {
-        const normalizedAll = normalizeSessionList(data);
+        const normalizedAll = normalizeSessionList(data, studentConfigs);
         const processedAll = await processAutoCheckIn(normalizedAll);
         setAllSessions(processedAll);
       } else {
@@ -1293,7 +1428,7 @@ export default function Dashboard() {
     }
 
     setLoading(false);
-  }, [activeTeacherName, selectedMonth, chartSelectedMonths, currentUser, processAutoCheckIn]);
+  }, [activeTeacherName, selectedMonth, chartSelectedMonths, currentUser, processAutoCheckIn, fetchSessionStudentConfigs, normalizeSessionList, syncFixedSchedulesForMonth, calculateStats]);
 
   // Handler to delete a schedule either for the current month or permanently across all months
   const handleDeleteSchedule = useCallback(async (jobName: string, scope: 'month' | 'all') => {
@@ -1473,28 +1608,6 @@ export default function Dashboard() {
     fetchSessions();
   };
 
-  const calculateStats = (items: Session[]) => {
-    let total = items.length;
-    let completed = 0;
-    let earned = 0;
-    let projected = 0;
-
-    items.forEach((s) => {
-      if (s.status === 'Đã làm' || s.status === 'Đã dạy') {
-        completed++;
-        earned += Number(s.price) || 0;
-      }
-      if (s.status !== 'Hủy') {
-        projected += Number(s.price) || 0;
-      }
-    });
-
-    setTotalSessions(total);
-    setCompletedSessions(completed);
-    setEarnedIncome(earned);
-    setProjectedIncome(projected);
-  };
-
   // Finance calculations
   // Preceding Roll-Over Surplus calculation (leftover money from previous months)
   const getPrecedingRollOverBalance = useCallback((targetMonthStr: string) => {
@@ -1635,6 +1748,24 @@ export default function Dashboard() {
             }
             return r;
           }));
+        } else if (idToDelete.startsWith('tx-sh-')) {
+          const shId = idToDelete.replace('tx-sh-', '');
+          const matchHist = savingsHistory.find(h => h.id === shId || `sh-${h.id}` === shId);
+          if (matchHist) {
+            if (matchHist.fund === 'emergency') {
+              const reverted = matchHist.type === 'deposit'
+                ? Math.max(0, emergencyCurrent - Number(matchHist.amount))
+                : emergencyCurrent + Number(matchHist.amount);
+              saveEmergencyCurrent(userId, reverted);
+            } else {
+              const reverted = matchHist.type === 'deposit'
+                ? Math.max(0, accumulationCurrent - Number(matchHist.amount))
+                : accumulationCurrent + Number(matchHist.amount);
+              saveAccumulationCurrent(userId, reverted);
+            }
+            const updatedHist = savingsHistory.filter(h => h.id !== matchHist.id && `sh-${h.id}` !== shId);
+            saveSavingsHistory(userId, updatedHist);
+          }
         }
       } catch (err) {
         console.error('Error deleting manual transaction from DB:', err);
@@ -1949,6 +2080,8 @@ export default function Dashboard() {
           currentUser={currentUser}
           preSelectedDate={preSelectedAddDate}
           onClearExclusion={(jobName) => handleClearScheduleExclusion(jobName, selectedMonth)}
+          sessionStudentConfigs={sessionStudentConfigs}
+          onSaveSessionStudentConfigs={saveSessionStudentConfigs}
         />
       )}
 
@@ -1967,6 +2100,8 @@ export default function Dashboard() {
           currentUser={currentUser}
           onDeleteSchedule={handleDeleteSchedule}
           onDeleteSingleSession={handleDeleteSingleSession}
+          sessionStudentConfigs={sessionStudentConfigs}
+          onSaveSessionStudentConfigs={saveSessionStudentConfigs}
         />
       )}
 

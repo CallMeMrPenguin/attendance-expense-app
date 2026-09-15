@@ -3,11 +3,15 @@ import {
   Shield, 
   TrendingUp, 
   Filter,
-  Activity
+  Activity,
+  Plus,
+  ArrowDownRight,
+  X
 } from 'lucide-react';
 import { formatVND, formatNumberDots, parseNumberDots } from '@/lib/utils';
 import { useToast } from '@/context/ToastContext';
 import MaterialSymbol from './MaterialSymbol';
+import CustomDatePicker from './CustomDatePicker';
 import { DataTable } from './DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 
@@ -176,12 +180,93 @@ export default function SavingTab({
   accumulationCurrent,
   accumulationTarget,
   savingsHistory,
+  manualTransactions = [],
+  saveEmergencyCurrent,
   saveEmergencyTarget,
-  saveAccumulationTarget
+  saveAccumulationCurrent,
+  saveAccumulationTarget,
+  saveSavingsHistory,
+  saveTransactions
 }: SavingTabProps) {
   const { showToast } = useToast();
   const [historyFilter, setHistoryFilter] = useState<'all' | 'emergency' | 'accumulation' | 'deposit' | 'withdraw'>('all');
   const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
+
+  // Quick Action Modal State
+  const [quickModalOpen, setQuickModalOpen] = useState(false);
+  const [quickFund, setQuickFund] = useState<'emergency' | 'accumulation'>('emergency');
+  const [quickAction, setQuickAction] = useState<'deposit' | 'withdraw'>('deposit');
+  const [quickAmount, setQuickAmount] = useState('');
+  const [quickDate, setQuickDate] = useState(new Date().toISOString().split('T')[0]);
+  const [quickNote, setQuickNote] = useState('');
+
+  const handleOpenQuickModal = (fund: 'emergency' | 'accumulation', action: 'deposit' | 'withdraw') => {
+    setQuickFund(fund);
+    setQuickAction(action);
+    setQuickAmount('');
+    setQuickDate(new Date().toISOString().split('T')[0]);
+    setQuickNote('');
+    setQuickModalOpen(true);
+  };
+
+  const handleSaveQuickFund = (e: React.FormEvent) => {
+    e.preventDefault();
+    const amt = parseNumberDots(quickAmount);
+    if (!amt || amt <= 0) {
+      showToast('Vui lòng nhập số tiền hợp lệ lớn hơn 0.', 'error');
+      return;
+    }
+
+    const isDeposit = quickAction === 'deposit';
+    const fundTitle = quickFund === 'emergency' ? 'Quỹ Dự Phòng' : 'Quỹ Tích Lũy';
+    const currentVal = quickFund === 'emergency' ? emergencyCurrent : accumulationCurrent;
+
+    if (!isDeposit && amt > currentVal) {
+      showToast('Số dư quỹ hiện tại không đủ để rút.', 'error');
+      return;
+    }
+
+    const newVal = isDeposit ? currentVal + amt : currentVal - amt;
+
+    if (quickFund === 'emergency') {
+      saveEmergencyCurrent(currentUser.id, newVal);
+    } else {
+      saveAccumulationCurrent(currentUser.id, newVal);
+    }
+
+    const newHist = {
+      id: `sh-${Date.now()}`,
+      fund: quickFund,
+      type: quickAction,
+      amount: amt,
+      date: quickDate,
+      note: quickNote.trim() || (isDeposit ? `Chuyển tiền vào ${fundTitle}` : `Rút tiền từ ${fundTitle}`)
+    };
+    saveSavingsHistory(currentUser.id, [newHist, ...savingsHistory]);
+
+    // Deduct from monthly money pool / surplus (expense on deposit, income on withdraw)
+    if (saveTransactions) {
+      const savingTx = {
+        id: `tx-sh-${newHist.id}`,
+        desc: quickNote.trim() || (isDeposit ? `Chuyển tiền vào ${fundTitle}` : `Rút tiền từ ${fundTitle}`),
+        amount: amt,
+        type: isDeposit ? ('expense' as const) : ('income' as const),
+        category: quickFund === 'emergency' ? 'Tiết kiệm khẩn cấp' : 'Tích lũy dài hạn',
+        date: quickDate,
+        isRecurring: false,
+        is_recurring: false
+      };
+      saveTransactions(currentUser.id, [savingTx, ...(manualTransactions || [])]);
+    }
+
+    showToast(
+      isDeposit
+        ? `Đã chuyển ${formatVND(amt)} vào ${fundTitle} và trừ thặng dư tháng!`
+        : `Đã rút ${formatVND(amt)} từ ${fundTitle} về dòng tiền tháng!`,
+      'success'
+    );
+    setQuickModalOpen(false);
+  };
 
   const emPercent = Math.min(100, Math.round((emergencyCurrent / Math.max(1, emergencyTarget)) * 100));
   const acPercent = Math.min(100, Math.round((accumulationCurrent / Math.max(1, accumulationTarget)) * 100));
@@ -332,6 +417,26 @@ export default function SavingTab({
               <Shield className="h-5 w-5" />
             </div>
           </div>
+
+          {/* Quick Action Buttons for Quỹ Dự Phòng */}
+          <div className="pt-3 border-t border-emerald-500/20 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => handleOpenQuickModal('emergency', 'deposit')}
+              className="flex-1 py-2 px-3 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-[0.98]"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Nạp Tiền</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleOpenQuickModal('emergency', 'withdraw')}
+              className="flex-1 py-2 px-3 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-[0.98]"
+            >
+              <ArrowDownRight className="h-3.5 w-3.5 text-rose-400" />
+              <span>Rút Tiền</span>
+            </button>
+          </div>
         </div>
 
         {/* Card 2: Quỹ Tích Lũy (Blue/Cyan KPI Style) */}
@@ -382,6 +487,26 @@ export default function SavingTab({
             <div className="p-2 bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 rounded-xl shadow-[0_0_12px_rgba(6,182,212,0.35)] shrink-0 flex items-center justify-center">
               <MaterialSymbol icon="finance_mode" size={20} className="text-cyan-400" />
             </div>
+          </div>
+
+          {/* Quick Action Buttons for Quỹ Tích Lũy */}
+          <div className="pt-3 border-t border-cyan-500/20 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => handleOpenQuickModal('accumulation', 'deposit')}
+              className="flex-1 py-2 px-3 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-[0.98]"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Nạp Tiền</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleOpenQuickModal('accumulation', 'withdraw')}
+              className="flex-1 py-2 px-3 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-[0.98]"
+            >
+              <ArrowDownRight className="h-3.5 w-3.5 text-rose-400" />
+              <span>Rút Tiền</span>
+            </button>
           </div>
         </div>
 
@@ -488,6 +613,131 @@ export default function SavingTab({
         </div>
 
       </div>
+
+      {/* Quick Fund Deposit/Withdraw Modal */}
+      {quickModalOpen && (
+        <div 
+          className="fixed inset-0 bg-black/85 z-[99999] flex items-center justify-center p-4 overflow-hidden pointer-events-auto select-none"
+          onClick={() => setQuickModalOpen(false)}
+        >
+          <div 
+            className="bg-[#0f1320] border border-white/10 rounded-2xl w-full max-w-md p-6 relative shadow-2xl text-left"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className={`p-2 rounded-xl border ${
+                  quickAction === 'deposit'
+                    ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.3)]'
+                    : 'bg-rose-500/15 text-rose-400 border-rose-500/30 shadow-[0_0_10px_rgba(244,63,94,0.3)]'
+                }`}>
+                  {quickFund === 'emergency' ? <Shield className="h-5 w-5" /> : <TrendingUp className="h-5 w-5" />}
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">
+                    {quickAction === 'deposit' ? 'Nạp Tiền Vào Quỹ' : 'Rút Tiền Khỏi Quỹ'}
+                  </h3>
+                  <span className="text-xs font-bold text-slate-400">
+                    {quickFund === 'emergency' ? 'Quỹ Dự Phòng (Khẩn Cấp)' : 'Quỹ Tích Lũy (Dài Hạn)'}
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setQuickModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveQuickFund} className="space-y-4">
+              {/* Amount input */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                  Số tiền giao dịch (VNĐ) *
+                </label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  value={formatNumberDots(quickAmount)}
+                  onChange={(e) => setQuickAmount(parseNumberDots(e.target.value) ? parseNumberDots(e.target.value).toString() : '')}
+                  placeholder="VD: 5.000.000"
+                  className="w-full bg-[#0d1018] border border-white/10 text-base font-black text-white rounded-xl px-4 py-2.5 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              {/* Date selection */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                  Ngày ghi nhận *
+                </label>
+                <CustomDatePicker
+                  value={quickDate}
+                  onChange={setQuickDate}
+                />
+              </div>
+
+              {/* Note input */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                  Ghi chú (Tùy chọn)
+                </label>
+                <input
+                  type="text"
+                  value={quickNote}
+                  onChange={(e) => setQuickNote(e.target.value)}
+                  placeholder={quickAction === 'deposit' ? 'Chuyển tiền vào quỹ...' : 'Rút chi tiêu phát sinh...'}
+                  className="w-full bg-[#0d1018] border border-white/10 text-xs font-semibold text-white rounded-xl px-4 py-2.5 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              {/* Impact Notice */}
+              <div className={`p-3 rounded-xl border text-xs font-semibold leading-relaxed ${
+                quickAction === 'deposit'
+                  ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-300'
+                  : 'bg-rose-500/10 border-rose-500/25 text-rose-300'
+              }`}>
+                {quickAction === 'deposit' ? (
+                  <>
+                    <span className="font-black block mb-0.5">Trừ thặng dư tháng:</span>
+                    Khoản tiền nạp vào quỹ sẽ được tính vào Chi tiêu dòng tiền để trừ trực tiếp thặng dư của tháng {quickDate.substring(0, 7)}.
+                  </>
+                ) : (
+                  <>
+                    <span className="font-black block mb-0.5">Cộng dòng tiền tháng:</span>
+                    Khoản tiền rút khỏi quỹ sẽ được tính vào Thu nhập dòng tiền để cộng trực tiếp vào thặng dư của tháng {quickDate.substring(0, 7)}.
+                  </>
+                )}
+              </div>
+
+              {/* Submit Buttons */}
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setQuickModalOpen(false)}
+                  className="flex-1 py-2.5 bg-white/5 hover:bg-white/10 text-slate-300 font-bold text-xs rounded-xl cursor-pointer transition-colors"
+                >
+                  Hủy Bỏ
+                </button>
+                <button
+                  type="submit"
+                  className={`flex-1 py-2.5 font-black text-xs rounded-xl cursor-pointer transition-all shadow-md text-white ${
+                    quickAction === 'deposit'
+                      ? 'bg-emerald-600 hover:bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.4)]'
+                      : 'bg-rose-600 hover:bg-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.4)]'
+                  }`}
+                >
+                  {quickAction === 'deposit' ? 'Xác Nhận Nạp Quỹ' : 'Xác Nhận Rút Quỹ'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

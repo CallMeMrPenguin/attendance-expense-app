@@ -22,9 +22,12 @@ import {
   checkOverlaps, 
   getStudentColor,
   formatDateVN,
+  formatVND,
   Session,
   formatNumberDots,
-  parseNumberDots
+  parseNumberDots,
+  sanitizeSessionPayload,
+  cleanString
 } from '@/lib/utils';
 
 interface EditSessionModalProps {
@@ -42,6 +45,8 @@ interface EditSessionModalProps {
   };
   onDeleteSchedule?: (jobName: string, scope: 'month' | 'all') => Promise<void>;
   onDeleteSingleSession?: (sessionId: string) => Promise<void>;
+  sessionStudentConfigs?: Record<string, any>;
+  onSaveSessionStudentConfigs?: (teacherName: string, configs: Record<string, any>) => void;
 }
 
 interface SiblingCheck {
@@ -93,10 +98,15 @@ export default function EditSessionModal({
   teachers = [],
   currentUser,
   onDeleteSchedule,
-  onDeleteSingleSession
+  onDeleteSingleSession,
+  sessionStudentConfigs,
+  onSaveSessionStudentConfigs
 }: EditSessionModalProps) {
   const [assignedTeacherName, setAssignedTeacherName] = useState(session?.teacher_name || '');
   const [studentName, setStudentName] = useState('');
+  const [studentCount, setStudentCount] = useState<number>(1);
+  const [originalStudentCount, setOriginalStudentCount] = useState<number>(1);
+  const [pricePerStudent, setPricePerStudent] = useState<string>('');
   const [price, setPrice] = useState('');
   const [status, setStatus] = useState('Chưa dạy');
   const [incomeCategory, setIncomeCategory] = useState(session?.income_category || session?.category || 'Giáo dục');
@@ -157,6 +167,15 @@ export default function EditSessionModal({
     setAssignedTeacherName(session.user_name || session.teacher_name || '');
     setStudentName(session.job_name || session.student_name || '');
     setPrice(String(session.price || ''));
+
+    const sCount = session.student_count ?? 1;
+    const origCount = session.original_student_count ?? sCount;
+    const pPerStudent = session.price_per_student ?? (sCount > 0 ? Math.round((Number(session.price) || 0) / sCount) : Number(session.price) || 0);
+
+    setStudentCount(sCount);
+    setOriginalStudentCount(origCount);
+    setPricePerStudent(String(pPerStudent || ''));
+
     let currentStatus = session.status || 'Chưa làm';
     if (currentStatus === 'Chưa dạy') currentStatus = 'Chưa làm';
     if (currentStatus === 'Đã dạy') currentStatus = 'Đã làm';
@@ -364,6 +383,42 @@ export default function EditSessionModal({
     });
   };
 
+  const handleStudentCountChange = (newCount: number) => {
+    const validCount = Math.max(0, newCount);
+    setStudentCount(validCount);
+    const pps = Number(pricePerStudent) || 0;
+    setPrice((validCount * pps).toString());
+  };
+
+  const handlePricePerStudentChange = (valStr: string) => {
+    const rawVal = parseNumberDots(valStr);
+    const val = rawVal ? rawVal.toString() : '';
+    setPricePerStudent(val);
+    if (val) {
+      setPrice((studentCount * Number(val)).toString());
+    } else {
+      setPrice('');
+    }
+  };
+
+  const handleOriginalCountChange = (newCount: number) => {
+    const validCount = Math.max(1, newCount);
+    setOriginalStudentCount(validCount);
+    if (studentCount === originalStudentCount) {
+      setStudentCount(validCount);
+      const pps = Number(pricePerStudent) || 0;
+      setPrice((validCount * pps).toString());
+    }
+  };
+
+  const handleQuickReduceStudent = () => {
+    handleStudentCountChange(Math.max(0, studentCount - 1));
+  };
+
+  const handleQuickResetStudent = () => {
+    handleStudentCountChange(originalStudentCount);
+  };
+
 
 
   const executeUpsertSessions = async (newSessions: any[], oldIds: string[]) => {
@@ -383,22 +438,12 @@ export default function EditSessionModal({
         if (deleteError) throw new Error(deleteError.message);
       }
 
-      const cleanPayload = newSessions.map(({ created_at, updated_at, ...rest }) => rest);
+      const sanitizedSessions = newSessions.map(sanitizeSessionPayload);
 
-      if (cleanPayload.length > 0) {
-        let { error: upsertError } = await supabase
+      if (sanitizedSessions.length > 0) {
+        const { error: upsertError } = await supabase
           .from('sessions')
-          .upsert(cleanPayload);
-
-        if (upsertError && (
-          upsertError.message?.includes('schema cache') || 
-          upsertError.message?.includes('Could not find') ||
-          upsertError.message?.includes('does not exist')
-        )) {
-          const cleanSessions = cleanPayload.map(({ student_name, teacher_name, category, ...rest }) => rest);
-          const retryRes = await supabase.from('sessions').upsert(cleanSessions);
-          upsertError = retryRes.error;
-        }
+          .upsert(sanitizedSessions);
 
         if (upsertError) throw new Error(upsertError.message);
       }
@@ -481,23 +526,57 @@ export default function EditSessionModal({
           month_year: session.month_year,
         };
 
+        const currentPPerStudent = Number(pricePerStudent) || (studentCount > 0 ? Math.round(Number(price) / studentCount) : Number(price));
+        const currentPrice = studentCount * currentPPerStudent;
+
         if (isCurrent) {
           newSiblingSessions.push({
             ...session,
             ...(matchOld || {}),
             ...baseItem,
+            price: currentPrice,
+            student_count: studentCount,
+            price_per_student: currentPPerStudent,
+            original_student_count: originalStudentCount,
             status: status,
           });
         } else {
+          const sibStudentCount = matchOld?.student_count ?? originalStudentCount;
+          const sibPrice = sibStudentCount * currentPPerStudent;
           const item: any = {
             ...(matchOld || {}),
             ...baseItem,
+            price: sibPrice,
+            student_count: sibStudentCount,
+            price_per_student: currentPPerStudent,
+            original_student_count: originalStudentCount,
             status: matchOld ? matchOld.status : 'Chưa làm',
             id: sib.id || generateUUID(),
           };
           newSiblingSessions.push(item);
         }
       });
+
+      // Save updated student configurations to Supabase
+      if (onSaveSessionStudentConfigs && studentName.trim() && session?.id) {
+        const classKey = `class_${cleanString(studentName.trim())}`;
+        const sessKey = `sess_${session.id}`;
+        const currentPPerStudent = Number(pricePerStudent) || (studentCount > 0 ? Math.round(Number(price) / studentCount) : Number(price));
+        const updatedConfigs = {
+          ...(sessionStudentConfigs || {}),
+          [classKey]: {
+            student_count: originalStudentCount,
+            price_per_student: currentPPerStudent,
+            original_student_count: originalStudentCount,
+          },
+          [sessKey]: {
+            student_count: studentCount,
+            price_per_student: currentPPerStudent,
+            original_student_count: originalStudentCount,
+          }
+        };
+        onSaveSessionStudentConfigs(assignedTeacherName, updatedConfigs);
+      }
 
       const overlaps = checkOverlaps(newSiblingSessions, existingOtherSessions);
       if (overlaps.length > 0) {
@@ -1203,35 +1282,133 @@ export default function EditSessionModal({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label htmlFor="editDuration" className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
-                  Số giờ dạy *
-                </label>
-                <input
-                  id="editDuration"
-                  type="number"
-                  step="0.5"
-                  required
-                  value={duration}
-                  onChange={(e) => handleActiveDayTimeDurationChange(dayOfWeek, time, parseFloat(e.target.value) || 1.5)}
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500"
-                />
+            <div className="space-y-1.5">
+              <label htmlFor="editDuration" className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider block">
+                Số giờ dạy *
+              </label>
+              <input
+                id="editDuration"
+                type="number"
+                step="0.5"
+                required
+                value={duration}
+                onChange={(e) => handleActiveDayTimeDurationChange(dayOfWeek, time, parseFloat(e.target.value) || 1.5)}
+                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500"
+              />
+            </div>
+
+            {/* Multi-student & Fee Configuration Section */}
+            <div className="p-4 rounded-xl bg-slate-100/70 dark:bg-[#0c0f1e] border border-slate-200 dark:border-[#212c4b] space-y-3.5">
+              <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/5 pb-2.5">
+                <div>
+                  <span className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider block">
+                    Sĩ số học sinh & Học phí
+                  </span>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                    Cấu hình sĩ số lớp và tự động trừ tiền khi học sinh vắng
+                  </span>
+                </div>
+                {studentCount < originalStudentCount && (
+                  <span className="text-[10px] font-black px-2 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-full animate-pulse">
+                    Đang giảm {originalStudentCount - studentCount} HS
+                  </span>
+                )}
               </div>
 
-              <div className="space-y-1.5">
-                <label htmlFor="editPrice" className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
-                  Số tiền / Tiền công (đ) *
-                </label>
-                <input
-                  id="editPrice"
-                  type="text"
-                  required
-                  value={formatNumberDots(price)}
-                  onChange={(e) => setPrice(parseNumberDots(e.target.value) ? parseNumberDots(e.target.value).toString() : '')}
-                  placeholder="250.000"
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500"
-                />
+              {/* Class base configs: Sĩ số gốc & Giá mỗi học sinh */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Sĩ số lớp (Mặc định)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={originalStudentCount}
+                    onChange={(e) => handleOriginalCountChange(parseInt(e.target.value) || 1)}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-[#0d1018] border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Học phí / 1 học sinh (đ)
+                  </label>
+                  <input
+                    type="text"
+                    value={pricePerStudent ? formatNumberDots(pricePerStudent) : ''}
+                    onChange={(e) => handlePricePerStudentChange(e.target.value)}
+                    placeholder="VD: 100.000"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-[#0d1018] border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              {/* Specific session student adjuster (Buổi học hôm nay) */}
+              <div className="p-3 bg-slate-50 dark:bg-[#121626] rounded-xl border border-slate-200 dark:border-white/5 space-y-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <span className="text-[11px] font-extrabold text-slate-800 dark:text-slate-200">
+                    Học sinh buổi này ({formatDateVN(session.date)}):
+                  </span>
+                  
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={handleQuickReduceStudent}
+                      disabled={studentCount <= 0}
+                      className="px-2 py-1 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-400 hover:text-amber-300 rounded-lg text-[10px] font-black cursor-pointer disabled:opacity-40 transition-colors"
+                      title="Giảm 1 học sinh vắng mặt"
+                    >
+                      -1 HS (Vắng)
+                    </button>
+                    {studentCount !== originalStudentCount && (
+                      <button
+                        type="button"
+                        onClick={handleQuickResetStudent}
+                        className="px-2 py-1 bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white rounded-lg text-[10px] font-bold cursor-pointer transition-colors"
+                        title="Khôi phục sĩ số gốc"
+                      >
+                        Khôi phục ({originalStudentCount} HS)
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => handleStudentCountChange(studentCount - 1)}
+                      className="w-8 h-8 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 font-black text-sm flex items-center justify-center cursor-pointer transition-colors"
+                    >
+                      -
+                    </button>
+                    <div className="px-3 py-1.5 min-w-[60px] text-center font-black text-xs bg-white dark:bg-[#0d1018] border border-slate-200 dark:border-white/10 rounded-lg text-slate-900 dark:text-white">
+                      {studentCount} HS
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleStudentCountChange(studentCount + 1)}
+                      className="w-8 h-8 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 font-black text-sm flex items-center justify-center cursor-pointer transition-colors"
+                    >
+                      +
+                    </button>
+                  </div>
+
+                  <div className="flex-1 text-right">
+                    <span className="text-[10px] font-extrabold uppercase text-slate-400 block">Học phí buổi này</span>
+                    <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
+                      {formatVND(Number(price) || 0)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Calculation feedback notice */}
+                {studentCount < originalStudentCount && (
+                  <div className="text-[10.5px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 p-2 rounded-lg leading-relaxed">
+                    Giảm {originalStudentCount - studentCount} HS tạm thời: {studentCount} HS × {formatVND(Number(pricePerStudent) || 0)} = {formatVND(Number(price) || 0)} (giảm trừ {formatVND((originalStudentCount - studentCount) * (Number(pricePerStudent) || 0))})
+                  </div>
+                )}
               </div>
             </div>
           </div>

@@ -22,6 +22,9 @@ export interface Session {
   loai_hinh?: 'co_dinh' | 'tam_thoi';
   income_category?: string;
   category?: string;
+  student_count?: number;
+  price_per_student?: number;
+  original_student_count?: number;
 }
 
 // Convert "18:00" to minutes (1080)
@@ -237,6 +240,8 @@ export interface ScheduleWorkSummary {
   completionRate: number;
   earnedIncome: number;
   projectedIncome: number;
+  student_count?: number;
+  price_per_student?: number;
   sessions: Session[];
 }
 
@@ -262,5 +267,61 @@ export function isHungTrangVcbTransfer(r: any): boolean {
   const isVietinBank = dAcc.includes('106872262054') || cAcc.includes('106872262054');
 
   return isTrangVcb && !isVietinBank;
+}
+
+// Sanitize session objects so that only valid columns in the Supabase 'sessions' table are included
+export function sanitizeSessionPayload(sessionObj: any): any {
+  if (!sessionObj) return {};
+  const {
+    id,
+    user_name,
+    job_name,
+    student_name,
+    teacher_name,
+    day_of_week,
+    time,
+    duration,
+    price,
+    status,
+    month_year,
+    color,
+    date,
+    auto_check_in,
+    auto_checkin,
+    loai_hinh_lich,
+    loai_hinh,
+    income_category,
+    category
+  } = sessionObj;
+
+  const res: any = {
+    user_name: user_name || teacher_name || 'Admin',
+    job_name: job_name || student_name || 'Công việc',
+    day_of_week: day_of_week || 'Thứ 2',
+    time: formatCleanTimeString(time),
+    duration: Number(duration) || 1.5,
+    price: Number(price) || 0,
+    status: status || 'Chưa làm',
+    month_year: month_year,
+    color: color || '#7c3aed',
+    date: date,
+    auto_check_in: auto_check_in ?? auto_checkin ?? true,
+    auto_checkin: auto_checkin ?? auto_check_in ?? true,
+    loai_hinh_lich: loai_hinh_lich || loai_hinh || 'co_dinh',
+    loai_hinh: loai_hinh || loai_hinh_lich || 'co_dinh',
+    income_category: income_category || category || 'Giáo dục'
+  };
+
+  if (id) res.id = id;
+  return res;
+}
+
+export function cleanString(str: string): string {
+  return (str || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/đ/g, 'd')
+    .trim();
 }
 
