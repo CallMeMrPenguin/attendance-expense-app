@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Calendar, Plus, Clock, Loader2, AlertTriangle } from 'lucide-react';
+import { X, Calendar, Plus, Clock, Loader2, AlertTriangle, Users } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { 
   DAYS, 
@@ -72,6 +72,7 @@ export default function AddSessionModal({
   const [assignedTeacherName, setAssignedTeacherName] = useState(activeTeacherName);
   const [studentName, setStudentName] = useState('');
   const [studentCount, setStudentCount] = useState<number>(1);
+  const [studentNames, setStudentNames] = useState<string[]>([]);
   const [pricePerStudent, setPricePerStudent] = useState<string>('');
   const [price, setPrice] = useState('');
   const [status, setStatus] = useState('Chưa dạy');
@@ -127,6 +128,7 @@ export default function AddSessionModal({
       }
       setStudentName('');
       setStudentCount(1);
+      setStudentNames([]);
       setPricePerStudent('');
       setPrice('');
       setStatus('Chưa dạy');
@@ -174,11 +176,30 @@ export default function AddSessionModal({
   const handleStudentCountChange = (newCount: number) => {
     const validCount = Math.max(1, newCount);
     setStudentCount(validCount);
+    setStudentNames((prev) => {
+      const next = [...prev];
+      if (next.length < validCount) {
+        while (next.length < validCount) {
+          next.push('');
+        }
+      } else if (next.length > validCount) {
+        return next.slice(0, validCount);
+      }
+      return next;
+    });
     if (pricePerStudent) {
       setPrice((Number(pricePerStudent) * validCount).toString());
     } else if (price) {
       setPricePerStudent(Math.round(Number(price) / validCount).toString());
     }
+  };
+
+  const handleStudentNameIndexChange = (index: number, val: string) => {
+    setStudentNames((prev) => {
+      const next = [...prev];
+      next[index] = val;
+      return next;
+    });
   };
 
   const [warningMsg, setWarningMsg] = useState('');
@@ -311,6 +332,11 @@ export default function AddSessionModal({
       const candidates: any[] = [];
       const pPerStudent = Number(pricePerStudent) || (studentCount > 0 ? Math.round(Number(price) / studentCount) : Number(price));
 
+      const cleanStudentNames = Array.from({ length: studentCount }, (_, i) => {
+        const typed = (studentNames[i] || '').trim();
+        return typed || `Học sinh ${i + 1}`;
+      });
+
       if (isSingleSession) {
         if (!singleDate) {
           throw new Error('Vui lòng chọn ngày học!');
@@ -341,6 +367,9 @@ export default function AddSessionModal({
           student_count: studentCount,
           price_per_student: pPerStudent,
           original_student_count: studentCount,
+          student_names: cleanStudentNames,
+          present_students: cleanStudentNames,
+          absent_students: [],
         });
       } else {
         const selectedDays = Object.entries(dayConfigs).filter(([_, config]) => config.checked);
@@ -372,6 +401,9 @@ export default function AddSessionModal({
               student_count: studentCount,
               price_per_student: pPerStudent,
               original_student_count: studentCount,
+              student_names: cleanStudentNames,
+              present_students: cleanStudentNames,
+              absent_students: [],
             });
           });
         });
@@ -386,6 +418,7 @@ export default function AddSessionModal({
             student_count: studentCount,
             price_per_student: pPerStudent,
             original_student_count: studentCount,
+            student_names: cleanStudentNames,
           },
         };
         onSaveSessionStudentConfigs(assignedTeacherName, updatedConfigs);
@@ -601,27 +634,53 @@ export default function AddSessionModal({
               </div>
 
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label htmlFor="price" className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider block">
-                    Tổng học phí buổi học (VNĐ) *
-                  </label>
-                  {studentCount > 1 && (
-                    <span className="text-[10px] text-indigo-400 font-extrabold bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-md">
-                      = {studentCount} HS × {formatVND(Number(pricePerStudent) || 0)}
-                    </span>
-                  )}
-                </div>
+                <label htmlFor="price" className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider block">
+                  Tổng Học Phí Ca ({studentCount} HS) (VNĐ) *
+                </label>
                 <input
                   id="price"
                   type="text"
                   required
                   value={price ? formatNumberDots(price) : ''}
                   onChange={(e) => handlePriceChange(e.target.value)}
-                  placeholder="VD: 300.000"
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-black text-emerald-600 dark:text-emerald-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                  placeholder="VD: 200.000"
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-bold text-emerald-600 dark:text-emerald-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                 />
               </div>
             </div>
+
+            {/* Student Names Roster Section when studentCount > 1 */}
+            {studentCount > 1 && (
+              <div className="p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/25 space-y-3 animate-fade-in">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-indigo-400" />
+                    <span className="text-xs font-black text-white uppercase tracking-wider">
+                      Đặt Tên Từng Học Sinh Trong Lớp ({studentCount} HS)
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-bold text-indigo-300">
+                    Phục vụ tính học phí riêng từng em
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {Array.from({ length: studentCount }).map((_, idx) => (
+                    <div key={idx} className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-300">
+                        Học sinh #{idx + 1}
+                      </label>
+                      <input
+                        type="text"
+                        value={studentNames[idx] || ''}
+                        onChange={(e) => handleStudentNameIndexChange(idx, e.target.value)}
+                        placeholder={`VD: Học sinh ${idx + 1}`}
+                        className="w-full px-3 py-2 bg-[#0c0f1e] border border-[#212c4b] rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500 placeholder:text-slate-500 font-semibold"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="space-y-2">
               <label className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider block">
                 Màu sắc hiển thị ca dạy

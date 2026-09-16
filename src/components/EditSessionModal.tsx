@@ -10,7 +10,12 @@ import {
   BookOpen, 
   CalendarDays,
   FileText,
-  AlertTriangle
+  AlertTriangle,
+  Users,
+  CheckCircle2,
+  XCircle,
+  UserCheck,
+  UserX
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import {
@@ -106,6 +111,9 @@ export default function EditSessionModal({
   const [studentName, setStudentName] = useState('');
   const [studentCount, setStudentCount] = useState<number>(1);
   const [originalStudentCount, setOriginalStudentCount] = useState<number>(1);
+  const [studentNames, setStudentNames] = useState<string[]>([]);
+  const [presentStudents, setPresentStudents] = useState<string[]>([]);
+  const [absentStudents, setAbsentStudents] = useState<string[]>([]);
   const [pricePerStudent, setPricePerStudent] = useState<string>('');
   const [price, setPrice] = useState('');
   const [status, setStatus] = useState('Chưa dạy');
@@ -175,6 +183,41 @@ export default function EditSessionModal({
     setStudentCount(sCount);
     setOriginalStudentCount(origCount);
     setPricePerStudent(String(pPerStudent || ''));
+
+    // Hydrate student names and attendance status
+    const jobKey = cleanString(session.job_name || session.student_name || '');
+    const classCfg = sessionStudentConfigs ? sessionStudentConfigs[`class_${jobKey}`] : null;
+    const sessCfg = (sessionStudentConfigs && session.id) ? sessionStudentConfigs[`sess_${session.id}`] : null;
+
+    let names = session.student_names || sessCfg?.student_names || classCfg?.student_names || [];
+    if (!Array.isArray(names) || names.length === 0) {
+      if (origCount > 1) {
+        names = Array.from({ length: origCount }, (_, i) => `Học sinh ${i + 1}`);
+      } else {
+        names = [];
+      }
+    } else if (names.length < origCount) {
+      names = [
+        ...names,
+        ...Array.from({ length: origCount - names.length }, (_, i) => `Học sinh ${names.length + i + 1}`)
+      ];
+    }
+    setStudentNames(names);
+
+    let present = sessCfg?.present_students || session.present_students || [];
+    let absent = sessCfg?.absent_students || session.absent_students || [];
+
+    if (present.length === 0 && absent.length === 0) {
+      if (sCount < origCount) {
+        present = names.slice(0, sCount);
+        absent = names.slice(sCount);
+      } else {
+        present = [...names];
+        absent = [];
+      }
+    }
+    setPresentStudents(present);
+    setAbsentStudents(absent);
 
     let currentStatus = session.status || 'Chưa làm';
     if (currentStatus === 'Chưa dạy') currentStatus = 'Chưa làm';
@@ -383,11 +426,15 @@ export default function EditSessionModal({
     });
   };
 
-  const handleStudentCountChange = (newCount: number) => {
-    const validCount = Math.max(0, newCount);
-    setStudentCount(validCount);
-    const pps = Number(pricePerStudent) || 0;
-    setPrice((validCount * pps).toString());
+  const handlePriceChange = (valStr: string) => {
+    const rawVal = parseNumberDots(valStr);
+    const val = rawVal ? rawVal.toString() : '';
+    setPrice(val);
+    if (val && studentCount > 0) {
+      setPricePerStudent(Math.round(Number(val) / studentCount).toString());
+    } else if (!val) {
+      setPricePerStudent('');
+    }
   };
 
   const handlePricePerStudentChange = (valStr: string) => {
@@ -395,28 +442,110 @@ export default function EditSessionModal({
     const val = rawVal ? rawVal.toString() : '';
     setPricePerStudent(val);
     if (val) {
-      setPrice((studentCount * Number(val)).toString());
+      setPrice((Number(val) * studentCount).toString());
     } else {
       setPrice('');
+    }
+  };
+
+  const handleStudentCountChange = (newCount: number) => {
+    const validCount = Math.max(0, Math.min(originalStudentCount, newCount));
+    setStudentCount(validCount);
+    if (pricePerStudent) {
+      setPrice((Number(pricePerStudent) * validCount).toString());
+    } else if (price) {
+      setPricePerStudent(Math.round(Number(price) / (validCount || 1)).toString());
     }
   };
 
   const handleOriginalCountChange = (newCount: number) => {
     const validCount = Math.max(1, newCount);
     setOriginalStudentCount(validCount);
-    if (studentCount === originalStudentCount) {
+    setStudentNames((prev) => {
+      const next = [...prev];
+      if (next.length < validCount) {
+        while (next.length < validCount) {
+          next.push(`Học sinh ${next.length + 1}`);
+        }
+      } else if (next.length > validCount) {
+        return next.slice(0, validCount);
+      }
+      return next;
+    });
+    if (studentCount >= originalStudentCount) {
       setStudentCount(validCount);
-      const pps = Number(pricePerStudent) || 0;
-      setPrice((validCount * pps).toString());
+      setPresentStudents((prev) => {
+        const next = [...prev];
+        if (next.length < validCount) {
+          while (next.length < validCount) {
+            next.push(`Học sinh ${next.length + 1}`);
+          }
+        } else if (next.length > validCount) {
+          return next.slice(0, validCount);
+        }
+        return next;
+      });
+      if (pricePerStudent) {
+        setPrice((Number(pricePerStudent) * validCount).toString());
+      }
     }
   };
 
+  const handleStudentNameIndexChange = (index: number, val: string) => {
+    const oldName = studentNames[index];
+    setStudentNames((prev) => {
+      const next = [...prev];
+      next[index] = val;
+      return next;
+    });
+    if (oldName) {
+      setPresentStudents((prev) => prev.map((n) => (n === oldName ? val : n)));
+      setAbsentStudents((prev) => prev.map((n) => (n === oldName ? val : n)));
+    }
+  };
+
+  const handleToggleStudentAttendance = (nameToToggle: string) => {
+    const isCurrentlyPresent = presentStudents.includes(nameToToggle);
+    let nextPresent: string[];
+    let nextAbsent: string[];
+
+    if (isCurrentlyPresent) {
+      nextPresent = presentStudents.filter((n) => n !== nameToToggle);
+      nextAbsent = Array.from(new Set([...absentStudents, nameToToggle]));
+    } else {
+      nextPresent = Array.from(new Set([...presentStudents, nameToToggle]));
+      nextAbsent = absentStudents.filter((n) => n !== nameToToggle);
+    }
+
+    setPresentStudents(nextPresent);
+    setAbsentStudents(nextAbsent);
+
+    const newCount = nextPresent.length;
+    setStudentCount(newCount);
+
+    const pPerStudent = Number(pricePerStudent) || (originalStudentCount > 0 ? Math.round(Number(price) / originalStudentCount) : Number(price));
+    setPrice((newCount * pPerStudent).toString());
+  };
+
   const handleQuickReduceStudent = () => {
-    handleStudentCountChange(Math.max(0, studentCount - 1));
+    if (studentCount <= 0) return;
+    const newCount = Math.max(0, studentCount - 1);
+    setStudentCount(newCount);
+    if (presentStudents.length > 0) {
+      const studentToMarkAbsent = presentStudents[presentStudents.length - 1];
+      setPresentStudents(presentStudents.slice(0, -1));
+      setAbsentStudents(prev => Array.from(new Set([...prev, studentToMarkAbsent])));
+    }
+    const pPerStudent = Number(pricePerStudent) || (originalStudentCount > 0 ? Math.round(Number(price) / originalStudentCount) : 0);
+    setPrice((newCount * pPerStudent).toString());
   };
 
   const handleQuickResetStudent = () => {
-    handleStudentCountChange(originalStudentCount);
+    setStudentCount(originalStudentCount);
+    setPresentStudents([...studentNames]);
+    setAbsentStudents([]);
+    const pPerStudent = Number(pricePerStudent) || (originalStudentCount > 0 ? Math.round(Number(price) / originalStudentCount) : 0);
+    setPrice((originalStudentCount * pPerStudent).toString());
   };
 
 
@@ -529,6 +658,8 @@ export default function EditSessionModal({
         const currentPPerStudent = Number(pricePerStudent) || (studentCount > 0 ? Math.round(Number(price) / studentCount) : Number(price));
         const currentPrice = studentCount * currentPPerStudent;
 
+        const cleanStudentNames = studentNames.length > 0 ? studentNames : Array.from({ length: originalStudentCount }, (_, i) => `Học sinh ${i + 1}`);
+
         if (isCurrent) {
           newSiblingSessions.push({
             ...session,
@@ -538,11 +669,16 @@ export default function EditSessionModal({
             student_count: studentCount,
             price_per_student: currentPPerStudent,
             original_student_count: originalStudentCount,
+            student_names: cleanStudentNames,
+            present_students: presentStudents,
+            absent_students: absentStudents,
             status: status,
           });
         } else {
           const sibStudentCount = matchOld?.student_count ?? originalStudentCount;
           const sibPrice = sibStudentCount * currentPPerStudent;
+          const sibPresent = matchOld?.present_students || (sibStudentCount < originalStudentCount ? cleanStudentNames.slice(0, sibStudentCount) : cleanStudentNames);
+          const sibAbsent = matchOld?.absent_students || (sibStudentCount < originalStudentCount ? cleanStudentNames.slice(sibStudentCount) : []);
           const item: any = {
             ...(matchOld || {}),
             ...baseItem,
@@ -550,6 +686,9 @@ export default function EditSessionModal({
             student_count: sibStudentCount,
             price_per_student: currentPPerStudent,
             original_student_count: originalStudentCount,
+            student_names: cleanStudentNames,
+            present_students: sibPresent,
+            absent_students: sibAbsent,
             status: matchOld ? matchOld.status : 'Chưa làm',
             id: sib.id || generateUUID(),
           };
@@ -562,17 +701,22 @@ export default function EditSessionModal({
         const classKey = `class_${cleanString(studentName.trim())}`;
         const sessKey = `sess_${session.id}`;
         const currentPPerStudent = Number(pricePerStudent) || (studentCount > 0 ? Math.round(Number(price) / studentCount) : Number(price));
+        const cleanStudentNames = studentNames.length > 0 ? studentNames : Array.from({ length: originalStudentCount }, (_, i) => `Học sinh ${i + 1}`);
         const updatedConfigs = {
           ...(sessionStudentConfigs || {}),
           [classKey]: {
             student_count: originalStudentCount,
             price_per_student: currentPPerStudent,
             original_student_count: originalStudentCount,
+            student_names: cleanStudentNames,
           },
           [sessKey]: {
             student_count: studentCount,
             price_per_student: currentPPerStudent,
             original_student_count: originalStudentCount,
+            student_names: cleanStudentNames,
+            present_students: presentStudents,
+            absent_students: absentStudents,
           }
         };
         onSaveSessionStudentConfigs(assignedTeacherName, updatedConfigs);
@@ -1298,15 +1442,18 @@ export default function EditSessionModal({
             </div>
 
             {/* Multi-student & Fee Configuration Section */}
-            <div className="p-4 rounded-xl bg-slate-100/70 dark:bg-[#0c0f1e] border border-slate-200 dark:border-[#212c4b] space-y-3.5">
+            <div className="p-4 rounded-xl bg-slate-100/70 dark:bg-[#0c0f1e] border border-slate-200 dark:border-[#212c4b] space-y-4">
               <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/5 pb-2.5">
-                <div>
-                  <span className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider block">
-                    Sĩ số học sinh & Học phí
-                  </span>
-                  <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                    Cấu hình sĩ số lớp và tự động trừ tiền khi học sinh vắng
-                  </span>
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-indigo-400" />
+                  <div>
+                    <span className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider block">
+                      Sĩ số học sinh & Học phí
+                    </span>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                      Cấu hình danh sách học sinh và điểm danh từng em cho ca này
+                    </span>
+                  </div>
                 </div>
                 {studentCount < originalStudentCount && (
                   <span className="text-[10px] font-black px-2 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-full animate-pulse">
@@ -1344,11 +1491,39 @@ export default function EditSessionModal({
                 </div>
               </div>
 
-              {/* Specific session student adjuster (Buổi học hôm nay) */}
-              <div className="p-3 bg-slate-50 dark:bg-[#121626] rounded-xl border border-slate-200 dark:border-white/5 space-y-2">
+              {/* Editable Student Names in Class (Roster) */}
+              {originalStudentCount > 1 && (
+                <div className="p-3 bg-indigo-500/10 rounded-xl border border-indigo-500/20 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-black text-indigo-300 uppercase tracking-wider">
+                      Tên các học sinh trong lớp ({originalStudentCount} HS)
+                    </span>
+                    <span className="text-[9.5px] font-bold text-slate-400">
+                      Tự động đồng bộ sang bảng tính học phí
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {Array.from({ length: originalStudentCount }).map((_, idx) => (
+                      <div key={idx} className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-black text-slate-400 w-5 text-center">#{idx + 1}</span>
+                        <input
+                          type="text"
+                          value={studentNames[idx] || ''}
+                          onChange={(e) => handleStudentNameIndexChange(idx, e.target.value)}
+                          placeholder={`Học sinh ${idx + 1}`}
+                          className="flex-1 px-2.5 py-1.5 bg-[#0c0f1e] border border-[#212c4b] rounded-lg text-xs text-white focus:outline-none focus:border-indigo-500 font-semibold"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Specific session student adjuster (Điểm danh ca học hôm nay) */}
+              <div className="p-3 bg-slate-50 dark:bg-[#121626] rounded-xl border border-slate-200 dark:border-white/5 space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <span className="text-[11px] font-extrabold text-slate-800 dark:text-slate-200">
-                    Học sinh buổi này ({formatDateVN(session.date)}):
+                    Điểm danh ca này ({formatDateVN(session.date)}):
                   </span>
                   
                   <div className="flex items-center gap-1.5">
@@ -1366,15 +1541,59 @@ export default function EditSessionModal({
                         type="button"
                         onClick={handleQuickResetStudent}
                         className="px-2 py-1 bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white rounded-lg text-[10px] font-bold cursor-pointer transition-colors"
-                        title="Khôi phục sĩ số gốc"
+                        title="Khôi phục đầy đủ cả lớp"
                       >
-                        Khôi phục ({originalStudentCount} HS)
+                        Đầy đủ ({originalStudentCount} HS)
                       </button>
                     )}
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3">
+                {/* Interactive Multi-Student Attendance Checkboxes */}
+                {originalStudentCount > 1 && studentNames.length > 0 && (
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
+                      Tích chọn học sinh ĐI HỌC hôm nay (Bỏ tích để đánh dấu VẮNG):
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {studentNames.map((sName, idx) => {
+                        const isPresent = presentStudents.includes(sName);
+                        return (
+                          <div
+                            key={idx}
+                            onClick={() => handleToggleStudentAttendance(sName)}
+                            className={`p-2.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between select-none ${
+                              isPresent
+                                ? 'bg-emerald-500/10 border-emerald-500/30 text-white shadow-sm'
+                                : 'bg-rose-500/10 border-rose-500/30 text-slate-400 hover:text-slate-200'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <input
+                                type="checkbox"
+                                checked={isPresent}
+                                onChange={() => {}} // Handled by parent div
+                                className="h-4 w-4 rounded border-slate-700 accent-emerald-500 cursor-pointer pointer-events-none"
+                              />
+                              <span className={`text-xs font-black truncate ${isPresent ? 'text-white' : 'text-slate-400 line-through'}`}>
+                                {sName}
+                              </span>
+                            </div>
+                            <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded ${
+                              isPresent
+                                ? 'bg-emerald-500/20 text-emerald-300'
+                                : 'bg-rose-500/20 text-rose-300'
+                            }`}>
+                              {isPresent ? 'Có mặt' : 'Vắng'}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-3 pt-1 border-t border-slate-200 dark:border-white/5">
                   <div className="flex items-center gap-1.5">
                     <button
                       type="button"
@@ -1396,7 +1615,7 @@ export default function EditSessionModal({
                   </div>
 
                   <div className="flex-1 text-right">
-                    <span className="text-[10px] font-extrabold uppercase text-slate-400 block">Học phí buổi này</span>
+                    <span className="text-[10px] font-extrabold uppercase text-slate-400 block">Học phí ca này</span>
                     <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
                       {formatVND(Number(price) || 0)}
                     </span>
@@ -1406,7 +1625,7 @@ export default function EditSessionModal({
                 {/* Calculation feedback notice */}
                 {studentCount < originalStudentCount && (
                   <div className="text-[10.5px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 p-2 rounded-lg leading-relaxed">
-                    Giảm {originalStudentCount - studentCount} HS tạm thời: {studentCount} HS × {formatVND(Number(pricePerStudent) || 0)} = {formatVND(Number(price) || 0)} (giảm trừ {formatVND((originalStudentCount - studentCount) * (Number(pricePerStudent) || 0))})
+                    Giảm {originalStudentCount - studentCount} HS tạm thời ({absentStudents.join(', ') || 'Vắng mặt'}): {studentCount} HS × {formatVND(Number(pricePerStudent) || 0)} = {formatVND(Number(price) || 0)} (giảm trừ {formatVND((originalStudentCount - studentCount) * (Number(pricePerStudent) || 0))})
                   </div>
                 )}
               </div>

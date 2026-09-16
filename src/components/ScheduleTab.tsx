@@ -23,12 +23,15 @@ import {
   ArrowRight,
   Briefcase,
   Trash2,
-  Loader2
+  Loader2,
+  Users,
+  Copy
 } from 'lucide-react';
 import { 
   formatVND, 
   Session, 
   ScheduleWorkSummary, 
+  StudentTuitionBreakdown,
   trunc1Dec, 
   getStudentColor, 
   formatDateVN, 
@@ -95,6 +98,15 @@ export default function ScheduleTab({
   const [showDeleteScheduleModal, setShowDeleteScheduleModal] = useState(false);
   const [deleteScheduleScope, setDeleteScheduleScope] = useState<'month' | 'all'>('month');
   const [isDeletingSchedule, setIsDeletingSchedule] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopyText = (text: string, id: string) => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    }
+  };
 
   const handleConfirmDeleteSchedule = async () => {
     if (!selectedDetailSchedule || !onDeleteSchedule) return;
@@ -185,6 +197,52 @@ export default function ScheduleTab({
 
       const completionRate = totalShifts > 0 ? (completedShifts / totalShifts) * 100 : 0;
 
+      // Compute student tuition breakdown for each student in the class
+      let classStudentNames: string[] = sample.student_names || [];
+      if (classStudentNames.length === 0 && (sample.original_student_count || student_count) > 1) {
+        const count = sample.original_student_count || student_count;
+        classStudentNames = Array.from({ length: count }, (_, i) => `Học sinh ${i + 1}`);
+      }
+
+      const studentBreakdowns: StudentTuitionBreakdown[] = [];
+      if (classStudentNames.length > 0) {
+        classStudentNames.forEach((sName) => {
+          let sCompleted = 0;
+          let sAbsent = 0;
+          let sTotal = 0;
+          const sAbsentDates: string[] = [];
+
+          sortedSessions.forEach((s) => {
+            if (s.status === 'Hủy') return;
+            sTotal++;
+
+            const isSessionCompleted = s.status === 'Đã làm' || s.status === 'Đã dạy';
+            const isAbsent = (s.absent_students && s.absent_students.includes(sName)) || 
+              (s.present_students && !s.present_students.includes(sName) && s.present_students.length > 0);
+
+            if (isAbsent) {
+              sAbsent++;
+              sAbsentDates.push(s.date);
+            } else if (isSessionCompleted) {
+              sCompleted++;
+            }
+          });
+
+          const pPerStudent = sample.price_per_student || (student_count > 0 ? Math.round(price / student_count) : price);
+          const sFee = sCompleted * pPerStudent;
+
+          studentBreakdowns.push({
+            name: sName,
+            totalSessions: sTotal,
+            completedSessions: sCompleted,
+            absentSessions: sAbsent,
+            pricePerStudent: pPerStudent,
+            totalFee: sFee,
+            absentDates: sAbsentDates,
+          });
+        });
+      }
+
       results.push({
         id: name,
         name,
@@ -204,6 +262,8 @@ export default function ScheduleTab({
         projectedIncome: projectedInc,
         student_count,
         price_per_student,
+        student_names: classStudentNames,
+        student_breakdowns: studentBreakdowns,
         sessions: sortedSessions,
       });
     });
@@ -1020,6 +1080,118 @@ export default function ScheduleTab({
               </div>
             </div>
 
+            {/* Multi-Student Tuition Breakdown Card */}
+            {selectedDetailSchedule.student_breakdowns && selectedDetailSchedule.student_breakdowns.length > 1 && (
+              <div className="p-4 rounded-2xl bg-[#141824] border border-indigo-500/30 space-y-3 shrink-0 shadow-lg my-2">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-indigo-400" />
+                    <span className="text-xs font-black text-white uppercase tracking-wider">
+                      Bảng Tính Học Phí Từng Học Sinh ({selectedDetailSchedule.student_breakdowns.length} HS)
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const lines = [
+                        `📋 BẢNG TỔNG KẾT HỌC PHÍ THÁNG ${selectedMonth}`,
+                        `Lớp: ${selectedDetailSchedule.name}`,
+                        `Đơn giá: ${formatVND(selectedDetailSchedule.price_per_student || 0)} / buổi / học sinh`,
+                        `---------------------------------`,
+                        ...selectedDetailSchedule.student_breakdowns!.map((st, i) => {
+                          const absentText = st.absentSessions > 0 ? ` (Nghỉ ${st.absentSessions} buổi: ${st.absentDates.map(d => formatDateVN(d)).join(', ')})` : '';
+                          return `${i + 1}. ${st.name}: ${st.completedSessions} buổi${absentText} ➔ ${formatVND(st.totalFee)}`;
+                        }),
+                        `---------------------------------`,
+                        `Tổng học phí cả lớp: ${formatVND(selectedDetailSchedule.student_breakdowns!.reduce((sum, st) => sum + st.totalFee, 0))}`
+                      ].join('\n');
+                      handleCopyText(lines, 'copy_all_tuition');
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-indigo-300 hover:text-white rounded-xl text-[11px] font-black cursor-pointer transition-all active:scale-95"
+                  >
+                    {copiedId === 'copy_all_tuition' ? (
+                      <>
+                        <Check className="h-3.5 w-3.5 text-emerald-400" />
+                        <span className="text-emerald-400">Đã sao chép!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3.5 w-3.5" />
+                        <span>Sao Chép Báo Cáo Cả Lớp</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {selectedDetailSchedule.student_breakdowns.map((st, i) => {
+                    const studentId = `st_copy_${i}`;
+                    const isCopied = copiedId === studentId;
+                    return (
+                      <div
+                        key={i}
+                        className="p-3 rounded-xl bg-[#0d1018] border border-white/5 hover:border-indigo-500/30 transition-all flex flex-col justify-between gap-2"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <span className="text-xs font-black text-white truncate block">
+                              {st.name}
+                            </span>
+                            <div className="flex items-center gap-1.5 mt-0.5 text-[10px] font-bold">
+                              <span className="text-emerald-400">
+                                {st.completedSessions} / {st.totalSessions} buổi đã học
+                              </span>
+                              {st.absentSessions > 0 && (
+                                <span className="text-amber-400 bg-amber-500/10 px-1 py-0.2 rounded border border-amber-500/20">
+                                  Nghỉ {st.absentSessions}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <span className="text-xs font-black text-cyan-400 shrink-0">
+                            {formatVND(st.totalFee)}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-1.5 border-t border-white/5 text-[10px] text-slate-400">
+                          <span>{formatVND(st.pricePerStudent)}/buổi</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const msg = [
+                                `📋 THÔNG BÁO HỌC PHÍ THÁNG ${selectedMonth}`,
+                                `- Lớp: ${selectedDetailSchedule.name}`,
+                                `- Học sinh: ${st.name}`,
+                                `- Số buổi đã học: ${st.completedSessions}/${st.totalSessions} buổi${st.absentSessions > 0 ? ` (Nghỉ ${st.absentSessions} buổi: ${st.absentDates.map(d => formatDateVN(d)).join(', ')})` : ''}`,
+                                `- Đơn giá: ${formatVND(st.pricePerStudent)} / buổi`,
+                                `- Tổng học phí: ${formatVND(st.totalFee)}`
+                              ].join('\n');
+                              handleCopyText(msg, studentId);
+                            }}
+                            className="flex items-center gap-1 text-indigo-400 hover:text-indigo-300 font-bold cursor-pointer transition-colors"
+                          >
+                            {isCopied ? (
+                              <>
+                                <Check className="h-3 w-3 text-emerald-400" />
+                                <span className="text-emerald-400 font-black">Đã chép</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="h-3 w-3" />
+                                <span>Sao chép</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Sessions List */}
             <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-1 my-2">
               <span className="text-[11px] font-black uppercase text-slate-400 tracking-wider block mb-2">
@@ -1055,6 +1227,7 @@ export default function ScheduleTab({
                               <span>|</span>
                               <span className={(s.student_count ?? 1) < (s.original_student_count ?? (s.student_count ?? 1)) ? 'text-amber-300 font-black bg-amber-500/15 px-1.5 py-0.5 rounded border border-amber-500/30' : 'text-indigo-300 font-extrabold'}>
                                 {s.student_count}{(s.student_count ?? 1) < (s.original_student_count ?? (s.student_count ?? 1)) ? `/${s.original_student_count}` : ''} HS ({formatVND(s.price_per_student || 0)}/HS)
+                                {s.absent_students && s.absent_students.length > 0 && ` - Vắng: ${s.absent_students.join(', ')}`}
                               </span>
                             </>
                           )}

@@ -271,18 +271,37 @@ export default function CalendarMonthView({
                             <span className="leading-none">{endTime}</span>
                           </div>
 
-                           {/* Right Details: Displays ONLY student name & status */}
+                           {/* Right Details: Displays student name, status & multi-student badge */}
                           <div className="flex-grow p-2 flex flex-col justify-center overflow-hidden">
-                            <h4 
-                              className="text-[12px] font-black truncate leading-tight text-left tracking-tight text-white"
-                            >
-                              {s.job_name || s.student_name}
-                            </h4>
+                            <div className="flex items-center justify-between gap-1">
+                              <h4 
+                                className="text-[12px] font-black truncate leading-tight text-left tracking-tight text-white"
+                              >
+                                {s.job_name || s.student_name}
+                              </h4>
+                              {(s.student_count ?? 1) < (s.original_student_count ?? (s.student_count ?? 1)) ? (
+                                <span 
+                                  className="text-[8px] font-black px-1 py-0.2 rounded bg-amber-500/25 text-amber-300 border border-amber-500/40 shrink-0" 
+                                  title={`Giảm ${(s.original_student_count || 0) - (s.student_count || 0)} HS vắng mặt`}
+                                >
+                                  {s.student_count}/{s.original_student_count} HS
+                                </span>
+                              ) : (s.student_count ?? 1) > 1 ? (
+                                <span className="text-[8px] font-black px-1 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shrink-0">
+                                  {s.student_count} HS
+                                </span>
+                              ) : null}
+                            </div>
                             <div 
-                              className="text-[9.5px] font-bold mt-0.5 select-none leading-none text-left opacity-90"
+                              className="text-[9.5px] font-bold mt-0.5 select-none leading-none text-left opacity-90 flex items-center gap-1.5"
                               style={{ color: vStyle.color }}
                             >
-                              {s.status}
+                              <span>{s.status}</span>
+                              {s.absent_students && s.absent_students.length > 0 && (
+                                <span className="text-[8.5px] text-amber-300 font-extrabold truncate">
+                                  | Vắng: {s.absent_students.join(', ')}
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>

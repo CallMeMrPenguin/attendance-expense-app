@@ -1070,7 +1070,7 @@ export default function Dashboard() {
     const idsToUpdate: string[] = [];
 
     const updatedSessions = items.map((s) => {
-      const isPending = s.status === 'Chưa làm' || s.status === 'Chưa dạy';
+      const isPending = s.status === 'Chưa làm' || s.status === 'Chưa dạy' || s.status === 'Chưa học';
       if (isPending && s.auto_checkin !== false && s.auto_check_in !== false) {
         const sDate = s.date;
         const sTime = formatCleanTimeString(s.time);
@@ -1117,10 +1117,23 @@ export default function Dashboard() {
       const classCfg = cfgMap[`class_${cleanJobKey}`];
       const cfg = specificCfg || classCfg || {};
 
-      const studentCount = s.student_count ?? cfg.student_count ?? 1;
-      const originalStudentCount = s.original_student_count ?? cfg.original_student_count ?? classCfg?.student_count ?? studentCount;
-      const pricePerStudent = s.price_per_student ?? cfg.price_per_student ?? (studentCount > 0 ? Math.round((Number(s.price) || 0) / studentCount) : Number(s.price) || 0);
+      const studentCount = s.student_count ?? specificCfg?.student_count ?? cfg.student_count ?? 1;
+      const originalStudentCount = s.original_student_count ?? specificCfg?.original_student_count ?? cfg.original_student_count ?? classCfg?.student_count ?? studentCount;
+      const pricePerStudent = s.price_per_student ?? specificCfg?.price_per_student ?? cfg.price_per_student ?? (studentCount > 0 ? Math.round((Number(s.price) || 0) / studentCount) : Number(s.price) || 0);
       const computedPrice = studentCount < originalStudentCount ? (studentCount * pricePerStudent) : (Number(s.price) || (studentCount * pricePerStudent));
+
+      // Extract individual student names
+      let studentNames: string[] = specificCfg?.student_names || classCfg?.student_names || s.student_names || [];
+      if (!Array.isArray(studentNames) || studentNames.length === 0) {
+        if (originalStudentCount > 1) {
+          studentNames = Array.from({ length: originalStudentCount }, (_, i) => `Học sinh ${i + 1}`);
+        }
+      }
+
+      const presentStudents: string[] = specificCfg?.present_students || s.present_students || (studentCount < originalStudentCount ? studentNames.slice(0, studentCount) : studentNames);
+      const absentStudents: string[] = specificCfg?.absent_students || s.absent_students || (studentCount < originalStudentCount ? studentNames.filter(n => !presentStudents.includes(n)) : []);
+
+      const autoCheckinVal = s.auto_check_in ?? s.auto_checkin ?? true;
 
       return {
         ...s,
@@ -1132,7 +1145,12 @@ export default function Dashboard() {
         price: computedPrice,
         student_count: studentCount,
         price_per_student: pricePerStudent,
-        original_student_count: originalStudentCount
+        original_student_count: originalStudentCount,
+        student_names: studentNames,
+        present_students: presentStudents,
+        absent_students: absentStudents,
+        auto_check_in: autoCheckinVal,
+        auto_checkin: autoCheckinVal
       };
     });
   }, []);
@@ -1141,7 +1159,7 @@ export default function Dashboard() {
   const getSessionStudentConfigsKey = (teacherName: string) => `session_student_configs_${cleanString(teacherName)}`;
 
   // Helper to fetch session student configs from Supabase category_budgets
-  const fetchSessionStudentConfigs = useCallback(async (teacherName: string): Promise<Record<string, { student_count: number; price_per_student: number; original_student_count?: number }>> => {
+  const fetchSessionStudentConfigs = useCallback(async (teacherName: string): Promise<Record<string, any>> => {
     if (!teacherName) return {};
     try {
       const { data } = await supabase
@@ -1160,7 +1178,7 @@ export default function Dashboard() {
   }, []);
 
   // Helper to save session student configs to Supabase category_budgets
-  const saveSessionStudentConfigs = useCallback(async (teacherName: string, configs: Record<string, { student_count: number; price_per_student: number; original_student_count?: number }>, userId?: string) => {
+  const saveSessionStudentConfigs = useCallback(async (teacherName: string, configs: Record<string, any>, userId?: string) => {
     if (!teacherName) return;
     try {
       sessionStudentConfigsRef.current = configs;

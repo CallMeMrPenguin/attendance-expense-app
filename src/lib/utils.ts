@@ -25,6 +25,9 @@ export interface Session {
   student_count?: number;
   price_per_student?: number;
   original_student_count?: number;
+  student_names?: string[];
+  present_students?: string[];
+  absent_students?: string[];
 }
 
 // Convert "18:00" to minutes (1080)
@@ -223,6 +226,16 @@ export function trunc1Dec(num: number | string): string {
   return str.substring(0, dotIndex + 2);
 }
 
+export interface StudentTuitionBreakdown {
+  name: string;
+  totalSessions: number;
+  completedSessions: number;
+  absentSessions: number;
+  pricePerStudent: number;
+  totalFee: number;
+  absentDates: string[];
+}
+
 export interface ScheduleWorkSummary {
   id: string;
   name: string;
@@ -242,6 +255,8 @@ export interface ScheduleWorkSummary {
   projectedIncome: number;
   student_count?: number;
   price_per_student?: number;
+  student_names?: string[];
+  student_breakdowns?: StudentTuitionBreakdown[];
   sessions: Session[];
 }
 
