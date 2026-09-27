@@ -318,15 +318,17 @@
     {
       "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
       "user_name": "ADMIN",
+      "teacher_name": "ADMIN",
       "emergency_current": 0,
       "emergency_target": 30000000,
-      "accumulation_current": 0,
+      "accumulation_current": 70000000,
       "accumulation_target": 150000000,
-      "updated_at": "2026-07-16T16:02:12.456+00:00"
+      "updated_at": "2026-09-15T15:41:18.404+00:00"
     },
     {
       "user_id": "aae79676-8bc1-4cce-8f5d-e78379a6abc4",
       "user_name": "Shared Admin",
+      "teacher_name": "Shared Admin",
       "emergency_current": 0,
       "emergency_target": 30000000,
       "accumulation_current": 70000000,
@@ -4608,6 +4610,30 @@
       "loai_hinh_lich": "co_dinh",
       "loai_hinh": "co_dinh",
       "income_category": "Giáo dục"
+    }
+  ],
+  "savings_history": [
+    {
+      "id": "sh-1786423614830",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "user_name": "ADMIN",
+      "teacher_name": "ADMIN",
+      "fund": "accumulation",
+      "type": "deposit",
+      "amount": 60000000,
+      "date": "2026-08-11",
+      "created_at": "2026-08-11T04:48:22.433957+00:00"
+    },
+    {
+      "id": "sh-1789486878404",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "user_name": "ADMIN",
+      "teacher_name": "ADMIN",
+      "fund": "accumulation",
+      "type": "deposit",
+      "amount": 10000000,
+      "date": "2026-09-15",
+      "created_at": "2026-09-15T15:43:21.742065+00:00"
     }
   ]
 }

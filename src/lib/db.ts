@@ -140,7 +140,9 @@ export function getDb(): Database.Database {
 
     CREATE TABLE IF NOT EXISTS table_settings (
       id TEXT PRIMARY KEY,
+      table_id TEXT,
       user_id TEXT,
+      layout TEXT,
       setting_key TEXT,
       setting_value TEXT,
       updated_at TEXT DEFAULT (datetime('now'))
@@ -153,6 +155,11 @@ export function getDb(): Database.Database {
     if (!sessionCols.includes('loai_hinh_lich')) db.exec('ALTER TABLE sessions ADD COLUMN loai_hinh_lich TEXT');
     if (!sessionCols.includes('loai_hinh')) db.exec('ALTER TABLE sessions ADD COLUMN loai_hinh TEXT');
     if (!sessionCols.includes('income_category')) db.exec('ALTER TABLE sessions ADD COLUMN income_category TEXT');
+
+    // Ensure table_settings has table_id and layout
+    const tableSettingCols = db.prepare('PRAGMA table_info(table_settings)').all().map((c: any) => c.name);
+    if (!tableSettingCols.includes('table_id')) db.exec('ALTER TABLE table_settings ADD COLUMN table_id TEXT');
+    if (!tableSettingCols.includes('layout')) db.exec('ALTER TABLE table_settings ADD COLUMN layout TEXT');
 
     // Seed default preserved data if profiles or sessions table is empty
     const userCount = db.prepare('SELECT COUNT(*) as count FROM profiles').get() as { count: number };
@@ -263,18 +270,42 @@ function seedPreservedData(db: Database.Database) {
         }
       }
 
-      // 3. Savings Funds
+      // 3. Savings Funds (Preserved savings funds & balances)
       if (backupData?.savings_funds?.length > 0) {
         for (const f of backupData.savings_funds) {
           insertFund.run({
             user_id: f.user_id,
             user_name: f.user_name || 'ADMIN',
             teacher_name: f.user_name || 'ADMIN',
-            emergency_current: 0, // Reset balance per user request (clear income/expense)
+            emergency_current: Number(f.emergency_current) || 0,
             emergency_target: Number(f.emergency_target) || 30000000,
-            accumulation_current: 0, // Reset balance per user request
+            accumulation_current: Number(f.accumulation_current) || 0,
             accumulation_target: Number(f.accumulation_target) || 150000000,
             updated_at: f.updated_at || new Date().toISOString()
+          });
+        }
+      }
+
+      // 3.1. Savings History (Preserved savings deposits & withdrawals)
+      if (backupData?.savings_history?.length > 0) {
+        const insertHist = db.prepare(`
+          INSERT OR REPLACE INTO savings_history (
+            id, user_id, user_name, teacher_name, fund, type, amount, date, created_at
+          ) VALUES (
+            @id, @user_id, @user_name, @teacher_name, @fund, @type, @amount, @date, @created_at
+          )
+        `);
+        for (const h of backupData.savings_history) {
+          insertHist.run({
+            id: h.id,
+            user_id: h.user_id || '2d3a11e1-4d71-474c-b8df-abb85394e9c8',
+            user_name: h.user_name || 'ADMIN',
+            teacher_name: h.teacher_name || h.user_name || 'ADMIN',
+            fund: h.fund,
+            type: h.type,
+            amount: Number(h.amount) || 0,
+            date: h.date,
+            created_at: h.created_at || new Date().toISOString()
           });
         }
       }
