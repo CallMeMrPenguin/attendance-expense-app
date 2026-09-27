@@ -482,37 +482,92 @@ export default function ScheduleTab({
           </p>
         </div>
 
-        {/* Action button & Month Selector */}
+        {/* Action button & 2-User View Segmented Control */}
         <div className="flex flex-wrap items-center gap-3 shrink-0 z-10" data-picker>
-          {/* Hero — Teacher Dropdown (Admin only) */}
-          {currentUser.role === 'admin' && teachers.length > 0 && (
-            <div className="relative">
-              <button
-                onClick={() => setHeroTeacherDropOpen(o => !o)}
-                className="flex items-center gap-2 bg-[#121624] border border-white/10 hover:border-indigo-500/40 text-white text-xs font-bold rounded-xl px-3.5 py-2.5 cursor-pointer focus:outline-none transition-all shadow-lg"
-              >
-                <span className="h-2 w-2 rounded-full bg-emerald-400 inline-block shadow-[0_0_8px_rgba(16,185,129,0.7)]"></span>
-                <span>{activeTeacherName}</span>
-                <ChevronDown className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-200 ${heroTeacherDropOpen ? 'rotate-180' : ''}`}/>
-              </button>
-              {heroTeacherDropOpen && (
-                <div className="absolute top-full mt-2 left-0 z-[200] min-w-full w-max bg-[#0d1018] border border-white/10 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.8)] overflow-hidden animate-mac-dropdown origin-top-left">
-                  {teachers.map(t => (
-                    <button 
-                      key={t} 
-                      onClick={() => { setActiveTeacherName(t); setHeroTeacherDropOpen(false); }} 
-                      className={`w-full flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-left transition-colors cursor-pointer ${
-                        t === activeTeacherName ? 'bg-indigo-500/20 text-indigo-300' : 'text-slate-300 hover:bg-white/[0.05] hover:text-white'
-                      }`}
-                    >
-                      {t === activeTeacherName && <Check className="h-3 w-3 text-indigo-400 shrink-0"/>}
-                      <span className={t === activeTeacherName ? '' : 'ml-5'}>{t}</span>
-                    </button>
-                  ))}
+          {/* 2-User View Segmented Control (Rule #7) */}
+          {teachers.length > 0 && (() => {
+            const mainTeachers = teachers.filter(t => t === 'ADMIN' || t === 'Phạm Thị Thu Trang');
+            const displayList = mainTeachers.length >= 2 ? mainTeachers : teachers.slice(0, 2);
+            const otherTeachers = teachers.filter(t => !displayList.includes(t));
+            const activeIdx = displayList.indexOf(activeTeacherName);
+            const selectedIdx = activeIdx >= 0 ? activeIdx : 0;
+            const N = displayList.length;
+
+            return (
+              <div className="flex items-center gap-2 select-none">
+                <div className="relative flex bg-[#0d1018] p-1 rounded-xl border border-white/10 text-xs shrink-0 font-bold select-none min-w-[260px] shadow-lg">
+                  <div
+                    className="absolute top-1 bottom-1 rounded-lg bg-[#5c36f5] shadow-[0_0_14px_rgba(92,54,245,0.5)] transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] pointer-events-none"
+                    style={{
+                      left: selectedIdx === 0 ? '4px' : `calc( (100% / ${N}) * ${selectedIdx} + 1px )`,
+                      width: `calc( (100% / ${N}) - 4px )`,
+                    }}
+                  />
+                  {displayList.map((t) => {
+                    const isActive = t === activeTeacherName;
+                    const label = t === 'ADMIN' ? 'Hưng (Admin)' : (t === 'Phạm Thị Thu Trang' ? 'Thu Trang' : t);
+                    return (
+                      <button
+                        key={t}
+                        onClick={() => {
+                          setActiveTeacherName(t);
+                          if (typeof window !== 'undefined') {
+                            localStorage.setItem('preferred_schedule_teacher', t);
+                          }
+                        }}
+                        className={`flex-1 relative z-10 py-1.5 px-3 text-center transition-colors cursor-pointer text-xs font-black truncate ${
+                          isActive ? 'text-white' : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
                 </div>
-              )}
-            </div>
-          )}
+
+                {/* If there are any other secondary teachers */}
+                {otherTeachers.length > 0 && (
+                  <div className="relative">
+                    <button
+                      onClick={() => setHeroTeacherDropOpen(o => !o)}
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold cursor-pointer transition-all shadow-md ${
+                        otherTeachers.includes(activeTeacherName)
+                          ? 'bg-[#5c36f5]/20 border-indigo-500/50 text-indigo-300'
+                          : 'bg-[#121624] border-white/10 text-slate-400 hover:text-white'
+                      }`}
+                      title="Giáo viên khác"
+                    >
+                      <Users className="h-3.5 w-3.5 text-slate-300" />
+                      <span className="text-[11px] font-bold">{otherTeachers.includes(activeTeacherName) ? activeTeacherName : 'Khác'}</span>
+                      <ChevronDown className={`h-3 w-3 text-slate-400 transition-transform ${heroTeacherDropOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                    {heroTeacherDropOpen && (
+                      <div className="absolute top-full mt-2 right-0 z-[200] min-w-[160px] bg-[#0d1018] border border-white/10 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.8)] overflow-hidden animate-mac-dropdown origin-top-right">
+                        {otherTeachers.map(t => (
+                          <button
+                            key={t}
+                            onClick={() => {
+                              setActiveTeacherName(t);
+                              setHeroTeacherDropOpen(false);
+                              if (typeof window !== 'undefined') {
+                                localStorage.setItem('preferred_schedule_teacher', t);
+                              }
+                            }}
+                            className={`w-full flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-left transition-colors cursor-pointer ${
+                              t === activeTeacherName ? 'bg-indigo-500/20 text-indigo-300' : 'text-slate-300 hover:bg-white/[0.05] hover:text-white'
+                            }`}
+                          >
+                            {t === activeTeacherName && <Check className="h-3 w-3 text-indigo-400 shrink-0"/>}
+                            <span className={t === activeTeacherName ? '' : 'ml-5'}>{t}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
       </section>
 

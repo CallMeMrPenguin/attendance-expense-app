@@ -147,11 +147,23 @@ export function getDb(): Database.Database {
     );
   `);
 
-  // Seed default preserved data if profiles table is empty
-  const userCount = db.prepare('SELECT COUNT(*) as count FROM profiles').get() as { count: number };
-  if (userCount.count === 0) {
-    seedPreservedData(db);
-  }
+    // Ensure all optional columns exist in sessions
+    const sessionCols = db.prepare('PRAGMA table_info(sessions)').all().map((c: any) => c.name);
+    if (!sessionCols.includes('auto_check_in')) db.exec('ALTER TABLE sessions ADD COLUMN auto_check_in INTEGER DEFAULT 1');
+    if (!sessionCols.includes('loai_hinh_lich')) db.exec('ALTER TABLE sessions ADD COLUMN loai_hinh_lich TEXT');
+    if (!sessionCols.includes('loai_hinh')) db.exec('ALTER TABLE sessions ADD COLUMN loai_hinh TEXT');
+    if (!sessionCols.includes('income_category')) db.exec('ALTER TABLE sessions ADD COLUMN income_category TEXT');
+
+    // Seed default preserved data if profiles or sessions table is empty
+    const userCount = db.prepare('SELECT COUNT(*) as count FROM profiles').get() as { count: number };
+    if (userCount.count === 0) {
+      seedPreservedData(db);
+    } else {
+      const sessCount = db.prepare('SELECT COUNT(*) as count FROM sessions').get() as { count: number };
+      if (sessCount.count === 0) {
+        seedPreservedData(db);
+      }
+    }
 
   _db = db;
   return _db;
@@ -278,6 +290,45 @@ function seedPreservedData(db: Database.Database) {
             target_type: r.target_type,
             target_category: r.target_category,
             created_at: r.created_at || new Date().toISOString()
+          });
+        }
+      }
+
+      // 5. Sessions (Preserved teaching schedules)
+      if (backupData?.sessions?.length > 0) {
+        const insertSession = db.prepare(`
+          INSERT OR REPLACE INTO sessions (
+            id, user_name, teacher_name, job_name, student_name, day_of_week, time, duration, price, status,
+            month_year, color, date, auto_checkin, auto_check_in, loai_hinh_lich, loai_hinh, income_category,
+            created_at, updated_at
+          ) VALUES (
+            @id, @user_name, @teacher_name, @job_name, @student_name, @day_of_week, @time, @duration, @price, @status,
+            @month_year, @color, @date, @auto_checkin, @auto_check_in, @loai_hinh_lich, @loai_hinh, @income_category,
+            @created_at, @updated_at
+          )
+        `);
+        for (const s of backupData.sessions) {
+          insertSession.run({
+            id: s.id,
+            user_name: s.user_name || 'ADMIN',
+            teacher_name: s.teacher_name || s.user_name || 'ADMIN',
+            job_name: s.job_name || s.student_name || 'Buổi dạy',
+            student_name: s.student_name || s.job_name || 'Buổi dạy',
+            day_of_week: s.day_of_week || 'Thứ 2',
+            time: s.time || '18:00',
+            duration: Number(s.duration || 1.5),
+            price: Number(s.price || 0),
+            status: s.status || 'Chưa làm',
+            month_year: s.month_year,
+            color: s.color || '#7c3aed',
+            date: s.date,
+            auto_checkin: s.auto_checkin ? 1 : 0,
+            auto_check_in: s.auto_check_in ? 1 : 0,
+            loai_hinh_lich: s.loai_hinh_lich || 'co_dinh',
+            loai_hinh: s.loai_hinh || 'co_dinh',
+            income_category: s.income_category || 'Giáo dục',
+            created_at: s.created_at || new Date().toISOString(),
+            updated_at: s.updated_at || new Date().toISOString()
           });
         }
       }

@@ -24,24 +24,9 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
 
-  // If already logged in, redirect to home page
+  // Local mode: Auto redirect to home dashboard immediately
   useEffect(() => {
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        router.push('/');
-      }
-    };
-    checkSession();
-
-    // Retrieve saved login credentials if checked previously
-    const savedUser = localStorage.getItem('remembered_username');
-    const savedPass = localStorage.getItem('remembered_password');
-    if (savedUser && savedPass) {
-      setUsername(savedUser);
-      setPassword(savedPass);
-      setRememberMe(true);
-    }
+    router.replace('/');
   }, [router]);
 
 

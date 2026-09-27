@@ -598,34 +598,62 @@ export default function Dashboard() {
       setSelectedMonth(currMonth);
       setChartSelectedMonths([currMonth]);
 
+      // Local mode: Automatically authenticate without manual login screen
+      let profile: any = null;
+      let userToken = '';
+
       const { data: { session } } = await supabase.auth.getSession();
-      
       if (session) {
-        const { data: profile } = await supabase
+        const { data: p } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', session.user.id)
           .maybeSingle();
-
-        if (profile) {
-          const uName = (profile as any).user_name || profile.teacher_name || 'Admin';
-          setCurrentUser({
-            id: session.user.id,
-            username: profile.username,
-            teacherName: uName,
-            userName: uName,
-            role: profile.role as any,
-            token: session.access_token,
-          });
-          setActiveTeacherName(uName);
-          if (profile.role !== 'admin') {
-            setActiveTab('schedule');
-          }
-          return;
+        if (p) {
+          profile = p;
+          userToken = session.access_token;
         }
       }
 
-      router.push('/login');
+      if (!profile) {
+        const { data: adminProf } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('username', 'buiduchung2004')
+          .maybeSingle();
+
+        if (adminProf) {
+          profile = adminProf;
+          userToken = `local_token_${adminProf.id}_auto`;
+        } else {
+          const { data: anyProf } = await supabase
+            .from('profiles')
+            .select('*')
+            .order('role', { ascending: true })
+            .limit(1)
+            .maybeSingle();
+          profile = anyProf;
+          userToken = `local_token_${anyProf?.id || 'admin'}_auto`;
+        }
+      }
+
+      if (profile) {
+        const uName = (profile as any).user_name || profile.teacher_name || 'Admin';
+        setCurrentUser({
+          id: profile.id,
+          username: profile.username,
+          teacherName: uName,
+          userName: uName,
+          role: profile.role as any,
+          token: userToken,
+        });
+
+        const savedTeacher = typeof window !== 'undefined' ? localStorage.getItem('preferred_schedule_teacher') : null;
+        setActiveTeacherName(savedTeacher || uName);
+        if (profile.role !== 'admin') {
+          setActiveTab('schedule');
+        }
+      }
     };
 
     fetchSession();
@@ -1048,8 +1076,18 @@ export default function Dashboard() {
     }
 
     if (list.length > 0) {
+      // Prioritize ADMIN and Phạm Thị Thu Trang at the beginning
+      list.sort((a, b) => {
+        if (a === 'ADMIN') return -1;
+        if (b === 'ADMIN') return 1;
+        if (a === 'Phạm Thị Thu Trang') return -1;
+        if (b === 'Phạm Thị Thu Trang') return 1;
+        return a.localeCompare(b);
+      });
       setTeachers(list);
       setActiveTeacherName((prev) => {
+        const saved = typeof window !== 'undefined' ? localStorage.getItem('preferred_schedule_teacher') : null;
+        if (saved && list.includes(saved)) return saved;
         const needsDefault =
           !prev ||
           prev === 'Giáo Viên 1' ||
@@ -1832,9 +1870,7 @@ export default function Dashboard() {
   }, []);
 
   const handleLogout = async () => {
-    localStorage.removeItem('custom_teacher_session');
-    await supabase.auth.signOut();
-    router.push('/login');
+    showToast('Hệ thống đang chạy chế độ Local không cần đăng nhập.', 'info');
   };
 
   // Loading Screen Guard
