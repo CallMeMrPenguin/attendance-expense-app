@@ -284,7 +284,7 @@ export function isHungTrangVcbTransfer(r: any): boolean {
   return isTrangVcb && !isVietinBank;
 }
 
-// Sanitize session objects so that only valid columns in the Supabase 'sessions' table are included
+// Sanitize session objects so that only valid columns in the local 'sessions' table are included
 export function sanitizeSessionPayload(sessionObj: any): any {
   if (!sessionObj) return {};
   const {

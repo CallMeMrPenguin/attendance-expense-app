@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { getSupabaseAdmin } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabase-server';
+import { getDb } from '@/lib/db';
 
 // Helper to normalize username from teacher name
 function generateUsername(name: string): string {
@@ -21,39 +21,33 @@ async function verifyAdmin(request: NextRequest) {
     return { error: 'No authorization header', status: 401 };
   }
 
-  // Verify the user token
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-  const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: authHeader } },
-    auth: { persistSession: false }
-  });
+  const token = authHeader.replace('Bearer ', '').trim();
+  const db = getDb();
 
-  const { data: { user }, error: authError } = await userClient.auth.getUser();
-  if (authError || !user) {
+  // Find profile by token / id / username
+  const profile = db.prepare(`
+    SELECT * FROM profiles 
+    WHERE id = ? OR username = ? OR ('local_token_' || id) LIKE ?
+    LIMIT 1
+  `).get(token, token, `%${token}%`) as any;
+
+  if (!profile) {
     return { error: 'Invalid or expired session', status: 401 };
   }
 
-  // Check admin role in profiles using the authenticated userClient (RLS active)
-  const { data: profile, error: dbError } = await userClient
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single();
-
-  if (dbError || !profile || profile.role !== 'admin') {
+  if (profile.role !== 'admin') {
     return { error: 'Access denied: Admin role required', status: 403 };
   }
 
   const adminClient = getSupabaseAdmin();
-  return { user, adminClient, userClient };
+  return { user: profile, adminClient, userClient: adminClient };
 }
 
 // 1. ADD TEACHER
 export async function POST(request: NextRequest) {
   try {
-    const { error, adminClient, userClient } = await verifyAdmin(request);
-    if (error || !adminClient || !userClient) {
+    const { error, userClient } = await verifyAdmin(request);
+    if (error || !userClient) {
       return NextResponse.json({ error }, { status: error === 'No authorization header' ? 401 : 403 });
     }
 
@@ -72,76 +66,17 @@ export async function POST(request: NextRequest) {
       : generateUsername(trimmedName);
     const mockEmail = finalUsername.includes('@') ? finalUsername : `${finalUsername}@giasupro.com`;
 
-    // Ensure record exists in teachers table
-    await userClient
-      .from('teachers')
-      .upsert({ name: trimmedName }, { onConflict: 'name' });
+    const db = getDb();
+    const userId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'teacher_' + Date.now();
 
-    // 1. Try to create user via adminClient
-    let authCreated = false;
-    let authData: any = null;
+    // Insert or update teachers table
+    db.prepare(`INSERT OR IGNORE INTO teachers (name) VALUES (?)`).run(trimmedName);
 
-    try {
-      const { data, error: createError } = await adminClient.auth.admin.createUser({
-        email: mockEmail,
-        password: password,
-        email_confirm: true,
-        user_metadata: {
-          role: finalRole,
-          user_name: trimmedName,
-          teacher_name: trimmedName,
-          username: finalUsername
-        }
-      });
-      
-      if (!createError && data?.user) {
-        authCreated = true;
-        authData = data;
-      }
-    } catch (authErr: any) {
-      console.warn('Auth admin createUser skipped:', authErr.message);
-    }
-
-    // 2. Fallback to client-side auth.signUp using anon key
-    if (!authCreated) {
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-      const anonClient = createClient(supabaseUrl, supabaseAnonKey, {
-        auth: { autoRefreshToken: false, persistSession: false }
-      });
-
-      const { data: signUpData } = await anonClient.auth.signUp({
-        email: mockEmail,
-        password: password,
-        options: {
-          data: {
-            role: finalRole,
-            teacher_name: trimmedName,
-            username: finalUsername
-          }
-        }
-      });
-
-      if (signUpData?.user) {
-        authCreated = true;
-        authData = signUpData;
-      }
-    }
-
-    // Ensure profiles row exists
-    const userId = authData?.user?.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : '00000000-0000-0000-0000-' + Date.now().toString(16).padStart(12, '0'));
-    
-    await userClient
-      .from('profiles')
-      .upsert({
-        id: userId,
-        username: finalUsername,
-        user_name: trimmedName,
-        teacher_name: trimmedName,
-        role: finalRole,
-        email: mockEmail,
-        password: password
-      }, { onConflict: 'username' });
+    // Insert or update profiles table
+    db.prepare(`
+      INSERT OR REPLACE INTO profiles (id, username, user_name, teacher_name, role, email, password)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(userId, finalUsername, trimmedName, trimmedName, finalRole, mockEmail, password);
 
     return NextResponse.json({
       status: 'success',
@@ -161,8 +96,8 @@ export async function POST(request: NextRequest) {
 // 2. UPDATE TEACHER DETAILS (NAME, USERNAME, PASSWORD, ROLE)
 export async function PUT(request: NextRequest) {
   try {
-    const { error, adminClient, user, userClient } = await verifyAdmin(request);
-    if (error || !adminClient || !userClient) {
+    const { error, userClient } = await verifyAdmin(request);
+    if (error || !userClient) {
       return NextResponse.json({ error }, { status: 403 });
     }
 
@@ -176,72 +111,37 @@ export async function PUT(request: NextRequest) {
     const trimmedNewUsername = newUsername?.trim().toLowerCase() || generateUsername(trimmedNewName);
     const finalRole = rawNewRole === 'admin' ? 'admin' : 'user';
 
+    const db = getDb();
+
     // 1. Find profile of the teacher
-    const { data: profile } = await userClient
-      .from('profiles')
-      .select('*')
-      .or(`user_name.eq.${trimmedOld},teacher_name.eq.${trimmedOld}`)
-      .maybeSingle();
+    const profile = db.prepare(`
+      SELECT * FROM profiles 
+      WHERE user_name = ? OR teacher_name = ?
+      LIMIT 1
+    `).get(trimmedOld, trimmedOld) as any;
 
-    // Rename teacher row if changed
+    // Rename teacher in teachers table
     if (trimmedNewName && trimmedNewName !== trimmedOld) {
-      await userClient
-        .from('teachers')
-        .update({ name: trimmedNewName })
-        .eq('name', trimmedOld);
-
-      await userClient
-        .from('teachers')
-        .upsert({ name: trimmedNewName }, { onConflict: 'name' });
+      db.prepare(`UPDATE teachers SET name = ? WHERE name = ?`).run(trimmedNewName, trimmedOld);
+      db.prepare(`INSERT OR IGNORE INTO teachers (name) VALUES (?)`).run(trimmedNewName);
+      // Update sessions teacher_name
+      db.prepare(`UPDATE sessions SET teacher_name = ? WHERE teacher_name = ?`).run(trimmedNewName, trimmedOld);
     }
 
-    const profileId = profile?.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : '00000000-0000-0000-0000-' + Date.now().toString(16).padStart(12, '0'));
-    const profileUpdates: any = {
-      id: profileId,
-      username: trimmedNewUsername,
-      user_name: trimmedNewName,
-      teacher_name: trimmedNewName,
-      role: finalRole
-    };
-    if (newPassword && newPassword.trim()) {
-      profileUpdates.password = newPassword.trim();
-    }
+    const profileId = profile?.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'teacher_' + Date.now());
 
-    // Upsert into profiles table
-    await userClient
-      .from('profiles')
-      .upsert(profileUpdates, { onConflict: 'username' });
-
-    // Optional auth password update
     if (newPassword && newPassword.trim()) {
-      try {
-        const mockEmail = trimmedNewUsername.includes('@') ? trimmedNewUsername : `${trimmedNewUsername}@giasupro.com`;
-        await adminClient.auth.admin.createUser({
-          email: mockEmail,
-          password: newPassword.trim(),
-          email_confirm: true,
-          user_metadata: {
-            role: finalRole,
-            teacher_name: trimmedNewName,
-            username: trimmedNewUsername
-          }
-        });
-      } catch (e: any) {
-        if (profile?.id) {
-          try {
-            await adminClient.auth.admin.updateUserById(profile.id, {
-              password: newPassword.trim(),
-              user_metadata: {
-                role: finalRole,
-                teacher_name: trimmedNewName,
-                username: trimmedNewUsername
-              }
-            });
-          } catch (updErr: any) {
-            console.warn('Optional auth password update skipped:', updErr.message);
-          }
-        }
-      }
+      db.prepare(`
+        UPDATE profiles 
+        SET username = ?, user_name = ?, teacher_name = ?, role = ?, password = ?
+        WHERE id = ?
+      `).run(trimmedNewUsername, trimmedNewName, trimmedNewName, finalRole, newPassword.trim(), profileId);
+    } else {
+      db.prepare(`
+        UPDATE profiles 
+        SET username = ?, user_name = ?, teacher_name = ?, role = ?
+        WHERE id = ?
+      `).run(trimmedNewUsername, trimmedNewName, trimmedNewName, finalRole, profileId);
     }
 
     return NextResponse.json({
@@ -257,8 +157,8 @@ export async function PUT(request: NextRequest) {
 // 3. DELETE TEACHER
 export async function DELETE(request: NextRequest) {
   try {
-    const { error, adminClient, user, userClient } = await verifyAdmin(request);
-    if (error || !adminClient || !userClient) {
+    const { error, user, userClient } = await verifyAdmin(request);
+    if (error || !userClient) {
       return NextResponse.json({ error }, { status: 403 });
     }
 
@@ -268,41 +168,18 @@ export async function DELETE(request: NextRequest) {
     }
 
     const trimmedName = name.trim();
+    const db = getDb();
 
-    // 1. Find the corresponding auth user ID using userClient (RLS active)
-    const { data: profile, error: profileError } = await userClient
-      .from('profiles')
-      .select('id')
-      .eq('teacher_name', trimmedName)
-      .maybeSingle();
+    // Find profile
+    const profile = db.prepare(`SELECT * FROM profiles WHERE teacher_name = ? OR user_name = ? LIMIT 1`).get(trimmedName, trimmedName) as any;
 
-    if (profileError || !profile) {
-      // If no profile exists, delete from teachers table directly
-      const { error: deleteError } = await userClient
-        .from('teachers')
-        .delete()
-        .eq('name', trimmedName);
-      
-      if (deleteError) {
-        return NextResponse.json({ error: deleteError.message }, { status: 400 });
-      }
-    } else {
-      // Safety check: Prevent admin from deleting their own account
-      if (profile.id === user.id) {
-        return NextResponse.json({ error: 'Không thể tự xóa tài khoản của chính mình!' }, { status: 403 });
-      }
-
-      try {
-        await adminClient.auth.admin.deleteUser(profile.id);
-      } catch (authErr: any) {
-        console.warn('Auth admin deleteUser skipped:', authErr.message);
-      }
+    if (profile && profile.id === user.id) {
+      return NextResponse.json({ error: 'Không thể tự xóa tài khoản của chính mình!' }, { status: 403 });
     }
 
-    // 3. Purge from DB tables (teachers, profiles, sessions) to prevent ghost reappearance
-    await userClient.from('teachers').delete().eq('name', trimmedName);
-    await userClient.from('profiles').delete().eq('teacher_name', trimmedName);
-    await userClient.from('sessions').delete().eq('teacher_name', trimmedName);
+    db.prepare(`DELETE FROM teachers WHERE name = ?`).run(trimmedName);
+    db.prepare(`DELETE FROM profiles WHERE teacher_name = ? OR user_name = ?`).run(trimmedName, trimmedName);
+    db.prepare(`DELETE FROM sessions WHERE teacher_name = ?`).run(trimmedName);
 
     return NextResponse.json({
       status: 'success',

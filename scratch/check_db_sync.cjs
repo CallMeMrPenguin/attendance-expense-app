@@ -1,42 +1,43 @@
-const { createClient } = require('@supabase/supabase-js');
-const fs = require('fs');
+const Database = require('better-sqlite3');
 const path = require('path');
+const fs = require('fs');
 
-const envPath = path.resolve(process.cwd(), '.env.local');
-let supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-let supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const dbPath = path.resolve(process.cwd(), 'data/local.db');
 
-if (fs.existsSync(envPath)) {
-  const content = fs.readFileSync(envPath, 'utf8');
-  content.split('\n').forEach(line => {
-    const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
-    if (match) {
-      const key = match[1];
-      let value = (match[2] || '').trim().replace(/^['"]|['"]$/g, '');
-      if (key === 'NEXT_PUBLIC_SUPABASE_URL') supabaseUrl = value;
-      if (key === 'NEXT_PUBLIC_SUPABASE_ANON_KEY') supabaseKey = value;
-    }
-  });
-}
-
-if (!supabaseUrl || !supabaseKey) {
-  console.error('Missing Supabase credentials');
+if (!fs.existsSync(dbPath)) {
+  console.error(`[ERROR] Local database file not found at: ${dbPath}`);
   process.exit(1);
 }
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+const db = new Database(dbPath);
 
-async function checkSync() {
-  console.log('--- Checking Supabase DB Sync ---');
-  const tables = ['sessions', 'manual_transactions', 'savings_funds', 'category_budgets', 'savings_history'];
-  for (const t of tables) {
-    const { count, error } = await supabase.from(t).select('*', { count: 'exact', head: true });
-    if (error) {
-      console.log(`[ERROR] Table ${t}: ${error.message}`);
-    } else {
-      console.log(`[OK] Table ${t}: ${count} rows`);
-    }
+console.log('--- Checking Local SQLite DB Sync ---');
+const tables = [
+  'profiles',
+  'teachers',
+  'category_budgets',
+  'savings_funds',
+  'receipt_rules',
+  'manual_transactions',
+  'savings_history',
+  'bank_receipts',
+  'sessions'
+];
+
+let allOk = true;
+for (const t of tables) {
+  try {
+    const row = db.prepare(`SELECT COUNT(*) as count FROM "${t}"`).get();
+    console.log(`[OK] Table ${t}: ${row.count} rows`);
+  } catch (err) {
+    console.log(`[ERROR] Table ${t}: ${err.message}`);
+    allOk = false;
   }
 }
 
-checkSync();
+if (allOk) {
+  console.log('--- All local tables synced and healthy! ---');
+} else {
+  console.error('--- Some tables encountered errors! ---');
+  process.exit(1);
+}

@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseAdmin } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabase-server';
 
 export async function GET(request: NextRequest) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const admin = getSupabaseAdmin();
 
   let teachersCount = 0;
@@ -25,19 +24,21 @@ export async function GET(request: NextRequest) {
     sessionsCount = sc || 0;
 
     errorMsg = {
-      teachers: tErr?.message || null,
-      profiles: pErr?.message || null,
-      sessions: sErr?.message || null,
-      manual_transactions: txErr ? `${txErr.code}: ${txErr.message}` : `OK (${txCount || 0} rows)`,
-      savings_funds: fundErr ? `${fundErr.code}: ${fundErr.message}` : `OK (${fundCount || 0} rows)`,
-      category_budgets: budgetErr ? `${budgetErr.code}: ${budgetErr.message}` : `OK (${budgetCount || 0} rows)`,
-      savings_history: histErr ? `${histErr.code}: ${histErr.message}` : `OK (${histCount || 0} rows)`,
+      database_type: 'Local SQLite (data/local.db)',
+      port: 9000,
+      teachers: tErr?.message || `OK (${tc || 0} rows)`,
+      profiles: pErr?.message || `OK (${pc || 0} rows)`,
+      sessions: sErr?.message || `OK (${sc || 0} rows)`,
+      manual_transactions: txErr ? txErr.message : `OK (${txCount || 0} rows)`,
+      savings_funds: fundErr ? fundErr.message : `OK (${fundCount || 0} rows)`,
+      category_budgets: budgetErr ? budgetErr.message : `OK (${budgetCount || 0} rows)`,
+      savings_history: histErr ? histErr.message : `OK (${histCount || 0} rows)`,
     };
   } catch (err: any) {
     errorMsg = err.message;
   }
 
-  // Retrieve bank receipts directly from Supabase DB
+  // Retrieve bank receipts directly from local DB
   let dbReceiptsCount = 0;
   let dbReceipts: any[] = [];
   try {
@@ -50,7 +51,7 @@ export async function GET(request: NextRequest) {
   } catch (e) {}
 
   return NextResponse.json({
-    supabaseUrl,
+    databaseType: 'Local SQLite Database (offline 100%)',
     teachersCount,
     profilesCount,
     sessionsCount,

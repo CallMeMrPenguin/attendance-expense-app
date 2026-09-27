@@ -1,6 +1,6 @@
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
-import { supabase, getSupabaseAdmin } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabase-server';
 
 export interface BankReceipt {
   id: string;
@@ -674,5 +674,5 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
 }
 
 export async function startImapIdleListener() {
-  // Disabled: IMAP sync is handled via Vercel Cron Job (/api/bank-receipts/sync-cron)
+  // Handled via local sync trigger (/api/bank-receipts/sync)
 }

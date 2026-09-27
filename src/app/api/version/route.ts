@@ -2,11 +2,7 @@ import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-const BUILD_ID =
-  process.env.VERCEL_GIT_COMMIT_SHA ||
-  process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ||
-  process.env.BUILD_ID ||
-  'local';
+const BUILD_ID = process.env.BUILD_ID || 'local-v1.0.0';
 
 export async function GET() {
   return NextResponse.json({

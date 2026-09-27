@@ -545,7 +545,7 @@ export default function Dashboard() {
     };
   }, [txModalOpen, addModalOpen, editModalOpen, teachersModalOpen, passwordModalOpen]);
 
-  // Auto-reload client when a new deployment is built on Vercel
+  // Auto-reload client when a new local build is updated
   useEffect(() => {
     let currentVersion: string | null = null;
 
@@ -1035,7 +1035,7 @@ export default function Dashboard() {
 
     let list: string[] = [];
     if (!error && data) {
-      list = data.map((t) => t.name).filter((n) => n !== 'Giáo Viên 1');
+      list = (data as any[]).map((t: any) => t.name).filter((n: any) => n !== 'Giáo Viên 1');
     }
 
     if (list.length === 0) {
@@ -1043,7 +1043,7 @@ export default function Dashboard() {
         .from('profiles')
         .select('*');
       if (profileData) {
-        list = [...new Set(profileData.map((p: any) => p.user_name || p.teacher_name).filter((n) => n && n !== 'Giáo Viên 1'))];
+        list = [...new Set((profileData as any[]).map((p: any) => p.user_name || p.teacher_name).filter((n: any) => n && n !== 'Giáo Viên 1'))] as string[];
       }
     }
 

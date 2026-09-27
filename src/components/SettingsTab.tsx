@@ -252,7 +252,7 @@ export default function SettingsTab({
             <h3 className="text-xs font-black text-white uppercase tracking-wider">Quản lý vùng nhớ</h3>
           </div>
           <p className="text-[11px] text-slate-400 font-medium leading-relaxed">
-            Thực hiện xóa toàn bộ dữ liệu tài chính (giao dịch thủ công và số dư các quỹ tiết kiệm hiện có) được ghi nhớ trong trình duyệt. Thông tin về lịch dạy trên Supabase sẽ không bị ảnh hưởng.
+            Thực hiện xóa toàn bộ dữ liệu tài chính (giao dịch thủ công và số dư các quỹ tiết kiệm hiện có). Thông tin về lịch dạy trong cơ sở dữ liệu cục bộ (Local) sẽ không bị ảnh hưởng.
           </p>
           <button
             onClick={() => setResetConfirmOpen(true)}

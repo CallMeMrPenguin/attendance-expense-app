@@ -1,0 +1,591 @@
+{
+  "profiles": [
+    {
+      "id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "username": "buiduchung2004",
+      "user_name": "ADMIN",
+      "role": "admin",
+      "created_at": "2026-07-14T04:12:06.79715+00:00",
+      "email": "buiduchung2004@gmail.com",
+      "password": "callmemrpenguin"
+    },
+    {
+      "id": "aae79676-8bc1-4cce-8f5d-e78379a6abc4",
+      "username": "phamthithutrang110902",
+      "user_name": "Phạm Thị Thu Trang",
+      "role": "admin",
+      "created_at": "2026-07-14T04:01:39.625881+00:00",
+      "email": "phamthithutrang110902@gmail.com",
+      "password": "trang110902"
+    },
+    {
+      "id": "67131b3d-0b6e-43a9-8051-95eb25b0a362",
+      "username": "tester123",
+      "user_name": "tester123",
+      "role": "user",
+      "created_at": "2026-07-16T16:32:31.00809+00:00",
+      "email": "tester123@gmail.com",
+      "password": "tester123"
+    },
+    {
+      "id": "c10bf851-5ff6-46db-967f-d8e74f653d8e",
+      "username": "testuser7272",
+      "user_name": "Test Teacher",
+      "role": "admin",
+      "created_at": "2026-07-18T14:22:45.624494+00:00",
+      "email": "testuser7272@giasupro.com",
+      "password": null
+    }
+  ],
+  "category_budgets": [
+    {
+      "id": "Khác",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "user_name": "ADMIN",
+      "category": "Khác",
+      "amount": 0,
+      "updated_at": "2026-08-24T06:24:15.39+00:00",
+      "type": "income",
+      "icon": "Coins",
+      "note": "{\"text\":\"Tiền Thưởng, Được Cho\",\"kw\":\"\"}"
+    },
+    {
+      "id": "Sai Số",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "user_name": "ADMIN",
+      "category": "Sai Số",
+      "amount": 0,
+      "updated_at": "2026-08-24T06:24:15.49+00:00",
+      "type": "income",
+      "icon": "Percent",
+      "note": "{\"text\":\"Thu nhập khác\",\"kw\":\"\"}"
+    },
+    {
+      "id": "Mỹ Phẩm",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "user_name": "ADMIN",
+      "category": "Mỹ Phẩm",
+      "amount": 600000,
+      "updated_at": "2026-08-24T06:24:15.691+00:00",
+      "type": "expense",
+      "icon": "Sparkles",
+      "note": "{\"text\":\"Chi phí khác\",\"kw\":\"my pham, mp\"}"
+    },
+    {
+      "id": "Đi Chợ",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "user_name": "ADMIN",
+      "category": "Đi Chợ",
+      "amount": 1500000,
+      "updated_at": "2026-08-24T06:24:16.091+00:00",
+      "type": "expense",
+      "icon": "ShoppingBag",
+      "note": "{\"text\":\"Thực phẩm, chợ tươi\",\"kw\":\"di cho, sieu thi, winmart, bach hoa xanh, cho\"}"
+    },
+    {
+      "id": "Nhu Yếu Phẩm",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "user_name": "ADMIN",
+      "category": "Nhu Yếu Phẩm",
+      "amount": 1000000,
+      "updated_at": "2026-08-24T06:24:16.391+00:00",
+      "type": "expense",
+      "icon": "ShoppingBag",
+      "note": "{\"text\":\"Chi phí khác\",\"kw\":\"nyp\"}"
+    },
+    {
+      "id": "Shopping",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "user_name": "ADMIN",
+      "category": "Shopping",
+      "amount": 2000000,
+      "updated_at": "2026-08-24T06:24:16.491+00:00",
+      "type": "expense",
+      "icon": "ShoppingBag",
+      "note": "{\"text\":\"Mua quần áo\",\"kw\":\"shopee, lazada, uniqlo, zara, shop\"}"
+    },
+    {
+      "id": "Quần Áo",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "user_name": "ADMIN",
+      "category": "Quần Áo",
+      "amount": 500000,
+      "updated_at": "2026-08-24T06:24:16.591+00:00",
+      "type": "expense",
+      "icon": "HelpCircle",
+      "note": "{\"text\":\"Chi phí khác\",\"kw\":\"qa\"}"
+    },
+    {
+      "id": "Công Nghệ",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "user_name": "ADMIN",
+      "category": "Công Nghệ",
+      "amount": 500000,
+      "updated_at": "2026-08-24T06:24:16.791+00:00",
+      "type": "expense",
+      "icon": "cpu",
+      "note": "{\"text\":\"Đồ Công Nghệ\",\"kw\":\"cn, cong nghe, tech\"}"
+    },
+    {
+      "id": "schedule_exclusions_admin",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "user_name": "ADMIN",
+      "category": "__SCHEDULE_EXCLUSIONS__",
+      "amount": 0,
+      "updated_at": "2026-09-02T05:16:30.795+00:00",
+      "type": "settings",
+      "icon": "CalendarX",
+      "note": "{\"all\":[\"test\"]}"
+    },
+    {
+      "id": "session_student_configs_admin",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "user_name": "ADMIN",
+      "category": "__SESSION_STUDENT_CONFIGS__",
+      "amount": 0,
+      "updated_at": "2026-09-20T09:01:02.611+00:00",
+      "type": "settings",
+      "icon": "Users",
+      "note": "{\"class_ha anh & minh\":{\"student_count\":2,\"price_per_student\":150000,\"original_student_count\":2},\"sess_0d5900b0-6b85-4a37-8fe2-d82f8e37c334\":{\"student_count\":2,\"price_per_student\":150000,\"original_student_count\":2},\"class_ngan\":{\"student_count\":1,\"price_per_student\":180000,\"original_student_count\":1,\"student_names\":[\"Học sinh 1\"]},\"sess_b95a67ba-c332-4f8d-be75-7a994852a61b\":{\"student_count\":1,\"price_per_student\":180000,\"original_student_count\":1},\"sess_4e4496ac-c6c3-45fe-a2d7-82fb3f5caad7\":{\"student_count\":2,\"price_per_student\":150000,\"original_student_count\":2},\"sess_0b5b3aae-75a5-4975-8a86-164dcdf1b7b2\":{\"student_count\":1,\"price_per_student\":180000,\"original_student_count\":1,\"student_names\":[\"Học sinh 1\"],\"present_students\":[],\"absent_students\":[]}}"
+    },
+    {
+      "id": "Ăn uống",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "user_name": "ADMIN",
+      "category": "Ăn uống",
+      "amount": 4000000,
+      "updated_at": "2026-08-24T06:24:16.191+00:00",
+      "type": "expense",
+      "icon": "Utensils",
+      "note": "{\"text\":\"Ăn hàng, siêu thị\",\"kw\":\"an uong, an, uong\"}"
+    },
+    {
+      "id": "Giải Trí",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "user_name": "ADMIN",
+      "category": "Giải Trí",
+      "amount": 500000,
+      "updated_at": "2026-08-24T06:24:16.291+00:00",
+      "type": "expense",
+      "icon": "Film",
+      "note": "{\"text\":\"Đi chơi\",\"kw\":\"choi, di choi, phim\"}"
+    },
+    {
+      "id": "Trả Nợ",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "user_name": "ADMIN",
+      "category": "Trả Nợ",
+      "amount": 500000,
+      "updated_at": "2026-08-24T06:24:16.691+00:00",
+      "type": "expense",
+      "icon": "CreditCard",
+      "note": "{\"text\":\"Chi phí khác\",\"kw\":\"tra no, no\"}"
+    },
+    {
+      "id": "Gia Đình",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "user_name": "ADMIN",
+      "category": "Gia Đình",
+      "amount": 1000000,
+      "updated_at": "2026-08-24T06:24:16.891+00:00",
+      "type": "expense",
+      "icon": "house",
+      "note": "{\"text\":\"Chi Tiêu Cho Gia Đình\",\"kw\":\"\"}"
+    },
+    {
+      "id": "Chỉnh Sửa Sai Số",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "user_name": "ADMIN",
+      "category": "Chỉnh Sửa Sai Số",
+      "amount": 0,
+      "updated_at": "2026-08-24T06:24:16.991+00:00",
+      "type": "expense",
+      "icon": "Percent",
+      "note": "{\"text\":\"Chi phí khác\",\"kw\":\"\"}"
+    },
+    {
+      "id": "schedule_exclusions_pham thi thu trang",
+      "user_id": "aae79676-8bc1-4cce-8f5d-e78379a6abc4",
+      "user_name": "Phạm Thị Thu Trang",
+      "category": "__SCHEDULE_EXCLUSIONS__",
+      "amount": 0,
+      "updated_at": "2026-09-07T08:19:48.203+00:00",
+      "type": "settings",
+      "icon": "CalendarX",
+      "note": "{\"all\":[\"kid 10\",\"kid 12\"],\"2026-08\":[\"kid 11\"],\"2026-09\":[\"kid 6.2\",\"nhi&bi\",\"kid 11\"]}"
+    },
+    {
+      "id": "session_student_configs_pham thi thu trang",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "user_name": "Phạm Thị Thu Trang",
+      "category": "__SESSION_STUDENT_CONFIGS__",
+      "amount": 0,
+      "updated_at": "2026-09-17T11:19:46.529+00:00",
+      "type": "settings",
+      "icon": "Users",
+      "note": "{\"class_nhi & bi\":{\"student_count\":1,\"price_per_student\":270000,\"original_student_count\":1,\"student_names\":[\"Học sinh 1\"]},\"sess_ea837abe-e864-495e-956b-17c3da174ff6\":{\"student_count\":1,\"price_per_student\":90000,\"original_student_count\":1,\"student_names\":[\"Học sinh 1\"],\"present_students\":[],\"absent_students\":[]},\"sess_8b6e59aa-2c68-49ed-a499-8b8f7716fff9\":{\"student_count\":1,\"price_per_student\":270000,\"original_student_count\":1,\"student_names\":[\"Học sinh 1\"],\"present_students\":[\"Học sinh 1\"],\"absent_students\":[]}}"
+    },
+    {
+      "id": "Lương",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "user_name": "ADMIN",
+      "category": "Lương",
+      "amount": 15000000,
+      "updated_at": "2026-08-24T06:24:15.09+00:00",
+      "type": "income",
+      "icon": "Briefcase",
+      "note": "{\"text\":\"Thu nhập cố định hàng tháng\",\"kw\":\"luong, salary\"}"
+    },
+    {
+      "id": "Gia Sư",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "user_name": "ADMIN",
+      "category": "Gia Sư",
+      "amount": 10000000,
+      "updated_at": "2026-08-24T06:24:15.19+00:00",
+      "type": "income",
+      "icon": "GraduationCap",
+      "note": "{\"text\":\"Giảng dạy, chấm công\",\"kw\":\"gia su, hoc phi\"}"
+    },
+    {
+      "id": "Thu Nợ",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "user_name": "ADMIN",
+      "category": "Thu Nợ",
+      "amount": 0,
+      "updated_at": "2026-08-24T06:24:15.29+00:00",
+      "type": "income",
+      "icon": "Receipt",
+      "note": "{\"text\":\"Thu nhập khác\",\"kw\":\"\"}"
+    },
+    {
+      "id": "Đăng Ký Gói",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "user_name": "ADMIN",
+      "category": "Đăng Ký Gói",
+      "amount": 800000,
+      "updated_at": "2026-08-24T06:24:15.59+00:00",
+      "type": "expense",
+      "icon": "Package",
+      "note": "{\"text\":\"Chi phí khác\",\"kw\":\"\"}"
+    },
+    {
+      "id": "Photo",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "user_name": "ADMIN",
+      "category": "Photo",
+      "amount": 200000,
+      "updated_at": "2026-08-24T06:24:15.791+00:00",
+      "type": "expense",
+      "icon": "BookOpen",
+      "note": "{\"text\":\"Chi phí khác\",\"kw\":\"in, photo\"}"
+    },
+    {
+      "id": "Hóa Đơn",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "user_name": "ADMIN",
+      "category": "Hóa Đơn",
+      "amount": 2000000,
+      "updated_at": "2026-08-24T06:24:15.891+00:00",
+      "type": "expense",
+      "icon": "Receipt",
+      "note": "{\"text\":\"Chi phí khác\",\"kw\":\"hoa don, dien, nuoc, mang\"}"
+    },
+    {
+      "id": "trang_account_balance",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "user_name": "ADMIN",
+      "category": "__TRANG_ACCOUNT_BALANCE__",
+      "amount": 3015000,
+      "updated_at": "2026-09-03T17:16:39.981+00:00",
+      "type": "settings",
+      "icon": "Wallet",
+      "note": "{\"initial_balance\":3015000}"
+    },
+    {
+      "id": "Xăng",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "user_name": "ADMIN",
+      "category": "Xăng",
+      "amount": 500000,
+      "updated_at": "2026-08-24T06:24:15.991+00:00",
+      "type": "expense",
+      "icon": "Car",
+      "note": "{\"text\":\"Nhiên liệu đi lại\",\"kw\":\"xang, cay xang, petrolimex\"}"
+    }
+  ],
+  "savings_funds": [
+    {
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "user_name": "ADMIN",
+      "emergency_current": 0,
+      "emergency_target": 30000000,
+      "accumulation_current": 0,
+      "accumulation_target": 150000000,
+      "updated_at": "2026-07-16T16:02:12.456+00:00"
+    },
+    {
+      "user_id": "aae79676-8bc1-4cce-8f5d-e78379a6abc4",
+      "user_name": "Shared Admin",
+      "emergency_current": 0,
+      "emergency_target": 30000000,
+      "accumulation_current": 70000000,
+      "accumulation_target": 150000000,
+      "updated_at": "2026-09-15T15:41:18.404+00:00"
+    }
+  ],
+  "receipt_rules": [
+    {
+      "id": "rule-1785691994975-ub0ho",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "match_field": "details",
+      "match_value": "VPLX30400023",
+      "target_type": "expense",
+      "target_category": "Xăng",
+      "created_at": "2026-08-02T17:33:15.072181+00:00"
+    },
+    {
+      "id": "rule-1785807576762-ga540",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "match_field": "details",
+      "match_value": "VPLX30400023",
+      "target_type": "expense",
+      "target_category": "Xăng",
+      "created_at": "2026-08-04T01:39:36.853583+00:00"
+    },
+    {
+      "id": "rule-1785807597826-wj7mg",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "match_field": "details",
+      "match_value": "106884442693",
+      "target_type": "expense",
+      "target_category": "Đi Chợ",
+      "created_at": "2026-08-04T01:39:57.922797+00:00"
+    },
+    {
+      "id": "rule-1785807601586-x023v",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "match_field": "details",
+      "match_value": "102885529870",
+      "target_type": "expense",
+      "target_category": "Đi Chợ",
+      "created_at": "2026-08-04T01:40:01.676434+00:00"
+    },
+    {
+      "id": "rule-1786032185329-9vkg0",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "match_field": "details",
+      "match_value": "VQRQAIYJW5362",
+      "target_type": "expense",
+      "target_category": "Photo",
+      "created_at": "2026-08-06T16:03:05.419529+00:00"
+    },
+    {
+      "id": "rule-1786079764892-pi5db",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "match_field": "details",
+      "match_value": "MS00P00000001419599",
+      "target_type": "expense",
+      "target_category": "Đi Chợ",
+      "created_at": "2026-08-07T05:16:05.408703+00:00"
+    },
+    {
+      "id": "rule-1786158416107-5tjut",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "match_field": "details",
+      "match_value": "0451000380723",
+      "target_type": "expense",
+      "target_category": "Giải Trí",
+      "created_at": "2026-08-08T03:06:56.18592+00:00"
+    },
+    {
+      "id": "rule-1786249426337-jt49m",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "match_field": "details",
+      "match_value": "HE1TINGEE01056",
+      "target_type": "expense",
+      "target_category": "Ăn uống",
+      "created_at": "2026-08-09T04:23:46.834324+00:00"
+    },
+    {
+      "id": "rule-1786249464690-042h4",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "match_field": "details",
+      "match_value": "0451000380723",
+      "target_type": "expense",
+      "target_category": "Xăng",
+      "created_at": "2026-08-09T04:24:25.200461+00:00"
+    },
+    {
+      "id": "rule-1786249488110-utsfk",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "match_field": "details",
+      "match_value": "AGBHENOA41753",
+      "target_type": "expense",
+      "target_category": "Ăn uống",
+      "created_at": "2026-08-09T04:24:48.627375+00:00"
+    },
+    {
+      "id": "rule-1786636349503-wdjh1",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "match_field": "details",
+      "match_value": "VQRQAFNYI7774",
+      "target_type": "expense",
+      "target_category": "Ăn uống",
+      "created_at": "2026-08-13T15:52:29.914895+00:00"
+    },
+    {
+      "id": "rule-1786807721021-v066o",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "match_field": "details",
+      "match_value": "MS07T01784971988385",
+      "target_type": "expense",
+      "target_category": "Ăn uống",
+      "created_at": "2026-08-15T15:28:41.112935+00:00"
+    },
+    {
+      "id": "rule-1787105621397-i5g9d",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "match_field": "details",
+      "match_value": "MS00P00000001419597",
+      "target_type": "expense",
+      "target_category": "Đi Chợ",
+      "created_at": "2026-08-19T02:13:41.551004+00:00"
+    },
+    {
+      "id": "rule-1787551805851-whk2s",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "match_field": "details",
+      "match_value": "106883927225",
+      "target_type": "expense",
+      "target_category": "Đi Chợ",
+      "created_at": "2026-08-24T06:10:06.346323+00:00"
+    },
+    {
+      "id": "rule-1787551827796-anodz",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "match_field": "details",
+      "match_value": "1039195079",
+      "target_type": "expense",
+      "target_category": "Ăn uống",
+      "created_at": "2026-08-24T06:10:28.309365+00:00"
+    },
+    {
+      "id": "rule-1787551844009-aaunv",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "match_field": "details",
+      "match_value": "101886240383",
+      "target_type": "expense",
+      "target_category": "Ăn uống",
+      "created_at": "2026-08-24T06:10:44.101475+00:00"
+    },
+    {
+      "id": "rule-1788158932716-6h6p1",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "match_field": "details",
+      "match_value": "8600727222",
+      "target_type": "expense",
+      "target_category": "Ăn uống",
+      "created_at": "2026-08-31T06:48:52.813496+00:00"
+    },
+    {
+      "id": "rule-1788158943710-t0ler",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "match_field": "details",
+      "match_value": "MS00T04134329733054",
+      "target_type": "expense",
+      "target_category": "Ăn uống",
+      "created_at": "2026-08-31T06:49:03.812363+00:00"
+    },
+    {
+      "id": "rule-1788413826895-10871",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "match_field": "details",
+      "match_value": "50019688",
+      "target_type": "expense",
+      "target_category": "Mỹ Phẩm",
+      "created_at": "2026-09-03T05:37:07.387086+00:00"
+    },
+    {
+      "id": "rule-1788413841388-98p96",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "match_field": "details",
+      "match_value": "0020155551985",
+      "target_type": "expense",
+      "target_category": "Ăn uống",
+      "created_at": "2026-09-03T05:37:21.467035+00:00"
+    },
+    {
+      "id": "rule-1788455691296-p5h1k",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "match_field": "details",
+      "match_value": "0451000402652",
+      "target_type": "expense",
+      "target_category": "Hóa Đơn",
+      "created_at": "2026-09-03T17:14:51.778332+00:00"
+    },
+    {
+      "id": "rule-1788455732235-89ipd",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "match_field": "details",
+      "match_value": "0451000370110",
+      "target_type": "expense",
+      "target_category": "Hóa Đơn",
+      "created_at": "2026-09-03T17:15:32.639382+00:00"
+    },
+    {
+      "id": "rule-1788865449299-w39oy",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "match_field": "details",
+      "match_value": "VQRQAKLYQ5390",
+      "target_type": "expense",
+      "target_category": "Ăn uống",
+      "created_at": "2026-09-08T11:04:09.414074+00:00"
+    },
+    {
+      "id": "rule-1788865535370-ormii",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "match_field": "details",
+      "match_value": "LPBLOA005474",
+      "target_type": "expense",
+      "target_category": "Ăn uống",
+      "created_at": "2026-09-08T11:05:35.454073+00:00"
+    },
+    {
+      "id": "rule-1789032444760-mx22f",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "match_field": "details",
+      "match_value": "9333558143",
+      "target_type": "expense",
+      "target_category": "Ăn uống",
+      "created_at": "2026-09-10T09:27:25.153449+00:00"
+    },
+    {
+      "id": "rule-1789032451523-7jynm",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "match_field": "details",
+      "match_value": "ZLP26252199720903",
+      "target_type": "expense",
+      "target_category": "Ăn uống",
+      "created_at": "2026-09-10T09:27:31.622741+00:00"
+    },
+    {
+      "id": "rule-1789239223708-whsv7",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "match_field": "details",
+      "match_value": "128883888",
+      "target_type": "expense",
+      "target_category": "Ăn uống",
+      "created_at": "2026-09-12T18:53:43.793641+00:00"
+    },
+    {
+      "id": "rule-1790528997780-kc7qn",
+      "user_id": "2d3a11e1-4d71-474c-b8df-abb85394e9c8",
+      "match_field": "details",
+      "match_value": "VYN8CBNMN7DKBBNS10EQ",
+      "target_type": "expense",
+      "target_category": "Ăn uống",
+      "created_at": "2026-09-27T17:09:58.249999+00:00"
+    }
+  ]
+}

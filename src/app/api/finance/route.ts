@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseAdmin } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabase-server';
 
 // GET: Fetch all financial data for current authenticated user
 export async function GET(request: NextRequest) {

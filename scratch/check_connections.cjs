@@ -1,37 +1,22 @@
-const { createClient } = require('@supabase/supabase-js');
-const fs = require('fs');
+const Database = require('better-sqlite3');
 const path = require('path');
+const fs = require('fs');
 
-const envPath = path.resolve(process.cwd(), '.env.local');
-let supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-let supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-if (fs.existsSync(envPath)) {
-  const content = fs.readFileSync(envPath, 'utf8');
-  content.split('\n').forEach(line => {
-    const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
-    if (match) {
-      const key = match[1];
-      let value = (match[2] || '').trim().replace(/^['"]|['"]$/g, '');
-      if (key === 'NEXT_PUBLIC_SUPABASE_URL') supabaseUrl = value;
-      if (key === 'NEXT_PUBLIC_SUPABASE_ANON_KEY') supabaseKey = value;
-    }
-  });
-}
-
-const supabase = createClient(supabaseUrl, supabaseKey);
+const dbPath = path.resolve(process.cwd(), 'data/local.db');
 
 async function checkConnections() {
-  console.log('--- Checking Connection Integrity ---');
+  console.log('--- Checking Connection Integrity (Local SQLite) ---');
   try {
-    const { data, error } = await supabase.from('profiles').select('id, user_name, role').limit(5);
-    if (error) {
-      console.log('[ERROR] Profiles connection error:', error.message);
-    } else {
-      console.log(`[OK] Supabase connected successfully! Found ${data ? data.length : 0} profiles.`);
+    if (!fs.existsSync(dbPath)) {
+      console.log('[ERROR] Database file not found at:', dbPath);
+      return;
     }
+    const db = new Database(dbPath);
+    const profiles = db.prepare('SELECT id, username, user_name, role FROM profiles LIMIT 5').all();
+    console.log(`[OK] Local database connected successfully! Found ${profiles.length} profiles.`);
+    profiles.forEach(p => console.log(`  - User: ${p.username} (${p.user_name}) | Role: ${p.role}`));
   } catch (err) {
-    console.error('Connection failed:', err);
+    console.error('Connection failed:', err.message);
   }
 }
 

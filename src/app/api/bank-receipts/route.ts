@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getSupabaseAdmin } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabase-server';
 import { BankReceipt, ReceiptRule, isDefaultTransferDetails } from '@/lib/imap-service';
 
 export async function GET() {

@@ -1,26 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseAdmin } from '@/lib/supabase';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabase-server';
+import { getDb } from '@/lib/db';
 
 async function verifyAdmin(request: NextRequest) {
   const authHeader = request.headers.get('Authorization');
   if (!authHeader) return null;
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-  const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: authHeader } },
-    auth: { persistSession: false }
-  });
-
-  const { data: { user }, error: authError } = await userClient.auth.getUser();
-  if (authError || !user) return null;
-
-  const { data: profile } = await userClient
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single();
+  const token = authHeader.replace('Bearer ', '').trim();
+  const db = getDb();
+  const profile = db.prepare(`
+    SELECT * FROM profiles 
+    WHERE id = ? OR username = ? OR ('local_token_' || id) LIKE ?
+    LIMIT 1
+  `).get(token, token, `%${token}%`) as any;
 
   if (!profile || profile.role !== 'admin') return null;
   return getSupabaseAdmin();
@@ -69,10 +61,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 2. Migrate Sessions (Map JSON keys camelCase to Postgres snake_case)
+    // 2. Migrate Sessions
     if (sessions.length > 0) {
       const sessionRecords = sessions.map((s: any) => ({
-        teacher_name: s.teacherName || 'Giáo Viên 1',
+        id: s.id || `sess_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        user_name: s.teacherName || 'Admin',
+        teacher_name: s.teacherName || 'Admin',
+        job_name: s.jobName || 'Dạy học',
         student_name: s.studentName || 'Học Sinh',
         day_of_week: s.dayOfWeek || 'Thứ 2',
         time: s.time || '18:00',
@@ -87,18 +82,12 @@ export async function POST(request: NextRequest) {
         date: s.date || ''
       }));
 
-      // Delete existing sessions to avoid duplicates if re-migrating
-      // (Optional safeguard, let's just insert them in chunks)
-      const batchSize = 100;
-      for (let i = 0; i < sessionRecords.length; i += batchSize) {
-        const batch = sessionRecords.slice(i, i + batchSize);
-        const { error: sError } = await (adminClient
-          .from('sessions') as any)
-          .insert(batch);
-        
-        if (sError) {
-          return NextResponse.json({ error: `Session batch insert failed: ${sError.message}` }, { status: 400 });
-        }
+      const { error: sError } = await (adminClient
+        .from('sessions') as any)
+        .upsert(sessionRecords, { onConflict: 'id' });
+      
+      if (sError) {
+        return NextResponse.json({ error: `Session batch insert failed: ${sError.message}` }, { status: 400 });
       }
     }
 

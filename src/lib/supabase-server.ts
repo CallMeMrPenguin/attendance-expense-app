@@ -1,4 +1,11 @@
-// Universal Client-Safe Local Client (Safe for browser and SSR)
+import { 
+  queryTable, 
+  insertTable, 
+  upsertTable, 
+  updateTable, 
+  deleteTable, 
+  getDb 
+} from '@/lib/db';
 
 interface QueryBuilderState {
   table: string;
@@ -19,7 +26,7 @@ interface QueryBuilderState {
   isMaybeSingle?: boolean;
 }
 
-class QueryBuilder {
+class ServerQueryBuilder {
   private state: QueryBuilderState;
 
   constructor(table: string) {
@@ -113,7 +120,7 @@ class QueryBuilder {
     return this.execute();
   }
 
-  async execute(): Promise<{ data: any; count?: number; error: any }> {
+  async execute(): Promise<{ data: any; count?: number; error: { message: string; code?: string } | null }> {
     const opts = {
       columns: this.state.columns,
       count: this.state.count,
@@ -133,26 +140,21 @@ class QueryBuilder {
     };
 
     try {
-      const res = await fetch('/api/db', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'query', table: this.state.table, options: opts })
-      });
-      return await res.json();
+      return queryTable(this.state.table, opts);
     } catch (err: any) {
-      return { data: null, error: { message: err.message } };
+      return { data: null, error: { message: err.message, code: 'SQLITE_ERROR' } };
     }
   }
 
   then<TResult1 = any, TResult2 = never>(
-    onfulfilled?: ((value: { data: any; count?: number; error: any }) => TResult1 | PromiseLike<TResult1>) | null,
+    onfulfilled?: ((value: { data: any; count?: number; error: { message: string; code?: string } | null }) => TResult1 | PromiseLike<TResult1>) | null,
     onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null
   ): Promise<TResult1 | TResult2> {
     return this.execute().then(onfulfilled, onrejected);
   }
 }
 
-class UpdateBuilder {
+class ServerUpdateBuilder {
   private table: string;
   private updates: Record<string, any>;
   private eqMap: Record<string, any> = {};
@@ -189,7 +191,7 @@ class UpdateBuilder {
     return this;
   }
 
-  async execute(): Promise<{ data: any; error: any }> {
+  async execute(): Promise<{ data: any; error: { message: string; code?: string } | null }> {
     const conditions = {
       eq: Object.keys(this.eqMap).length > 0 ? this.eqMap : undefined,
       in: Object.keys(this.inMap).length > 0 ? this.inMap : undefined,
@@ -198,26 +200,21 @@ class UpdateBuilder {
     };
 
     try {
-      const res = await fetch('/api/db', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'update', table: this.table, updates: this.updates, conditions })
-      });
-      return await res.json();
+      return updateTable(this.table, this.updates, conditions);
     } catch (err: any) {
-      return { data: null, error: { message: err.message } };
+      return { data: null, error: { message: err.message, code: 'SQLITE_ERROR' } };
     }
   }
 
   then<TResult1 = any, TResult2 = never>(
-    onfulfilled?: ((value: { data: any; error: any }) => TResult1 | PromiseLike<TResult1>) | null,
+    onfulfilled?: ((value: { data: any; error: { message: string; code?: string } | null }) => TResult1 | PromiseLike<TResult1>) | null,
     onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null
   ): Promise<TResult1 | TResult2> {
     return this.execute().then(onfulfilled, onrejected);
   }
 }
 
-class DeleteBuilder {
+class ServerDeleteBuilder {
   private table: string;
   private eqMap: Record<string, any> = {};
   private inMap: Record<string, any[]> = {};
@@ -252,7 +249,7 @@ class DeleteBuilder {
     return this;
   }
 
-  async execute(): Promise<{ data: any; error: any }> {
+  async execute(): Promise<{ data: any; error: { message: string; code?: string } | null }> {
     const conditions = {
       eq: Object.keys(this.eqMap).length > 0 ? this.eqMap : undefined,
       in: Object.keys(this.inMap).length > 0 ? this.inMap : undefined,
@@ -261,29 +258,24 @@ class DeleteBuilder {
     };
 
     try {
-      const res = await fetch('/api/db', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'delete', table: this.table, conditions })
-      });
-      return await res.json();
+      return deleteTable(this.table, conditions);
     } catch (err: any) {
-      return { data: null, error: { message: err.message } };
+      return { data: null, error: { message: err.message, code: 'SQLITE_ERROR' } };
     }
   }
 
   then<TResult1 = any, TResult2 = never>(
-    onfulfilled?: ((value: { data: any; error: any }) => TResult1 | PromiseLike<TResult1>) | null,
+    onfulfilled?: ((value: { data: any; error: { message: string; code?: string } | null }) => TResult1 | PromiseLike<TResult1>) | null,
     onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null
   ): Promise<TResult1 | TResult2> {
     return this.execute().then(onfulfilled, onrejected);
   }
 }
 
-class InsertBuilder {
-  private promise: Promise<{ data: any; error: any }>;
+class ServerInsertBuilder {
+  private promise: Promise<{ data: any; error: { message: string; code?: string } | null }>;
 
-  constructor(execPromise: () => Promise<{ data: any; error: any }>) {
+  constructor(execPromise: () => Promise<{ data: any; error: { message: string; code?: string } | null }>) {
     this.promise = execPromise();
   }
 
@@ -292,17 +284,17 @@ class InsertBuilder {
   }
 
   then<TResult1 = any, TResult2 = never>(
-    onfulfilled?: ((value: { data: any; error: any }) => TResult1 | PromiseLike<TResult1>) | null,
+    onfulfilled?: ((value: { data: any; error: { message: string; code?: string } | null }) => TResult1 | PromiseLike<TResult1>) | null,
     onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null
   ): Promise<TResult1 | TResult2> {
     return this.promise.then(onfulfilled, onrejected);
   }
 }
 
-class UpsertBuilder {
-  private promise: Promise<{ data: any; error: any }>;
+class ServerUpsertBuilder {
+  private promise: Promise<{ data: any; error: { message: string; code?: string } | null }>;
 
-  constructor(execPromise: () => Promise<{ data: any; error: any }>) {
+  constructor(execPromise: () => Promise<{ data: any; error: { message: string; code?: string } | null }>) {
     this.promise = execPromise();
   }
 
@@ -311,160 +303,138 @@ class UpsertBuilder {
   }
 
   then<TResult1 = any, TResult2 = never>(
-    onfulfilled?: ((value: { data: any; error: any }) => TResult1 | PromiseLike<TResult1>) | null,
+    onfulfilled?: ((value: { data: any; error: { message: string; code?: string } | null }) => TResult1 | PromiseLike<TResult1>) | null,
     onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null
   ): Promise<TResult1 | TResult2> {
     return this.promise.then(onfulfilled, onrejected);
   }
 }
 
-function createLocalClient() {
+export function createServerLocalClient() {
   return {
     from: (table: string) => ({
       select: (columns: string = '*', options?: { count?: 'exact'; head?: boolean }) => {
-        return new QueryBuilder(table).select(columns, options);
+        return new ServerQueryBuilder(table).select(columns, options);
       },
       insert: (records: any | any[]) => {
-        return new InsertBuilder(async () => {
+        return new ServerInsertBuilder(async () => {
           try {
-            const res = await fetch('/api/db', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ action: 'insert', table, records })
-            });
-            return await res.json();
+            return insertTable(table, records);
           } catch (err: any) {
-            return { data: null, error: { message: err.message } };
+            return { data: null, error: { message: err.message, code: 'SQLITE_ERROR' } };
           }
         });
       },
       upsert: (records: any | any[], options?: { onConflict?: string }) => {
-        return new UpsertBuilder(async () => {
+        return new ServerUpsertBuilder(async () => {
           try {
-            const res = await fetch('/api/db', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ action: 'upsert', table, records, onConflict: options?.onConflict })
-            });
-            return await res.json();
+            return upsertTable(table, records, options?.onConflict);
           } catch (err: any) {
-            return { data: null, error: { message: err.message } };
+            return { data: null, error: { message: err.message, code: 'SQLITE_ERROR' } };
           }
         });
       },
       update: (updates: Record<string, any>) => {
-        return new UpdateBuilder(table, updates);
+        return new ServerUpdateBuilder(table, updates);
       },
       delete: () => {
-        return new DeleteBuilder(table);
+        return new ServerDeleteBuilder(table);
       }
     }),
 
     auth: {
-      getSession: async () => {
-        if (typeof window !== 'undefined') {
-          try {
-            const saved = localStorage.getItem('local_auth_session');
-            if (saved) {
-              const session = JSON.parse(saved);
-              return { data: { session }, error: null };
-            }
-          } catch (e) {}
-        }
-        return { data: { session: null }, error: null };
-      },
+      getUser: async (token?: string) => {
+        if (!token) return { data: { user: null }, error: null };
+        try {
+          const db = getDb();
+          const cleanToken = token.replace('Bearer ', '').trim();
+          let candidateId = cleanToken;
+          if (cleanToken.startsWith('local_token_')) {
+            candidateId = cleanToken.replace(/^local_token_/, '').split('_')[0];
+          }
+          const profile = db.prepare(`
+            SELECT * FROM profiles 
+            WHERE id = ? OR id = ? OR username = ? OR email = ?
+            LIMIT 1
+          `).get(cleanToken, candidateId, cleanToken, cleanToken) as any;
 
-      getUser: async () => {
-        if (typeof window !== 'undefined') {
-          try {
-            const saved = localStorage.getItem('local_auth_session');
-            if (saved) {
-              const session = JSON.parse(saved);
-              if (session?.user) {
-                return { data: { user: session.user }, error: null };
+          if (profile) {
+            const user = {
+              id: profile.id,
+              email: profile.email || `${profile.username}@local.com`,
+              user_metadata: {
+                role: profile.role,
+                teacher_name: profile.teacher_name || profile.user_name,
+                username: profile.username
               }
-            }
-          } catch (e) {}
-        }
+            };
+            return { data: { user }, error: null };
+          }
+        } catch (e) {}
         return { data: { user: null }, error: null };
       },
 
-      signInWithPassword: async ({ email, password }: { email: string; password: string }) => {
-        try {
-          const res = await fetch('/api/db', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'auth_login', username: email, password })
-          });
-          const json = await res.json();
-          if (json.error) {
-            return { data: { user: null, session: null }, error: json.error };
-          }
-          if (json.data?.session && typeof window !== 'undefined') {
-            localStorage.setItem('local_auth_session', JSON.stringify(json.data.session));
-          }
-          return { data: { user: json.data?.user, session: json.data?.session }, error: null };
-        } catch (err: any) {
-          return { data: { user: null, session: null }, error: { message: err.message } };
-        }
-      },
-
-      signOut: async () => {
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('local_auth_session');
-        }
-        return { error: null };
-      },
-
-      updateUser: async ({ password }: { password?: string }) => {
-        if (!password) return { data: null, error: null };
-        let userId = '';
-        if (typeof window !== 'undefined') {
-          try {
-            const saved = localStorage.getItem('local_auth_session');
-            if (saved) {
-              userId = JSON.parse(saved)?.user?.id || '';
-            }
-          } catch (e) {}
-        }
-        if (!userId) return { data: null, error: { message: 'Chưa đăng nhập' } };
-
-        try {
-          const res = await fetch('/api/db', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'auth_update_password', userId, newPassword: password })
-          });
-          const json = await res.json();
-          if (json.error) return { data: null, error: json.error };
-          return { data: { user: { id: userId } }, error: null };
-        } catch (err: any) {
-          return { data: null, error: { message: err.message } };
-        }
-      },
-
       admin: {
-        createUser: async () => ({ data: null, error: null }),
-        updateUserById: async () => ({ data: null, error: null }),
-        deleteUser: async () => ({ data: { success: true }, error: null }),
-        getUser: async () => ({ data: { user: null }, error: null })
-      }
-    },
+        createUser: async ({ email, password, user_metadata }: any) => {
+          try {
+            const db = getDb();
+            const id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'user_' + Date.now();
+            const username = user_metadata?.username || email.split('@')[0];
+            const teacher_name = user_metadata?.teacher_name || user_metadata?.user_name || username;
+            const role = user_metadata?.role || 'user';
 
-    rpc: async (fn: string, args?: any) => {
-      try {
-        const res = await fetch('/api/db', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'rpc', fn, args })
-        });
-        return await res.json();
-      } catch (err: any) {
-        return { data: null, error: { message: err.message } };
+            db.prepare(`
+              INSERT OR REPLACE INTO profiles (id, username, user_name, teacher_name, role, email, password)
+              VALUES (?, ?, ?, ?, ?, ?, ?)
+            `).run(id, username, teacher_name, teacher_name, role, email, password || '123456');
+
+            db.prepare(`INSERT OR IGNORE INTO teachers (name) VALUES (?)`).run(teacher_name);
+
+            return { data: { user: { id, email, user_metadata } }, error: null };
+          } catch (err: any) {
+            return { data: null, error: { message: err.message, code: 'SQLITE_ERROR' } };
+          }
+        },
+
+        updateUserById: async (userId: string, updates: any) => {
+          try {
+            const db = getDb();
+            if (updates.password) {
+              db.prepare(`UPDATE profiles SET password = ? WHERE id = ?`).run(updates.password, userId);
+            }
+            if (updates.user_metadata) {
+              const meta = updates.user_metadata;
+              const teacher_name = meta.teacher_name || meta.user_name;
+              if (teacher_name) {
+                db.prepare(`UPDATE profiles SET teacher_name = ?, user_name = ? WHERE id = ?`).run(teacher_name, teacher_name, userId);
+              }
+              if (meta.role) {
+                db.prepare(`UPDATE profiles SET role = ? WHERE id = ?`).run(meta.role, userId);
+              }
+            }
+            return { data: { user: { id: userId } }, error: null };
+          } catch (err: any) {
+            return { data: null, error: { message: err.message, code: 'SQLITE_ERROR' } };
+          }
+        },
+
+        deleteUser: async (userId: string) => {
+          try {
+            const db = getDb();
+            db.prepare(`DELETE FROM profiles WHERE id = ?`).run(userId);
+            return { data: { success: true }, error: null };
+          } catch (err: any) {
+            return { data: null, error: { message: err.message, code: 'SQLITE_ERROR' } };
+          }
+        },
+
+        getUser: async (token: string) => {
+          return createServerLocalClient().auth.getUser(token);
+        }
       }
     }
   };
 }
 
-export const supabase = createLocalClient();
-export const getSupabaseAdmin = () => createLocalClient();
+export const getSupabaseAdmin = () => createServerLocalClient();
+export const supabaseAdmin = createServerLocalClient();
