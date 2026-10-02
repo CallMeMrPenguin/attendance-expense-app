@@ -1358,6 +1358,7 @@ export default function Dashboard() {
           const dates = getDatesForWeekday(targetMonth, templateSession.day_of_week);
           dates.forEach((dStr) => {
             newCandidates.push({
+              id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : undefined,
               user_name: teacherName,
               teacher_name: teacherName,
               job_name: templateSession.job_name || templateSession.student_name,

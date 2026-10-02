@@ -157,7 +157,7 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
                             : 'bg-[#151b2a] hover:bg-[#1c2438] border-r border-[#28334e] last:border-r-0'
                         }`}
                       >
-                        {Object.values(grouped).map((group) => {
+                        {Object.values(grouped).map((group, groupIdx) => {
                           const s = group[0];
                           const startTime = formatCleanTimeString(s.time);
                           const endTime = getEndTime(startTime, s.duration);
@@ -166,7 +166,7 @@ export default function CalendarWeekView({ sessions, onSessionClick }: CalendarW
 
                           return (
                             <div
-                              key={s.id}
+                              key={s.id || `week-session-${s.date}-${s.time}-${groupIdx}`}
                               onClick={() => onSessionClick(s.id)}
                               className="flex rounded-xl cursor-pointer transition-all active:scale-[0.98] min-h-[56px] border border-solid event-float overflow-hidden"
                               style={{

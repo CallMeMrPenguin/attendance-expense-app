@@ -242,14 +242,14 @@ export default function CalendarMonthView({
                   
                   {/* Day Session Cards */}
                   <div className="flex-grow flex flex-col gap-2">
-                    {daySessions.map((s) => {
+                    {daySessions.map((s, sIdx) => {
                       const startTime = formatCleanTimeString(s.time);
                       const endTime = getEndTime(startTime, s.duration);
                       const vStyle = getPremiumVioletStyle(s.time, s.status, s.color || getStudentColor(s.student_name));
 
                       return (
                         <div
-                          key={s.id}
+                          key={s.id || `session-${dateStr}-${s.time}-${sIdx}`}
                           onClick={() => onSessionClick(s.id)}
                           className="flex rounded-xl cursor-pointer transition-all active:scale-[0.98] min-h-[52px] border border-solid event-float overflow-hidden"
                           style={{

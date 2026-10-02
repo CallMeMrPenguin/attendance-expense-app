@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
 
 let _db: Database.Database | null = null;
 
@@ -170,6 +171,19 @@ export function getDb(): Database.Database {
       if (sessCount.count === 0) {
         seedPreservedData(db);
       }
+    }
+
+    // Ensure all sessions have valid unique UUIDs
+    try {
+      const nullSessions = db.prepare("SELECT rowid FROM sessions WHERE id IS NULL OR id = ''").all() as { rowid: number }[];
+      if (nullSessions.length > 0) {
+        const updateStmt = db.prepare("UPDATE sessions SET id = ? WHERE rowid = ?");
+        for (const s of nullSessions) {
+          updateStmt.run(crypto.randomUUID(), s.rowid);
+        }
+      }
+    } catch (e) {
+      console.warn('[Local SQLite] Check null sessions id error:', e);
     }
 
   _db = db;
@@ -532,6 +546,9 @@ export function insertTable(table: string, records: any | any[]) {
     const results: any[] = [];
     const runInsert = db.transaction(() => {
       for (const rec of arr) {
+        if (table !== 'savings_funds' && table !== 'teachers' && (!rec.id || typeof rec.id !== 'string' || rec.id.trim() === '')) {
+          rec.id = crypto.randomUUID();
+        }
         const keys = Object.keys(rec);
         const cols = keys.map(k => `"${k}"`).join(', ');
         const placeholders = keys.map(k => `@${k}`).join(', ');
@@ -560,6 +577,9 @@ export function upsertTable(table: string, records: any | any[], onConflictKey?:
     const results: any[] = [];
     const runUpsert = db.transaction(() => {
       for (const rec of arr) {
+        if (table !== 'savings_funds' && table !== 'teachers' && (!rec.id || typeof rec.id !== 'string' || rec.id.trim() === '')) {
+          rec.id = crypto.randomUUID();
+        }
         const keys = Object.keys(rec);
         const cols = keys.map(k => `"${k}"`).join(', ');
         const placeholders = keys.map(k => `@${k}`).join(', ');

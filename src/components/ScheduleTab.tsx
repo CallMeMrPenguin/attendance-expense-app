@@ -969,13 +969,13 @@ export default function ScheduleTab({
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5">
-                        {item.sessions.map((s) => {
+                        {item.sessions.map((s, sIdx) => {
                           const isDone = s.status === 'Đã làm' || s.status === 'Đã dạy';
                           const isCancel = s.status === 'Hủy';
                           const isReduced = (s.student_count ?? 1) < (s.original_student_count ?? (s.student_count ?? 1));
                           return (
                             <div
-                              key={s.id}
+                              key={s.id || `session-grid-${s.date}-${s.time}-${sIdx}`}
                               onClick={() => {
                                 setSelectedSession(s);
                                 setEditModalOpen(true);
@@ -1258,7 +1258,7 @@ export default function ScheduleTab({
                 const isCancel = s.status === 'Hủy';
                 return (
                   <div
-                    key={s.id}
+                    key={s.id || `session-detail-${s.date}-${s.time}-${idx}`}
                     onClick={() => {
                       setSelectedSession(s);
                       setEditModalOpen(true);

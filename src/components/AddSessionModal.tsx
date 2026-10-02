@@ -347,6 +347,7 @@ export default function AddSessionModal({
         const dayOfWeekStr = DAYS[dayMapIndex];
 
         candidates.push({
+          id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : undefined,
           user_name: assignedTeacherName,
           job_name: studentName.trim(),
           teacher_name: assignedTeacherName,
@@ -381,6 +382,7 @@ export default function AddSessionModal({
           }
           dates.forEach((dStr) => {
             candidates.push({
+              id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : undefined,
               user_name: assignedTeacherName,
               job_name: studentName.trim(),
               teacher_name: assignedTeacherName,
