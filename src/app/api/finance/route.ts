@@ -199,7 +199,7 @@ export async function POST(request: NextRequest) {
           if (insErr.code === '42P01') {
             return NextResponse.json({ tablesMissing: true, error: insErr.message }, { status: 400 });
           }
-          console.error('Failed to upsert manual_transactions into Supabase:', insErr);
+          console.error('Failed to upsert manual_transactions into local database:', insErr);
           return NextResponse.json({ error: insErr.message, code: insErr.code }, { status: 400 });
         }
       }

@@ -1383,7 +1383,7 @@ export default function Dashboard() {
 
       if (newCandidates.length === 0) return currentMonthData;
 
-      // Insert into Supabase
+      // Insert into local SQLite database
       let { data: insertedData, error: insertErr } = await supabase
         .from('sessions')
         .insert(newCandidates)
