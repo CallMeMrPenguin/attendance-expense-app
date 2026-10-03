@@ -322,8 +322,8 @@ export function sanitizeSessionPayload(sessionObj: any): any {
     month_year: month_year,
     color: color || '#7c3aed',
     date: date,
-    auto_check_in: auto_check_in ?? auto_checkin ?? true,
-    auto_checkin: auto_checkin ?? auto_check_in ?? true,
+    auto_check_in: (auto_check_in ?? auto_checkin ?? true) ? 1 : 0,
+    auto_checkin: (auto_checkin ?? auto_check_in ?? true) ? 1 : 0,
     loai_hinh_lich: loai_hinh_lich || loai_hinh || 'co_dinh',
     loai_hinh: loai_hinh || loai_hinh_lich || 'co_dinh',
     income_category: income_category || category || 'Giáo dục'

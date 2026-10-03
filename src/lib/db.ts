@@ -423,7 +423,7 @@ export function queryTable(table: string, options: QueryOptions = {}) {
     if (options.eq) {
       for (const [k, v] of Object.entries(options.eq)) {
         whereClauses.push(`"${k}" = ?`);
-        params.push(v);
+        params.push(sanitizeSqliteValue(v));
       }
     }
     const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
@@ -434,14 +434,14 @@ export function queryTable(table: string, options: QueryOptions = {}) {
   if (options.eq) {
     for (const [k, v] of Object.entries(options.eq)) {
       whereClauses.push(`"${k}" = ?`);
-      params.push(v);
+      params.push(sanitizeSqliteValue(v));
     }
   }
 
   if (options.neq) {
     for (const [k, v] of Object.entries(options.neq)) {
       whereClauses.push(`"${k}" != ?`);
-      params.push(v);
+      params.push(sanitizeSqliteValue(v));
     }
   }
 
@@ -455,28 +455,28 @@ export function queryTable(table: string, options: QueryOptions = {}) {
   if (options.lt) {
     for (const [k, v] of Object.entries(options.lt)) {
       whereClauses.push(`"${k}" < ?`);
-      params.push(v);
+      params.push(sanitizeSqliteValue(v));
     }
   }
 
   if (options.lte) {
     for (const [k, v] of Object.entries(options.lte)) {
       whereClauses.push(`"${k}" <= ?`);
-      params.push(v);
+      params.push(sanitizeSqliteValue(v));
     }
   }
 
   if (options.gt) {
     for (const [k, v] of Object.entries(options.gt)) {
       whereClauses.push(`"${k}" > ?`);
-      params.push(v);
+      params.push(sanitizeSqliteValue(v));
     }
   }
 
   if (options.gte) {
     for (const [k, v] of Object.entries(options.gte)) {
       whereClauses.push(`"${k}" >= ?`);
-      params.push(v);
+      params.push(sanitizeSqliteValue(v));
     }
   }
 
@@ -534,6 +534,15 @@ export function queryTable(table: string, options: QueryOptions = {}) {
   }
 }
 
+export function sanitizeSqliteValue(v: any): any {
+  if (v === undefined) return null;
+  if (typeof v === 'boolean') return v ? 1 : 0;
+  if (typeof v === 'object' && v !== null && !Buffer.isBuffer(v)) {
+    return JSON.stringify(v);
+  }
+  return v;
+}
+
 const tableColumnsCache: Record<string, Set<string>> = {};
 function getTableColumns(db: Database.Database, table: string): Set<string> {
   if (!tableColumnsCache[table]) {
@@ -559,7 +568,7 @@ export function insertTable(table: string, records: any | any[]) {
         const cleanRec: Record<string, any> = {};
         for (const [k, v] of Object.entries(rawRec || {})) {
           if (validCols.has(k)) {
-            cleanRec[k] = v;
+            cleanRec[k] = sanitizeSqliteValue(v);
           }
         }
         if (table !== 'savings_funds' && table !== 'teachers' && (!cleanRec.id || typeof cleanRec.id !== 'string' || cleanRec.id.trim() === '')) {
@@ -603,7 +612,7 @@ export function upsertTable(table: string, records: any | any[], onConflictKey?:
         const cleanRec: Record<string, any> = {};
         for (const [k, v] of Object.entries(rawRec || {})) {
           if (validCols.has(k)) {
-            cleanRec[k] = v;
+            cleanRec[k] = sanitizeSqliteValue(v);
           }
         }
         if (table !== 'savings_funds' && table !== 'teachers' && (!cleanRec.id || typeof cleanRec.id !== 'string' || cleanRec.id.trim() === '')) {
@@ -646,14 +655,14 @@ export function updateTable(table: string, updates: Record<string, any>, conditi
     for (const [k, v] of Object.entries(updates)) {
       if (!validCols.has(k)) continue;
       setClauses.push(`"${k}" = ?`);
-      params.push(v);
+      params.push(sanitizeSqliteValue(v));
     }
 
     const whereClauses: string[] = [];
     if (conditions.eq) {
       for (const [k, v] of Object.entries(conditions.eq)) {
         whereClauses.push(`"${k}" = ?`);
-        params.push(v);
+        params.push(sanitizeSqliteValue(v));
       }
     }
     if (conditions.ilike) {
