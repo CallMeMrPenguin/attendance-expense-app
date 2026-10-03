@@ -159,7 +159,7 @@ export default function ScheduleTab({
       const loai_hinh = (sample.loai_hinh || sample.loai_hinh_lich || 'co_dinh') as 'co_dinh' | 'tam_thoi';
       const income_category = sample.income_category || sample.category || 'Giáo dục';
       const price = Number(sample.price) || 0;
-      const duration = Number(sample.duration) || 1.5;
+      const duration = Number(sample.duration) || 2;
       const time = sample.time || '18:00';
       const student_count = sample.student_count || 1;
       const price_per_student = sample.price_per_student || (student_count > 0 ? Math.round(price / student_count) : price);
@@ -660,7 +660,7 @@ export default function ScheduleTab({
               className="flex items-center justify-center gap-2 px-4 py-1.5 bg-[#5c36f5] hover:bg-[#7351f7] text-white font-extrabold text-[11px] rounded-xl shadow-[0_4px_12px_rgba(92,54,245,0.35)] hover:scale-[1.02] transition-all cursor-pointer border border-white/20 select-none"
             >
               <Plus className="h-3.5 w-3.5" />
-              <span>Thêm Lịch Trình / Chấm Công</span>
+              <span>Thêm Lịch Trình</span>
             </button>
 
             {/* Month Selector dropdown */}
@@ -787,7 +787,7 @@ export default function ScheduleTab({
               Chưa có lịch làm việc nào trong tháng {selectedMonth}
             </h3>
             <p className="text-xs text-slate-400 mt-2 max-w-md font-medium">
-              Hãy click nút "Thêm Lịch Trình / Chấm Công" phía trên để khởi tạo lịch làm.
+              Hãy click nút "Thêm Lịch Trình" phía trên để khởi tạo lịch làm.
             </p>
           </div>
         ) : currentView === 'stats' ? (

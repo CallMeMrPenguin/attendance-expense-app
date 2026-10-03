@@ -361,7 +361,7 @@ function seedPreservedData(db: Database.Database) {
             student_name: s.student_name || s.job_name || 'Buổi dạy',
             day_of_week: s.day_of_week || 'Thứ 2',
             time: s.time || '18:00',
-            duration: Number(s.duration || 1.5),
+            duration: Number(s.duration || 2),
             price: Number(s.price || 0),
             status: s.status || 'Chưa làm',
             month_year: s.month_year,

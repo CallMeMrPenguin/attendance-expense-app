@@ -314,7 +314,7 @@ export function sanitizeSessionPayload(sessionObj: any): any {
     job_name: job_name || student_name || 'Công việc',
     day_of_week: day_of_week || 'Thứ 2',
     time: formatCleanTimeString(time),
-    duration: Number(duration) || 1.5,
+    duration: Number(duration) || 2,
     price: Number(price) || 0,
     status: status || 'Chưa làm',
     month_year: month_year,

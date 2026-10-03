@@ -139,7 +139,7 @@ export default function EditSessionModal({
   const colorInputRef = React.useRef<HTMLInputElement>(null);
   const [dayOfWeek, setDayOfWeek] = useState('Thứ 2');
   const [time, setTime] = useState('18:00');
-  const [duration, setDuration] = useState(1.5);
+  const [duration, setDuration] = useState(2);
   const [loaiHinh, setLoaiHinh] = useState<'tam_thoi' | 'co_dinh'>('co_dinh');
   const [autoCheckin, setAutoCheckin] = useState(false);
   
@@ -225,7 +225,7 @@ export default function EditSessionModal({
     setStatus(currentStatus);
     setDayOfWeek(session.day_of_week || 'Thứ 2');
     setTime(formatCleanTimeString(session.time));
-    setDuration(session.duration || 1.5);
+    setDuration(session.duration || 2);
     setLoaiHinh((session.loai_hinh || session.loai_hinh_lich) === 'tam_thoi' ? 'tam_thoi' : 'co_dinh');
     setIncomeCategory(session.income_category || session.category || 'Giáo dục');
     setAutoCheckin(session.auto_checkin ?? session.auto_check_in ?? true);
@@ -252,7 +252,7 @@ export default function EditSessionModal({
       acc[day] = {
         checked: !!match,
         time: match ? formatCleanTimeString(match.time) : '18:00',
-        duration: match ? match.duration : 1.5,
+        duration: match ? match.duration : 2,
       };
       return acc;
     }, {} as Record<string, RecurringDayConfig>);
@@ -294,7 +294,7 @@ export default function EditSessionModal({
           day_of_week: dayOfWeekStr,
           checked: false,
           time: recurringMap[dayOfWeekStr]?.time || '18:00',
-          duration: recurringMap[dayOfWeekStr]?.duration || 1.5,
+          duration: recurringMap[dayOfWeekStr]?.duration || 2,
         };
       }
     });
@@ -308,11 +308,11 @@ export default function EditSessionModal({
 
   // Get colors used by other students in existingSessions
   const usedColors = React.useMemo(() => {
-    const currentTypedName = studentName.trim().toLowerCase();
-    const otherStudentsSessions = existingSessions.filter(
-      (s) => s.student_name.trim().toLowerCase() !== currentTypedName
+    const currentTypedName = (studentName || '').trim().toLowerCase();
+    const otherStudentsSessions = (existingSessions || []).filter(
+      (s) => (s?.student_name || s?.job_name || '').trim().toLowerCase() !== currentTypedName
     );
-    const colors = otherStudentsSessions.map((s) => (s.color || '').toLowerCase()).filter(Boolean);
+    const colors = otherStudentsSessions.map((s) => (s?.color || '').toLowerCase()).filter(Boolean);
     return Array.from(new Set(colors));
   }, [existingSessions, studentName]);
 
@@ -356,7 +356,7 @@ export default function EditSessionModal({
               day_of_week: day,
               checked: true,
               time: recurringConfigs[day]?.time || '18:00',
-              duration: recurringConfigs[day]?.duration || 1.5,
+              duration: recurringConfigs[day]?.duration || 2,
             });
           }
         });
@@ -1349,7 +1349,7 @@ export default function EditSessionModal({
                             min="0.5"
                             value={config.duration}
                             disabled={!config.checked}
-                            onChange={(e) => handleRecurringDurationChange(day, parseFloat(e.target.value) || 1.5)}
+                            onChange={(e) => handleRecurringDurationChange(day, parseFloat(e.target.value) || 2)}
                             className="px-2 py-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold disabled:opacity-50 w-[60px] text-center text-slate-800 dark:text-slate-200"
                           />
                         </div>
@@ -1377,13 +1377,13 @@ export default function EditSessionModal({
                   setStudentName(val);
                   if (!isColorCustomized) {
                     const defColor = getStudentColor(val.trim());
-                    const currentTypedName = val.trim().toLowerCase();
-                    const otherStudentsSessions = existingSessions.filter(
-                      (s) => s.student_name.trim().toLowerCase() !== currentTypedName
+                    const currentTypedName = (val || '').trim().toLowerCase();
+                    const otherStudentsSessions = (existingSessions || []).filter(
+                      (s) => (s?.student_name || s?.job_name || '').trim().toLowerCase() !== currentTypedName
                     );
-                    const otherColors = new Set(otherStudentsSessions.map((s) => (s.color || '').toLowerCase()).filter(Boolean));
-                    if (otherColors.has(defColor.toLowerCase())) {
-                      const available = PALETTE.find((c) => !otherColors.has(c.toLowerCase()));
+                    const otherColors = new Set(otherStudentsSessions.map((s) => (s?.color || '').toLowerCase()).filter(Boolean));
+                    if (otherColors.has((defColor || '').toLowerCase())) {
+                      const available = PALETTE.find((c) => !otherColors.has((c || '').toLowerCase()));
                       setColor(available || '#7c3aed');
                     } else {
                       setColor(defColor);
@@ -1436,7 +1436,7 @@ export default function EditSessionModal({
                 step="0.5"
                 required
                 value={duration}
-                onChange={(e) => handleActiveDayTimeDurationChange(dayOfWeek, time, parseFloat(e.target.value) || 1.5)}
+                onChange={(e) => handleActiveDayTimeDurationChange(dayOfWeek, time, parseFloat(e.target.value) || 2)}
                 className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500"
               />
             </div>

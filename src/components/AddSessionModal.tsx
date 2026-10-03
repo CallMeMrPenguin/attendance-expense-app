@@ -107,7 +107,7 @@ export default function AddSessionModal({
       acc[day] = {
         checked: day === 'Thứ 2',
         time: '18:00',
-        duration: 1.5,
+        duration: 2,
       };
       return acc;
     }, {} as Record<string, DayConfig>)
@@ -115,7 +115,7 @@ export default function AddSessionModal({
   const [isSingleSession, setIsSingleSession] = useState(false);
   const [singleDate, setSingleDate] = useState('');
   const [singleTime, setSingleTime] = useState('18:00');
-  const [singleDuration, setSingleDuration] = useState(1.5);
+  const [singleDuration, setSingleDuration] = useState(2);
 
   React.useEffect(() => {
     if (isOpen) {
@@ -137,13 +137,13 @@ export default function AddSessionModal({
       setLoaiHinh('co_dinh');
       setAutoCheckIn(true);
       setSingleTime('18:00');
-      setSingleDuration(1.5);
+      setSingleDuration(2);
       setDayConfigs(
         DAYS.reduce((acc, day) => {
           acc[day] = {
             checked: day === 'Thứ 2',
             time: '18:00',
-            duration: 1.5,
+            duration: 2,
           };
           return acc;
         }, {} as Record<string, DayConfig>)
@@ -208,11 +208,11 @@ export default function AddSessionModal({
 
   // Get colors used by other students in existingSessions
   const usedColors = React.useMemo(() => {
-    const currentTypedName = studentName.trim().toLowerCase();
-    const otherStudentsSessions = existingSessions.filter(
-      (s) => s.student_name.trim().toLowerCase() !== currentTypedName
+    const currentTypedName = (studentName || '').trim().toLowerCase();
+    const otherStudentsSessions = (existingSessions || []).filter(
+      (s) => (s?.student_name || s?.job_name || '').trim().toLowerCase() !== currentTypedName
     );
-    const colors = otherStudentsSessions.map((s) => (s.color || '').toLowerCase()).filter(Boolean);
+    const colors = otherStudentsSessions.map((s) => (s?.color || '').toLowerCase()).filter(Boolean);
     return Array.from(new Set(colors));
   }, [existingSessions, studentName]);
 
@@ -278,7 +278,7 @@ export default function AddSessionModal({
           acc[day] = {
             checked: day === 'Thứ 2',
             time: '18:00',
-            duration: 1.5,
+            duration: 2,
           };
           return acc;
         }, {} as Record<string, DayConfig>)
@@ -553,13 +553,13 @@ export default function AddSessionModal({
                   setStudentName(val);
                   if (!isColorCustomized) {
                     const defColor = getStudentColor(val.trim());
-                    const currentTypedName = val.trim().toLowerCase();
-                    const otherStudentsSessions = existingSessions.filter(
-                      (s) => s.student_name.trim().toLowerCase() !== currentTypedName
+                    const currentTypedName = (val || '').trim().toLowerCase();
+                    const otherStudentsSessions = (existingSessions || []).filter(
+                      (s) => (s?.student_name || s?.job_name || '').trim().toLowerCase() !== currentTypedName
                     );
-                    const otherColors = new Set(otherStudentsSessions.map((s) => (s.color || '').toLowerCase()).filter(Boolean));
-                    if (otherColors.has(defColor.toLowerCase())) {
-                      const available = PALETTE.find((c) => !otherColors.has(c.toLowerCase()));
+                    const otherColors = new Set(otherStudentsSessions.map((s) => (s?.color || '').toLowerCase()).filter(Boolean));
+                    if (otherColors.has((defColor || '').toLowerCase())) {
+                      const available = PALETTE.find((c) => !otherColors.has((c || '').toLowerCase()));
                       setColor(available || '#7c3aed');
                     } else {
                       setColor(defColor);
@@ -932,7 +932,7 @@ export default function AddSessionModal({
                             max="24"
                             value={config.duration}
                             disabled={!config.checked}
-                            onChange={(e) => handleDurationChange(day, parseFloat(e.target.value) || 1.5)}
+                            onChange={(e) => handleDurationChange(day, parseFloat(e.target.value) || 2)}
                             className="px-2 py-1 bg-[#0d1018] border border-white/10 text-white rounded-lg text-xs font-bold disabled:opacity-50 w-[70px] text-center"
                           />
                         </div>

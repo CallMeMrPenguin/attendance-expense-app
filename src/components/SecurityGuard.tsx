@@ -55,47 +55,52 @@ export default function SecurityGuard() {
 
     // 3. Block Developer Tools & Common Bypass Shortcuts
     const blockShortcuts = (e: KeyboardEvent) => {
-      const ctrlOrCmd = e.ctrlKey || e.metaKey;
-      const shift = e.shiftKey;
-      const alt = e.altKey;
-      const key = e.key.toLowerCase();
-      const code = e.keyCode;
+      try {
+        if (!e) return;
+        const ctrlOrCmd = !!(e.ctrlKey || e.metaKey);
+        const shift = !!e.shiftKey;
+        const alt = !!e.altKey;
+        const key = (e.key || '').toLowerCase();
+        const code = e.keyCode || 0;
 
-      // F12
-      if (key === 'f12' || code === 123) {
-        e.preventDefault();
-        e.stopPropagation();
-        return false;
-      }
+        // F12
+        if (key === 'f12' || code === 123) {
+          e.preventDefault();
+          e.stopPropagation();
+          return false;
+        }
 
-      // Ctrl+Shift+I / Cmd+Opt+I (Inspect)
-      // Ctrl+Shift+J / Cmd+Opt+J (Console)
-      // Ctrl+Shift+C / Cmd+Opt+C (Element Selector)
-      if (ctrlOrCmd && shift && (key === 'i' || key === 'j' || key === 'c' || code === 73 || code === 74 || code === 67)) {
-        e.preventDefault();
-        e.stopPropagation();
-        return false;
-      }
+        // Ctrl+Shift+I / Cmd+Opt+I (Inspect)
+        // Ctrl+Shift+J / Cmd+Opt+J (Console)
+        // Ctrl+Shift+C / Cmd+Opt+C (Element Selector)
+        if (ctrlOrCmd && shift && (key === 'i' || key === 'j' || key === 'c' || code === 73 || code === 74 || code === 67)) {
+          e.preventDefault();
+          e.stopPropagation();
+          return false;
+        }
 
-      // Cmd+Opt+I or Cmd+Opt+J on Mac
-      if (ctrlOrCmd && alt && (key === 'i' || key === 'j' || code === 73 || code === 74)) {
-        e.preventDefault();
-        e.stopPropagation();
-        return false;
-      }
+        // Cmd+Opt+I or Cmd+Opt+J on Mac
+        if (ctrlOrCmd && alt && (key === 'i' || key === 'j' || code === 73 || code === 74)) {
+          e.preventDefault();
+          e.stopPropagation();
+          return false;
+        }
 
-      // Ctrl+U (View Source)
-      if (ctrlOrCmd && (key === 'u' || code === 85)) {
-        e.preventDefault();
-        e.stopPropagation();
-        return false;
-      }
+        // Ctrl+U (View Source)
+        if (ctrlOrCmd && (key === 'u' || code === 85)) {
+          e.preventDefault();
+          e.stopPropagation();
+          return false;
+        }
 
-      // Ctrl+S (Save Page)
-      if (ctrlOrCmd && (key === 's' || code === 83)) {
-        e.preventDefault();
-        e.stopPropagation();
-        return false;
+        // Ctrl+S (Save Page)
+        if (ctrlOrCmd && (key === 's' || code === 83)) {
+          e.preventDefault();
+          e.stopPropagation();
+          return false;
+        }
+      } catch (err) {
+        // Silently ignore to prevent breaking normal keyboard events
       }
     };
 

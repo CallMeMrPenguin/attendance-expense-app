@@ -1365,7 +1365,7 @@ export default function Dashboard() {
               student_name: templateSession.student_name || templateSession.job_name,
               day_of_week: templateSession.day_of_week,
               time: formatCleanTimeString(templateSession.time),
-              duration: Number(templateSession.duration || 1.5),
+              duration: Number(templateSession.duration || 2),
               price: Number(templateSession.price || 0),
               status: 'Chưa làm',
               month_year: targetMonth,
