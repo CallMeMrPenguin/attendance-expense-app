@@ -481,16 +481,14 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
 
     try {
       const now = new Date();
-      const firstDayOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-      // 1. Try targeted IMAP search for Vietcombank sender & receipt subject
+      // 1. Try targeted IMAP search for Vietcombank sender (covers all previous months)
       const targetSender = sender || 'VCBDigibank@info.vietcombank.com.vn';
-      let searchResult = await client.search({ since: firstDayOfCurrentMonth, from: targetSender });
+      let searchResult = await client.search({ from: targetSender });
       if (!searchResult || searchResult.length === 0) {
-        searchResult = await client.search({ since: firstDayOfCurrentMonth });
-      }
-      if (!searchResult || searchResult.length === 0) {
-        searchResult = await client.search({ from: targetSender });
+        // Fallback to past 12 months if search by sender is unsupported
+        const twelveMonthsAgo = new Date(now.getFullYear() - 1, 0, 1);
+        searchResult = await client.search({ since: twelveMonthsAgo });
       }
 
       const msgIds = Array.isArray(searchResult) ? searchResult : [];
@@ -627,7 +625,7 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
             const { error: dbErr } = await clientAdmin.from('bank_receipts').upsert(receiptPayload as any, { onConflict: 'id' });
             if (dbErr) console.error('[Supabase bank_receipts upsert error]', dbErr.message);
 
-            if (isNewReceipt && status === 'classified' && matchedType && matchedCategory && targetUserId) {
+            if (status === 'classified' && matchedType && matchedCategory && targetUserId) {
               const txRecord = {
                 id: `tx-receipt-${receiptId}`,
                 user_id: targetUserId,

@@ -549,6 +549,11 @@ export function DataTable<TData>({
   });
   const [columnOrder, setColumnOrder] = useState<ColumnOrderState>(() => savedLayout?.order || []);
   const [columnAlignments, setColumnAlignments] = useState<Record<string, 'center' | 'left'>>(() => savedLayout?.alignments || {});
+  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize });
+
+  useEffect(() => {
+    setPagination(prev => prev.pageSize !== pageSize ? { ...prev, pageSize } : prev);
+  }, [pageSize]);
 
   // Fetch table settings from Supabase DB on mount if available
   useEffect(() => {
@@ -753,6 +758,7 @@ export function DataTable<TData>({
     columns: allColumns,
     columnResizeMode,
     state: {
+      pagination,
       globalFilter,
       sorting,
       columnFilters,
@@ -764,10 +770,18 @@ export function DataTable<TData>({
       columnOrder,
       columnSizing,
     },
+    onPaginationChange: setPagination,
+    autoResetPageIndex: false,
     onColumnSizingChange: setColumnSizing,
-    onGlobalFilterChange: setGlobalFilter,
+    onGlobalFilterChange: (updater) => {
+      setGlobalFilter(updater);
+      setPagination(prev => ({ ...prev, pageIndex: 0 }));
+    },
     onSortingChange: setSorting,
-    onColumnFiltersChange: setColumnFilters,
+    onColumnFiltersChange: (updater) => {
+      setColumnFilters(updater);
+      setPagination(prev => ({ ...prev, pageIndex: 0 }));
+    },
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: updater => {
       setRowSelection(prev => {
@@ -792,7 +806,6 @@ export function DataTable<TData>({
     enableMultiSort,
     isMultiSortEvent: () => true,
     getRowCanExpand: enableRowExpansion ? () => true : undefined,
-    initialState: { pagination: { pageSize } },
   });
 
   const handleMoveColumn = useCallback((colId: string, direction: 'up' | 'down') => {
@@ -853,9 +866,15 @@ export function DataTable<TData>({
     }
   }, [table]);
 
-  const pageIndex = table.getState().pagination.pageIndex;
+  const pageIndex = pagination.pageIndex;
   const pageCount = table.getPageCount();
   const totalFiltered = table.getFilteredRowModel().rows.length;
+
+  useEffect(() => {
+    if (pageCount > 0 && pagination.pageIndex >= pageCount) {
+      setPagination(prev => ({ ...prev, pageIndex: Math.max(0, pageCount - 1) }));
+    }
+  }, [pageCount, pagination.pageIndex]);
   const hasActiveFilter = globalFilter.trim().length > 0 || columnFilters.length > 0;
   const selectedCount = Object.keys(rowSelection).length;
 
@@ -1131,15 +1150,6 @@ export function DataTable<TData>({
                   Trang <span className="text-white">{pageIndex + 1}</span> / {pageCount}
                   <span className="text-slate-600 ml-2">({totalFiltered.toLocaleString()} bản ghi)</span>
                 </span>
-                <select
-                  value={table.getState().pagination.pageSize}
-                  onChange={e => table.setPageSize(Number(e.target.value))}
-                  className="bg-[#13192c] border border-[#253050] text-white text-[10px] font-bold rounded-lg px-2 py-1 focus:outline-none cursor-pointer"
-                >
-                  {[10, 20, 50, 100].map(sz => (
-                    <option key={sz} value={sz}>{sz} / trang</option>
-                  ))}
-                </select>
               </div>
 
               <div className="flex items-center gap-1">

@@ -209,7 +209,27 @@ export default function Dashboard() {
     setBankReceipts(prev => {
       const map = new Map();
       prev.forEach(r => map.set(r.id, r));
-      newReceipts.forEach(r => map.set(r.id, { ...(map.get(r.id) || {}), ...r }));
+      let hasChanges = false;
+      newReceipts.forEach(r => {
+        const existing = map.get(r.id);
+        if (!existing) {
+          hasChanges = true;
+          map.set(r.id, r);
+        } else {
+          let fieldChanged = false;
+          for (const k of Object.keys(r)) {
+            if (existing[k] !== r[k]) {
+              fieldChanged = true;
+              break;
+            }
+          }
+          if (fieldChanged) {
+            hasChanges = true;
+            map.set(r.id, { ...existing, ...r });
+          }
+        }
+      });
+      if (!hasChanges) return prev;
       return Array.from(map.values()).sort((a, b) => (b.trans_date || '').localeCompare(a.trans_date || ''));
     });
   }, []);
@@ -448,7 +468,7 @@ export default function Dashboard() {
     prevActiveTabRef.current = activeTab;
   }, [activeTab, currentUser?.id]);
 
-  // Fetch bank receipts on mount, window focus, and 60-second periodic poll
+  // Fetch bank receipts on mount and 60-second periodic poll (no disruptive focus refetch)
   useEffect(() => {
     fetchBankReceipts();
 
@@ -456,14 +476,8 @@ export default function Dashboard() {
       fetchBankReceipts();
     }, 60000);
 
-    const onFocus = () => {
-      fetchBankReceipts();
-    };
-
-    window.addEventListener('focus', onFocus);
     return () => {
       clearInterval(interval);
-      window.removeEventListener('focus', onFocus);
     };
   }, [fetchBankReceipts]);
 
