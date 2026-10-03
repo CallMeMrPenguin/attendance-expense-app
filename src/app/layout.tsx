@@ -19,7 +19,6 @@ export const viewport: Viewport = {
 };
 
 import { ToastProvider } from '@/context/ToastContext';
-import SecurityGuard from '@/components/SecurityGuard';
 
 export default function RootLayout({
   children,
@@ -47,7 +46,6 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full flex flex-col transition-colors duration-300">
-        <SecurityGuard />
         <ToastProvider>
           {children}
         </ToastProvider>

@@ -311,7 +311,9 @@ export function sanitizeSessionPayload(sessionObj: any): any {
 
   const res: any = {
     user_name: user_name || teacher_name || 'Admin',
+    teacher_name: teacher_name || user_name || 'Admin',
     job_name: job_name || student_name || 'Công việc',
+    student_name: student_name || job_name || 'Công việc',
     day_of_week: day_of_week || 'Thứ 2',
     time: formatCleanTimeString(time),
     duration: Number(duration) || 2,

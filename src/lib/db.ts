@@ -534,6 +534,15 @@ export function queryTable(table: string, options: QueryOptions = {}) {
   }
 }
 
+const tableColumnsCache: Record<string, Set<string>> = {};
+function getTableColumns(db: Database.Database, table: string): Set<string> {
+  if (!tableColumnsCache[table]) {
+    const cols = db.prepare(`PRAGMA table_info("${table}")`).all() as { name: string }[];
+    tableColumnsCache[table] = new Set(cols.map(c => c.name));
+  }
+  return tableColumnsCache[table];
+}
+
 export function insertTable(table: string, records: any | any[]) {
   const db = getDb();
   const arr = Array.isArray(records) ? records : [records];
@@ -543,18 +552,31 @@ export function insertTable(table: string, records: any | any[]) {
   if (!validTables.includes(table)) throw new Error(`Invalid table: ${table}`);
 
   try {
+    const validCols = getTableColumns(db, table);
     const results: any[] = [];
     const runInsert = db.transaction(() => {
-      for (const rec of arr) {
-        if (table !== 'savings_funds' && table !== 'teachers' && (!rec.id || typeof rec.id !== 'string' || rec.id.trim() === '')) {
-          rec.id = crypto.randomUUID();
+      for (const rawRec of arr) {
+        const cleanRec: Record<string, any> = {};
+        for (const [k, v] of Object.entries(rawRec || {})) {
+          if (validCols.has(k)) {
+            cleanRec[k] = v;
+          }
         }
-        const keys = Object.keys(rec);
+        if (table !== 'savings_funds' && table !== 'teachers' && (!cleanRec.id || typeof cleanRec.id !== 'string' || cleanRec.id.trim() === '')) {
+          cleanRec.id = crypto.randomUUID();
+        }
+        if (validCols.has('created_at') && !cleanRec.created_at) {
+          cleanRec.created_at = new Date().toISOString();
+        }
+        if (validCols.has('updated_at') && !cleanRec.updated_at) {
+          cleanRec.updated_at = new Date().toISOString();
+        }
+        const keys = Object.keys(cleanRec);
         const cols = keys.map(k => `"${k}"`).join(', ');
         const placeholders = keys.map(k => `@${k}`).join(', ');
         const stmt = db.prepare(`INSERT INTO "${table}" (${cols}) VALUES (${placeholders})`);
-        stmt.run(rec);
-        results.push(rec);
+        stmt.run(cleanRec);
+        results.push(cleanRec);
       }
     });
     runInsert();
@@ -574,20 +596,33 @@ export function upsertTable(table: string, records: any | any[], onConflictKey?:
   if (!validTables.includes(table)) throw new Error(`Invalid table: ${table}`);
 
   try {
+    const validCols = getTableColumns(db, table);
     const results: any[] = [];
     const runUpsert = db.transaction(() => {
-      for (const rec of arr) {
-        if (table !== 'savings_funds' && table !== 'teachers' && (!rec.id || typeof rec.id !== 'string' || rec.id.trim() === '')) {
-          rec.id = crypto.randomUUID();
+      for (const rawRec of arr) {
+        const cleanRec: Record<string, any> = {};
+        for (const [k, v] of Object.entries(rawRec || {})) {
+          if (validCols.has(k)) {
+            cleanRec[k] = v;
+          }
         }
-        const keys = Object.keys(rec);
+        if (table !== 'savings_funds' && table !== 'teachers' && (!cleanRec.id || typeof cleanRec.id !== 'string' || cleanRec.id.trim() === '')) {
+          cleanRec.id = crypto.randomUUID();
+        }
+        if (validCols.has('created_at') && !cleanRec.created_at) {
+          cleanRec.created_at = new Date().toISOString();
+        }
+        if (validCols.has('updated_at') && !cleanRec.updated_at) {
+          cleanRec.updated_at = new Date().toISOString();
+        }
+        const keys = Object.keys(cleanRec);
         const cols = keys.map(k => `"${k}"`).join(', ');
         const placeholders = keys.map(k => `@${k}`).join(', ');
         
         // Use INSERT OR REPLACE INTO for standard SQLite upsert behavior
         const stmt = db.prepare(`INSERT OR REPLACE INTO "${table}" (${cols}) VALUES (${placeholders})`);
-        stmt.run(rec);
-        results.push(rec);
+        stmt.run(cleanRec);
+        results.push(cleanRec);
       }
     });
     runUpsert();
@@ -604,10 +639,12 @@ export function updateTable(table: string, updates: Record<string, any>, conditi
   if (!validTables.includes(table)) throw new Error(`Invalid table: ${table}`);
 
   try {
+    const validCols = getTableColumns(db, table);
     const setClauses: string[] = [];
     const params: any[] = [];
 
     for (const [k, v] of Object.entries(updates)) {
+      if (!validCols.has(k)) continue;
       setClauses.push(`"${k}" = ?`);
       params.push(v);
     }
