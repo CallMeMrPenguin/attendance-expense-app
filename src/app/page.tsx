@@ -152,7 +152,7 @@ export default function Dashboard() {
 
   // Unified pop-up Transaction Modal toggle state
   const [txModalOpen, setTxModalOpen] = useState(false);
-  const [modalTxType, setModalTxType] = useState<'income' | 'expense' | 'saving'>('expense');
+  const [modalTxType, setModalTxType] = useState<'income' | 'expense' | 'saving' | 'exchange'>('expense');
 
   // Multi-month selector states
   const [chartSelectedMonths, setChartSelectedMonths] = useState<string[]>([]);
@@ -250,7 +250,7 @@ export default function Dashboard() {
 
   const handleClassifyReceipt = useCallback((
     receiptId: string,
-    type: 'income' | 'expense' | 'saving',
+    type: 'income' | 'expense' | 'saving' | 'exchange',
     category: string,
     createRule: boolean,
     matchField: string,
@@ -260,9 +260,18 @@ export default function Dashboard() {
     // Remove from deletedTxIds if user explicitly re-classifies manually
     if (currentUser?.id) {
       setDeletedTxIds(prev => {
-        const txId = `tx-receipt-${receiptId.startsWith('vcb-') ? receiptId.replace('vcb-', '') : receiptId}`;
-        const rawId = receiptId.replace(/^tx-receipt-/, '').replace(/^vcb-/, '');
-        return prev.filter(id => id !== receiptId && id !== txId && id !== rawId && id !== `vcb-${rawId}`);
+        const cleanReceiptId = String(receiptId).replace(/^tx-receipt-/, '');
+        const rawId = cleanReceiptId.replace(/^(vcb-)+/, '');
+        const idsToRemove = [
+          receiptId,
+          cleanReceiptId,
+          rawId,
+          `vcb-${rawId}`,
+          `tx-receipt-${receiptId}`,
+          `tx-receipt-${rawId}`,
+          `tx-receipt-vcb-${rawId}`
+        ];
+        return prev.filter(id => !idsToRemove.includes(id));
       });
     }
 
@@ -292,19 +301,22 @@ export default function Dashboard() {
     if (targetReceipt) {
       const baseDetails = (targetReceipt.details || '').split(' | Ghi chú: ')[0];
       const notePrefix = trimmedNote ? `${trimmedNote} ` : '';
-      const descText = `${notePrefix}[Biên lai Vietcombank] ${targetReceipt.sender_name || targetReceipt.remitter_name || ''} ➔ ${targetReceipt.beneficiary_name || ''}: ${baseDetails}`;
-      const txId = `tx-receipt-${receiptId.startsWith('vcb-') ? receiptId.replace('vcb-', '') : receiptId}`;
+      const sName = targetReceipt.remitter_name || targetReceipt.sender_name || (targetReceipt.debit_account?.includes('9981397845') ? 'PHAM THI THU TRANG' : 'BUI DUC HUNG');
+      const bName = targetReceipt.beneficiary_name || '';
+      const descText = `${notePrefix}[Biên lai Vietcombank] ${sName} ➔ ${bName}: ${baseDetails}`;
+      const txId = `tx-receipt-${receiptId}`;
+      const txType = type === 'saving' ? 'expense' : type;
       const newTxObj = {
         id: txId,
         desc: descText,
         amount: Number(targetReceipt.amount) || 0,
-        type: type === 'saving' ? 'expense' : type,
+        type: txType,
         category,
         date: targetReceipt.trans_date || new Date().toISOString().split('T')[0],
         isRecurring: false
       };
       setManualTransactions(prev => {
-        const existingIndex = prev.findIndex(t => t.id === txId || t.id === `tx-receipt-${receiptId}`);
+        const existingIndex = prev.findIndex(t => t.id === txId || t.id.includes(receiptId));
         if (existingIndex >= 0) {
           const nextArr = [...prev];
           nextArr[existingIndex] = newTxObj;
@@ -371,16 +383,26 @@ export default function Dashboard() {
   }, [currentUser, bankReceipts, showToast, updateReceiptsState, runBackgroundSave]);
 
   const handleUnclassifyReceipt = useCallback((receiptId: string) => {
-    const rawId = receiptId.replace(/^tx-receipt-/, '').replace(/^vcb-/, '');
-    const txId = `tx-receipt-${rawId}`;
+    const rawId = String(receiptId).replace(/^tx-receipt-/, '').replace(/^(vcb-)+/, '');
+    const possibleIds = [
+      receiptId,
+      rawId,
+      `vcb-${rawId}`,
+      `vcb-vcb-${rawId}`,
+      `tx-receipt-${receiptId}`,
+      `tx-receipt-${rawId}`,
+      `tx-receipt-vcb-${rawId}`,
+      `tx-receipt-vcb-vcb-${rawId}`
+    ];
 
     if (currentUser?.id) {
-      setDeletedTxIds(prev => [...prev, txId, receiptId, rawId, `vcb-${rawId}`]);
+      setDeletedTxIds(prev => [...prev, ...possibleIds]);
     }
 
     setBankReceipts(prev => {
       return prev.map(r => {
-        if (r.id === receiptId || r.id === rawId || r.id === `vcb-${rawId}`) {
+        const rRaw = String(r.id || '').replace(/^tx-receipt-/, '').replace(/^(vcb-)+/, '');
+        if (possibleIds.includes(r.id) || rRaw === rawId) {
           const baseDetails = (r.details || '').split(' | Ghi chú: ')[0];
           return {
             ...r,
@@ -395,7 +417,10 @@ export default function Dashboard() {
       });
     });
 
-    setManualTransactions(prev => prev.filter(t => t.id !== txId && t.id !== receiptId && t.id !== rawId && t.id !== `vcb-${rawId}`));
+    setManualTransactions(prev => prev.filter(t => {
+      const tRaw = String(t.id || '').replace(/^tx-receipt-/, '').replace(/^(vcb-)+/, '');
+      return !possibleIds.includes(t.id) && tRaw !== rawId;
+    }));
 
     showToast('Đã chuyển biên lai về Chưa phân loại!', 'success');
 
@@ -481,61 +506,6 @@ export default function Dashboard() {
     };
   }, [fetchBankReceipts]);
 
-  // Client-side Instant Auto-Classification & Transaction Registration
-  useEffect(() => {
-    if (!bankReceipts || bankReceipts.length === 0) return;
-
-    const mergedKwMap: Record<string, string> = {
-      'Lương': 'luong',
-      'Giáo dục': 'day hoc, day, cham cong',
-      'Đầu tư': 'dau tu, chung khoan',
-      'Khác': 'khac',
-      'Di chuyển': 'xang, grab, taxi, di lai, xe',
-      'Ăn uống': 'an uong, do an, food, com, nhahang, quanan, cafe, trasua',
-      'Shopping': 'shopping, mua sam, shopee, lazada',
-      'Hóa đơn': 'hoa don, dien nuoc, wifi',
-      'Giải trí': 'giai tri, xem phim, du lich',
-      'Tiết kiệm khẩn cấp': 'tiet kiem khan cap, khan cap',
-      'Tích lũy dài hạn': 'tich luy dai han, tich luy',
-      'Tiết kiệm khác': 'tiet kiem khac'
-    };
-
-    let receiptsChanged = false;
-    let newTxList: any[] = [];
-
-    const updatedReceipts = bankReceipts.map((r: any) => {
-      let status = r.status;
-      let category = r.category;
-      let type = r.type;
-
-      if (status !== 'classified' && r.details && !isHungTrangVcbTransfer(r)) {
-        const cleanDetails = cleanString(r.details);
-        for (const catName of Object.keys(mergedKwMap)) {
-          const kwStr = mergedKwMap[catName];
-          if (kwStr) {
-            const kwList = kwStr.split(',').map(cleanString).filter(Boolean);
-            for (const kw of kwList) {
-              if (matchKeyword(cleanDetails, kw)) {
-                status = 'classified';
-                category = catName;
-                const savingCats = ['Tiết kiệm khẩn cấp', 'Tích lũy dài hạn', 'Tiết kiệm khác', 'Tiết kiệm'];
-                type = savingCats.includes(catName) ? 'saving' : (['Lương', 'Giáo dục', 'Đầu tư'].includes(catName) ? 'income' : 'expense');
-                receiptsChanged = true;
-                break;
-              }
-            }
-          }
-          if (status === 'classified') break;
-        }
-      }
-
-      return { ...r, status, category, type };
-    });
-
-    if (receiptsChanged) {
-      setBankReceipts(updatedReceipts);
-    }
-  }, [bankReceipts, currentUser]);
 
   // Always force dark mode (night mode)
   useEffect(() => {
@@ -1879,7 +1849,7 @@ export default function Dashboard() {
     setConfirmDeleteTxId(null);
   };
 
-  const handleOpenTxModal = useCallback((type: 'income' | 'expense' | 'saving') => {
+  const handleOpenTxModal = useCallback((type: 'income' | 'expense' | 'saving' | 'exchange') => {
     setModalTxType(type);
     setTxModalOpen(true);
   }, []);

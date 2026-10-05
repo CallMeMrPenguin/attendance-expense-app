@@ -15,7 +15,7 @@ interface TransactionModalProps {
   currentUser: {
     id: string;
   };
-  defaultType: 'income' | 'expense' | 'saving';
+  defaultType: 'income' | 'expense' | 'saving' | 'exchange';
   emergencyCurrent: number;
   accumulationCurrent: number;
   manualTransactions: any[];
@@ -46,7 +46,7 @@ export default function TransactionModal({
 }: TransactionModalProps) {
   const { showToast } = useToast();
   const [mounted, setMounted] = useState(false);
-  const [modalTxType, setModalTxType] = useState<'income' | 'expense' | 'saving'>('expense');
+  const [modalTxType, setModalTxType] = useState<'income' | 'expense' | 'saving' | 'exchange'>('expense');
   const [modalDesc, setModalDesc] = useState('');
   const [modalAmount, setModalAmount] = useState('');
   const [modalCategory, setModalCategory] = useState('Ăn uống');
@@ -104,7 +104,13 @@ export default function TransactionModal({
       setIncomeCategories(incCats);
       setExpenseCategories(expCats);
 
-      setModalCategory(defaultType === 'income' ? (incCats[0] || 'Lương') : (expCats[0] || 'Ăn uống'));
+      if (defaultType === 'income') {
+        setModalCategory(incCats[0] || 'Lương');
+      } else if (defaultType === 'exchange') {
+        setModalCategory('Trao đổi');
+      } else {
+        setModalCategory(expCats[0] || 'Ăn uống');
+      }
       setModalDesc('');
       setModalAmount('');
       setModalDate(new Date().toISOString().split('T')[0]);
@@ -186,13 +192,18 @@ export default function TransactionModal({
         desc: modalDesc.trim(),
         amount: amt,
         type: modalTxType,
-        category: modalCategory,
+        category: modalTxType === 'exchange' ? (modalCategory || 'Trao đổi') : modalCategory,
         date: modalDate,
         isRecurring: isRecurring,
         is_recurring: isRecurring
       };
       saveTransactions(userId, [newTx, ...manualTransactions]);
-      showToast('Đã lưu giao dịch tài chính mới!', 'success');
+      showToast(
+        modalTxType === 'exchange'
+          ? 'Đã lưu giao dịch trao đổi (không tính thu/chi)!'
+          : 'Đã lưu giao dịch tài chính mới!',
+        'success'
+      );
     }
 
     onClose();
@@ -214,25 +225,21 @@ export default function TransactionModal({
         <h3 className="text-sm font-black text-indigo-400 tracking-wider uppercase mb-5">Ghi Nhận Giao Dịch</h3>
 
         {/* Tab switch inside modal */}
-        <div className="relative flex bg-[#090b10] border border-white/5 p-1 rounded-xl w-full mb-5">
+        <div className="relative flex bg-[#0d1018] p-1 rounded-xl border border-white/10 text-xs shrink-0 font-bold select-none w-full mb-5">
           {/* Sliding pill background */}
           <div
-            className={`absolute top-1 bottom-1 rounded-[10px] transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] pointer-events-none ${
+            className={`absolute top-1 bottom-1 rounded-lg transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] pointer-events-none ${
               modalTxType === 'expense'
                 ? 'bg-rose-500 shadow-[0_0_14px_rgba(239,68,68,0.4)]'
                 : modalTxType === 'income'
                 ? 'bg-emerald-500 shadow-[0_0_14px_rgba(16,185,129,0.4)]'
-                : 'bg-blue-500 shadow-[0_0_14px_rgba(59,130,246,0.4)]'
+                : modalTxType === 'saving'
+                ? 'bg-blue-500 shadow-[0_0_14px_rgba(59,130,246,0.4)]'
+                : 'bg-cyan-500 shadow-[0_0_14px_rgba(6,182,212,0.4)]'
             }`}
             style={{
-              left: '4px',
-              width: 'calc(33.333% - 4px)',
-              transform:
-                modalTxType === 'expense'
-                  ? 'translateX(0)'
-                  : modalTxType === 'income'
-                  ? 'translateX(100%)'
-                  : 'translateX(200%)',
+              left: `calc( (100% / 4) * ${modalTxType === 'expense' ? 0 : modalTxType === 'income' ? 1 : modalTxType === 'saving' ? 2 : 3} + 1px )`,
+              width: 'calc( (100% / 4) - 4px )',
             }}
           />
           <button
@@ -241,8 +248,8 @@ export default function TransactionModal({
               setModalTxType('expense');
               setModalCategory(expenseCategories[0] || 'Ăn uống');
             }}
-            className={`relative z-10 flex-1 py-2 text-[10px] font-black tracking-wider uppercase rounded-lg transition-colors duration-300 cursor-pointer ${
-              modalTxType === 'expense' ? 'text-white' : 'text-slate-455 hover:text-slate-200'
+            className={`relative z-10 flex-1 py-1.5 text-[10px] font-black tracking-wider uppercase rounded-lg transition-colors cursor-pointer text-center ${
+              modalTxType === 'expense' ? 'text-white font-black' : 'text-slate-400 hover:text-white'
             }`}
           >
             Chi tiêu
@@ -253,8 +260,8 @@ export default function TransactionModal({
               setModalTxType('income');
               setModalCategory(incomeCategories[0] || 'Lương');
             }}
-            className={`relative z-10 flex-1 py-2 text-[10px] font-black tracking-wider uppercase rounded-lg transition-colors duration-300 cursor-pointer ${
-              modalTxType === 'income' ? 'text-white' : 'text-slate-455 hover:text-slate-200'
+            className={`relative z-10 flex-1 py-1.5 text-[10px] font-black tracking-wider uppercase rounded-lg transition-colors cursor-pointer text-center ${
+              modalTxType === 'income' ? 'text-white font-black' : 'text-slate-400 hover:text-white'
             }`}
           >
             Thu nhập
@@ -265,11 +272,23 @@ export default function TransactionModal({
               setModalTxType('saving');
               setModalCategory('Khác');
             }}
-            className={`relative z-10 flex-1 py-2 text-[10px] font-black tracking-wider uppercase rounded-lg transition-colors duration-300 cursor-pointer ${
-              modalTxType === 'saving' ? 'text-white' : 'text-slate-455 hover:text-slate-200'
+            className={`relative z-10 flex-1 py-1.5 text-[10px] font-black tracking-wider uppercase rounded-lg transition-colors cursor-pointer text-center ${
+              modalTxType === 'saving' ? 'text-white font-black' : 'text-slate-400 hover:text-white'
             }`}
           >
             Tiết kiệm
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setModalTxType('exchange');
+              setModalCategory('Trao đổi');
+            }}
+            className={`relative z-10 flex-1 py-1.5 text-[10px] font-black tracking-wider uppercase rounded-lg transition-colors cursor-pointer text-center ${
+              modalTxType === 'exchange' ? 'text-white font-black' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            Trao đổi
           </button>
         </div>
 
@@ -342,12 +361,17 @@ export default function TransactionModal({
 
           {/* Row 3: Category dropdown (hidden for saving) */}
           <div className={modalTxType !== 'saving' ? 'block space-y-3' : 'hidden'}>
+            {modalTxType === 'exchange' && (
+              <div className="p-2.5 bg-cyan-500/10 border border-cyan-500/25 rounded-xl text-xs text-cyan-300 font-semibold">
+                Giao dịch loại Trao đổi không tính vào Tổng Thu nhập hay Tổng Chi tiêu.
+              </div>
+            )}
             <div className="space-y-1.5">
-              <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Danh mục</label>
+              <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Danh mục</label>
               <CustomSelect
                 value={modalCategory}
                 onChange={setModalCategory}
-                options={modalTxType === 'income' ? incomeCategories : expenseCategories}
+                options={modalTxType === 'income' ? incomeCategories : modalTxType === 'exchange' ? ['Trao đổi', ...expenseCategories] : expenseCategories}
               />
             </div>
 

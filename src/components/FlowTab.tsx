@@ -122,7 +122,7 @@ interface FlowTabProps {
   bankReceipts?: any[];
   getActualCategoryAmount: (cat: string) => number;
   handleDeleteManualTx: (id: string) => void;
-  handleOpenTxModal: (type: 'income' | 'expense' | 'saving') => void;
+  handleOpenTxModal: (type: 'income' | 'expense' | 'saving' | 'exchange') => void;
   saveBudgets: (
     userId: string, 
     budgets: Record<string, number>, 
@@ -133,7 +133,7 @@ interface FlowTabProps {
   ) => void;
   saveTransactions?: (userId: string, data: any[]) => void;
   toggleChartMonth?: (mStr: string) => void;
-  handleClassifyReceipt?: (receiptId: string, type: 'income' | 'expense' | 'saving', category: string, createRule: boolean, matchField: string, matchValue: string, note?: string) => void | Promise<void>;
+  handleClassifyReceipt?: (receiptId: string, type: 'income' | 'expense' | 'saving' | 'exchange', category: string, createRule: boolean, matchField: string, matchValue: string, note?: string) => void | Promise<void>;
   handleUnclassifyReceipt?: (receiptId: string) => void | Promise<void>;
   handleSyncReceipts?: () => Promise<void>;
   trangAccountBalance?: number;
@@ -308,7 +308,7 @@ function FlowTab({
 
   // Bank receipt classification modal state
   const [classifyingReceipt, setClassifyingReceipt] = React.useState<any | null>(null);
-  const [selectedType, setSelectedType] = React.useState<'income' | 'expense' | 'saving'>('expense');
+  const [selectedType, setSelectedType] = React.useState<'income' | 'expense' | 'saving' | 'exchange'>('expense');
   const [selectedCat, setSelectedCat] = React.useState<string>('Ăn uống');
   const [receiptNote, setReceiptNote] = React.useState<string>('');
   const [createRule, setCreateRule] = React.useState<boolean>(false);
@@ -339,11 +339,17 @@ function FlowTab({
 
   React.useEffect(() => {
     if (classifyingReceipt) {
-      const type = (classifyingReceipt.type || 'expense') as 'income' | 'expense' | 'saving';
-      const initialType = type === 'income' ? 'expense' : type;
-      setSelectedType(initialType);
-      if (initialType === 'saving') {
+      const isInternal = isHungTrangVcbTransfer(classifyingReceipt);
+      const rawType = classifyingReceipt.type;
+      const type = (rawType || (isInternal ? 'exchange' : 'expense')) as 'income' | 'expense' | 'saving' | 'exchange';
+      setSelectedType(type);
+
+      if (type === 'exchange') {
+        setSelectedCat('Trao đổi');
+      } else if (type === 'saving') {
         setSelectedCat(classifyingReceipt.category || 'Tiết kiệm khẩn cấp');
+      } else if (type === 'income') {
+        setSelectedCat(classifyingReceipt.category || incomeCats[0]?.name || 'Lương');
       } else {
         setSelectedCat(classifyingReceipt.category || expenseCats[0]?.name || 'Ăn uống');
       }
@@ -360,7 +366,7 @@ function FlowTab({
       setReceiptNote(existingNote);
       setCreateRule(false);
     }
-  }, [classifyingReceipt, expenseCats]);
+  }, [classifyingReceipt, expenseCats, incomeCats]);
 
   // Month Selector States
   const [monthPickerOpen, setMonthPickerOpen] = React.useState(false);
@@ -394,7 +400,7 @@ function FlowTab({
     id: string;
     desc: string;
     amount: number;
-    type: 'income' | 'expense';
+    type: 'income' | 'expense' | 'exchange';
     category: string;
     date: string;
     isRecurring: boolean;
@@ -834,7 +840,7 @@ function FlowTab({
             desc: editingTx.desc.trim(),
             amount: Number(editingTx.amount),
             type: editingTx.type,
-            category: editingTx.category,
+            category: editingTx.type === 'exchange' ? 'Trao đổi' : editingTx.category,
             date: editingTx.date,
             isRecurring: editingTx.isRecurring,
             is_recurring: editingTx.isRecurring
@@ -881,70 +887,55 @@ function FlowTab({
       }));
   }, [manualTransactions, chartSelectedMonths, isTxInSelectedMonths]);
 
+  const exchanges = React.useMemo(() => {
+    return manualTransactions
+      .filter(t => t.type === 'exchange' && isTxInSelectedMonths(t, chartSelectedMonths))
+      .map(t => ({
+        id: t.id,
+        desc: t.desc,
+        amount: Number(t.amount) || 0,
+        category: t.category || 'Trao đổi',
+        date: t.date,
+        isManual: true,
+        isRecurring: !!(t.isRecurring || t.is_recurring),
+        type: 'exchange' as const
+      }));
+  }, [manualTransactions, chartSelectedMonths, isTxInSelectedMonths]);
+
   const transactions = React.useMemo(() => {
-    return [...incomes, ...expenses].sort((a, b) => b.date.localeCompare(a.date));
-  }, [incomes, expenses]);
+    return [...incomes, ...expenses, ...exchanges].sort((a, b) => b.date.localeCompare(a.date));
+  }, [incomes, expenses, exchanges]);
 
   const availableCategories = React.useMemo(() => {
     return Array.from(new Set(transactions.map(t => t.category)));
   }, [transactions]);
 
-  // Filtered Bank Receipts for current selected month(s) with sorting & instant keyword auto-classification
+  // Filtered Bank Receipts for current selected month(s) with sorting
   const filteredBankReceipts = React.useMemo(() => {
     const q = searchQuery.toLowerCase();
-    const allCats = [
-      ...incomeCats.map(c => ({ ...c, catType: 'income' as const })),
-      ...expenseCats.map(c => ({ ...c, catType: 'expense' as const }))
-    ];
 
-    const processed = bankReceipts.map((r: any) => {
-      let status = r.status;
-      let category = r.category;
-      let type = r.type;
-
-      if (status !== 'classified' && r.details && !isHungTrangVcbTransfer(r)) {
-        const cleanDetails = cleanString(r.details);
-        for (const catObj of allCats) {
-          if (catObj.keywords) {
-            const kwList = catObj.keywords.split(',').map(cleanString).filter(Boolean);
-            for (const kw of kwList) {
-              if (matchKeyword(cleanDetails, kw)) {
-                status = 'classified';
-                category = catObj.name;
-                const savingCats = ['Tiết kiệm khẩn cấp', 'Tích lũy dài hạn', 'Tiết kiệm khác', 'Tiết kiệm'];
-                type = savingCats.includes(catObj.name) ? 'saving' : catObj.catType;
-                break;
-              }
-            }
-          }
-          if (status === 'classified') break;
-        }
-      }
-
-      return {
-        ...r,
-        status,
-        category,
-        type
-      };
-    });
-
-    const list = processed.filter((r: any) => {
+    const list = bankReceipts.filter((r: any) => {
       const receiptMonth = (r.trans_date || '').substring(0, 7);
       const matchesMonth = chartSelectedMonths.length === 0 || chartSelectedMonths.includes(receiptMonth);
+      const sender = (r.sender_name || r.remitter_name || (r.debit_account?.includes('9981397845') ? 'PHAM THI THU TRANG' : 'BUI DUC HUNG')).toLowerCase();
+      const beneficiary = (r.beneficiary_name || '').toLowerCase();
+      const details = (r.details || '').toLowerCase();
+      const orderNum = (r.order_number || '').toLowerCase();
+      const isInternal = isHungTrangVcbTransfer(r);
+
       const matchesSearch = !q ||
-        (r.remitter_name || '').toLowerCase().includes(q) ||
-        (r.beneficiary_name || '').toLowerCase().includes(q) ||
-        (r.details || '').toLowerCase().includes(q) ||
-        (r.order_number || '').toLowerCase().includes(q) ||
-        (isHungTrangVcbTransfer(r) && ('trao doi'.includes(q) || 'trao đổi'.includes(q)));
+        sender.includes(q) ||
+        beneficiary.includes(q) ||
+        details.includes(q) ||
+        orderNum.includes(q) ||
+        ((r.type === 'exchange' || isInternal) && ('trao doi'.includes(q) || 'trao đổi'.includes(q)));
 
       return matchesMonth && matchesSearch;
     });
 
     return list.sort((a: any, b: any) => {
-      const aName = a.remitter_name || a.beneficiary_name || a.details || '';
-      const bName = b.remitter_name || b.beneficiary_name || b.details || '';
+      const aName = a.sender_name || a.remitter_name || a.beneficiary_name || a.details || '';
+      const bName = b.sender_name || b.remitter_name || b.beneficiary_name || b.details || '';
       const aDateTime = `${a.trans_date || ''} ${a.trans_time || '00:00:00'}`;
       const bDateTime = `${b.trans_date || ''} ${b.trans_time || '00:00:00'}`;
 
@@ -956,7 +947,7 @@ function FlowTab({
       if (receiptSortBy === 'amount-asc') return (Number(a.amount) || 0) - (Number(b.amount) || 0);
       return 0;
     });
-  }, [bankReceipts, incomeCats, expenseCats, chartSelectedMonths, searchQuery, receiptSortBy]);
+  }, [bankReceipts, chartSelectedMonths, searchQuery, receiptSortBy]);
 
   // Filtered & Paginated Transactions with sorting
   const filteredTransactions = React.useMemo(() => {
@@ -1005,7 +996,7 @@ function FlowTab({
         const hasNoteInDetails = detailsStr.includes(' | Ghi chú: ');
         const mainDetails = hasNoteInDetails ? detailsStr.split(' | Ghi chú: ')[0] : detailsStr;
         const noteText = r.note || (hasNoteInDetails ? detailsStr.split(' | Ghi chú: ')[1] : '');
-        const sender = r.sender_name || r.remitter_name || 'N/A';
+        const sender = r.sender_name || r.remitter_name || (r.debit_account?.includes('9981397845') ? 'PHAM THI THU TRANG' : 'BUI DUC HUNG');
         return (
           <div className="flex flex-col text-left max-w-xs truncate">
             <span className="font-extrabold text-white text-xs truncate">
@@ -1029,22 +1020,25 @@ function FlowTab({
         const r = row.original;
         const isClassified = r.status === 'classified';
         const isInternalExchange = isHungTrangVcbTransfer(r);
+        const isExchange = r.type === 'exchange' || isInternalExchange;
         const isIncome = r.type === 'income';
         const isSaving = r.type === 'saving';
         const badgeStyle = isIncome
           ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
           : isSaving
           ? 'bg-purple-500/20 text-purple-400 border-purple-500/30'
+          : r.type === 'exchange'
+          ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30'
           : 'bg-rose-500/20 text-rose-400 border-rose-500/30';
-        const typeLabel = isIncome ? 'Thu' : isSaving ? 'Tiết kiệm' : 'Chi';
+        const typeLabel = isIncome ? 'Thu' : isSaving ? 'Tiết kiệm' : r.type === 'exchange' ? 'Trao đổi' : 'Chi';
 
         return (
           <div className="flex items-center gap-1.5 flex-wrap">
             {isClassified ? (
               <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase border ${badgeStyle}`}>
-                {r.category} ({typeLabel})
+                {r.category || (r.type === 'exchange' ? 'Trao đổi' : 'Đã phân loại')} ({typeLabel})
               </span>
-            ) : isInternalExchange ? (
+            ) : isExchange ? (
               <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 shadow-[0_0_8px_rgba(6,182,212,0.2)]">
                 Trao đổi
               </span>
@@ -1063,8 +1057,8 @@ function FlowTab({
       size: 130,
       cell: ({ row }) => {
         const r = row.original;
-        const isInternalExchange = isHungTrangVcbTransfer(r);
-        if (isInternalExchange && !r.type) {
+        const isExchange = r.type === 'exchange' || isHungTrangVcbTransfer(r);
+        if (isExchange) {
           return (
             <span className="font-black text-sm text-cyan-300">
               {formatVND(r.amount)}
@@ -1086,46 +1080,64 @@ function FlowTab({
     {
       id: 'actions',
       header: 'Thao Tác',
-      size: 110,
+      size: 120,
       enableSorting: false,
       cell: ({ row }) => {
         const r = row.original;
         const isClassified = r.status === 'classified';
         const isInternalExchange = isHungTrangVcbTransfer(r);
         return (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setClassifyingReceipt(r);
-              setCreateRule(false);
-              const t = r.type || 'expense';
-              setSelectedType(t);
-              if (t === 'saving') {
-                setSelectedCat(r.category || 'Tiết kiệm khẩn cấp');
-              } else if (t === 'income') {
-                setSelectedCat(r.category || incomeCats[0]?.name || 'Lương');
-              } else {
-                setSelectedCat(r.category || (isInternalExchange ? 'Trao đổi' : (expenseCats[0]?.name || 'Ăn uống')));
-              }
-              setMatchField('credit_account');
-              setMatchValue(r.credit_account || r.details || '');
-            }}
-            className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer shadow-md ${
-              isClassified
-                ? 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10'
-                : isInternalExchange
-                ? 'bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 hover:scale-[1.02]'
-                : 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-[0_0_12px_rgba(245,158,11,0.4)]'
-            }`}
-          >
-            {isClassified ? 'Sửa' : isInternalExchange ? 'Trao đổi' : 'Phân loại'}
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setClassifyingReceipt(r);
+                setCreateRule(false);
+                const t = r.type || (isInternalExchange ? 'exchange' : 'expense');
+                setSelectedType(t);
+                if (t === 'saving') {
+                  setSelectedCat(r.category || 'Tiết kiệm khẩn cấp');
+                } else if (t === 'income') {
+                  setSelectedCat(r.category || incomeCats[0]?.name || 'Lương');
+                } else if (t === 'exchange') {
+                  setSelectedCat('Trao đổi');
+                } else {
+                  setSelectedCat(r.category || (expenseCats[0]?.name || 'Ăn uống'));
+                }
+                setMatchField('credit_account');
+                setMatchValue(r.credit_account || r.details || '');
+              }}
+              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer shadow-md ${
+                isClassified
+                  ? 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10'
+                  : isInternalExchange
+                  ? 'bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 hover:scale-[1.02]'
+                  : 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-[0_0_12px_rgba(245,158,11,0.4)]'
+              }`}
+            >
+              {isClassified ? 'Sửa' : isInternalExchange ? 'Trao đổi' : 'Phân loại'}
+            </button>
+            {isClassified && handleUnclassifyReceipt && (
+              <button
+                type="button"
+                title="Bỏ phân loại"
+                onClick={async (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  await handleUnclassifyReceipt(r.id);
+                }}
+                className="p-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/25 hover:scale-105"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         );
       }
     }
-  ], [incomeCats, expenseCats]);
+  ], [incomeCats, expenseCats, handleUnclassifyReceipt]);
 
   const transactionColumns = useMemo<ColumnDef<any>[]>(() => [
     {
@@ -1147,9 +1159,11 @@ function FlowTab({
       cell: ({ row }) => {
         const t = row.original;
         const isIncome = t.type === 'income';
+        const isExchange = t.type === 'exchange';
+        const descColor = isIncome ? 'text-emerald-300' : isExchange ? 'text-cyan-300' : 'text-rose-300';
         return (
           <div className="flex items-center gap-2 truncate text-left">
-            <span className={`font-extrabold text-xs truncate ${isIncome ? 'text-emerald-300' : 'text-rose-300'}`}>
+            <span className={`font-extrabold text-xs truncate ${descColor}`}>
               {t.desc}
             </span>
             {t.isRecurring ? (
@@ -1174,17 +1188,21 @@ function FlowTab({
       cell: ({ row }) => {
         const t = row.original;
         const isIncome = t.type === 'income';
-        const catIcon = getCategoryIconName(t.category, t.type);
+        const isExchange = t.type === 'exchange';
+        const catIcon = isExchange ? 'Coins' : getCategoryIconName(t.category, t.type);
+        const badgeColor = isIncome
+          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.25)]'
+          : isExchange
+          ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30 shadow-[0_0_10px_rgba(6,182,212,0.25)]'
+          : 'bg-rose-500/10 text-rose-400 border-rose-500/30 shadow-[0_0_10px_rgba(239,68,68,0.25)]';
+        const textColor = isIncome ? 'text-emerald-400' : isExchange ? 'text-cyan-400' : 'text-rose-400';
+
         return (
           <div className="flex items-center gap-2 shrink-0 justify-center">
-            <span className={`inline-flex p-1.5 rounded-full border shrink-0 ${
-              isIncome
-                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.25)]'
-                : 'bg-rose-500/10 text-rose-400 border-rose-500/30 shadow-[0_0_10px_rgba(239,68,68,0.25)]'
-            }`}>
+            <span className={`inline-flex p-1.5 rounded-full border shrink-0 ${badgeColor}`}>
               <CategoryIcon iconName={catIcon} className="h-3.5 w-3.5" />
             </span>
-            <span className={`font-black text-xs truncate ${isIncome ? 'text-emerald-400' : 'text-rose-400'}`}>
+            <span className={`font-black text-xs truncate ${textColor}`}>
               {t.category}
             </span>
           </div>
@@ -1200,9 +1218,17 @@ function FlowTab({
       cell: ({ row }) => {
         const t = row.original;
         const isIncome = t.type === 'income';
+        const isExchange = t.type === 'exchange';
+        const amountColor = isIncome
+          ? 'text-emerald-400 text-glow-green'
+          : isExchange
+          ? 'text-cyan-400 font-black'
+          : 'text-rose-500 text-glow-red';
+        const prefix = isIncome ? '+' : isExchange ? '' : '-';
+
         return (
-          <span className={`font-black text-xs sm:text-sm tracking-wide ${isIncome ? 'text-emerald-400 text-glow-green' : 'text-rose-500 text-glow-red'}`}>
-            {isIncome ? '+' : '-'}{formatVND(t.amount)}
+          <span className={`font-black text-xs sm:text-sm tracking-wide ${amountColor}`}>
+            {prefix}{formatVND(t.amount)}
           </span>
         );
       }
@@ -2570,17 +2596,18 @@ function FlowTab({
 
             <h3 className="text-sm font-black text-indigo-400 tracking-wider uppercase mb-5">Sửa Giao Dịch</h3>
 
-            <div className="relative flex bg-[#090b10] border border-white/5 p-1 rounded-xl w-full mb-5">
+            <div className="relative flex bg-[#0d1018] p-1 rounded-xl border border-white/10 text-xs shrink-0 font-bold select-none w-full mb-5">
               <div
-                className={`absolute top-1 bottom-1 rounded-[10px] transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] pointer-events-none ${
+                className={`absolute top-1 bottom-1 rounded-lg transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] pointer-events-none ${
                   editingTx.type === 'expense'
                     ? 'bg-rose-500 shadow-[0_0_14px_rgba(239,68,68,0.4)]'
-                    : 'bg-emerald-500 shadow-[0_0_14px_rgba(16,185,129,0.4)]'
+                    : editingTx.type === 'income'
+                    ? 'bg-emerald-500 shadow-[0_0_14px_rgba(16,185,129,0.4)]'
+                    : 'bg-cyan-500 shadow-[0_0_14px_rgba(6,182,212,0.4)]'
                 }`}
                 style={{
-                  left: '4px',
-                  width: 'calc(50% - 4px)',
-                  transform: editingTx.type === 'expense' ? 'translateX(0)' : 'translateX(100%)',
+                  left: `calc( (100% / 3) * ${editingTx.type === 'expense' ? 0 : editingTx.type === 'income' ? 1 : 2} + 1px )`,
+                  width: 'calc( (100% / 3) - 2px )',
                 }}
               />
               <button
@@ -2588,8 +2615,8 @@ function FlowTab({
                 onClick={() => {
                   setEditingTx(prev => prev ? { ...prev, type: 'expense', category: expenseCats[0]?.name || 'Ăn uống' } : null);
                 }}
-                className={`relative z-10 flex-1 py-2 text-[10px] font-black tracking-wider uppercase rounded-lg transition-colors duration-300 cursor-pointer ${
-                  editingTx.type === 'expense' ? 'text-white' : 'text-slate-455 hover:text-slate-200'
+                className={`flex-1 relative z-10 py-1.5 text-center text-[10px] font-black tracking-wider uppercase rounded-lg transition-colors cursor-pointer ${
+                  editingTx.type === 'expense' ? 'text-white font-black' : 'text-slate-400 hover:text-white'
                 }`}
               >
                 Chi tiêu
@@ -2599,11 +2626,22 @@ function FlowTab({
                 onClick={() => {
                   setEditingTx(prev => prev ? { ...prev, type: 'income', category: incomeCats[0]?.name || 'Lương' } : null);
                 }}
-                className={`relative z-10 flex-1 py-2 text-[10px] font-black tracking-wider uppercase rounded-lg transition-colors duration-300 cursor-pointer ${
-                  editingTx.type === 'income' ? 'text-white' : 'text-slate-455 hover:text-slate-200'
+                className={`flex-1 relative z-10 py-1.5 text-center text-[10px] font-black tracking-wider uppercase rounded-lg transition-colors cursor-pointer ${
+                  editingTx.type === 'income' ? 'text-white font-black' : 'text-slate-400 hover:text-white'
                 }`}
               >
                 Thu nhập
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingTx(prev => prev ? { ...prev, type: 'exchange', category: 'Trao đổi' } : null);
+                }}
+                className={`flex-1 relative z-10 py-1.5 text-center text-[10px] font-black tracking-wider uppercase rounded-lg transition-colors cursor-pointer ${
+                  editingTx.type === 'exchange' ? 'text-white font-black' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Trao đổi
               </button>
             </div>
 
@@ -2643,19 +2681,32 @@ function FlowTab({
               <div className="space-y-1.5">
                 <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Danh mục</label>
                 <div className="relative">
-                  <select
-                    value={editingTx.category}
-                    onChange={(e) => setEditingTx(prev => prev ? { ...prev, category: e.target.value } : null)}
-                    className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 cursor-pointer block"
-                  >
-                    {(editingTx.type === 'income' ? incomeCats : expenseCats).map((c) => (
-                      <option key={c.name} value={c.name} className="bg-[#0d1018] text-white">
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                  {editingTx.type === 'exchange' ? (
+                    <div className="w-full bg-[#0d1018] border border-cyan-500/30 text-xs font-bold text-cyan-300 rounded-xl px-3.5 py-2.5">
+                      Trao đổi (Lưu thông nội bộ)
+                    </div>
+                  ) : (
+                    <>
+                      <select
+                        value={editingTx.category}
+                        onChange={(e) => setEditingTx(prev => prev ? { ...prev, category: e.target.value } : null)}
+                        className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 cursor-pointer block"
+                      >
+                        {(editingTx.type === 'income' ? incomeCats : expenseCats).map((c) => (
+                          <option key={c.name} value={c.name} className="bg-[#0d1018] text-white">
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                    </>
+                  )}
                 </div>
+                {editingTx.type === 'exchange' && (
+                  <p className="text-[10px] text-cyan-400/90 font-medium mt-1">
+                    Giao dịch loại Trao đổi không tính vào Tổng Thu nhập hay Tổng Chi tiêu.
+                  </p>
+                )}
               </div>
 
               <div 
@@ -2729,7 +2780,7 @@ function FlowTab({
               Phân Loại Biên Lai Ngân Hàng
             </h3>
             <p className="text-xs text-slate-400 font-semibold mb-4">
-              {classifyingReceipt.remitter_name || 'Biên lai'} ➔ {classifyingReceipt.beneficiary_name || 'Vietcombank'}
+              {(classifyingReceipt.sender_name || classifyingReceipt.remitter_name || (classifyingReceipt.debit_account?.includes('9981397845') ? 'PHAM THI THU TRANG' : 'BUI DUC HUNG'))} ➔ {classifyingReceipt.beneficiary_name || 'Vietcombank'}
             </p>
 
             <div className="bg-[#090b10] p-3 rounded-xl border border-white/5 space-y-1 mb-4 text-xs font-semibold">
@@ -2759,23 +2810,23 @@ function FlowTab({
                 </div>
               )}
 
-              {/* Type selection with 2-way animated sliding tab toggle */}
+              {/* Type selection with 4-way animated sliding tab toggle (Rule 7) */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Loại Giao Dịch</label>
-                <div className="relative flex bg-[#090b10] border border-white/5 p-1 rounded-xl w-full">
+                <div className="relative flex bg-[#0d1018] p-1 rounded-xl border border-white/10 text-xs shrink-0 font-bold select-none w-full">
                   <div
-                    className={`absolute top-1 bottom-1 rounded-[10px] transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] pointer-events-none ${
-                      selectedType === 'saving'
+                    className={`absolute top-1 bottom-1 rounded-lg transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] pointer-events-none ${
+                      selectedType === 'expense'
+                        ? 'bg-rose-500 shadow-[0_0_14px_rgba(239,68,68,0.4)]'
+                        : selectedType === 'income'
+                        ? 'bg-emerald-500 shadow-[0_0_14px_rgba(16,185,129,0.4)]'
+                        : selectedType === 'saving'
                         ? 'bg-blue-500 shadow-[0_0_14px_rgba(59,130,246,0.4)]'
-                        : 'bg-rose-500 shadow-[0_0_14px_rgba(239,68,68,0.4)]'
+                        : 'bg-cyan-500 shadow-[0_0_14px_rgba(6,182,212,0.4)]'
                     }`}
                     style={{
-                      left: '4px',
-                      width: 'calc(50% - 4px)',
-                      transform:
-                        selectedType === 'saving'
-                          ? 'translateX(100%)'
-                          : 'translateX(0)',
+                      left: `calc( (100% / 4) * ${selectedType === 'expense' ? 0 : selectedType === 'income' ? 1 : selectedType === 'saving' ? 2 : 3} + 1px )`,
+                      width: 'calc( (100% / 4) - 2px )',
                     }}
                   />
                   <button
@@ -2783,11 +2834,11 @@ function FlowTab({
                     onClick={() => {
                       setSelectedType('expense');
                       if (!expenseCats.some(c => c.name === selectedCat)) {
-                        setSelectedCat(expenseCats[0]?.name || 'Khác');
+                        setSelectedCat(expenseCats[0]?.name || 'Ăn uống');
                       }
                     }}
-                    className={`relative z-10 flex-1 py-2 text-[10px] font-black tracking-wider uppercase rounded-lg transition-colors duration-300 cursor-pointer text-center ${
-                      selectedType !== 'saving' ? 'text-white' : 'text-slate-400 hover:text-slate-200'
+                    className={`flex-1 relative z-10 py-1.5 text-center text-[10px] font-black tracking-wider uppercase rounded-lg transition-colors cursor-pointer ${
+                      selectedType === 'expense' ? 'text-white font-black' : 'text-slate-400 hover:text-white'
                     }`}
                   >
                     Chi tiêu
@@ -2795,14 +2846,40 @@ function FlowTab({
                   <button
                     type="button"
                     onClick={() => {
+                      setSelectedType('income');
+                      if (!incomeCats.some(c => c.name === selectedCat)) {
+                        setSelectedCat(incomeCats[0]?.name || 'Lương');
+                      }
+                    }}
+                    className={`flex-1 relative z-10 py-1.5 text-center text-[10px] font-black tracking-wider uppercase rounded-lg transition-colors cursor-pointer ${
+                      selectedType === 'income' ? 'text-white font-black' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Thu nhập
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
                       setSelectedType('saving');
                       setSelectedCat('Tiết kiệm khẩn cấp');
                     }}
-                    className={`relative z-10 flex-1 py-2 text-[10px] font-black tracking-wider uppercase rounded-lg transition-colors duration-300 cursor-pointer text-center ${
-                      selectedType === 'saving' ? 'text-white' : 'text-slate-400 hover:text-slate-200'
+                    className={`flex-1 relative z-10 py-1.5 text-center text-[10px] font-black tracking-wider uppercase rounded-lg transition-colors cursor-pointer ${
+                      selectedType === 'saving' ? 'text-white font-black' : 'text-slate-400 hover:text-white'
                     }`}
                   >
                     Tiết kiệm
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedType('exchange');
+                      setSelectedCat('Trao đổi');
+                    }}
+                    className={`flex-1 relative z-10 py-1.5 text-center text-[10px] font-black tracking-wider uppercase rounded-lg transition-colors cursor-pointer ${
+                      selectedType === 'exchange' ? 'text-white font-black' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Trao đổi
                   </button>
                 </div>
               </div>
@@ -2810,30 +2887,46 @@ function FlowTab({
               {/* Category selection */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Chọn Danh Mục</label>
-                <select
-                  value={selectedCat}
-                  onChange={(e) => setSelectedCat(e.target.value)}
-                  className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-amber-500"
-                >
-                  {selectedType === 'saving' ? (
-                    <>
-                      <option value="Tiết kiệm khẩn cấp">Tiết kiệm khẩn cấp</option>
-                      <option value="Tích lũy dài hạn">Tích lũy dài hạn</option>
-                      <option value="Tiết kiệm khác">Tiết kiệm khác</option>
-                    </>
-                  ) : (
-                    <>
-                      {isHungTrangVcbTransfer(classifyingReceipt) && (
-                        <option value="Trao đổi">Trao đổi (Lưu thông nội bộ)</option>
-                      )}
-                      {expenseCats.map(cat => (
-                        <option key={cat.name} value={cat.name}>
-                          {cat.name} {cat.note ? `(${cat.note})` : ''}
-                        </option>
-                      ))}
-                    </>
-                  )}
-                </select>
+                {selectedType === 'exchange' ? (
+                  <div className="w-full bg-[#0d1018] border border-cyan-500/30 text-xs font-bold text-cyan-300 rounded-xl px-3.5 py-2.5">
+                    Trao đổi (Lưu thông nội bộ)
+                  </div>
+                ) : (
+                  <select
+                    value={selectedCat}
+                    onChange={(e) => setSelectedCat(e.target.value)}
+                    className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-amber-500"
+                  >
+                    {selectedType === 'saving' ? (
+                      <>
+                        <option value="Tiết kiệm khẩn cấp">Tiết kiệm khẩn cấp</option>
+                        <option value="Tích lũy dài hạn">Tích lũy dài hạn</option>
+                        <option value="Tiết kiệm khác">Tiết kiệm khác</option>
+                      </>
+                    ) : selectedType === 'income' ? (
+                      <>
+                        {incomeCats.map(cat => (
+                          <option key={cat.name} value={cat.name}>
+                            {cat.name} {cat.note ? `(${cat.note})` : ''}
+                          </option>
+                        ))}
+                      </>
+                    ) : (
+                      <>
+                        {expenseCats.map(cat => (
+                          <option key={cat.name} value={cat.name}>
+                            {cat.name} {cat.note ? `(${cat.note})` : ''}
+                          </option>
+                        ))}
+                      </>
+                    )}
+                  </select>
+                )}
+                {selectedType === 'exchange' && (
+                  <p className="text-[10px] text-cyan-400/90 font-medium mt-1">
+                    Giao dịch loại Trao đổi không tính vào Tổng Thu nhập hay Tổng Chi tiêu.
+                  </p>
+                )}
               </div>
 
               {/* Note / Ghi chú input */}
@@ -2900,7 +2993,7 @@ function FlowTab({
               </div>
 
               <div className="flex gap-2.5 pt-2">
-                {classifyingReceipt.status === 'classified' && handleUnclassifyReceipt && (
+                {(classifyingReceipt.status === 'classified' || classifyingReceipt.category) && handleUnclassifyReceipt && (
                   <button
                     type="button"
                     disabled={isSavingClassification}

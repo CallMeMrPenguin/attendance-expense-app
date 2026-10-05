@@ -16,7 +16,7 @@ export interface BankReceipt {
   amount: number;
   details: string;
   status: 'unclassified' | 'classified';
-  type?: 'income' | 'expense' | 'saving';
+  type?: 'income' | 'expense' | 'saving' | 'exchange';
   category?: string;
   note?: string;
   user_id?: string;
@@ -28,7 +28,7 @@ export interface ReceiptRule {
   user_id?: string;
   match_field: 'sender_name' | 'remitter_name' | 'credit_account' | 'details' | 'sender' | 'remitter_beneficiary_details' | 'beneficiary_name';
   match_value: string;
-  target_type: 'income' | 'expense' | 'saving';
+  target_type: 'income' | 'expense' | 'saving' | 'exchange';
   target_category: string;
   created_at?: string;
 }
@@ -157,7 +157,7 @@ export function parseVietcombankEmail(html: string, text: string, emailHeaderDat
     return null;
   }
 
-  let finalOrderNumber = orderNumber;
+  let finalOrderNumber = (orderNumber || '').replace(/^(vcb-)+/, '');
   if (!finalOrderNumber) {
     const cleanDet = (details || '').replace(/[^a-zA-Z0-9]/g, '').substring(0, 15);
     finalOrderNumber = `AUTO-${transDate.replace(/-/g, '')}-${amount}-${cleanDet}`;
@@ -166,13 +166,13 @@ export function parseVietcombankEmail(html: string, text: string, emailHeaderDat
   // Account mappings:
   // 1030723743 -> BUI DUC HUNG
   // 9981397845 -> PHAM THI THU TRANG
-  let senderName = remitterName;
+  let senderName = (remitterName || '').trim();
   const combinedInfo = `${debitAccount} ${remitterName} ${details}`.toUpperCase();
 
-  if (debitAccount.includes('1030723743') || combinedInfo.includes('1030723743')) {
-    senderName = 'BUI DUC HUNG';
-  } else if (debitAccount.includes('9981397845') || combinedInfo.includes('9981397845')) {
+  if (debitAccount.includes('9981397845') || combinedInfo.includes('9981397845')) {
     senderName = 'PHAM THI THU TRANG';
+  } else if (debitAccount.includes('1030723743') || combinedInfo.includes('1030723743')) {
+    senderName = 'BUI DUC HUNG';
   } else if (!senderName || senderName === 'N/A') {
     if (combinedInfo.includes('PHAM THI THU TRANG') || combinedInfo.includes('THU TRANG')) {
       senderName = 'PHAM THI THU TRANG';
@@ -408,65 +408,7 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
 
     existingMap = new Map<string, BankReceipt>(dbReceipts.map(r => [r.id, r]));
 
-    // Re-evaluate all unclassified receipts in database against keywords
-    const unclassifiedReceipts = dbReceipts.filter((r: any) => r.status === 'unclassified');
-    if (unclassifiedReceipts.length > 0 && categoryBudgetsList.length > 0) {
-      for (const receipt of unclassifiedReceipts) {
-        let matched = false;
-        for (const budget of categoryBudgetsList) {
-          if (budget.keywords) {
-            const kwList = budget.keywords.split(',').map((kw: string) => cleanString(kw)).filter(Boolean);
-            for (const kw of kwList) {
-              if (matchKeyword(receipt.details || '', kw) || matchKeyword(receipt.remitter_name || '', kw) || matchKeyword(receipt.beneficiary_name || '', kw)) {
-                const savingCats = ['Tiết kiệm khẩn cấp', 'Tích lũy dài hạn', 'Tiết kiệm khác', 'Tiết kiệm'];
-                const matchedType: 'income' | 'expense' | 'saving' = savingCats.includes(budget.category) ? 'saving' : 'expense';
-                
-                const updatedReceipt = {
-                  ...receipt,
-                  status: 'classified' as const,
-                  type: matchedType,
-                  category: budget.category
-                };
-                
-                existingMap.set(receipt.id, updatedReceipt);
-                
-                (async () => {
-                  try {
-                    const { trans_time, ...updatedPayload } = updatedReceipt;
-                    await clientAdmin.from('bank_receipts').upsert(updatedPayload as any, { onConflict: 'id' });
-                    
-                    if (targetUserId) {
-                      const txRecord = {
-                        id: `tx-receipt-${receipt.id}`,
-                        user_id: targetUserId,
-                        user_name: 'Admin',
-                        desc_text: `[Biên lai] ${updatedReceipt.remitter_name || ''} ➔ ${updatedReceipt.beneficiary_name || ''}: ${updatedReceipt.details}`,
-                        amount: updatedReceipt.amount,
-                        type: matchedType === 'saving' ? 'expense' : matchedType,
-                        category: budget.category,
-                        date: updatedReceipt.trans_date
-                      };
-                      const { error: insErr } = await clientAdmin.from('manual_transactions').upsert(txRecord as any, { onConflict: 'id' });
-                      if (insErr) {
-                        const { user_name, ...fallbackTx } = txRecord as any;
-                        fallbackTx.teacher_name = user_name;
-                        await clientAdmin.from('manual_transactions').upsert(fallbackTx as any, { onConflict: 'id' });
-                      }
-                    }
-                  } catch (dbErr) {
-                    console.error('[IMAP Sync] DB background update failed:', dbErr);
-                  }
-                })();
-                
-                matched = true;
-                break;
-              }
-            }
-          }
-          if (matched) break;
-        }
-      }
-    }
+    // Keep existing unclassified receipts unclassified so user unclassify action is preserved
   } catch (e) {
     console.error('[IMAP Sync] Error loading metadata from Supabase DB:', e);
   }
@@ -535,21 +477,35 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
           const receiptData = parseVietcombankEmail(typeof html === 'string' ? html : '', text || '', parsed.date || message.envelope?.date);
           if (!receiptData || !receiptData.order_number) continue;
 
-          const receiptId = `vcb-${receiptData.order_number}`;
+          const cleanOrderNo = (receiptData.order_number || '').replace(/^(vcb-)+/, '');
+          const receiptId = `vcb-${cleanOrderNo}`;
 
-          const isNewReceipt = !existingMap.has(receiptId);
+          let isNewReceipt = !existingMap.has(receiptId);
+          if (isNewReceipt) {
+            // Also check for duplicates by (date, amount, details)
+            const rDate = (receiptData.trans_date || '').split(' ')[0];
+            const rAmt = Number(receiptData.amount);
+            const rDet = (receiptData.details || '').trim().toLowerCase();
+            for (const existing of existingMap.values()) {
+              const eDate = (existing.trans_date || '').split(' ')[0];
+              const eAmt = Number(existing.amount);
+              const eDet = (existing.details || '').trim().toLowerCase();
+              if (eDate === rDate && eAmt === rAmt && (eDet === rDet || eDet.includes(rDet) || rDet.includes(eDet))) {
+                isNewReceipt = false;
+                break;
+              }
+            }
+          }
+
           if (isNewReceipt) {
             newlyParsedCount++;
           } else {
-            const cached = existingMap.get(receiptId);
-            if (cached && cached.status === 'classified') {
-              continue;
-            }
+            continue;
           }
 
           // Check auto classification matching
           let status: 'unclassified' | 'classified' = 'unclassified';
-          let matchedType: 'income' | 'expense' | 'saving' | undefined = undefined;
+          let matchedType: 'income' | 'expense' | 'saving' | 'exchange' | undefined = undefined;
           let matchedCategory: string | undefined = undefined;
 
           for (const budget of categoryBudgetsList) {

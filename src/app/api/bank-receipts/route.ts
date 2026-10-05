@@ -49,8 +49,17 @@ export async function POST(req: Request) {
     const supabaseAdmin = getSupabaseAdmin();
 
     if (unclassify) {
-      const rawId = String(receiptId).replace(/^tx-receipt-/, '').replace(/^vcb-/, '');
-      const txId = `tx-receipt-${rawId}`;
+      const rawId = String(receiptId).replace(/^tx-receipt-/, '').replace(/^(vcb-)+/, '');
+      const possibleIds = [
+        receiptId,
+        rawId,
+        `vcb-${rawId}`,
+        `vcb-vcb-${rawId}`,
+        `tx-receipt-${receiptId}`,
+        `tx-receipt-${rawId}`,
+        `tx-receipt-vcb-${rawId}`,
+        `tx-receipt-vcb-vcb-${rawId}`
+      ];
 
       try {
         await (supabaseAdmin
@@ -58,14 +67,15 @@ export async function POST(req: Request) {
           .update({
             status: 'unclassified',
             type: null,
-            category: null
+            category: null,
+            note: null
           })
-          .eq('id', receiptId);
+          .in('id', possibleIds);
 
         await supabaseAdmin
           .from('manual_transactions')
           .delete()
-          .in('id', [receiptId, txId, rawId, `vcb-${rawId}`]);
+          .in('id', possibleIds);
       } catch (e) {}
 
       let finalReceipts: BankReceipt[] = [];
@@ -126,7 +136,11 @@ export async function POST(req: Request) {
     // 3. Create or update manual_transaction
     const txId = `tx-receipt-${receiptId}`;
     const notePrefix = trimmedNote ? `${trimmedNote} ` : '';
-    const descText = `${notePrefix}[Biên lai Vietcombank] ${receipt.remitter_name || ''} ➔ ${receipt.beneficiary_name || ''}: ${baseDetails}`;
+    const sName = receipt.remitter_name || receipt.sender_name || (receipt.debit_account?.includes('9981397845') ? 'PHAM THI THU TRANG' : 'BUI DUC HUNG');
+    const bName = receipt.beneficiary_name || '';
+    const descText = `${notePrefix}[Biên lai Vietcombank] ${sName} ➔ ${bName}: ${baseDetails}`;
+
+    const txType = type === 'saving' ? 'expense' : type;
 
     const txRecord = {
       id: txId,
@@ -134,7 +148,7 @@ export async function POST(req: Request) {
       user_name: 'Admin',
       desc_text: descText,
       amount: Number(receipt.amount),
-      type: type === 'saving' ? 'expense' : type,
+      type: txType,
       category,
       date: receipt.trans_date || new Date().toISOString().split('T')[0]
     };

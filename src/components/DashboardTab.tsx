@@ -47,7 +47,7 @@ interface DashboardTabProps {
   getActualCategoryAmount: (cat: string) => number;
   getPrecedingRollOverBalance?: (monthStr: string) => number;
   
-  handleOpenTxModal: (type: 'income' | 'expense' | 'saving') => void;
+  handleOpenTxModal: (type: 'income' | 'expense' | 'saving' | 'exchange') => void;
   setActiveTab: (tab: 'dashboard' | 'flow' | 'saving' | 'schedule' | 'settings') => void;
 }
 
@@ -541,7 +541,7 @@ export default function DashboardTab({
       id: t.id,
       desc: t.desc,
       amount: Number(t.amount) || 0,
-      type: t.type as 'income' | 'expense',
+      type: (t.type || 'expense') as 'income' | 'expense' | 'exchange',
       date: t.date,
       category: t.category
     }));
@@ -1340,14 +1340,15 @@ export default function DashboardTab({
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {recentTransactions.map(t => {
               const isInc = t.type === 'income';
+              const isExchange = t.type === 'exchange';
               return (
                 <div key={t.id} className="p-3 bg-[#0b0e18] border border-white/5 hover:border-white/15 rounded-2xl flex items-center justify-between text-xs transition-all">
                   <div className="min-w-0 pr-2 space-y-0.5">
                     <span className="font-extrabold text-white truncate block">{t.desc}</span>
-                    <span className="text-[9px] font-bold text-slate-500 block">{formatDateVN(t.date)} • {t.category}</span>
+                    <span className="text-[9px] font-bold text-slate-500 block">{formatDateVN(t.date)} | {t.category}</span>
                   </div>
-                  <span className={`font-black shrink-0 ${isInc ? 'text-emerald-400' : 'text-rose-400'}`}>
-                    {isInc ? '+' : '-'}{formatVND(t.amount)}
+                  <span className={`font-black shrink-0 ${isInc ? 'text-emerald-400' : isExchange ? 'text-cyan-400' : 'text-rose-400'}`}>
+                    {isInc ? '+' : isExchange ? '' : '-'}{formatVND(t.amount)}
                   </span>
                 </div>
               );

@@ -65,7 +65,7 @@ export function getDb(): Database.Database {
       teacher_name TEXT,
       desc_text TEXT NOT NULL,
       amount REAL NOT NULL,
-      type TEXT NOT NULL CHECK (type IN ('income', 'expense', 'saving')),
+      type TEXT NOT NULL CHECK (type IN ('income', 'expense', 'saving', 'exchange')),
       category TEXT NOT NULL,
       date TEXT NOT NULL,
       created_at TEXT DEFAULT (datetime('now'))
@@ -161,6 +161,32 @@ export function getDb(): Database.Database {
     const tableSettingCols = db.prepare('PRAGMA table_info(table_settings)').all().map((c: any) => c.name);
     if (!tableSettingCols.includes('table_id')) db.exec('ALTER TABLE table_settings ADD COLUMN table_id TEXT');
     if (!tableSettingCols.includes('layout')) db.exec('ALTER TABLE table_settings ADD COLUMN layout TEXT');
+
+    // Ensure manual_transactions supports 'exchange' type
+    try {
+      const mtSchema = db.prepare("SELECT sql FROM sqlite_master WHERE name = 'manual_transactions'").get() as { sql: string } | undefined;
+      if (mtSchema && mtSchema.sql && !mtSchema.sql.includes('exchange')) {
+        db.pragma('foreign_keys = OFF');
+        db.exec(`
+          CREATE TABLE manual_transactions_new (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            user_name TEXT,
+            teacher_name TEXT,
+            desc_text TEXT NOT NULL,
+            amount REAL NOT NULL,
+            type TEXT NOT NULL CHECK (type IN ('income', 'expense', 'saving', 'exchange')),
+            category TEXT NOT NULL,
+            date TEXT NOT NULL,
+            created_at TEXT DEFAULT (datetime('now'))
+          );
+          INSERT INTO manual_transactions_new SELECT * FROM manual_transactions;
+          DROP TABLE manual_transactions;
+          ALTER TABLE manual_transactions_new RENAME TO manual_transactions;
+        `);
+        db.pragma('foreign_keys = ON');
+      }
+    } catch (e) {}
 
     // Seed default preserved data if profiles or sessions table is empty
     const userCount = db.prepare('SELECT COUNT(*) as count FROM profiles').get() as { count: number };

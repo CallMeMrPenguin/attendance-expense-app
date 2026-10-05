@@ -26,7 +26,7 @@ interface SidebarProps {
     role: 'admin' | 'teacher' | 'user';
   };
   handleLogout: () => Promise<void>;
-  handleOpenTxModal: (type: 'income' | 'expense' | 'saving') => void;
+  handleOpenTxModal: (type: 'income' | 'expense' | 'saving' | 'exchange') => void;
   isMobile?: boolean;
   onChangePassword?: () => void;
   collapsed?: boolean;
