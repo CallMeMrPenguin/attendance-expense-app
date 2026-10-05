@@ -165,13 +165,13 @@ export default function TransactionModal({
       };
       saveSavingsHistory(userId, [newHist, ...savingsHistory]);
 
-      // Deduct from monthly money pool (expense) on deposit, or add to monthly money pool (income) on withdraw
+      // Fund transfers are recorded as 'exchange' so they do not artificially distort income/expense
       const savingTx = {
         id: `tx-sh-${newHist.id}`,
         desc: isDeposit ? `Chuyển tiền vào ${fundTitle}` : `Rút tiền từ ${fundTitle}`,
         amount: amt,
-        type: isDeposit ? ('expense' as const) : ('income' as const),
-        category: modalSavingFund === 'emergency' ? 'Tiết kiệm khẩn cấp' : 'Tích lũy dài hạn',
+        type: 'exchange' as const,
+        category: 'Trao đổi',
         date: modalDate,
         isRecurring: false,
         is_recurring: false

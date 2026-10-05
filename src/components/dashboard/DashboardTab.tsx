@@ -13,6 +13,7 @@ export default function DashboardTab({
   currentUser,
   manualTransactions,
   sessions,
+  allFinanceTransactions = [],
   emergencyCurrent,
   accumulationCurrent,
   categoryBudgets,
@@ -45,26 +46,29 @@ export default function DashboardTab({
   const expense = getSelectedMonthsExpense();
   const net = income - expense;
 
-  // Net worth cumulative calculation
+  // Net worth cumulative calculation (Surplus = Income - Expense; Cash = Surplus - Savings)
   const totalIncomeAll = getTotalIncome();
   const totalExpenseAll = getTotalExpense();
-  const walletCash = totalIncomeAll - totalExpenseAll;
   const savings = emergencyCurrent + accumulationCurrent;
-  const netWorth = walletCash + savings;
+  const totalSurplus = totalIncomeAll - totalExpenseAll;
+  const walletCash = Math.max(0, totalSurplus - savings);
+  const netWorth = totalSurplus;
+
+  const allTxs = allFinanceTransactions.length > 0 ? allFinanceTransactions : manualTransactions;
 
   // Helper for daily income calculation
   const getDailyIncome = (monthStr: string, day: number) => {
     const dayStr = `${monthStr}-${String(day).padStart(2, '0')}`;
-    return manualTransactions
-      .filter(t => t.type === 'income' && t.date === dayStr)
+    return allTxs
+      .filter(t => t.type === 'income' && (t.date || '').startsWith(dayStr))
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
   };
 
   // Helper for daily expense calculation
   const getDailyExpense = (monthStr: string, day: number) => {
     const dayStr = `${monthStr}-${String(day).padStart(2, '0')}`;
-    return manualTransactions
-      .filter(t => t.type === 'expense' && t.date === dayStr)
+    return allTxs
+      .filter(t => t.type === 'expense' && (t.date || '').startsWith(dayStr))
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
   };
 

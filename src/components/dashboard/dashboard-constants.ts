@@ -8,6 +8,7 @@ export interface DashboardTabProps {
   };
   manualTransactions: any[];
   sessions: Session[];
+  allFinanceTransactions?: any[];
   emergencyCurrent: number;
   accumulationCurrent: number;
   categoryBudgets: Record<string, number>;

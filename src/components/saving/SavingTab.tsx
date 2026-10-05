@@ -76,14 +76,14 @@ export const SavingTab: React.FC<SavingTabProps> = ({
     };
     saveSavingsHistory(currentUser.id, [newHist, ...savingsHistory]);
 
-    // Deduct from monthly money pool / surplus (expense on deposit, income on withdraw)
+    // Fund transfers are recorded as 'exchange' so they do not artificially distort income/expense
     if (saveTransactions) {
       const savingTx = {
         id: `tx-sh-${newHist.id}`,
         desc: quickNote.trim() || (isDeposit ? `Chuyển tiền vào ${fundTitle}` : `Rút tiền từ ${fundTitle}`),
         amount: amt,
-        type: isDeposit ? ('expense' as const) : ('income' as const),
-        category: quickFund === 'emergency' ? 'Tiết kiệm khẩn cấp' : 'Tích lũy dài hạn',
+        type: 'exchange' as const,
+        category: 'Trao đổi',
         date: quickDate,
         isRecurring: false,
         is_recurring: false

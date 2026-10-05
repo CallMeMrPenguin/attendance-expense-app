@@ -794,8 +794,8 @@ export default function Dashboard() {
                   user_name: currentUser.teacherName || 'ADMIN',
                   desc_text: isDeposit ? `Chuyển tiền vào ${fundTitle}` : `Rút tiền từ ${fundTitle}`,
                   amount: Number(h.amount) || 0,
-                  type: isDeposit ? 'expense' : 'income',
-                  category: cat,
+                  type: 'exchange',
+                  category: 'Trao đổi',
                   date: h.date || new Date().toISOString().split('T')[0]
                 });
               }
@@ -1766,13 +1766,10 @@ export default function Dashboard() {
   }, [allFinanceTransactions]);
 
   const getMonthlyIncome = useCallback((monthStr: string) => {
-    const inc = allFinanceTransactions
+    return allFinanceTransactions
       .filter(t => t.type === 'income' && t.date && t.date.startsWith(monthStr))
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-
-    const rollOver = getPrecedingRollOverBalance(monthStr);
-    return inc + rollOver;
-  }, [allFinanceTransactions, getPrecedingRollOverBalance]);
+  }, [allFinanceTransactions]);
 
   const getMonthlyExpense = useCallback((monthStr: string) => {
     return allFinanceTransactions
@@ -1780,18 +1777,12 @@ export default function Dashboard() {
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
   }, [allFinanceTransactions]);
 
-  // Filtered values by selected months (including previous month roll-over balance)
+  // Filtered values by selected months
   const getSelectedMonthsIncome = useCallback(() => {
-    const inc = allFinanceTransactions
+    return allFinanceTransactions
       .filter(t => t.type === 'income' && chartSelectedMonths.includes((t.date || '').substring(0, 7)))
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-
-    const sortedMonths = [...chartSelectedMonths].sort();
-    const earliestMonth = sortedMonths[0];
-    const rollOver = earliestMonth ? getPrecedingRollOverBalance(earliestMonth) : 0;
-      
-    return inc + rollOver;
-  }, [allFinanceTransactions, chartSelectedMonths, getPrecedingRollOverBalance]);
+  }, [allFinanceTransactions, chartSelectedMonths]);
 
   const getSelectedMonthsExpense = useCallback(() => {
     return allFinanceTransactions
@@ -2022,6 +2013,7 @@ export default function Dashboard() {
                 currentUser={currentUser}
                 manualTransactions={manualTransactions}
                 sessions={currentUser.role === 'admin' ? allSessions : sessions}
+                allFinanceTransactions={allFinanceTransactions}
                 emergencyCurrent={emergencyCurrent}
                 accumulationCurrent={accumulationCurrent}
                 categoryBudgets={categoryBudgets}
