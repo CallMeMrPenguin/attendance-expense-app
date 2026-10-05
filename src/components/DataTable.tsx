@@ -38,9 +38,6 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { supabase } from '@/lib/supabase';
 import {
   ChevronLeft, ChevronRight, RefreshCw, AlertCircle,
@@ -418,32 +415,43 @@ function ExportDropdown<TData>({
       .filter(h => h.column.id !== 'select' && h.column.id !== '_expander' && h.column.getIsVisible())
       .map(h => typeof h.column.columnDef.header === 'string' ? h.column.columnDef.header : h.column.id);
 
-  const exportExcel = () => {
-    const headers = getHeaders();
-    const rows = getExportRows();
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Data');
-    XLSX.writeFile(wb, `${filename}.xlsx`);
-    setOpen(false);
+  const exportExcel = async () => {
+    try {
+      const XLSX = await import('xlsx');
+      const headers = getHeaders();
+      const rows = getExportRows();
+      const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Data');
+      XLSX.writeFile(wb, `${filename}.xlsx`);
+    } finally {
+      setOpen(false);
+    }
   };
 
-  const exportPDF = () => {
-    const headers = getHeaders();
-    const rows = getExportRows();
-    const doc = new jsPDF({ orientation: 'landscape' });
-    doc.setFontSize(12);
-    doc.text(filename, 14, 15);
-    autoTable(doc, {
-      head: [headers],
-      body: rows,
-      startY: 22,
-      styles: { fontSize: 8, cellPadding: 3 },
-      headStyles: { fillColor: [30, 41, 82], textColor: [200, 200, 255], fontStyle: 'bold' },
-      alternateRowStyles: { fillColor: [245, 245, 255] },
-    });
-    doc.save(`${filename}.pdf`);
-    setOpen(false);
+  const exportPDF = async () => {
+    try {
+      const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+        import('jspdf'),
+        import('jspdf-autotable'),
+      ]);
+      const headers = getHeaders();
+      const rows = getExportRows();
+      const doc = new jsPDF({ orientation: 'landscape' });
+      doc.setFontSize(12);
+      doc.text(filename, 14, 15);
+      autoTable(doc, {
+        head: [headers],
+        body: rows,
+        startY: 22,
+        styles: { fontSize: 8, cellPadding: 3 },
+        headStyles: { fillColor: [30, 41, 82], textColor: [200, 200, 255], fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [245, 245, 255] },
+      });
+      doc.save(`${filename}.pdf`);
+    } finally {
+      setOpen(false);
+    }
   };
 
   return (

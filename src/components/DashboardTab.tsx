@@ -1010,7 +1010,7 @@ export default function DashboardTab({
               {/* Floating Tooltip Card */}
               {hoveredNodeInfo && chartDataModel.series.length > 0 && (
                 <div 
-                  className="absolute top-4 bg-[#0c0f1d]/95 border border-indigo-500/40 rounded-2xl p-4 shadow-2xl backdrop-blur-xl animate-mac-dropdown text-xs space-y-2 z-30 pointer-events-none min-w-[200px]"
+                  className="absolute top-4 bg-[#0c0f1d] border border-indigo-500/40 rounded-2xl p-4 shadow-2xl animate-mac-dropdown text-xs space-y-2 z-30 pointer-events-none min-w-[200px]"
                   style={{
                     left: `${Math.min(Math.max(hoveredNodeInfo.svgX, 100), chartWidth - 220)}px`
                   }}

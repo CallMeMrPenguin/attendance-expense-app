@@ -322,7 +322,7 @@ export default function CalendarMonthView({
             top: contextMenu.y, 
             left: contextMenu.x 
           }}
-          className="fixed z-[999] bg-[#0d1018] border border-white/10 rounded-xl shadow-[0_20px_60px_rgba(0,0,0,0.8)] py-1.5 min-w-[170px] backdrop-blur-xl animate-mac-dropdown"
+          className="fixed z-[999] bg-[#0d1018] border border-white/10 rounded-xl shadow-[0_20px_60px_rgba(0,0,0,0.8)] py-1.5 min-w-[170px] animate-mac-dropdown"
         >
           <button
             onClick={() => {

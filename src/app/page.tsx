@@ -105,9 +105,19 @@ export default function Dashboard() {
   
   // Navigation states
   const [activeTab, setActiveTab] = useState<'dashboard' | 'flow' | 'saving' | 'schedule' | 'settings'>('dashboard');
+  const [visitedTabs, setVisitedTabs] = useState<Set<string>>(() => new Set(['dashboard']));
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isSidebarPinned, setIsSidebarPinned] = useState<boolean>(true);
+
+  useEffect(() => {
+    setVisitedTabs(prev => {
+      if (prev.has(activeTab)) return prev;
+      const next = new Set(prev);
+      next.add(activeTab);
+      return next;
+    });
+  }, [activeTab]);
 
   useEffect(() => {
     const pinnedVal = localStorage.getItem('sidebar_pinned');
@@ -885,25 +895,25 @@ export default function Dashboard() {
     });
   }, [currentUser, runBackgroundSave]);
 
-  const saveEmergencyCurrent = (userId: string, val: number) => {
+  const saveEmergencyCurrent = useCallback((userId: string, val: number) => {
     setEmergencyCurrent(val);
     saveSavingsFundsDirect(userId, val, emergencyTarget, accumulationCurrent, accumulationTarget);
-  };
+  }, [emergencyTarget, accumulationCurrent, accumulationTarget, saveSavingsFundsDirect]);
 
-  const saveEmergencyTarget = (userId: string, val: number) => {
+  const saveEmergencyTarget = useCallback((userId: string, val: number) => {
     setEmergencyTarget(val);
     saveSavingsFundsDirect(userId, emergencyCurrent, val, accumulationCurrent, accumulationTarget);
-  };
+  }, [emergencyCurrent, accumulationCurrent, accumulationTarget, saveSavingsFundsDirect]);
 
-  const saveAccumulationCurrent = (userId: string, val: number) => {
+  const saveAccumulationCurrent = useCallback((userId: string, val: number) => {
     setAccumulationCurrent(val);
     saveSavingsFundsDirect(userId, emergencyCurrent, emergencyTarget, val, accumulationTarget);
-  };
+  }, [emergencyCurrent, emergencyTarget, accumulationTarget, saveSavingsFundsDirect]);
 
-  const saveAccumulationTarget = (userId: string, val: number) => {
+  const saveAccumulationTarget = useCallback((userId: string, val: number) => {
     setAccumulationTarget(val);
     saveSavingsFundsDirect(userId, emergencyCurrent, emergencyTarget, accumulationCurrent, val);
-  };
+  }, [emergencyCurrent, emergencyTarget, accumulationCurrent, saveSavingsFundsDirect]);
 
   const saveSavingsHistory = useCallback((userId: string, data: any[]) => {
     setSavingsHistory(data);
@@ -1900,7 +1910,7 @@ export default function Dashboard() {
       <div className={`flex-1 flex flex-col min-w-0 h-screen overflow-y-auto transition-all duration-300 ${sidebarCollapsed ? 'lg:pl-[112px]' : 'lg:pl-[292px]'}`}>
         
         {/* Floating Mobile Header - Always pinned on top when scrolling on mobile */}
-        <header className="lg:hidden h-16 border-b border-white/10 bg-[#070911]/95 backdrop-blur-xl flex items-center justify-between px-4 sm:px-6 sticky top-0 z-40 shrink-0 shadow-[0_4px_25px_rgba(0,0,0,0.8)]">
+        <header className="lg:hidden h-16 border-b border-white/10 bg-[#070911] flex items-center justify-between px-4 sm:px-6 sticky top-0 z-40 shrink-0 shadow-[0_4px_25px_rgba(0,0,0,0.8)]">
           <div className="flex items-center gap-3">
             {/* Hamburger for mobile */}
             <button
@@ -1946,134 +1956,144 @@ export default function Dashboard() {
 
         {/* Dynamic page content content scrolling */}
         <main className="flex-1 p-4 sm:p-6 md:p-8 space-y-6">
-          {activeTab === 'dashboard' && (
-            <DashboardTab
-              currentUser={currentUser}
-              manualTransactions={manualTransactions}
-              sessions={currentUser.role === 'admin' ? allSessions : sessions}
-              emergencyCurrent={emergencyCurrent}
-              accumulationCurrent={accumulationCurrent}
-              categoryBudgets={categoryBudgets}
-              chartSelectedMonths={chartSelectedMonths}
-              toggleChartMonth={toggleChartMonth}
-              chartYear={chartYear}
-              setChartYear={setChartYear}
-              getWeeklyIncome={getWeeklyIncome}
-              getWeeklyExpense={getWeeklyExpense}
-              getMonthlyIncome={getMonthlyIncome}
-              getMonthlyExpense={getMonthlyExpense}
-              getSelectedMonthsIncome={getSelectedMonthsIncome}
-              getSelectedMonthsExpense={getSelectedMonthsExpense}
-              getTotalIncome={getTotalIncome}
-              getTotalExpense={getTotalExpense}
-              getActualCategoryAmount={getActualCategoryAmount}
-              getPrecedingRollOverBalance={getPrecedingRollOverBalance}
-              handleOpenTxModal={handleOpenTxModal}
-              setActiveTab={setActiveTab}
-            />
+          {visitedTabs.has('dashboard') && (
+            <div className={activeTab === 'dashboard' ? 'space-y-6' : 'hidden'}>
+              <DashboardTab
+                currentUser={currentUser}
+                manualTransactions={manualTransactions}
+                sessions={currentUser.role === 'admin' ? allSessions : sessions}
+                emergencyCurrent={emergencyCurrent}
+                accumulationCurrent={accumulationCurrent}
+                categoryBudgets={categoryBudgets}
+                chartSelectedMonths={chartSelectedMonths}
+                toggleChartMonth={toggleChartMonth}
+                chartYear={chartYear}
+                setChartYear={setChartYear}
+                getWeeklyIncome={getWeeklyIncome}
+                getWeeklyExpense={getWeeklyExpense}
+                getMonthlyIncome={getMonthlyIncome}
+                getMonthlyExpense={getMonthlyExpense}
+                getSelectedMonthsIncome={getSelectedMonthsIncome}
+                getSelectedMonthsExpense={getSelectedMonthsExpense}
+                getTotalIncome={getTotalIncome}
+                getTotalExpense={getTotalExpense}
+                getActualCategoryAmount={getActualCategoryAmount}
+                getPrecedingRollOverBalance={getPrecedingRollOverBalance}
+                handleOpenTxModal={handleOpenTxModal}
+                setActiveTab={setActiveTab}
+              />
+            </div>
           )}
 
-          {activeTab === 'flow' && (
-            <FlowTab
-              currentUser={currentUser}
-              manualTransactions={manualTransactions}
-              sessions={currentUser.role === 'admin' ? allSessions : sessions}
-              categoryBudgets={categoryBudgets}
-              categoryTypes={categoryTypes}
-              categoryIcons={categoryIcons}
-              categoryNotes={categoryNotes}
-              categoryKeywords={categoryKeywords}
-              chartSelectedMonths={chartSelectedMonths}
-              bankReceipts={bankReceipts}
-              getActualCategoryAmount={getActualCategoryAmount}
-              handleDeleteManualTx={handleDeleteManualTx}
-              handleOpenTxModal={handleOpenTxModal}
-              saveBudgets={saveBudgets}
-              saveTransactions={saveTransactions}
-              toggleChartMonth={toggleChartMonth}
-              handleClassifyReceipt={handleClassifyReceipt}
-              handleUnclassifyReceipt={handleUnclassifyReceipt}
-              handleSyncReceipts={handleSyncReceipts}
-              trangAccountBalance={trangAccountBalance}
-              saveTrangAccountBalance={saveTrangAccountBalance}
-            />
+          {visitedTabs.has('flow') && (
+            <div className={activeTab === 'flow' ? 'space-y-6' : 'hidden'}>
+              <FlowTab
+                currentUser={currentUser}
+                manualTransactions={manualTransactions}
+                sessions={currentUser.role === 'admin' ? allSessions : sessions}
+                categoryBudgets={categoryBudgets}
+                categoryTypes={categoryTypes}
+                categoryIcons={categoryIcons}
+                categoryNotes={categoryNotes}
+                categoryKeywords={categoryKeywords}
+                chartSelectedMonths={chartSelectedMonths}
+                bankReceipts={bankReceipts}
+                getActualCategoryAmount={getActualCategoryAmount}
+                handleDeleteManualTx={handleDeleteManualTx}
+                handleOpenTxModal={handleOpenTxModal}
+                saveBudgets={saveBudgets}
+                saveTransactions={saveTransactions}
+                toggleChartMonth={toggleChartMonth}
+                handleClassifyReceipt={handleClassifyReceipt}
+                handleUnclassifyReceipt={handleUnclassifyReceipt}
+                handleSyncReceipts={handleSyncReceipts}
+                trangAccountBalance={trangAccountBalance}
+                saveTrangAccountBalance={saveTrangAccountBalance}
+              />
+            </div>
           )}
 
-          {activeTab === 'saving' && (
-            <SavingTab
-              currentUser={currentUser}
-              emergencyCurrent={emergencyCurrent}
-              emergencyTarget={emergencyTarget}
-              accumulationCurrent={accumulationCurrent}
-              accumulationTarget={accumulationTarget}
-              savingsHistory={savingsHistory}
-              manualTransactions={manualTransactions}
-              saveEmergencyCurrent={saveEmergencyCurrent}
-              saveEmergencyTarget={saveEmergencyTarget}
-              saveAccumulationCurrent={saveAccumulationCurrent}
-              saveAccumulationTarget={saveAccumulationTarget}
-              saveSavingsHistory={saveSavingsHistory}
-              saveTransactions={saveTransactions}
-            />
+          {visitedTabs.has('saving') && (
+            <div className={activeTab === 'saving' ? 'space-y-6' : 'hidden'}>
+              <SavingTab
+                currentUser={currentUser}
+                emergencyCurrent={emergencyCurrent}
+                emergencyTarget={emergencyTarget}
+                accumulationCurrent={accumulationCurrent}
+                accumulationTarget={accumulationTarget}
+                savingsHistory={savingsHistory}
+                manualTransactions={manualTransactions}
+                saveEmergencyCurrent={saveEmergencyCurrent}
+                saveEmergencyTarget={saveEmergencyTarget}
+                saveAccumulationCurrent={saveAccumulationCurrent}
+                saveAccumulationTarget={saveAccumulationTarget}
+                saveSavingsHistory={saveSavingsHistory}
+                saveTransactions={saveTransactions}
+              />
+            </div>
           )}
 
-          {activeTab === 'schedule' && (
-            <ScheduleTab
-              currentUser={currentUser}
-              totalSessions={totalSessions}
-              completedSessions={completedSessions}
-              earnedIncome={earnedIncome}
-              projectedIncome={projectedIncome}
-              teachers={teachers}
-              activeTeacherName={activeTeacherName}
-              setActiveTeacherName={setActiveTeacherName}
-              selectedMonth={selectedMonth}
-              setSelectedMonth={setSelectedMonth}
-              currentView={currentView}
-              setCurrentView={setCurrentView}
-              loading={loading}
-              sessions={sessions}
-              setAddModalOpen={setAddModalOpen}
-              setSelectedSession={setSelectedSession}
-              setEditModalOpen={setEditModalOpen}
-              onAddSessionOnDate={(dateStr) => {
-                setPreSelectedAddDate(dateStr);
-                setAddModalOpen(true);
-              }}
-              onDeleteSchedule={handleDeleteSchedule}
-              onDeleteSingleSession={handleDeleteSingleSession}
-            />
+          {visitedTabs.has('schedule') && (
+            <div className={activeTab === 'schedule' ? 'space-y-6' : 'hidden'}>
+              <ScheduleTab
+                currentUser={currentUser}
+                totalSessions={totalSessions}
+                completedSessions={completedSessions}
+                earnedIncome={earnedIncome}
+                projectedIncome={projectedIncome}
+                teachers={teachers}
+                activeTeacherName={activeTeacherName}
+                setActiveTeacherName={setActiveTeacherName}
+                selectedMonth={selectedMonth}
+                setSelectedMonth={setSelectedMonth}
+                currentView={currentView}
+                setCurrentView={setCurrentView}
+                loading={loading}
+                sessions={sessions}
+                setAddModalOpen={setAddModalOpen}
+                setSelectedSession={setSelectedSession}
+                setEditModalOpen={setEditModalOpen}
+                onAddSessionOnDate={(dateStr) => {
+                  setPreSelectedAddDate(dateStr);
+                  setAddModalOpen(true);
+                }}
+                onDeleteSchedule={handleDeleteSchedule}
+                onDeleteSingleSession={handleDeleteSingleSession}
+              />
+            </div>
           )}
 
-          {activeTab === 'settings' && (
-            <SettingsTab
-              currentUser={currentUser}
-              manualTransactions={manualTransactions}
-              emergencyCurrent={emergencyCurrent}
-              emergencyTarget={emergencyTarget}
-              accumulationCurrent={accumulationCurrent}
-              accumulationTarget={accumulationTarget}
-              savingsHistory={savingsHistory}
-              categoryBudgets={categoryBudgets}
-              isSidebarPinned={isSidebarPinned}
-              setIsSidebarPinned={handleSetSidebarPinned}
-              saveTransactions={saveTransactions}
-              saveEmergencyCurrent={saveEmergencyCurrent}
-              saveEmergencyTarget={saveEmergencyTarget}
-              saveAccumulationCurrent={saveAccumulationCurrent}
-              saveAccumulationTarget={saveAccumulationTarget}
-              saveSavingsHistory={saveSavingsHistory}
-              saveBudgets={saveBudgets}
-              setManualTransactions={setManualTransactions}
-              setEmergencyCurrent={setEmergencyCurrent}
-              setEmergencyTarget={setEmergencyTarget}
-              setAccumulationCurrent={setAccumulationCurrent}
-              setAccumulationTarget={setAccumulationTarget}
-              setSavingsHistory={setSavingsHistory}
-              setCategoryBudgets={setCategoryBudgets}
-              setPasswordModalOpen={setPasswordModalOpen}
-              handleLogout={handleLogout}
-            />
+          {visitedTabs.has('settings') && (
+            <div className={activeTab === 'settings' ? 'space-y-6' : 'hidden'}>
+              <SettingsTab
+                currentUser={currentUser}
+                manualTransactions={manualTransactions}
+                emergencyCurrent={emergencyCurrent}
+                emergencyTarget={emergencyTarget}
+                accumulationCurrent={accumulationCurrent}
+                accumulationTarget={accumulationTarget}
+                savingsHistory={savingsHistory}
+                categoryBudgets={categoryBudgets}
+                isSidebarPinned={isSidebarPinned}
+                setIsSidebarPinned={handleSetSidebarPinned}
+                saveTransactions={saveTransactions}
+                saveEmergencyCurrent={saveEmergencyCurrent}
+                saveEmergencyTarget={saveEmergencyTarget}
+                saveAccumulationCurrent={saveAccumulationCurrent}
+                saveAccumulationTarget={saveAccumulationTarget}
+                saveSavingsHistory={saveSavingsHistory}
+                saveBudgets={saveBudgets}
+                setManualTransactions={setManualTransactions}
+                setEmergencyCurrent={setEmergencyCurrent}
+                setEmergencyTarget={setEmergencyTarget}
+                setAccumulationCurrent={setAccumulationCurrent}
+                setAccumulationTarget={setAccumulationTarget}
+                setSavingsHistory={setSavingsHistory}
+                setCategoryBudgets={setCategoryBudgets}
+                setPasswordModalOpen={setPasswordModalOpen}
+                handleLogout={handleLogout}
+              />
+            </div>
           )}
         </main>
       </div>
@@ -2082,7 +2102,7 @@ export default function Dashboard() {
       {mobileMenuOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex">
           <div
-            className="fixed inset-0 bg-[#090b10]/60 backdrop-blur-sm transition-opacity cursor-pointer"
+            className="fixed inset-0 bg-black/85 transition-opacity cursor-pointer"
             onClick={() => setMobileMenuOpen(false)}
           />
           <div className="relative flex flex-col w-[260px] max-w-xs bg-[#0a0d16] border-r border-white/5 p-5 animate-slide-in h-full shadow-2xl">

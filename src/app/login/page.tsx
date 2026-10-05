@@ -186,10 +186,10 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen flex items-center justify-center ambient-bg-dark p-4 select-none relative overflow-hidden">
       {/* Background ambient lighting halos */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none"></div>
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-600/15 rounded-full blur-3xl pointer-events-none"></div>
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[radial-gradient(circle,rgba(79,70,229,0.2)_0%,transparent_70%)] pointer-events-none"></div>
+      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[radial-gradient(circle,rgba(147,51,234,0.15)_0%,transparent_70%)] pointer-events-none"></div>
 
-      <div className="w-full max-w-md bg-[#0a0d18]/85 backdrop-blur-2xl border border-white/10 rounded-3xl shadow-[0_24px_70px_rgba(0,0,0,0.85),0_0_30px_rgba(92,54,245,0.2)] p-8 sm:p-9 animate-mac-dropdown text-white relative z-10">
+      <div className="w-full max-w-md bg-[#0a0d18] border border-white/10 rounded-3xl shadow-[0_24px_70px_rgba(0,0,0,0.85),0_0_30px_rgba(92,54,245,0.2)] p-8 sm:p-9 animate-mac-dropdown text-white relative z-10">
         
         {/* Header/Logo */}
         <div className="flex flex-col items-center mb-8 text-center">

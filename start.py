@@ -118,8 +118,23 @@ def main():
             print(f"[LOI] Cai dat that bai: {e}")
             sys.exit(1)
 
-    # 3. Khởi động Next.js dev server
-    print(f"[INFO] Dang khoi dong Next.js server tren cong {PORT}...")
+    # 3. Kiểm tra xem đã có bản build production (.next) hay chưa
+    next_build_path = os.path.join(SCRIPT_DIR, ".next")
+    is_dev = os.environ.get("NEXT_DEV", "").strip().lower() in ("1", "true", "yes")
+
+    if not is_dev and not os.path.exists(next_build_path):
+        print("[INFO] Chua phat hien ban build toi uu (.next). Dang tao build production...")
+        try:
+            subprocess.run([npm_cmd, "run", "build"], cwd=SCRIPT_DIR, check=True)
+            print("[OK] Dong goi ung dung thanh cong.")
+        except Exception as e:
+            print(f"[CANH BAO] Build that bai, chuyen sang che do dev: {e}")
+            is_dev = True
+
+    # 4. Khởi động Next.js server (Chế độ Production Start tối ưu hiệu năng và RAM)
+    start_cmd = [npm_cmd, "run", "dev"] if is_dev else [npm_cmd, "run", "start"]
+    mode_name = "Development" if is_dev else "Production (Toi uu toc do & RAM)"
+    print(f"[INFO] Dang khoi dong Next.js server [{mode_name}] tren cong {PORT}...")
     stop_event = threading.Event()
 
     # Luồng ngầm theo dõi khi nào cổng mở để khởi động trình duyệt
@@ -132,9 +147,8 @@ def main():
 
     proc = None
     try:
-        # Chạy npm run dev
         proc = subprocess.Popen(
-            [npm_cmd, "run", "dev"],
+            start_cmd,
             cwd=SCRIPT_DIR,
         )
 

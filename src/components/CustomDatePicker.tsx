@@ -120,7 +120,7 @@ export default function CustomDatePicker({ value, onChange }: CustomDatePickerPr
 
       {isOpen && (
         <div 
-          className="absolute top-full mt-2 left-0 z-[200] w-64 bg-[#0d1018] border border-white/10 rounded-[14px] shadow-[0_20px_60px_rgba(0,0,0,0.8)] p-4 backdrop-blur-xl animate-mac-dropdown origin-top-left text-center"
+          className="absolute top-full mt-2 left-0 z-[200] w-64 bg-[#0d1018] border border-white/10 rounded-[14px] shadow-[0_20px_60px_rgba(0,0,0,0.8)] p-4 animate-mac-dropdown origin-top-left text-center"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}

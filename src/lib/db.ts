@@ -148,6 +148,16 @@ export function getDb(): Database.Database {
       setting_value TEXT,
       updated_at TEXT DEFAULT (datetime('now'))
     );
+
+    CREATE INDEX IF NOT EXISTS idx_sessions_date ON sessions(date);
+    CREATE INDEX IF NOT EXISTS idx_sessions_month_year ON sessions(month_year);
+    CREATE INDEX IF NOT EXISTS idx_sessions_teacher ON sessions(teacher_name);
+    CREATE INDEX IF NOT EXISTS idx_manual_tx_date ON manual_transactions(date);
+    CREATE INDEX IF NOT EXISTS idx_manual_tx_type ON manual_transactions(type);
+    CREATE INDEX IF NOT EXISTS idx_manual_tx_cat ON manual_transactions(category);
+    CREATE INDEX IF NOT EXISTS idx_bank_receipts_trans_date ON bank_receipts(trans_date);
+    CREATE INDEX IF NOT EXISTS idx_bank_receipts_status ON bank_receipts(status);
+    CREATE INDEX IF NOT EXISTS idx_category_budgets_user_cat ON category_budgets(user_id, category);
   `);
 
     // Ensure all optional columns exist in sessions

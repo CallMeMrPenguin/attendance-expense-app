@@ -4,13 +4,18 @@ import ConfirmModal from './ConfirmModal';
 import { DataTable } from './DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 import { supabase } from '@/lib/supabase';
-import * as LucideIcons from 'lucide-react';
-import { HelpCircle, Trash2, Plus, DollarSign, Edit2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, GripVertical, Filter, ArrowUpDown, RotateCcw, Edit3, X, Wallet, Calendar as CalendarIcon, TrendingUp, TrendingDown, Coins } from 'lucide-react';
+import {
+  HelpCircle, Trash2, Plus, DollarSign, Edit2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
+  GripVertical, Filter, ArrowUpDown, RotateCcw, Edit3, X, Wallet, Calendar as CalendarIcon,
+  TrendingUp, TrendingDown, Coins, Utensils, Car, ShoppingBag, Receipt, Film, Briefcase,
+  GraduationCap, Fuel, ShoppingBasket, Gamepad2, Zap, Coffee, HeartPulse, Home, Shirt, Plane,
+  PiggyBank, ArrowLeftRight, ShieldCheck, Flame, Store, Laptop, Music, Smartphone, Landmark,
+  BookOpen, Stethoscope, Gift, Sparkles, AlertCircle, Cpu, Wrench, CreditCard, Package,
+  Percent, Users, CalendarX, SlidersHorizontal
+} from 'lucide-react';
 import { formatVND, Session, formatDateVN, formatNumberDots, parseNumberDots, getNextMonthStr, getPrevMonthStr, isHungTrangVcbTransfer } from '@/lib/utils';
 import CustomDatePicker from './CustomDatePicker';
 import MaterialSymbol from './MaterialSymbol';
-
-
 
 const cleanString = (str: string): string => {
   return (str || '')
@@ -61,25 +66,74 @@ const isDefaultTransferDetails = (text: string): boolean => {
   return false;
 };
 
+// Curated high-performance icon map for tree-shakeable, instant SVG rendering
+const ICON_COMPONENT_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  utensils: Utensils,
+  food: Utensils,
+  coffee: Coffee,
+  car: Car,
+  fuel: Fuel,
+  xang: Fuel,
+  shoppingbag: ShoppingBag,
+  shirt: Shirt,
+  shoppingbasket: ShoppingBasket,
+  store: Store,
+  receipt: Receipt,
+  bill: Receipt,
+  zap: Zap,
+  film: Film,
+  gamepad2: Gamepad2,
+  coins: Coins,
+  briefcase: Briefcase,
+  salary: Briefcase,
+  graduationcap: GraduationCap,
+  education: GraduationCap,
+  trendingup: TrendingUp,
+  trendingdown: TrendingDown,
+  piggybank: PiggyBank,
+  savings: PiggyBank,
+  arrowleftright: ArrowLeftRight,
+  exchange: ArrowLeftRight,
+  heartpulse: HeartPulse,
+  health: HeartPulse,
+  home: Home,
+  plane: Plane,
+  travel: Plane,
+  shieldcheck: ShieldCheck,
+  flame: Flame,
+  laptop: Laptop,
+  music: Music,
+  smartphone: Smartphone,
+  landmark: Landmark,
+  bookopen: BookOpen,
+  stethoscope: Stethoscope,
+  gift: Gift,
+  sparkles: Sparkles,
+  dollarsign: DollarSign,
+  wallet: Wallet,
+  calendar: CalendarIcon,
+  helpcircle: HelpCircle,
+  cpu: Cpu,
+  wrench: Wrench,
+  creditcard: CreditCard,
+  package: Package,
+  percent: Percent,
+  users: Users,
+  calendarx: CalendarX,
+  slidershorizontal: SlidersHorizontal,
+  house: Home
+};
+
 const CategoryIcon = React.memo(({ iconName, className }: { iconName: string, className?: string }) => {
   if (!iconName) return <HelpCircle className={className} />;
   
-  // 1. Direct Lucide icon lookup (exact case)
-  const exactLucide = (LucideIcons as any)[iconName];
-  if (exactLucide) {
-    const Component = exactLucide;
+  const key = iconName.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const Component = ICON_COMPONENT_MAP[key];
+  if (Component) {
     return <Component className={className} />;
   }
 
-  // 2. Capitalized Lucide icon name lookup (e.g. "coffee" -> "Coffee", "pizza" -> "Pizza")
-  const capitalized = iconName.charAt(0).toUpperCase() + iconName.slice(1);
-  const capLucide = (LucideIcons as any)[capitalized];
-  if (capLucide) {
-    const Component = capLucide;
-    return <Component className={className} />;
-  }
-
-  // 3. Fallback to Material Symbol or Raw Text / Emoji
+  // Fallback to Material Symbol
   return <MaterialSymbol icon={iconName} className={className} size={16} />;
 });
 
@@ -190,13 +244,36 @@ const DEFAULT_CATEGORY_ICONS: Record<string, string> = {
   'Giáo dục': 'GraduationCap',
   'Đầu tư': 'TrendingUp',
   'Gia Sư': 'GraduationCap',
+  'Thu Nợ': 'Receipt',
   'Ăn uống': 'Utensils',
   'Di chuyển': 'Car',
+  'Xăng': 'Fuel',
+  'Đi Chợ': 'ShoppingBasket',
   'Shopping': 'ShoppingBag',
+  'Quần Áo': 'Shirt',
+  'Mỹ Phẩm': 'Sparkles',
+  'Làm Mặt': 'Sparkles',
   'Hóa đơn': 'Receipt',
+  'Hóa Đơn': 'Receipt',
+  'Photo': 'BookOpen',
   'Giải trí': 'Film',
-  'Xăng': 'Car',
-  'Đi Chợ': 'ShoppingBag',
+  'Giải Trí': 'Film',
+  'Công Nghệ': 'Cpu',
+  'Gia Đình': 'Home',
+  'Bảo Dưỡng Xe': 'Wrench',
+  'Trả Nợ': 'CreditCard',
+  'Nhu Yếu Phẩm': 'ShoppingBag',
+  'Đăng Ký Gói': 'Package',
+  'Sai Số': 'Percent',
+  'Chỉnh Sửa Sai Số': 'Percent',
+  'Trao đổi': 'ArrowLeftRight',
+  'Tiết kiệm': 'PiggyBank',
+  'Tiết kiệm khẩn cấp': 'ShieldCheck',
+  'Tích lũy dài hạn': 'PiggyBank',
+  'Sức khỏe': 'HeartPulse',
+  'Nhà cửa': 'Home',
+  'Cà phê': 'Coffee',
+  'Du lịch': 'Plane',
   'Khác': 'Coins'
 };
 
@@ -205,13 +282,21 @@ const DEFAULT_CATEGORY_NOTES: Record<string, string> = {
   'Giáo dục': 'Giảng dạy, chấm công',
   'Đầu tư': 'Cổ tức, lợi nhuận',
   'Gia Sư': 'Học phí gia sư',
-  'Ăn uống': 'Nhà hàng, siêu thị, thực phẩm',
-  'Di chuyển': 'Xe máy, taxi, xăng xe',
-  'Shopping': 'Quần áo, đồ dùng cá nhân',
-  'Hóa đơn': 'Điện, nước, internet',
-  'Giải trí': 'Xem phim, du lịch, giải trí',
-  'Xăng': 'Nhiên liệu đi lại',
-  'Đi Chợ': 'Thực phẩm, chợ tươi',
+  'Ăn uống': 'Nhà hàng, quán ăn, thực phẩm',
+  'Di chuyển': 'Xe máy, taxi, grab, be',
+  'Xăng': 'Nhiên liệu đi lại, cây xăng',
+  'Đi Chợ': 'Siêu thị, chợ tươi, thực phẩm',
+  'Shopping': 'Quần áo, đồ dùng cá nhân, shopee',
+  'Hóa đơn': 'Điện, nước, internet, cước mạng',
+  'Giải trí': 'Xem phim, game, du lịch',
+  'Trao đổi': 'Chuyển tiền lưu thông nội bộ',
+  'Tiết kiệm': 'Quỹ tích lũy và dự phòng',
+  'Tiết kiệm khẩn cấp': 'Quỹ dự phòng rủi ro khẩn cấp',
+  'Tích lũy dài hạn': 'Quỹ tích lũy đầu tư dài hạn',
+  'Sức khỏe': 'Thuốc men, khám chữa bệnh',
+  'Nhà cửa': 'Tiền thuê nhà, bảo trì, nội thất',
+  'Cà phê': 'Cà phê, trà sữa, thức uống',
+  'Du lịch': 'Vé máy bay, khách sạn, tour',
   'Khác': 'Các khoản chi phí khác'
 };
 
@@ -329,12 +414,14 @@ function FlowTab({
     { name: 'Khác', icon: 'Coins', note: 'Thu nhập khác', keywords: 'khac' }
   ]);
   const [expenseCats, setExpenseCats] = React.useState<{name: string, icon: string, note?: string, keywords?: string}[]>([
-    { name: 'Ăn uống', icon: 'Utensils', note: 'Đồ ăn, thức uống', keywords: 'an uong, do an, food, com' },
-    { name: 'Di chuyển', icon: 'Car', note: 'Xăng xe, đi lại', keywords: 'xang, grab, taxi, di lai' },
-    { name: 'Shopping', icon: 'ShoppingBag', note: 'Mua sắm', keywords: 'shopping, mua sam' },
-    { name: 'Hóa đơn', icon: 'Receipt', note: 'Điện, nước, internet', keywords: 'hoa don, dien nuoc, wifi' },
-    { name: 'Giải trí', icon: 'Film', note: 'Vui chơi, giải trí', keywords: 'giai tri, xem phim, du lich' },
-    { name: 'Khác', icon: 'MoreHorizontal', note: 'Chi phí khác', keywords: 'khac' }
+    { name: 'Ăn uống', icon: 'Utensils', note: 'Nhà hàng, quán ăn, thực phẩm', keywords: 'an uong, do an, food, com' },
+    { name: 'Di chuyển', icon: 'Car', note: 'Xe máy, taxi, grab, be', keywords: 'grab, taxi, di lai' },
+    { name: 'Xăng', icon: 'Fuel', note: 'Nhiên liệu đi lại, cây xăng', keywords: 'xang, cay xang, petrolimex' },
+    { name: 'Đi Chợ', icon: 'ShoppingBasket', note: 'Siêu thị, chợ tươi, thực phẩm', keywords: 'di cho, sieu thi, winmart, bach hoa xanh' },
+    { name: 'Shopping', icon: 'ShoppingBag', note: 'Mua sắm, đồ dùng, shopee', keywords: 'shopping, mua sam, shopee, lazada' },
+    { name: 'Hóa đơn', icon: 'Receipt', note: 'Điện, nước, internet, cước', keywords: 'hoa don, dien nuoc, wifi, internet' },
+    { name: 'Giải trí', icon: 'Film', note: 'Vui chơi, giải trí, xem phim', keywords: 'giai tri, xem phim, du lich, cinema' },
+    { name: 'Khác', icon: 'Coins', note: 'Chi phí khác', keywords: 'khac' }
   ]);
 
   React.useEffect(() => {
@@ -1644,7 +1731,7 @@ function FlowTab({
             </button>
 
             {monthPickerOpen && (
-              <div className="absolute top-full mt-2 right-0 z-50 bg-[#0d1018]/95 border border-white/10 rounded-2xl p-3 shadow-2xl backdrop-blur-xl w-64 animate-mac-dropdown">
+              <div className="absolute top-full mt-2 right-0 z-50 bg-[#0d1018] border border-white/10 rounded-2xl p-3 shadow-[0_20px_60px_rgba(0,0,0,0.9)] w-64 animate-mac-dropdown">
                 <div className="flex items-center justify-between border-b border-white/5 pb-2 mb-2">
                   <span className="text-xs font-black text-slate-300">Chọn Tháng So Sánh</span>
                   <div className="flex items-center gap-1">

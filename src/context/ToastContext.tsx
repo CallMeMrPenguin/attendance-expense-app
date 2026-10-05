@@ -39,12 +39,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`pointer-events-auto flex items-center justify-between p-3.5 rounded-2xl border backdrop-blur-xl shadow-[0_10px_30px_rgba(0,0,0,0.8)] animate-slide-in transition-all ${
+            className={`pointer-events-auto flex items-center justify-between p-3.5 rounded-2xl border shadow-[0_10px_30px_rgba(0,0,0,0.8)] animate-slide-in transition-all ${
               toast.type === 'error'
-                ? 'bg-[#150a0f]/95 border-rose-500/40 text-rose-300 shadow-[0_0_20px_rgba(244,63,94,0.25)]'
+                ? 'bg-[#150a0f] border-rose-500/40 text-rose-300 shadow-[0_0_20px_rgba(244,63,94,0.25)]'
                 : toast.type === 'info'
-                ? 'bg-[#0a0f1d]/95 border-indigo-500/40 text-indigo-300 shadow-[0_0_20px_rgba(99,102,241,0.25)]'
-                : 'bg-[#081813]/95 border-emerald-500/40 text-emerald-300 shadow-[0_0_20px_rgba(16,185,129,0.25)]'
+                ? 'bg-[#0a0f1d] border-indigo-500/40 text-indigo-300 shadow-[0_0_20px_rgba(99,102,241,0.25)]'
+                : 'bg-[#081813] border-emerald-500/40 text-emerald-300 shadow-[0_0_20px_rgba(16,185,129,0.25)]'
             }`}
           >
             <div className="flex items-center gap-3 text-xs font-bold leading-snug">
