@@ -34,6 +34,7 @@ interface AddSessionModalProps {
   onClearExclusion?: (jobName: string) => Promise<void>;
   sessionStudentConfigs?: Record<string, any>;
   onSaveSessionStudentConfigs?: (teacherName: string, configs: Record<string, any>) => void;
+  incomeCategories?: string[];
 }
 
 interface DayConfig {
@@ -67,7 +68,8 @@ export default function AddSessionModal({
   preSelectedDate,
   onClearExclusion,
   sessionStudentConfigs,
-  onSaveSessionStudentConfigs
+  onSaveSessionStudentConfigs,
+  incomeCategories: propIncomeCategories
 }: AddSessionModalProps) {
   const [assignedTeacherName, setAssignedTeacherName] = useState(activeTeacherName);
   const [studentName, setStudentName] = useState('');
@@ -76,23 +78,18 @@ export default function AddSessionModal({
   const [pricePerStudent, setPricePerStudent] = useState<string>('');
   const [price, setPrice] = useState('');
   const [status, setStatus] = useState('Chưa dạy');
-  const [incomeCategory, setIncomeCategory] = useState('Giáo dục');
 
-  // Load custom income categories from localStorage or default
+  // Load custom income categories from prop or default
   const incomeCategories = React.useMemo(() => {
-    const defaultCats = ['Giáo dục', 'Lương', 'Đầu tư', 'Khác'];
-    if (!currentUser?.id) return defaultCats;
-    const stored = localStorage.getItem(`finance_income_cats_${currentUser.id}`);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map((c: any) => c.name || String(c)).filter(Boolean);
-        }
-      } catch (e) { console.error(e); }
+    if (propIncomeCategories && propIncomeCategories.length > 0) {
+      return propIncomeCategories;
     }
-    return defaultCats;
-  }, [currentUser?.id]);
+    return ['Gia Sư', 'Lương', 'Thu Nợ', 'Khác'];
+  }, [propIncomeCategories]);
+
+  const [incomeCategory, setIncomeCategory] = useState(
+    propIncomeCategories && propIncomeCategories.length > 0 ? propIncomeCategories[0] : 'Gia Sư'
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [color, setColor] = useState('#7c3aed');

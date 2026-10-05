@@ -139,7 +139,7 @@ export const FlowTab: React.FC<FlowTabProps> = ({
         desc: `${s.student_name || s.job_name || 'Ca dạy'} - ${s.teacher_name || 'Admin'}`,
         amount: Number(s.price) || 0,
         type: 'income',
-        category: s.income_category || 'Gia Sư',
+        category: (s.income_category === 'Giáo dục' ? 'Gia Sư' : s.income_category) || 'Gia Sư',
         date: s.date,
         isManual: false,
         isRecurring: false
@@ -238,10 +238,16 @@ export const FlowTab: React.FC<FlowTabProps> = ({
   }, [incomeCats, categoryBudgets, chartSelectedMonths]);
 
   const getCategoryActual = (catName: string, isExpense: boolean) => {
-    if (getActualCategoryAmount) {
-      return getActualCategoryAmount(catName) || 0;
-    }
-    return 0;
+    const targetType = isExpense ? 'expense' : 'income';
+    return allCombinedTransactions
+      .filter(t => {
+        if (t.type !== targetType) return false;
+        if (!isTxInSelectedMonths(t, chartSelectedMonths)) return false;
+        if (t.category === catName) return true;
+        if (catName === 'Gia Sư' && (t.category === 'Giáo dục' || t.category === 'Gia Sư')) return true;
+        return false;
+      })
+      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
   };
 
   // Handlers

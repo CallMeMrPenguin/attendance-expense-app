@@ -84,8 +84,9 @@ export default function TransactionModal({
       let expCats: string[] = [];
 
       if (budgetKeys.length > 0) {
-        const defaultIncomeNames = ['Lương', 'Giáo dục', 'Đầu tư', 'Gia Sư'];
+        const defaultIncomeNames = ['Lương', 'Giáo dục', 'Đầu tư', 'Gia Sư', 'Thu Nợ', 'Sai Số'];
         budgetKeys.forEach(cat => {
+          if (cat.startsWith('__')) return;
           const type = categoryTypes[cat];
           const isInc = type ? type === 'income' : defaultIncomeNames.includes(cat);
           if (isInc) {

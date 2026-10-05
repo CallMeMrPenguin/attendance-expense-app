@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Sparkles } from 'lucide-react';
 import { formatNumberDots, parseNumberDots } from '@/lib/utils';
 import { CategoryIcon } from './flow-constants';
+import IconPickerPopover from './IconPickerPopover';
 
 interface EditCategoryModalProps {
   isOpen: boolean;
@@ -20,6 +21,7 @@ export const EditCategoryModal: React.FC<EditCategoryModalProps> = ({
   onDelete,
 }) => {
   const [editingCat, setEditingCat] = useState<any>(null);
+  const [showIconPicker, setShowIconPicker] = useState(false);
 
   useEffect(() => {
     if (category) {
@@ -84,20 +86,43 @@ export const EditCategoryModal: React.FC<EditCategoryModalProps> = ({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Tên Icon hoặc Emoji (Ví dụ: Coffee, Utensils, Coins, Flame, Shirt...)</label>
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Icon đại diện</label>
+              <button
+                type="button"
+                onClick={() => setShowIconPicker(true)}
+                className="text-[10px] font-black text-indigo-400 hover:text-indigo-300 flex items-center gap-1 cursor-pointer transition-colors"
+              >
+                <Sparkles className="h-3 w-3" />
+                <span>Mở bảng chọn icon</span>
+              </button>
+            </div>
             <div className="flex items-center gap-2">
               <input
                 type="text"
-                placeholder="Nhập tên icon Lucide, Material Symbol hoặc Emoji..."
+                placeholder="Nhập tên icon hoặc chọn từ bảng..."
                 value={editingCat.icon || ''}
                 onChange={(e) => setEditingCat((prev: any) => prev ? { ...prev, icon: e.target.value } : null)}
                 className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 placeholder-slate-600"
               />
-              <div className="h-10 w-10 rounded-xl bg-[#090b10] border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0 shadow-sm">
-                <CategoryIcon iconName={editingCat.icon} className="h-5 w-5" />
-              </div>
+              <button
+                type="button"
+                onClick={() => setShowIconPicker(true)}
+                className="h-10 w-10 rounded-xl bg-[#090b10] border border-indigo-500/40 hover:border-indigo-400 flex items-center justify-center text-indigo-400 hover:text-indigo-300 shrink-0 shadow-sm transition-all cursor-pointer group"
+                title="Bấm để chọn icon"
+              >
+                <CategoryIcon iconName={editingCat.icon} className="h-5 w-5 transition-transform group-hover:scale-110" />
+              </button>
             </div>
           </div>
+
+          {showIconPicker && (
+            <IconPickerPopover
+              selectedIcon={editingCat.icon || ''}
+              onSelect={(icon) => setEditingCat((prev: any) => prev ? { ...prev, icon } : null)}
+              onClose={() => setShowIconPicker(false)}
+            />
+          )}
 
           <div className="flex gap-2.5 pt-2">
             <button

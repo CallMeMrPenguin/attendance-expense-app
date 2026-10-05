@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Menu, Users, Key, LogOut, X, ChevronDown, Wallet } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -1680,103 +1680,163 @@ export default function Dashboard() {
     fetchSessions();
   };
 
-  // Finance calculations
+  // Unified Finance Transactions: manual transactions + classified bank receipts + completed teaching sessions
+  const allFinanceTransactions = useMemo(() => {
+    // 1. Completed teaching sessions
+    const activeSessions = (currentUser?.role === 'admin' ? allSessions : sessions) || [];
+    const sessionTxs = activeSessions
+      .filter(s => s.status === 'Đã học' || s.status === 'Đã dạy' || s.status === 'Đã làm')
+      .map(s => {
+        let cat = s.income_category || s.category || 'Gia Sư';
+        if (cat === 'Giáo dục') cat = 'Gia Sư';
+        return {
+          id: `session-${s.id}`,
+          desc: `${s.student_name || s.job_name || 'Ca dạy'} - ${s.teacher_name || 'Admin'}`,
+          amount: Number(s.price) || 0,
+          type: 'income' as const,
+          category: cat,
+          date: s.date,
+          isManual: false,
+          isRecurring: false
+        };
+      });
+
+    // 2. Classified bank receipts
+    const receiptTransactions = (bankReceipts || [])
+      .filter(r => r.status === 'classified' && r.category)
+      .map(r => ({
+        id: `tx-receipt-${r.id}`,
+        desc: r.details || `Biên lai ${r.order_number || ''}`,
+        amount: Number(r.amount) || 0,
+        type: (r.type || 'expense') as 'income' | 'expense' | 'exchange',
+        category: r.category,
+        date: r.trans_date ? r.trans_date.substring(0, 10) : (r.created_at ? r.created_at.substring(0, 10) : ''),
+        isManual: true,
+        isRecurring: false,
+        isFromReceipt: true,
+        orderNumber: r.order_number
+      }));
+
+    // Deduplicate any manual transactions that mirror bank receipts
+    const cleanReceiptIds = new Set(
+      receiptTransactions.map(t => String(t.id).replace('tx-receipt-', '').replace('vcb-', ''))
+    );
+
+    const filteredManual = (manualTransactions || []).filter(t => {
+      const cId = String(t.id).replace('tx-receipt-', '').replace('vcb-', '');
+      return !cleanReceiptIds.has(cId);
+    });
+
+    return [...filteredManual, ...receiptTransactions, ...sessionTxs].sort(
+      (a, b) => (b.date || '').localeCompare(a.date || '')
+    );
+  }, [currentUser, allSessions, sessions, bankReceipts, manualTransactions]);
+
+  const availableIncomeCats = useMemo(() => {
+    const list = Object.keys(categoryBudgets).filter(c => !c.startsWith('__') && categoryTypes[c] === 'income');
+    return list.length > 0 ? list : ['Gia Sư', 'Lương', 'Thu Nợ', 'Khác'];
+  }, [categoryBudgets, categoryTypes]);
+
   // Preceding Roll-Over Surplus calculation (leftover money from previous months)
   const getPrecedingRollOverBalance = useCallback((targetMonthStr: string) => {
     if (!targetMonthStr) return 0;
 
-    const prevManualInc = manualTransactions
+    const prevInc = allFinanceTransactions
       .filter(t => t.type === 'income' && t.date && t.date.substring(0, 7) < targetMonthStr)
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
 
-    const prevManualExp = manualTransactions
+    const prevExp = allFinanceTransactions
       .filter(t => t.type === 'expense' && t.date && t.date.substring(0, 7) < targetMonthStr)
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
 
-    const prevNetSurplus = prevManualInc - prevManualExp;
+    const prevNetSurplus = prevInc - prevExp;
     return Math.max(0, prevNetSurplus);
-  }, [manualTransactions]);
+  }, [allFinanceTransactions]);
 
   const getTotalIncome = useCallback(() => {
-    return manualTransactions
+    return allFinanceTransactions
       .filter(t => t.type === 'income')
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-  }, [manualTransactions]);
+  }, [allFinanceTransactions]);
 
   const getTotalExpense = useCallback(() => {
-    return manualTransactions
+    return allFinanceTransactions
       .filter(t => t.type === 'expense')
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-  }, [manualTransactions]);
+  }, [allFinanceTransactions]);
 
   const getMonthlyIncome = useCallback((monthStr: string) => {
-    const manualInc = manualTransactions
-      .filter(t => t.type === 'income' && t.date.startsWith(monthStr))
+    const inc = allFinanceTransactions
+      .filter(t => t.type === 'income' && t.date && t.date.startsWith(monthStr))
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
 
     const rollOver = getPrecedingRollOverBalance(monthStr);
-    return manualInc + rollOver;
-  }, [manualTransactions, getPrecedingRollOverBalance]);
+    return inc + rollOver;
+  }, [allFinanceTransactions, getPrecedingRollOverBalance]);
 
   const getMonthlyExpense = useCallback((monthStr: string) => {
-    return manualTransactions
-      .filter(t => t.type === 'expense' && t.date.startsWith(monthStr))
+    return allFinanceTransactions
+      .filter(t => t.type === 'expense' && t.date && t.date.startsWith(monthStr))
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-  }, [manualTransactions]);
+  }, [allFinanceTransactions]);
 
   // Filtered values by selected months (including previous month roll-over balance)
   const getSelectedMonthsIncome = useCallback(() => {
-    const manualInc = manualTransactions
-      .filter(t => t.type === 'income' && chartSelectedMonths.includes(t.date.substring(0, 7)))
+    const inc = allFinanceTransactions
+      .filter(t => t.type === 'income' && chartSelectedMonths.includes((t.date || '').substring(0, 7)))
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
 
     const sortedMonths = [...chartSelectedMonths].sort();
     const earliestMonth = sortedMonths[0];
     const rollOver = earliestMonth ? getPrecedingRollOverBalance(earliestMonth) : 0;
       
-    return manualInc + rollOver;
-  }, [manualTransactions, chartSelectedMonths, getPrecedingRollOverBalance]);
+    return inc + rollOver;
+  }, [allFinanceTransactions, chartSelectedMonths, getPrecedingRollOverBalance]);
 
   const getSelectedMonthsExpense = useCallback(() => {
-    return manualTransactions
-      .filter(t => t.type === 'expense' && chartSelectedMonths.includes(t.date.substring(0, 7)))
+    return allFinanceTransactions
+      .filter(t => t.type === 'expense' && chartSelectedMonths.includes((t.date || '').substring(0, 7)))
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-  }, [manualTransactions, chartSelectedMonths]);
+  }, [allFinanceTransactions, chartSelectedMonths]);
 
   // Weekly calculations for single-month line view
   const getWeeklyIncome = useCallback((monthStr: string, startDay: number, endDay: number) => {
-    return manualTransactions
+    return allFinanceTransactions
       .filter(t => {
-        if (t.type !== 'income' || !t.date.startsWith(monthStr)) return false;
+        if (t.type !== 'income' || !t.date || !t.date.startsWith(monthStr)) return false;
         const d = Number(t.date.split('-')[2]) || 1;
         return d >= startDay && d <= endDay;
       })
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-  }, [manualTransactions]);
+  }, [allFinanceTransactions]);
 
   const getWeeklyExpense = useCallback((monthStr: string, startDay: number, endDay: number) => {
-    return manualTransactions
+    return allFinanceTransactions
       .filter(t => {
-        if (t.type !== 'expense' || !t.date.startsWith(monthStr)) return false;
+        if (t.type !== 'expense' || !t.date || !t.date.startsWith(monthStr)) return false;
         const d = Number(t.date.split('-')[2]) || 1;
         return d >= startDay && d <= endDay;
       })
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-  }, [manualTransactions]);
+  }, [allFinanceTransactions]);
 
   // Actual total per category for selected months
-  const getActualCategoryAmount = useCallback((cat: string) => {
-    const isExp = ['Ăn uống', 'Di chuyển', 'Shopping', 'Hóa đơn', 'Giải trí', 'Khác'].includes(cat);
-    if (isExp) {
-      return manualTransactions
-        .filter(t => t.type === 'expense' && t.category === cat && chartSelectedMonths.includes(t.date.substring(0, 7)))
-        .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-    } else {
-      return manualTransactions
-        .filter(t => t.type === 'income' && t.category === cat && chartSelectedMonths.includes(t.date.substring(0, 7)))
-        .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-    }
-  }, [manualTransactions, chartSelectedMonths]);
+  const getActualCategoryAmount = useCallback((cat: string, targetType?: 'income' | 'expense') => {
+    const isInc = targetType 
+      ? targetType === 'income' 
+      : (categoryTypes[cat] ? categoryTypes[cat] === 'income' : ['Lương', 'Gia Sư', 'Giáo dục', 'Thu Nợ'].includes(cat));
+    const expectedType = isInc ? 'income' : 'expense';
+
+    return allFinanceTransactions
+      .filter(t => {
+        if (t.type !== expectedType) return false;
+        if (!chartSelectedMonths.includes((t.date || '').substring(0, 7))) return false;
+        if (t.category === cat) return true;
+        if (cat === 'Gia Sư' && (t.category === 'Giáo dục' || t.category === 'Gia Sư')) return true;
+        return false;
+      })
+      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+  }, [allFinanceTransactions, categoryTypes, chartSelectedMonths]);
 
   // Toggle multi-select months
   const toggleChartMonth = useCallback((mStr: string) => {
@@ -2162,6 +2222,7 @@ export default function Dashboard() {
           onClearExclusion={(jobName) => handleClearScheduleExclusion(jobName, selectedMonth)}
           sessionStudentConfigs={sessionStudentConfigs}
           onSaveSessionStudentConfigs={saveSessionStudentConfigs}
+          incomeCategories={availableIncomeCats}
         />
       )}
 
@@ -2182,6 +2243,7 @@ export default function Dashboard() {
           onDeleteSingleSession={handleDeleteSingleSession}
           sessionStudentConfigs={sessionStudentConfigs}
           onSaveSessionStudentConfigs={saveSessionStudentConfigs}
+          incomeCategories={availableIncomeCats}
         />
       )}
 

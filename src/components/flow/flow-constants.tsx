@@ -4,7 +4,8 @@ import {
   GraduationCap, Fuel, ShoppingBasket, Gamepad2, Zap, Coffee, HeartPulse, Home, Shirt, Plane,
   PiggyBank, ArrowLeftRight, ShieldCheck, Flame, Store, Laptop, Music, Smartphone, Landmark,
   BookOpen, Stethoscope, Gift, Sparkles, DollarSign, Wallet, Calendar as CalendarIcon,
-  Cpu, Wrench, CreditCard, Package, Percent, Users, CalendarX, SlidersHorizontal
+  Cpu, Wrench, CreditCard, Package, Percent, Users, CalendarX, SlidersHorizontal,
+  Flower2, Printer, Wifi
 } from 'lucide-react';
 import { Session } from '@/lib/utils';
 import MaterialSymbol from '@/components/MaterialSymbol';
@@ -146,7 +147,13 @@ export const ICON_COMPONENT_MAP: Record<string, React.ComponentType<{ className?
   users: Users,
   calendarx: CalendarX,
   slidershorizontal: SlidersHorizontal,
-  house: Home
+  house: Home,
+  flower2: Flower2,
+  spa: Flower2,
+  lammat: Flower2,
+  printer: Printer,
+  photo: Printer,
+  wifi: Wifi
 };
 
 export const CategoryIcon = React.memo(({ iconName, className }: { iconName: string, className?: string }) => {
@@ -243,18 +250,18 @@ export const DEFAULT_CATEGORY_ICONS: Record<string, string> = {
   'Shopping': 'ShoppingBag',
   'Quần Áo': 'Shirt',
   'Mỹ Phẩm': 'Sparkles',
-  'Làm Mặt': 'Sparkles',
+  'Làm Mặt': 'Flower2',
   'Hóa đơn': 'Receipt',
   'Hóa Đơn': 'Receipt',
-  'Photo': 'BookOpen',
+  'Photo': 'Printer',
   'Giải trí': 'Film',
   'Giải Trí': 'Film',
   'Công Nghệ': 'Cpu',
   'Gia Đình': 'Home',
   'Bảo Dưỡng Xe': 'Wrench',
   'Trả Nợ': 'CreditCard',
-  'Nhu Yếu Phẩm': 'ShoppingBag',
-  'Đăng Ký Gói': 'Package',
+  'Nhu Yếu Phẩm': 'Store',
+  'Đăng Ký Gói': 'Smartphone',
   'Sai Số': 'Percent',
   'Chỉnh Sửa Sai Số': 'Percent',
   'Trao đổi': 'ArrowLeftRight',

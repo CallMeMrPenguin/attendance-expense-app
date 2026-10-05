@@ -34,6 +34,9 @@ import {
   sanitizeSessionPayload,
   cleanString
 } from '@/lib/utils';
+import SessionOverlapDeleteModals from './session-modal/SessionOverlapDeleteModals';
+import SessionRecurringConfigsSection from './session-modal/SessionRecurringConfigsSection';
+import SessionStudentRosterSection from './session-modal/SessionStudentRosterSection';
 
 interface EditSessionModalProps {
   isOpen: boolean;
@@ -52,6 +55,7 @@ interface EditSessionModalProps {
   onDeleteSingleSession?: (sessionId: string) => Promise<void>;
   sessionStudentConfigs?: Record<string, any>;
   onSaveSessionStudentConfigs?: (teacherName: string, configs: Record<string, any>) => void;
+  incomeCategories?: string[];
 }
 
 interface SiblingCheck {
@@ -105,7 +109,8 @@ export default function EditSessionModal({
   onDeleteSchedule,
   onDeleteSingleSession,
   sessionStudentConfigs,
-  onSaveSessionStudentConfigs
+  onSaveSessionStudentConfigs,
+  incomeCategories: propIncomeCategories
 }: EditSessionModalProps) {
   const [assignedTeacherName, setAssignedTeacherName] = useState(session?.teacher_name || '');
   const [studentName, setStudentName] = useState('');
@@ -117,23 +122,18 @@ export default function EditSessionModal({
   const [pricePerStudent, setPricePerStudent] = useState<string>('');
   const [price, setPrice] = useState('');
   const [status, setStatus] = useState('Chưa dạy');
-  const [incomeCategory, setIncomeCategory] = useState(session?.income_category || session?.category || 'Giáo dục');
+  
+  const rawInitCat = session?.income_category || session?.category || 'Gia Sư';
+  const initCat = rawInitCat === 'Giáo dục' ? 'Gia Sư' : rawInitCat;
+  const [incomeCategory, setIncomeCategory] = useState(initCat);
 
-  // Load custom income categories from localStorage or default
+  // Load custom income categories from prop or default
   const incomeCategories = React.useMemo(() => {
-    const defaultCats = ['Giáo dục', 'Lương', 'Đầu tư', 'Khác'];
-    if (!currentUser?.id) return defaultCats;
-    const stored = localStorage.getItem(`finance_income_cats_${currentUser.id}`);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map((c: any) => c.name || String(c)).filter(Boolean);
-        }
-      } catch (e) { console.error(e); }
+    if (propIncomeCategories && propIncomeCategories.length > 0) {
+      return propIncomeCategories;
     }
-    return defaultCats;
-  }, [currentUser?.id]);
+    return ['Gia Sư', 'Lương', 'Thu Nợ', 'Khác'];
+  }, [propIncomeCategories]);
   const [color, setColor] = useState('#7c3aed');
   const [isColorCustomized, setIsColorCustomized] = useState(false);
   const colorInputRef = React.useRef<HTMLInputElement>(null);
@@ -227,7 +227,8 @@ export default function EditSessionModal({
     setTime(formatCleanTimeString(session.time));
     setDuration(session.duration || 2);
     setLoaiHinh((session.loai_hinh || session.loai_hinh_lich) === 'tam_thoi' ? 'tam_thoi' : 'co_dinh');
-    setIncomeCategory(session.income_category || session.category || 'Giáo dục');
+    const rawCat = session.income_category || session.category || 'Gia Sư';
+    setIncomeCategory(rawCat === 'Giáo dục' ? 'Gia Sư' : rawCat);
     setAutoCheckin(session.auto_checkin ?? session.auto_check_in ?? true);
     
     const studentColor = session.color || getStudentColor(session.student_name);
@@ -824,147 +825,22 @@ export default function EditSessionModal({
       className="fixed inset-0 bg-[#070911]/90 z-[100] flex items-center justify-center p-4 overflow-hidden pointer-events-auto select-none animate-mac-backdrop"
       onClick={(e) => e.stopPropagation()}
     >
-      {/* Overlap Warning Custom Modal */}
-      {showOverlapModal && (
-        <div className="fixed inset-0 bg-black/80 z-[120] flex items-center justify-center p-4 animate-mac-backdrop">
-          <div className="bg-[#121624] border border-amber-500/40 rounded-2xl p-6 max-w-lg w-full shadow-2xl flex flex-col gap-4 text-left animate-mac-modal">
-            <div className="flex items-center gap-2 text-amber-400 font-black text-base">
-              <AlertTriangle className="h-5 w-5 shrink-0" />
-              <span>Phát Hiện Trùng / Gần Lịch Dạy</span>
-            </div>
-            <pre className="text-xs text-slate-300 bg-slate-900/80 p-3.5 rounded-xl whitespace-pre-wrap font-sans leading-relaxed max-h-[220px] overflow-y-auto border border-white/5">
-              {warningMsg}
-            </pre>
-            <div className="flex justify-end gap-3 pt-2">
-              <button
-                onClick={() => setShowOverlapModal(false)}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl cursor-pointer"
-              >
-                Hủy Bỏ
-              </button>
-              <button
-                onClick={() => executeUpsertSessions(pendingSiblingSessions, pendingOldSiblingIds)}
-                className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black rounded-xl shadow-[0_0_15px_rgba(245,158,11,0.4)] cursor-pointer"
-              >
-                Vẫn Lưu Ca Dạy
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Sessions Custom Modal with Scope Selection */}
-      {showDeleteConfirmModal && session && (
-        <div className="fixed inset-0 bg-black/85 z-[120] flex items-center justify-center p-4 animate-mac-backdrop">
-          <div className="bg-[#121624] border border-rose-500/40 rounded-2xl p-6 max-w-lg w-full shadow-2xl flex flex-col gap-4 text-left animate-mac-modal">
-            <div className="flex items-center gap-2 text-rose-400 font-black text-base">
-              <Trash2 className="h-5 w-5 shrink-0" />
-              <span>Xác Nhận Xóa Lịch / Ca Dạy</span>
-            </div>
-
-            <p className="text-xs text-slate-300 font-medium leading-relaxed">
-              Bạn đang thao tác với ca dạy của <strong className="text-white">"{session.job_name || session.student_name}"</strong>. Vui lòng chọn phạm vi xóa:
-            </p>
-
-            {/* Scope Selection Options */}
-            <div className="space-y-2.5">
-              <label
-                onClick={() => setDeleteScope('single')}
-                className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
-                  deleteScope === 'single'
-                    ? 'bg-rose-500/15 border-rose-500/40 text-white'
-                    : 'bg-[#0d1018] border-white/5 text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="editDeleteScope"
-                  checked={deleteScope === 'single'}
-                  onChange={() => setDeleteScope('single')}
-                  className="mt-0.5 accent-rose-500 cursor-pointer"
-                />
-                <div className="text-xs">
-                  <span className="font-black block text-white">
-                    Chỉ xóa ca này (ngày {formatDateVN(session.date)})
-                  </span>
-                  <span className="text-[11px] text-slate-400 mt-0.5 block leading-normal">
-                    Chỉ xóa buổi học vào ngày {formatDateVN(session.date)}, các buổi học khác trong tháng vẫn giữ nguyên.
-                  </span>
-                </div>
-              </label>
-
-              <label
-                onClick={() => setDeleteScope('month')}
-                className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
-                  deleteScope === 'month'
-                    ? 'bg-rose-500/15 border-rose-500/40 text-white'
-                    : 'bg-[#0d1018] border-white/5 text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="editDeleteScope"
-                  checked={deleteScope === 'month'}
-                  onChange={() => setDeleteScope('month')}
-                  className="mt-0.5 accent-rose-500 cursor-pointer"
-                />
-                <div className="text-xs">
-                  <span className="font-black block text-white">
-                    Xóa tất cả ca trong tháng {session.month_year} ({siblings.filter((s) => s.id).length || 1} ca)
-                  </span>
-                  <span className="text-[11px] text-slate-400 mt-0.5 block leading-normal">
-                    Hủy toàn bộ lịch này trong tháng {session.month_year} và không tự động khôi phục lại.
-                  </span>
-                </div>
-              </label>
-
-              <label
-                onClick={() => setDeleteScope('all')}
-                className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
-                  deleteScope === 'all'
-                    ? 'bg-rose-500/15 border-rose-500/40 text-white'
-                    : 'bg-[#0d1018] border-white/5 text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="editDeleteScope"
-                  checked={deleteScope === 'all'}
-                  onChange={() => setDeleteScope('all')}
-                  className="mt-0.5 accent-rose-500 cursor-pointer"
-                />
-                <div className="text-xs">
-                  <span className="font-black block text-white">
-                    Xóa vĩnh viễn lịch làm này (tất cả các tháng)
-                  </span>
-                  <span className="text-[11px] text-slate-400 mt-0.5 block leading-normal">
-                    Xóa hoàn toàn lịch này trên toàn bộ hệ thống từ trước đến nay và không bao giờ tự động tạo lại.
-                  </span>
-                </div>
-              </label>
-            </div>
-
-            <div className="flex justify-end gap-3 pt-2 border-t border-white/10">
-              <button
-                type="button"
-                disabled={loading}
-                onClick={() => setShowDeleteConfirmModal(false)}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl cursor-pointer disabled:opacity-50"
-              >
-                Hủy Bỏ
-              </button>
-              <button
-                type="button"
-                disabled={loading}
-                onClick={executeDeleteSessions}
-                className="flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-black rounded-xl shadow-[0_0_15px_rgba(244,63,94,0.4)] cursor-pointer disabled:opacity-50"
-              >
-                {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                <span>{loading ? 'Đang xóa...' : 'Đồng Ý Xóa'}</span>
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* Overlap & Delete Confirmation Modals */}
+      {session && (
+        <SessionOverlapDeleteModals
+          session={session}
+          showOverlapModal={showOverlapModal}
+          warningMsg={warningMsg}
+          onCancelOverlap={() => setShowOverlapModal(false)}
+          onConfirmOverlap={() => executeUpsertSessions(pendingSiblingSessions, pendingOldSiblingIds)}
+          showDeleteConfirmModal={showDeleteConfirmModal}
+          deleteScope={deleteScope}
+          setDeleteScope={setDeleteScope}
+          onCancelDelete={() => setShowDeleteConfirmModal(false)}
+          onConfirmDelete={executeDeleteSessions}
+          siblings={siblings}
+          loading={loading}
+        />
       )}
       <div 
         className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col max-h-[90vh] pointer-events-auto animate-mac-modal"
@@ -1232,134 +1108,21 @@ export default function EditSessionModal({
             </div>
           </div>
 
-          {/* Block 2: Collapsible Sibling Sessions List */}
-          <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
-            <button
-              type="button"
-              onClick={() => setSiblingsCollapsed(!siblingsCollapsed)}
-              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-850 flex justify-between items-center transition-colors select-none font-bold text-xs tracking-wider uppercase text-slate-700 dark:text-slate-300"
-            >
-              <span className="flex items-center gap-1.5">
-                <FileText className="h-4 w-4 text-indigo-500" />
-                Buổi học trong tháng ({siblings.length})
-              </span>
-              {siblingsCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-            </button>
-
-            {!siblingsCollapsed && (
-              <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-850 space-y-2">
-                <div className="max-h-[150px] overflow-y-auto space-y-1.5 pr-1">
-                  {siblings.map((sib) => {
-                    const isCurrent = sib.id === session.id;
-                    return (
-                      <div
-                        key={sib.id || sib.date}
-                        className={`flex items-center justify-between gap-2.5 p-2 rounded-xl border ${
-                          isCurrent
-                            ? 'bg-indigo-50/40 dark:bg-indigo-950/25 border-indigo-150 dark:border-indigo-900/40'
-                            : 'bg-slate-50/40 dark:bg-slate-950/20 border-slate-200/50 dark:border-slate-850 hover:bg-slate-50 dark:hover:bg-slate-800'
-                        }`}
-                      >
-                        <label className="flex items-center gap-2.5 cursor-pointer flex-grow overflow-hidden">
-                          <input
-                            type="checkbox"
-                            checked={sib.checked}
-                            onChange={(e) => handleSiblingCheck(sib.id || sib.date, e.target.checked)}
-                            className="h-4 w-4 rounded border-slate-350 dark:border-slate-700 text-indigo-650 focus:ring-indigo-500 cursor-pointer"
-                          />
-                          <span className={`text-xs font-semibold truncate ${isCurrent ? 'text-indigo-950 dark:text-indigo-300 font-bold' : 'text-slate-700 dark:text-slate-300'}`}>
-                            {formatDateVN(sib.date)} ({formatCleanTimeString(sib.time)} - {getEndTime(sib.time, sib.duration)})
-                            {isCurrent ? ' (Đang mở)' : ''}
-                          </span>
-                        </label>
-                        {!isCurrent && onSwitchSession && sib.id && (
-                          <button
-                            type="button"
-                            onClick={() => onSwitchSession(sib.id!)}
-                            className="text-[10px] font-black text-indigo-500 hover:text-indigo-600 bg-indigo-500/10 hover:bg-indigo-500/20 px-2 py-1 rounded-lg transition-colors cursor-pointer select-none whitespace-nowrap"
-                          >
-                            Chi tiết
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Block 3: Collapsible Recurring Week Schedule */}
-          <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
-            <button
-              type="button"
-              onClick={() => setRecurringCollapsed(!recurringCollapsed)}
-              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-850 flex justify-between items-center transition-colors select-none font-bold text-xs tracking-wider uppercase text-slate-700 dark:text-slate-300"
-            >
-              <span className="flex items-center gap-1.5">
-                <CalendarDays className="h-4 w-4 text-indigo-500" />
-                Lịch học định kỳ
-              </span>
-              {recurringCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-            </button>
-
-            {!recurringCollapsed && (
-              <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-850 space-y-3">
-                <p className="text-slate-450 dark:text-slate-500 text-[10px] leading-tight">
-                  Điều chỉnh lịch học định kỳ trong tuần để tự động tái tạo (thêm/xóa) các buổi dạy trong tháng:
-                </p>
-                <div className="space-y-2">
-                  {DAYS.map((day) => {
-                    const config = recurringConfigs[day];
-                    if (!config) return null;
-                    return (
-                      <div
-                        key={day}
-                        className={`flex flex-wrap items-center gap-3 p-2.5 rounded-xl border transition-all ${
-                          config.checked
-                            ? 'bg-indigo-50/40 dark:bg-indigo-950/20 border-indigo-200 dark:border-indigo-900/40'
-                            : 'bg-slate-50/40 dark:bg-slate-950/30 border-slate-200/50 dark:border-slate-850'
-                        }`}
-                      >
-                        <label className="flex items-center gap-2 cursor-pointer font-bold text-xs min-w-[80px]">
-                          <input
-                            type="checkbox"
-                            checked={config.checked}
-                            onChange={(e) => handleRecurringCheck(day, e.target.checked)}
-                            className="h-3.5 w-3.5 rounded border-slate-350 dark:border-slate-700 text-indigo-650 focus:ring-indigo-500"
-                          />
-                          <span className={config.checked ? 'text-indigo-900 dark:text-indigo-300' : 'text-slate-550 dark:text-slate-455'}>
-                            {day}
-                          </span>
-                        </label>
-
-                        <div className="flex items-center gap-2 flex-grow justify-end md:justify-start">
-                          <input
-                            type="time"
-                            value={config.time}
-                            disabled={!config.checked}
-                            onChange={(e) => handleRecurringTimeChange(day, e.target.value)}
-                            className="px-2 py-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold disabled:opacity-50 w-[100px] text-slate-800 dark:text-slate-200"
-                          />
-
-                          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">Số giờ:</span>
-                          <input
-                            type="number"
-                            step="0.5"
-                            min="0.5"
-                            value={config.duration}
-                            disabled={!config.checked}
-                            onChange={(e) => handleRecurringDurationChange(day, parseFloat(e.target.value) || 2)}
-                            className="px-2 py-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold disabled:opacity-50 w-[60px] text-center text-slate-800 dark:text-slate-200"
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
+          {/* Block 2 & 3: Sibling Sessions List & Recurring Week Schedule */}
+          <SessionRecurringConfigsSection
+            currentSessionId={session.id}
+            siblings={siblings}
+            siblingsCollapsed={siblingsCollapsed}
+            setSiblingsCollapsed={setSiblingsCollapsed}
+            onSiblingCheck={handleSiblingCheck}
+            onSwitchSession={onSwitchSession}
+            recurringCollapsed={recurringCollapsed}
+            setRecurringCollapsed={setRecurringCollapsed}
+            recurringConfigs={recurringConfigs}
+            onRecurringCheck={handleRecurringCheck}
+            onRecurringTimeChange={handleRecurringTimeChange}
+            onRecurringDurationChange={handleRecurringDurationChange}
+          />
 
           {/* Block 1: Basic Information */}
           <div className="space-y-4 pt-2 border-t border-slate-100 dark:border-slate-800">
@@ -1442,194 +1205,23 @@ export default function EditSessionModal({
             </div>
 
             {/* Multi-student & Fee Configuration Section */}
-            <div className="p-4 rounded-xl bg-slate-100/70 dark:bg-[#0c0f1e] border border-slate-200 dark:border-[#212c4b] space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/5 pb-2.5">
-                <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-indigo-400" />
-                  <div>
-                    <span className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider block">
-                      Sĩ số học sinh & Học phí
-                    </span>
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                      Cấu hình danh sách học sinh và điểm danh từng em cho ca này
-                    </span>
-                  </div>
-                </div>
-                {studentCount < originalStudentCount && (
-                  <span className="text-[10px] font-black px-2 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-full animate-pulse">
-                    Đang giảm {originalStudentCount - studentCount} HS
-                  </span>
-                )}
-              </div>
-
-              {/* Class base configs: Sĩ số gốc & Giá mỗi học sinh */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    Sĩ số lớp (Mặc định)
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={originalStudentCount}
-                    onChange={(e) => handleOriginalCountChange(parseInt(e.target.value) || 1)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-[#0d1018] border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    Học phí / 1 học sinh (đ)
-                  </label>
-                  <input
-                    type="text"
-                    value={pricePerStudent ? formatNumberDots(pricePerStudent) : ''}
-                    onChange={(e) => handlePricePerStudentChange(e.target.value)}
-                    placeholder="VD: 100.000"
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-[#0d1018] border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-              </div>
-
-              {/* Editable Student Names in Class (Roster) */}
-              {originalStudentCount > 1 && (
-                <div className="p-3 bg-indigo-500/10 rounded-xl border border-indigo-500/20 space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-black text-indigo-300 uppercase tracking-wider">
-                      Tên các học sinh trong lớp ({originalStudentCount} HS)
-                    </span>
-                    <span className="text-[9.5px] font-bold text-slate-400">
-                      Tự động đồng bộ sang bảng tính học phí
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {Array.from({ length: originalStudentCount }).map((_, idx) => (
-                      <div key={idx} className="flex items-center gap-1.5">
-                        <span className="text-[10px] font-black text-slate-400 w-5 text-center">#{idx + 1}</span>
-                        <input
-                          type="text"
-                          value={studentNames[idx] || ''}
-                          onChange={(e) => handleStudentNameIndexChange(idx, e.target.value)}
-                          placeholder={`Học sinh ${idx + 1}`}
-                          className="flex-1 px-2.5 py-1.5 bg-[#0c0f1e] border border-[#212c4b] rounded-lg text-xs text-white focus:outline-none focus:border-indigo-500 font-semibold"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Specific session student adjuster (Điểm danh ca học hôm nay) */}
-              <div className="p-3 bg-slate-50 dark:bg-[#121626] rounded-xl border border-slate-200 dark:border-white/5 space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <span className="text-[11px] font-extrabold text-slate-800 dark:text-slate-200">
-                    Điểm danh ca này ({formatDateVN(session.date)}):
-                  </span>
-                  
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={handleQuickReduceStudent}
-                      disabled={studentCount <= 0}
-                      className="px-2 py-1 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-400 hover:text-amber-300 rounded-lg text-[10px] font-black cursor-pointer disabled:opacity-40 transition-colors"
-                      title="Giảm 1 học sinh vắng mặt"
-                    >
-                      -1 HS (Vắng)
-                    </button>
-                    {studentCount !== originalStudentCount && (
-                      <button
-                        type="button"
-                        onClick={handleQuickResetStudent}
-                        className="px-2 py-1 bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white rounded-lg text-[10px] font-bold cursor-pointer transition-colors"
-                        title="Khôi phục đầy đủ cả lớp"
-                      >
-                        Đầy đủ ({originalStudentCount} HS)
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Interactive Multi-Student Attendance Checkboxes */}
-                {originalStudentCount > 1 && studentNames.length > 0 && (
-                  <div className="space-y-1.5">
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
-                      Tích chọn học sinh ĐI HỌC hôm nay (Bỏ tích để đánh dấu VẮNG):
-                    </span>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {studentNames.map((sName, idx) => {
-                        const isPresent = presentStudents.includes(sName);
-                        return (
-                          <div
-                            key={idx}
-                            onClick={() => handleToggleStudentAttendance(sName)}
-                            className={`p-2.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between select-none ${
-                              isPresent
-                                ? 'bg-emerald-500/10 border-emerald-500/30 text-white shadow-sm'
-                                : 'bg-rose-500/10 border-rose-500/30 text-slate-400 hover:text-slate-200'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <input
-                                type="checkbox"
-                                checked={isPresent}
-                                onChange={() => {}} // Handled by parent div
-                                className="h-4 w-4 rounded border-slate-700 accent-emerald-500 cursor-pointer pointer-events-none"
-                              />
-                              <span className={`text-xs font-black truncate ${isPresent ? 'text-white' : 'text-slate-400 line-through'}`}>
-                                {sName}
-                              </span>
-                            </div>
-                            <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded ${
-                              isPresent
-                                ? 'bg-emerald-500/20 text-emerald-300'
-                                : 'bg-rose-500/20 text-rose-300'
-                            }`}>
-                              {isPresent ? 'Có mặt' : 'Vắng'}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex items-center gap-3 pt-1 border-t border-slate-200 dark:border-white/5">
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => handleStudentCountChange(studentCount - 1)}
-                      className="w-8 h-8 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 font-black text-sm flex items-center justify-center cursor-pointer transition-colors"
-                    >
-                      -
-                    </button>
-                    <div className="px-3 py-1.5 min-w-[60px] text-center font-black text-xs bg-white dark:bg-[#0d1018] border border-slate-200 dark:border-white/10 rounded-lg text-slate-900 dark:text-white">
-                      {studentCount} HS
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleStudentCountChange(studentCount + 1)}
-                      className="w-8 h-8 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 font-black text-sm flex items-center justify-center cursor-pointer transition-colors"
-                    >
-                      +
-                    </button>
-                  </div>
-
-                  <div className="flex-1 text-right">
-                    <span className="text-[10px] font-extrabold uppercase text-slate-400 block">Học phí ca này</span>
-                    <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
-                      {formatVND(Number(price) || 0)}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Calculation feedback notice */}
-                {studentCount < originalStudentCount && (
-                  <div className="text-[10.5px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 p-2 rounded-lg leading-relaxed">
-                    Giảm {originalStudentCount - studentCount} HS tạm thời ({absentStudents.join(', ') || 'Vắng mặt'}): {studentCount} HS × {formatVND(Number(pricePerStudent) || 0)} = {formatVND(Number(price) || 0)} (giảm trừ {formatVND((originalStudentCount - studentCount) * (Number(pricePerStudent) || 0))})
-                  </div>
-                )}
-              </div>
-            </div>
+            <SessionStudentRosterSection
+              originalStudentCount={originalStudentCount}
+              studentCount={studentCount}
+              studentNames={studentNames}
+              presentStudents={presentStudents}
+              absentStudents={absentStudents}
+              pricePerStudent={pricePerStudent}
+              price={price}
+              sessionDate={session.date}
+              onOriginalCountChange={handleOriginalCountChange}
+              onPricePerStudentChange={handlePricePerStudentChange}
+              onStudentNameIndexChange={handleStudentNameIndexChange}
+              onQuickReduceStudent={handleQuickReduceStudent}
+              onQuickResetStudent={handleQuickResetStudent}
+              onToggleStudentAttendance={handleToggleStudentAttendance}
+              onStudentCountChange={handleStudentCountChange}
+            />
           </div>
         </div>
 
