@@ -1680,28 +1680,9 @@ export default function Dashboard() {
     fetchSessions();
   };
 
-  // Unified Finance Transactions: manual transactions + classified bank receipts + completed teaching sessions
+  // Unified Finance Transactions: manual transactions + classified bank receipts (teaching sessions are kept in projected income)
   const allFinanceTransactions = useMemo(() => {
-    // 1. Completed teaching sessions
-    const activeSessions = (currentUser?.role === 'admin' ? allSessions : sessions) || [];
-    const sessionTxs = activeSessions
-      .filter(s => s.status === 'Đã học' || s.status === 'Đã dạy' || s.status === 'Đã làm')
-      .map(s => {
-        let cat = s.income_category || s.category || 'Gia Sư';
-        if (cat === 'Giáo dục') cat = 'Gia Sư';
-        return {
-          id: `session-${s.id}`,
-          desc: `${s.student_name || s.job_name || 'Ca dạy'} - ${s.teacher_name || 'Admin'}`,
-          amount: Number(s.price) || 0,
-          type: 'income' as const,
-          category: cat,
-          date: s.date,
-          isManual: false,
-          isRecurring: false
-        };
-      });
-
-    // 2. Classified bank receipts
+    // 1. Classified bank receipts
     const receiptTransactions = (bankReceipts || [])
       .filter(r => r.status === 'classified' && r.category)
       .map(r => ({
@@ -1727,10 +1708,10 @@ export default function Dashboard() {
       return !cleanReceiptIds.has(cId);
     });
 
-    return [...filteredManual, ...receiptTransactions, ...sessionTxs].sort(
+    return [...filteredManual, ...receiptTransactions].sort(
       (a, b) => (b.date || '').localeCompare(a.date || '')
     );
-  }, [currentUser, allSessions, sessions, bankReceipts, manualTransactions]);
+  }, [bankReceipts, manualTransactions]);
 
   const availableIncomeCats = useMemo(() => {
     const list = Object.keys(categoryBudgets).filter(c => !c.startsWith('__') && categoryTypes[c] === 'income');

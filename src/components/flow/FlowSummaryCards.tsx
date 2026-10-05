@@ -31,7 +31,7 @@ export const FlowSummaryCards: React.FC<FlowSummaryCardsProps> = ({
             <span className="text-xl font-black text-purple-400 text-glow-purple tracking-tight block">{formatVND(projectedIncome)}</span>
             <div className="flex items-center gap-1 select-none">
               <span className="text-[9px] font-black text-purple-300/80">
-                Tổng hạn mức dự kiến theo danh mục
+                Dự kiến ca dạy + Mục tiêu thu nhập
               </span>
             </div>
           </div>

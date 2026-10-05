@@ -130,21 +130,8 @@ export const FlowTab: React.FC<FlowTabProps> = ({
       }));
   }, [bankReceipts]);
 
-  // Combined All Transactions
+  // Combined All Transactions (real cash flow: manual transactions + classified bank receipts)
   const allCombinedTransactions = useMemo(() => {
-    const sessionTxs = (sessions || [])
-      .filter(s => s.status === 'Đã học' || s.status === 'Đã dạy' || s.status === 'Đã làm')
-      .map(s => ({
-        id: `session-${s.id}`,
-        desc: `${s.student_name || s.job_name || 'Ca dạy'} - ${s.teacher_name || 'Admin'}`,
-        amount: Number(s.price) || 0,
-        type: 'income',
-        category: (s.income_category === 'Giáo dục' ? 'Gia Sư' : s.income_category) || 'Gia Sư',
-        date: s.date,
-        isManual: false,
-        isRecurring: false
-      }));
-
     const cleanReceiptIds = new Set(
       receiptTransactions.map(t => String(t.id).replace('tx-receipt-', '').replace('vcb-', ''))
     );
@@ -154,10 +141,10 @@ export const FlowTab: React.FC<FlowTabProps> = ({
       return !cleanReceiptIds.has(cId);
     });
 
-    return [...filteredManual, ...receiptTransactions, ...sessionTxs].sort(
+    return [...filteredManual, ...receiptTransactions].sort(
       (a, b) => (b.date || '').localeCompare(a.date || '')
     );
-  }, [manualTransactions, receiptTransactions, sessions]);
+  }, [manualTransactions, receiptTransactions]);
 
   // Filtered by Selected Months & Recurring Tab
   const filteredTransactions = useMemo(() => {
@@ -232,10 +219,22 @@ export const FlowTab: React.FC<FlowTabProps> = ({
   }, [allCombinedTransactions, chartSelectedMonths, distMode, distYear]);
 
   const projectedIncome = useMemo(() => {
-    const totalCategoryTargets = incomeCats.reduce((sum, cat) => sum + (Number(categoryBudgets[cat.name]) || 0), 0);
-    const monthsMultiplier = Math.max(1, chartSelectedMonths.length);
-    return totalCategoryTargets * monthsMultiplier;
-  }, [incomeCats, categoryBudgets, chartSelectedMonths]);
+    // 1. Session earnings in selected months (teaching sessions counted in projected income)
+    const sessionsIncome = (sessions || [])
+      .filter(s => {
+        if (!s.date || s.status === 'Hủy') return false;
+        return isTxInSelectedMonths(s, chartSelectedMonths);
+      })
+      .reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+
+    // 2. Add budget targets for other income categories (e.g. Lương)
+    const hasSessions = sessionsIncome > 0;
+    const otherCategoryTargets = incomeCats
+      .filter(cat => !hasSessions || (cat.name !== 'Gia Sư' && cat.name !== 'Giáo dục'))
+      .reduce((sum, cat) => sum + (Number(categoryBudgets[cat.name]) || 0), 0) * Math.max(1, chartSelectedMonths.length);
+
+    return sessionsIncome + otherCategoryTargets;
+  }, [sessions, incomeCats, categoryBudgets, chartSelectedMonths]);
 
   const getCategoryActual = (catName: string, isExpense: boolean) => {
     const targetType = isExpense ? 'expense' : 'income';
