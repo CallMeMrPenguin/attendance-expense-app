@@ -44,7 +44,7 @@ export const FlowTab: React.FC<FlowTabProps> = ({
 }) => {
   const [distMode, setDistMode] = useState<'month' | 'avg_year'>('month');
   const [distYear, setDistYear] = useState<number>(() => new Date().getFullYear());
-  const [filterRecurring, setFilterRecurring] = useState<'all' | 'co_dinh' | 'tam_thoi' | 'bien_lai'>('all');
+  const [filterRecurring, setFilterRecurring] = useState<'all' | 'co_dinh' | 'tam_thoi' | 'trao_doi' | 'bien_lai'>('all');
   const [isSyncing, setIsSyncing] = useState(false);
 
   // Modal states
@@ -69,13 +69,13 @@ export const FlowTab: React.FC<FlowTabProps> = ({
       'Ăn uống', 'Di chuyển', 'Xăng', 'Đi Chợ', 'Shopping', 'Quần Áo', 'Mỹ Phẩm', 'Làm Mặt',
       'Hóa đơn', 'Hóa Đơn', 'Photo', 'Giải trí', 'Giải Trí', 'Công Nghệ', 'Gia Đình',
       'Bảo Dưỡng Xe', 'Trả Nợ', 'Nhu Yếu Phẩm', 'Đăng Ký Gói', 'Sai Số', 'Chỉnh Sửa Sai Số',
-      'Trao đổi', 'Tiết kiệm', 'Tiết kiệm khẩn cấp', 'Tích lũy dài hạn', 'Sức khỏe',
-      'Nhà cửa', 'Cà phê', 'Du lịch', 'Khác'
+      'Sức khỏe', 'Nhà cửa', 'Cà phê', 'Du lịch', 'Khác'
     ];
 
     const allKeys = Array.from(new Set([...defaultIn, ...defaultEx, ...rawKeys]));
 
     allKeys.forEach(name => {
+      if (name === 'Trao đổi' || (categoryTypes[name] as string) === 'exchange') return;
       const type = categoryTypes[name] || (defaultIn.includes(name) ? 'income' : 'expense');
       const icon = categoryIcons[name] || DEFAULT_CATEGORY_ICONS[name] || (type === 'income' ? 'TrendingUp' : 'Coins');
       const note = categoryNotes[name] || DEFAULT_CATEGORY_NOTES[name] || '';
@@ -150,8 +150,9 @@ export const FlowTab: React.FC<FlowTabProps> = ({
   const filteredTransactions = useMemo(() => {
     return allCombinedTransactions.filter(t => {
       if (!isTxInSelectedMonths(t, chartSelectedMonths)) return false;
-      if (filterRecurring === 'co_dinh') return !!t.isRecurring;
-      if (filterRecurring === 'tam_thoi') return !t.isRecurring;
+      if (filterRecurring === 'co_dinh') return !!t.isRecurring && t.type !== 'exchange';
+      if (filterRecurring === 'tam_thoi') return !t.isRecurring && t.type !== 'exchange';
+      if (filterRecurring === 'trao_doi') return t.type === 'exchange';
       return true;
     });
   }, [allCombinedTransactions, chartSelectedMonths, filterRecurring]);

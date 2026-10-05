@@ -12,6 +12,7 @@ export interface DashboardTabProps {
   emergencyCurrent: number;
   accumulationCurrent: number;
   categoryBudgets: Record<string, number>;
+  categoryTypes?: Record<string, 'income' | 'expense'>;
   chartSelectedMonths: string[];
   toggleChartMonth: (mStr: string) => void;
   chartYear: number;

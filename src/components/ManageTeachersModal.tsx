@@ -16,6 +16,7 @@ import {
   EyeOff
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import CustomSelect from './CustomSelect';
 
 interface ManageTeachersModalProps {
   isOpen: boolean;
@@ -499,18 +500,18 @@ export default function ManageTeachersModal({
                 </div>
 
                 <div className="space-y-1.5">
-                  <label htmlFor="newRoleSelect" className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider">
+                  <label htmlFor="newRoleSelect" className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider block">
                     Phân Quyền / Role *
                   </label>
-                  <select
-                    id="newRoleSelect"
+                  <CustomSelect
                     value={newTeacherRole}
-                    onChange={(e) => setNewTeacherRole(e.target.value as 'user' | 'admin')}
-                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:outline-none focus:border-indigo-500"
-                  >
-                    <option value="user">User</option>
-                    <option value="admin">Admin</option>
-                  </select>
+                    onChange={(val) => setNewTeacherRole(val as 'user' | 'admin')}
+                    options={[
+                      { value: 'user', label: 'User' },
+                      { value: 'admin', label: 'Admin' }
+                    ]}
+                    placeholder="Chọn quyền"
+                  />
                 </div>
 
                 <div className="space-y-1.5">
@@ -622,19 +623,19 @@ export default function ManageTeachersModal({
 
                 {/* Edit Role Select */}
                 <div className="space-y-1.5">
-                  <label htmlFor="editRoleSelect" className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider">
+                  <label htmlFor="editRoleSelect" className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider block">
                     Phân Quyền / Role *
                   </label>
-                  <select
-                    id="editRoleSelect"
+                  <CustomSelect
                     value={editRole}
                     disabled={selectedTeacher === currentAdminTeacherName || selectedTeacher === 'Admin' || selectedTeacher === 'admin'}
-                    onChange={(e) => setEditRole(e.target.value as 'admin' | 'user')}
-                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:outline-none focus:border-indigo-500 disabled:opacity-75"
-                  >
-                    <option value="user">User</option>
-                    <option value="admin">Admin</option>
-                  </select>
+                    onChange={(val) => setEditRole(val as 'admin' | 'user')}
+                    options={[
+                      { value: 'user', label: 'User' },
+                      { value: 'admin', label: 'Admin' }
+                    ]}
+                    placeholder="Chọn quyền"
+                  />
                 </div>
 
                 {/* Reset Password */}

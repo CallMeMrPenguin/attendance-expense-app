@@ -16,6 +16,8 @@ import {
   sanitizeSessionPayload,
   cleanString
 } from '@/lib/utils';
+import CustomSelect from './CustomSelect';
+import CustomDatePicker from './CustomDatePicker';
 
 interface AddSessionModalProps {
   isOpen: boolean;
@@ -524,15 +526,12 @@ export default function AddSessionModal({
                 <label className="text-indigo-400 dark:text-indigo-300 text-xs font-bold uppercase tracking-wider block">
                   Giáo Viên Phụ Trách (Admin Mode)
                 </label>
-                <select
+                <CustomSelect
                   value={assignedTeacherName}
-                  onChange={(e) => setAssignedTeacherName(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-indigo-500/30 rounded-xl text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
-                >
-                  {teachers.map(t => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
+                  onChange={(val) => setAssignedTeacherName(val)}
+                  options={teachers}
+                  placeholder="Chọn giáo viên"
+                />
               </div>
             )}
 
@@ -573,15 +572,12 @@ export default function AddSessionModal({
                 <label className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider block">
                   Danh Mục Thu Nhập (Dòng Tiền)
                 </label>
-                <select
+                <CustomSelect
                   value={incomeCategory}
-                  onChange={(e) => setIncomeCategory(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
-                >
-                  {incomeCategories.map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
+                  onChange={(val) => setIncomeCategory(val)}
+                  options={incomeCategories}
+                  placeholder="Chọn danh mục"
+                />
               </div>
 
               <div className="space-y-1.5">
@@ -737,53 +733,32 @@ export default function AddSessionModal({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-1.5">
-                <label htmlFor="price" className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider">
-                  Số tiền / Tiền công (đ) *
+                <label htmlFor="initialStatus" className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider block">
+                  Trạng thái
                 </label>
-                <input
-                  id="price"
-                  type="text"
-                  required
-                  value={formatNumberDots(price)}
-                  onChange={(e) => setPrice(parseNumberDots(e.target.value) ? parseNumberDots(e.target.value).toString() : '')}
-                  placeholder="250.000"
-                  className="w-full px-4 py-2.5 bg-[#0d1018] border border-white/10 text-white rounded-xl text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                <CustomSelect
+                  value={status}
+                  onChange={(val) => setStatus(val)}
+                  options={['Chưa làm', 'Đã làm', 'Hủy']}
+                  placeholder="Chọn trạng thái"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label htmlFor="initialStatus" className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider">
-                  Trạng thái
-                </label>
-                <select
-                  id="initialStatus"
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-[#0d1018] border border-white/10 text-white rounded-xl text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
-                >
-                  <option value="Chưa làm" className="bg-[#0d1018] text-white">Chưa làm</option>
-                  <option value="Đã làm" className="bg-[#0d1018] text-white">Đã làm</option>
-                  <option value="Hủy" className="bg-[#0d1018] text-white">Hủy</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label htmlFor="loaiHinh" className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider">
+                <label htmlFor="loaiHinh" className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider block">
                   Loại hình lịch
                 </label>
-                <select
-                  id="loaiHinh"
+                <CustomSelect
                   value={loaiHinh}
-                  onChange={(e) => setLoaiHinh(e.target.value as any)}
-                  className="w-full px-4 py-2.5 bg-[#0d1018] border border-white/10 text-white rounded-xl text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
-                >
-                  <option value="co_dinh" className="bg-[#0d1018] text-white">Cố định</option>
-                  <option value="tam_thoi" className="bg-[#0d1018] text-white">Tạm thời (chỉ 1 tuần)</option>
-                </select>
+                  onChange={(val) => setLoaiHinh(val as any)}
+                  options={[
+                    { value: 'co_dinh', label: 'Cố định' },
+                    { value: 'tam_thoi', label: 'Tạm thời (chỉ 1 tuần)' },
+                  ]}
+                  placeholder="Chọn loại hình"
+                />
               </div>
 
               <div className="space-y-1.5 flex flex-col justify-end pb-0.5">
@@ -837,12 +812,9 @@ export default function AddSessionModal({
                     <label className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider block">
                       Ngày học *
                     </label>
-                    <input
-                      type="date"
+                    <CustomDatePicker
                       value={singleDate}
-                      required={isSingleSession}
-                      onChange={(e) => setSingleDate(e.target.value)}
-                      className="w-full px-4 py-2.5 bg-[#0d1018] border border-white/10 text-white rounded-xl text-xs focus:outline-none focus:border-indigo-500"
+                      onChange={(dateStr) => setSingleDate(dateStr)}
                     />
                   </div>
 

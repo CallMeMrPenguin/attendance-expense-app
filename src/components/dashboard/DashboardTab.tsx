@@ -17,6 +17,7 @@ export default function DashboardTab({
   emergencyCurrent,
   accumulationCurrent,
   categoryBudgets,
+  categoryTypes = {},
   chartSelectedMonths,
   toggleChartMonth,
   chartYear,
@@ -250,21 +251,24 @@ export default function DashboardTab({
     }
   }, [viewMode, selectedYears, chartSelectedMonths, chartYear, manualTransactions, sessions, getMonthlyIncome, getMonthlyExpense, getWeeklyIncome, getWeeklyExpense]);
 
-  // Donut Chart Expense Categories list with local storage check
+  // Donut Chart Expense Categories list (synced with Supabase & transactions)
   const expenseCatsList = useMemo(() => {
-    const defaultCats = ['Ăn uống', 'Di chuyển', 'Shopping', 'Hóa đơn', 'Giải trí', 'Khác'];
-    if (typeof window === 'undefined' || !currentUser?.id) return defaultCats;
-    const stored = localStorage.getItem(`finance_expense_cats_${currentUser.id}`);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map((c: any) => c.name || String(c)).filter(Boolean);
-        }
-      } catch (e) { console.error(e); }
+    const cats = new Set<string>();
+    if (categoryTypes) {
+      Object.entries(categoryTypes).forEach(([cat, type]) => {
+        if (type === 'expense' && !cat.startsWith('__')) cats.add(cat);
+      });
     }
-    return defaultCats;
-  }, [currentUser?.id]);
+    (allFinanceTransactions.length > 0 ? allFinanceTransactions : manualTransactions || []).forEach((t: any) => {
+      if (t.type === 'expense' && t.category && !t.category.startsWith('__')) {
+        cats.add(t.category);
+      }
+    });
+    if (cats.size === 0) {
+      ['Ăn uống', 'Di chuyển', 'Shopping', 'Hóa đơn', 'Giải trí', 'Khác'].forEach((c) => cats.add(c));
+    }
+    return Array.from(cats);
+  }, [categoryTypes, allFinanceTransactions, manualTransactions]);
 
   const expenseTotals = expenseCatsList.map(cat => ({
     name: cat,
@@ -291,21 +295,24 @@ export default function DashboardTab({
       };
     });
 
-  // Donut Chart Income Categories list with local storage check
+  // Donut Chart Income Categories list (synced with Supabase & transactions)
   const incomeCatsList = useMemo(() => {
-    const defaultCats = ['Lương', 'Giáo dục', 'Đầu tư', 'Khác'];
-    if (typeof window === 'undefined' || !currentUser?.id) return defaultCats;
-    const stored = localStorage.getItem(`finance_income_cats_${currentUser.id}`);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map((c: any) => c.name || String(c)).filter(Boolean);
-        }
-      } catch (e) { console.error(e); }
+    const cats = new Set<string>();
+    if (categoryTypes) {
+      Object.entries(categoryTypes).forEach(([cat, type]) => {
+        if (type === 'income' && !cat.startsWith('__')) cats.add(cat);
+      });
     }
-    return defaultCats;
-  }, [currentUser?.id]);
+    (allFinanceTransactions.length > 0 ? allFinanceTransactions : manualTransactions || []).forEach((t: any) => {
+      if (t.type === 'income' && t.category && !t.category.startsWith('__')) {
+        cats.add(t.category);
+      }
+    });
+    if (cats.size === 0) {
+      ['Lương', 'Giáo dục', 'Đầu tư', 'Khác'].forEach((c) => cats.add(c));
+    }
+    return Array.from(cats);
+  }, [categoryTypes, allFinanceTransactions, manualTransactions]);
 
   const incomeTotals = incomeCatsList.map(cat => ({
     name: cat,

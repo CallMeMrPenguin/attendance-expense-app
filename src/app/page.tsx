@@ -1998,6 +1998,7 @@ export default function Dashboard() {
                 emergencyCurrent={emergencyCurrent}
                 accumulationCurrent={accumulationCurrent}
                 categoryBudgets={categoryBudgets}
+                categoryTypes={categoryTypes}
                 chartSelectedMonths={chartSelectedMonths}
                 toggleChartMonth={toggleChartMonth}
                 chartYear={chartYear}

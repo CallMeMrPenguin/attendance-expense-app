@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, Trash2, ChevronDown } from 'lucide-react';
 import { formatNumberDots, parseNumberDots } from '@/lib/utils';
 import CustomDatePicker from '@/components/CustomDatePicker';
+import CustomSelect from '@/components/CustomSelect';
 
 interface EditTransactionModalProps {
   isOpen: boolean;
@@ -129,26 +130,21 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
 
           <div className="space-y-1.5">
             <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Danh mục</label>
-            <div className="relative">
+            <div>
               {editingTx.type === 'exchange' ? (
                 <div className="w-full bg-[#0d1018] border border-cyan-500/30 text-xs font-bold text-cyan-300 rounded-xl px-3.5 py-2.5">
                   Trao đổi (Lưu thông nội bộ)
                 </div>
               ) : (
-                <>
-                  <select
-                    value={editingTx.category}
-                    onChange={(e) => setEditingTx((prev: any) => prev ? { ...prev, category: e.target.value } : null)}
-                    className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 cursor-pointer block"
-                  >
-                    {(editingTx.type === 'income' ? incomeCats : expenseCats).map((c) => (
-                      <option key={c.name} value={c.name} className="bg-[#0d1018] text-white">
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-                </>
+                <CustomSelect
+                  value={editingTx.category}
+                  onChange={(val) => setEditingTx((prev: any) => prev ? { ...prev, category: val } : null)}
+                  options={(editingTx.type === 'income' ? incomeCats : expenseCats).map((c) => ({
+                    value: c.name,
+                    label: c.note ? `${c.name} (${c.note})` : c.name,
+                  }))}
+                  placeholder="Chọn danh mục"
+                />
               )}
             </div>
             {editingTx.type === 'exchange' && (

@@ -448,6 +448,7 @@ export default function ScheduleTab({
               }`}
             >
               <CalendarWeekView
+                selectedMonth={selectedMonth}
                 sessions={sessions}
                 onSessionClick={(id) => {
                   const sess = sessions.find((s) => s.id === id);
@@ -456,6 +457,7 @@ export default function ScheduleTab({
                     setEditModalOpen(true);
                   }
                 }}
+                onAddSessionOnDate={onAddSessionOnDate}
               />
             </div>
           </div>

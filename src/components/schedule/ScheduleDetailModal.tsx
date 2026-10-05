@@ -111,7 +111,7 @@ export const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({
                 type="button"
                 onClick={() => {
                   const lines = [
-                    `📋 BẢNG TỔNG KẾT HỌC PHÍ THÁNG ${selectedMonth}`,
+                    `BẢNG TỔNG KẾT HỌC PHÍ THÁNG ${selectedMonth}`,
                     `Lớp: ${schedule.name}`,
                     `Đơn giá: ${formatVND(schedule.price_per_student || 0)} / buổi / học sinh`,
                     `---------------------------------`,
@@ -177,7 +177,7 @@ export const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({
                         type="button"
                         onClick={() => {
                           const msg = [
-                            `📋 THÔNG BÁO HỌC PHÍ THÁNG ${selectedMonth}`,
+                            `THÔNG BÁO HỌC PHÍ THÁNG ${selectedMonth}`,
                             `- Lớp: ${schedule.name}`,
                             `- Học sinh: ${st.name}`,
                             `- Số buổi đã học: ${st.completedSessions}/${st.totalSessions} buổi${st.absentSessions > 0 ? ` (Nghỉ ${st.absentSessions} buổi: ${st.absentDates.map(d => formatDateVN(d)).join(', ')})` : ''}`,

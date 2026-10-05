@@ -8,8 +8,8 @@ import { CategoryIcon } from './flow-constants';
 
 interface FlowTransactionsSectionProps {
   currentUser: { id: string };
-  filterRecurring: 'all' | 'co_dinh' | 'tam_thoi' | 'bien_lai';
-  setFilterRecurring: (val: 'all' | 'co_dinh' | 'tam_thoi' | 'bien_lai') => void;
+  filterRecurring: 'all' | 'co_dinh' | 'tam_thoi' | 'trao_doi' | 'bien_lai';
+  setFilterRecurring: (val: 'all' | 'co_dinh' | 'tam_thoi' | 'trao_doi' | 'bien_lai') => void;
   filteredTransactions: any[];
   filteredBankReceipts: any[];
   bankReceiptsCount: number;
@@ -336,7 +336,7 @@ export const FlowTransactionsSection: React.FC<FlowTransactionsSectionProps> = (
 
         <div className="flex items-center gap-2 flex-wrap">
           {/* Segmented Control sliding indicator */}
-          <div className="relative flex bg-[#0d1018] p-1 rounded-xl border border-white/10 text-xs shrink-0 font-bold select-none min-w-[320px]">
+          <div className="relative flex bg-[#0d1018] p-1 rounded-xl border border-white/10 text-xs shrink-0 font-bold select-none min-w-[380px]">
             <div
               className={`absolute top-1 bottom-1 rounded-lg transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] pointer-events-none ${
                 filterRecurring === 'all'
@@ -345,17 +345,21 @@ export const FlowTransactionsSection: React.FC<FlowTransactionsSectionProps> = (
                   ? 'bg-emerald-500 shadow-[0_0_14px_rgba(16,185,129,0.5)]'
                   : filterRecurring === 'tam_thoi'
                   ? 'bg-blue-500 shadow-[0_0_14px_rgba(59,130,246,0.5)]'
+                  : filterRecurring === 'trao_doi'
+                  ? 'bg-cyan-500 shadow-[0_0_14px_rgba(6,182,212,0.5)]'
                   : 'bg-amber-500 shadow-[0_0_14px_rgba(245,158,11,0.5)]'
               }`}
               style={{
                 left: filterRecurring === 'all' 
                   ? '4px' 
                   : filterRecurring === 'co_dinh' 
-                  ? 'calc(25% + 1px)' 
+                  ? 'calc(20% + 1px)' 
                   : filterRecurring === 'tam_thoi' 
-                  ? 'calc(50% + 1px)' 
-                  : 'calc(75% + 1px)',
-                width: 'calc(25% - 4px)',
+                  ? 'calc(40% + 1px)' 
+                  : filterRecurring === 'trao_doi'
+                  ? 'calc(60% + 1px)'
+                  : 'calc(80% + 1px)',
+                width: 'calc(20% - 4px)',
               }}
             />
             <button
@@ -378,6 +382,13 @@ export const FlowTransactionsSection: React.FC<FlowTransactionsSectionProps> = (
               className={`flex-1 relative z-10 py-1 text-center transition-colors cursor-pointer ${filterRecurring === 'tam_thoi' ? 'text-white font-black' : 'text-slate-400 hover:text-white'}`}
             >
               Tạm thời
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterRecurring('trao_doi')}
+              className={`flex-1 relative z-10 py-1 text-center transition-colors cursor-pointer ${filterRecurring === 'trao_doi' ? 'text-white font-black' : 'text-slate-400 hover:text-white'}`}
+            >
+              Trao đổi
             </button>
             <button
               type="button"

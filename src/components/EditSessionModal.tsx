@@ -37,6 +37,7 @@ import {
 import SessionOverlapDeleteModals from './session-modal/SessionOverlapDeleteModals';
 import SessionRecurringConfigsSection from './session-modal/SessionRecurringConfigsSection';
 import SessionStudentRosterSection from './session-modal/SessionStudentRosterSection';
+import CustomSelect from './CustomSelect';
 
 interface EditSessionModalProps {
   isOpen: boolean;
@@ -911,15 +912,12 @@ export default function EditSessionModal({
               <label className="text-indigo-400 dark:text-indigo-300 text-xs font-bold uppercase tracking-wider block">
                 Giáo Viên Phụ Trách (Admin Mode)
               </label>
-              <select
+              <CustomSelect
                 value={assignedTeacherName}
-                onChange={(e) => setAssignedTeacherName(e.target.value)}
-                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-indigo-500/30 rounded-xl text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
-              >
-                {teachers.map(t => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </select>
+                onChange={(val) => setAssignedTeacherName(val)}
+                options={teachers}
+                placeholder="Chọn giáo viên"
+              />
             </div>
           )}
 
@@ -983,15 +981,12 @@ export default function EditSessionModal({
               <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
                 Danh Mục Thu Nhập (Dòng Tiền)
               </label>
-              <select
+              <CustomSelect
                 value={incomeCategory}
-                onChange={(e) => setIncomeCategory(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-100 dark:bg-[#0d1018] border border-slate-200 dark:border-white/10 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
-              >
-                {incomeCategories.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
+                onChange={(val) => setIncomeCategory(val)}
+                options={incomeCategories}
+                placeholder="Chọn danh mục"
+              />
             </div>
 
             {/* Additional settings row: Loại hình & Tự động điểm danh */}
@@ -1162,16 +1157,12 @@ export default function EditSessionModal({
                 <label htmlFor="editDay" className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
                   Thứ trong tuần *
                 </label>
-                <select
-                  id="editDay"
+                <CustomSelect
                   value={dayOfWeek}
-                  onChange={(e) => handleActiveDayTimeDurationChange(e.target.value, time, duration)}
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500"
-                >
-                  {DAYS.map((d) => (
-                    <option key={d} value={d} className="dark:bg-slate-950">{d}</option>
-                  ))}
-                </select>
+                  onChange={(val) => handleActiveDayTimeDurationChange(val, time, duration)}
+                  options={DAYS}
+                  placeholder="Chọn thứ trong tuần"
+                />
               </div>
 
               <div className="space-y-1.5">

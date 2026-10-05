@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, RotateCcw } from 'lucide-react';
 import { formatVND, isHungTrangVcbTransfer } from '@/lib/utils';
 import MaterialSymbol from '@/components/MaterialSymbol';
+import CustomSelect from '@/components/CustomSelect';
 import { useToast } from '@/context/ToastContext';
 import { isDefaultTransferDetails } from './flow-constants';
 
@@ -209,35 +210,28 @@ export const ReceiptClassifyModal: React.FC<ReceiptClassifyModalProps> = ({
                 Trao đổi (Lưu thông nội bộ)
               </div>
             ) : (
-              <select
+              <CustomSelect
                 value={selectedCat}
-                onChange={(e) => setSelectedCat(e.target.value)}
-                className="w-full bg-[#0d1018] border border-white/10 text-xs font-bold text-white rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-amber-500"
-              >
-                {selectedType === 'saving' ? (
-                  <>
-                    <option value="Tiết kiệm khẩn cấp">Tiết kiệm khẩn cấp</option>
-                    <option value="Tích lũy dài hạn">Tích lũy dài hạn</option>
-                    <option value="Tiết kiệm khác">Tiết kiệm khác</option>
-                  </>
-                ) : selectedType === 'income' ? (
-                  <>
-                    {incomeCats.map(cat => (
-                      <option key={cat.name} value={cat.name}>
-                        {cat.name} {cat.note ? `(${cat.note})` : ''}
-                      </option>
-                    ))}
-                  </>
-                ) : (
-                  <>
-                    {expenseCats.map(cat => (
-                      <option key={cat.name} value={cat.name}>
-                        {cat.name} {cat.note ? `(${cat.note})` : ''}
-                      </option>
-                    ))}
-                  </>
-                )}
-              </select>
+                onChange={(val) => setSelectedCat(val)}
+                options={
+                  selectedType === 'saving'
+                    ? [
+                        { value: 'Tiết kiệm khẩn cấp', label: 'Tiết kiệm khẩn cấp' },
+                        { value: 'Tích lũy dài hạn', label: 'Tích lũy dài hạn' },
+                        { value: 'Tiết kiệm khác', label: 'Tiết kiệm khác' },
+                      ]
+                    : selectedType === 'income'
+                    ? incomeCats.map(cat => ({
+                        value: cat.name,
+                        label: cat.note ? `${cat.name} (${cat.note})` : cat.name,
+                      }))
+                    : expenseCats.map(cat => ({
+                        value: cat.name,
+                        label: cat.note ? `${cat.name} (${cat.note})` : cat.name,
+                      }))
+                }
+                placeholder="Chọn danh mục"
+              />
             )}
             {selectedType === 'exchange' && (
               <p className="text-[10px] text-cyan-400/90 font-medium mt-1">
@@ -277,22 +271,23 @@ export const ReceiptClassifyModal: React.FC<ReceiptClassifyModalProps> = ({
               <div className="space-y-2 pt-1 border-t border-white/5">
                 <div className="space-y-1">
                   <label className="text-[9px] font-extrabold text-slate-400 uppercase">Khớp theo trường</label>
-                  <select
+                  <CustomSelect
                     value={matchField}
-                    onChange={(e) => {
-                      const f = e.target.value as any;
+                    onChange={(val) => {
+                      const f = val as any;
                       setMatchField(f);
                       if (f === 'credit_account') setMatchValue(receipt.credit_account || '');
                       else if (f === 'details' || f === 'remitter_beneficiary_details') setMatchValue(receipt.details || '');
                       else if (f === 'remitter_name') setMatchValue(receipt.remitter_name || '');
                     }}
-                    className="w-full bg-[#0d1018] border border-white/10 text-[11px] font-semibold text-white rounded-lg px-2.5 py-1.5 focus:outline-none"
-                  >
-                    <option value="credit_account">Số tài khoản nhận (Credit Account Number)</option>
-                    <option value="sender_name">Tên / STK Người gửi (Sender Name)</option>
-                    <option value="remitter_beneficiary_details">BÙI ĐỨC HÙNG ➔ PHẠM THỊ THU TRANG (Khớp theo Nội dung)</option>
-                    <option value="details">Nội dung chuyển tiền (Details of Payment)</option>
-                  </select>
+                    options={[
+                      { value: 'credit_account', label: 'Số tài khoản nhận (Credit Account Number)' },
+                      { value: 'sender_name', label: 'Tên / STK Người gửi (Sender Name)' },
+                      { value: 'remitter_beneficiary_details', label: 'BÙI ĐỨC HÙNG ➔ PHẠM THỊ THU TRANG (Khớp theo Nội dung)' },
+                      { value: 'details', label: 'Nội dung chuyển tiền (Details of Payment)' },
+                    ]}
+                    placeholder="Chọn trường khớp"
+                  />
                 </div>
 
                 <div className="space-y-1">
