@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Wallet, Edit3, ChevronDown } from 'lucide-react';
-import { formatVND, formatDateVN } from '@/lib/utils';
+import { formatVND, formatDateVN, formatDateTimeVN } from '@/lib/utils';
 
 interface TrangAccountCardProps {
   trangAccountBalance?: number;
@@ -159,7 +159,7 @@ export const TrangAccountCard: React.FC<TrangAccountCardProps> = ({
                   <div className="min-w-0 pr-3">
                     <div className="text-xs font-bold text-white truncate">{t.desc || 'Giao dịch chi tiêu'}</div>
                     <div className="text-[10px] text-slate-400 flex items-center gap-2 mt-0.5">
-                      <span>{t.date ? formatDateVN(t.date) : ''}</span>
+                      <span>{t.date ? formatDateTimeVN(t.date) : ''}</span>
                       <span className="text-slate-600">|</span>
                       <span className="text-purple-300 font-medium">{t.category}</span>
                     </div>

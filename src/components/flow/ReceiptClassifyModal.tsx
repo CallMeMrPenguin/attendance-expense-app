@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, RotateCcw } from 'lucide-react';
-import { formatVND, isHungTrangVcbTransfer } from '@/lib/utils';
+import { formatVND, isHungTrangVcbTransfer, formatDateTimeVN } from '@/lib/utils';
 import MaterialSymbol from '@/components/MaterialSymbol';
 import CustomSelect from '@/components/CustomSelect';
 import { useToast } from '@/context/ToastContext';
@@ -116,7 +116,7 @@ export const ReceiptClassifyModal: React.FC<ReceiptClassifyModalProps> = ({
           </div>
           <div className="flex justify-between">
             <span className="text-slate-400">Thời gian GD:</span>
-            <span className="text-amber-300 font-bold">{receipt.trans_date}{receipt.trans_time ? ` ${receipt.trans_time}` : ''}</span>
+            <span className="text-amber-300 font-bold">{formatDateTimeVN(receipt.trans_date)}</span>
           </div>
         </div>
 

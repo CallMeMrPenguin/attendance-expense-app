@@ -192,12 +192,33 @@ export function formatVND(amt: number): string {
 // Format date into Vietnamese display (e.g., "Thứ 2, ngày 14/07")
 export function formatDateVN(dateStr: string): string {
   if (!dateStr) return '';
-  const parts = dateStr.split('-');
+  const cleanDate = dateStr.trim().split(/[T ]/)[0];
+  const parts = cleanDate.split('-');
   if (parts.length !== 3) return dateStr;
   const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
   const weekdays = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
   const dayName = weekdays[d.getDay()];
   return `${dayName}, ngày ${parts[2]}/${parts[1]}`;
+}
+
+// Format date and time into standard Vietnamese display (e.g., "21:54:00 03/10/2026" or "03/10/2026")
+export function formatDateTimeVN(dateStr: string): string {
+  if (!dateStr) return '';
+  const str = String(dateStr).trim();
+  // Match YYYY-MM-DD HH:mm:ss or YYYY-MM-DDTHH:mm:ss
+  const fullMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?/);
+  if (fullMatch) {
+    const [_, y, m, d, hh, mm, ss] = fullMatch;
+    const sec = ss !== undefined ? ss : '00';
+    return `${hh}:${mm}:${sec} ${d}/${m}/${y}`;
+  }
+  // Match YYYY-MM-DD
+  const dateMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (dateMatch) {
+    const [_, y, m, d] = dateMatch;
+    return `${d}/${m}/${y}`;
+  }
+  return dateStr;
 }
 
 // Helper to format number strings with thousand separators (dots) for input fields

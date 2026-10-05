@@ -44,7 +44,7 @@ export const FlowTab: React.FC<FlowTabProps> = ({
 }) => {
   const [distMode, setDistMode] = useState<'month' | 'avg_year'>('month');
   const [distYear, setDistYear] = useState<number>(() => new Date().getFullYear());
-  const [filterRecurring, setFilterRecurring] = useState<'all' | 'co_dinh' | 'tam_thoi' | 'trao_doi' | 'bien_lai'>('all');
+  const [filterRecurring, setFilterRecurring] = useState<'all' | 'co_dinh' | 'tam_thoi' | 'trao_doi' | 'khong_xep_loai' | 'bien_lai'>('all');
   const [isSyncing, setIsSyncing] = useState(false);
 
   // Modal states
@@ -156,6 +156,9 @@ export const FlowTab: React.FC<FlowTabProps> = ({
       if (filterRecurring === 'co_dinh') return !!t.isRecurring && t.type !== 'exchange';
       if (filterRecurring === 'tam_thoi') return !t.isRecurring && t.type !== 'exchange';
       if (filterRecurring === 'trao_doi') return t.type === 'exchange';
+      if (filterRecurring === 'khong_xep_loai') {
+        return !t.category || t.category === 'Không xếp loại' || t.category === 'Chưa phân loại' || t.status === 'unclassified';
+      }
       return true;
     });
   }, [allCombinedTransactions, chartSelectedMonths, filterRecurring]);

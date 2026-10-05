@@ -2,14 +2,14 @@ import React, { useMemo } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { Edit2, RotateCcw } from 'lucide-react';
 import { DataTable } from '@/components/DataTable';
-import { formatVND, isHungTrangVcbTransfer } from '@/lib/utils';
+import { formatVND, isHungTrangVcbTransfer, formatDateTimeVN } from '@/lib/utils';
 import { useToast } from '@/context/ToastContext';
 import { CategoryIcon } from './flow-constants';
 
 interface FlowTransactionsSectionProps {
   currentUser: { id: string };
-  filterRecurring: 'all' | 'co_dinh' | 'tam_thoi' | 'trao_doi' | 'bien_lai';
-  setFilterRecurring: (val: 'all' | 'co_dinh' | 'tam_thoi' | 'trao_doi' | 'bien_lai') => void;
+  filterRecurring: 'all' | 'co_dinh' | 'tam_thoi' | 'trao_doi' | 'khong_xep_loai' | 'bien_lai';
+  setFilterRecurring: (val: 'all' | 'co_dinh' | 'tam_thoi' | 'trao_doi' | 'khong_xep_loai' | 'bien_lai') => void;
   filteredTransactions: any[];
   filteredBankReceipts: any[];
   bankReceiptsCount: number;
@@ -46,7 +46,7 @@ export const FlowTransactionsSection: React.FC<FlowTransactionsSectionProps> = (
         const r = row.original;
         return (
           <div className="flex flex-col text-left">
-            <span className="font-bold text-white text-xs">{r.trans_date}</span>
+            <span className="font-bold text-white text-xs">{formatDateTimeVN(r.trans_date)}</span>
             <span className="text-[10px] text-slate-400">Mã: {r.order_number || 'N/A'}</span>
           </div>
         );
@@ -96,20 +96,23 @@ export const FlowTransactionsSection: React.FC<FlowTransactionsSectionProps> = (
           ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30'
           : 'bg-rose-500/20 text-rose-400 border-rose-500/30';
         const typeLabel = isIncome ? 'Thu' : isSaving ? 'Tiết kiệm' : r.type === 'exchange' ? 'Trao đổi' : 'Chi';
+        const rawCat = r.category || (isExchange ? 'Trao đổi' : 'Đã phân loại');
+        const isSame = rawCat.toLowerCase().trim() === typeLabel.toLowerCase().trim() || isExchange;
+        const categoryBadgeText = isSame ? rawCat : `${rawCat} (${typeLabel})`;
 
         return (
           <div className="flex items-center gap-1.5 flex-wrap">
             {isClassified ? (
               <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase border ${badgeStyle}`}>
-                {r.category || (r.type === 'exchange' ? 'Trao đổi' : 'Đã phân loại')} ({typeLabel})
+                {categoryBadgeText}
               </span>
             ) : isExchange ? (
               <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 shadow-[0_0_8px_rgba(6,182,212,0.2)]">
                 Trao đổi
               </span>
             ) : (
-              <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">
-                Chưa phân loại
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                Không xếp loại
               </span>
             )}
           </div>
@@ -194,11 +197,11 @@ export const FlowTransactionsSection: React.FC<FlowTransactionsSectionProps> = (
     {
       accessorKey: 'date',
       header: 'Ngày',
-      size: 110,
-      minSize: 90,
-      maxSize: 130,
+      size: 140,
+      minSize: 110,
+      maxSize: 180,
       cell: ({ row }) => (
-        <span className="text-xs font-semibold text-slate-300">{row.original.date}</span>
+        <span className="text-xs font-semibold text-slate-300">{formatDateTimeVN(row.original.date)}</span>
       )
     },
     {
@@ -316,41 +319,57 @@ export const FlowTransactionsSection: React.FC<FlowTransactionsSectionProps> = (
     }
   ], [getCategoryIconName, onEditTransaction]);
 
+  const unclassifiedBankReceipts = useMemo(() => {
+    return (filteredBankReceipts || []).filter(
+      r => r.status !== 'classified' && r.type !== 'exchange' && !isHungTrangVcbTransfer(r)
+    );
+  }, [filteredBankReceipts]);
+
+  const tabIndices: Record<string, number> = {
+    all: 0,
+    co_dinh: 1,
+    tam_thoi: 2,
+    trao_doi: 3,
+    khong_xep_loai: 4,
+    bien_lai: 5,
+  };
+  const activeIdx = tabIndices[filterRecurring] ?? 0;
+
+  const indicatorBg = filterRecurring === 'all'
+    ? 'bg-[#5c36f5] shadow-[0_0_14px_rgba(92,54,245,0.5)]'
+    : filterRecurring === 'co_dinh'
+    ? 'bg-emerald-500 shadow-[0_0_14px_rgba(16,185,129,0.5)]'
+    : filterRecurring === 'tam_thoi'
+    ? 'bg-blue-500 shadow-[0_0_14px_rgba(59,130,246,0.5)]'
+    : filterRecurring === 'trao_doi'
+    ? 'bg-cyan-500 shadow-[0_0_14px_rgba(6,182,212,0.5)]'
+    : filterRecurring === 'khong_xep_loai'
+    ? 'bg-amber-500 shadow-[0_0_14px_rgba(245,158,11,0.5)]'
+    : 'bg-violet-500 shadow-[0_0_14px_rgba(139,92,246,0.5)]';
+
+  const sectionTitle = filterRecurring === 'bien_lai'
+    ? 'Biên Lai Ngân Hàng'
+    : filterRecurring === 'khong_xep_loai'
+    ? 'Biên Lai Chưa Xếp Loại'
+    : 'Sổ Giao Dịch Chi Tiết';
+
   return (
     <div className="calendar-container-depth p-5 bg-[#06080e] rounded-3xl space-y-4 border-2 border-transparent [background:linear-gradient(#06080e,#06080e)_padding-box,linear-gradient(135deg,#3b82f6,#60a5fa,#1d4ed8)_border-box] shadow-[0_0_25px_rgba(59,130,246,0.35)]">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-white/5 pb-3">
         <div className="flex items-center gap-2">
           <span className="text-[15px] font-black text-blue-400 text-glow-blue uppercase tracking-wider">
-            {filterRecurring === 'bien_lai' ? 'Biên Lai Ngân Hàng' : 'Sổ Giao Dịch Chi Tiết'}
+            {sectionTitle}
           </span>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
           {/* Segmented Control sliding indicator */}
-          <div className="relative flex bg-[#0d1018] p-1 rounded-xl border border-white/10 text-xs shrink-0 font-bold select-none min-w-[380px]">
+          <div className="relative flex bg-[#0d1018] p-1 rounded-xl border border-white/10 text-xs shrink-0 font-bold select-none min-w-[500px]">
             <div
-              className={`absolute top-1 bottom-1 rounded-lg transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] pointer-events-none ${
-                filterRecurring === 'all'
-                  ? 'bg-[#5c36f5] shadow-[0_0_14px_rgba(92,54,245,0.5)]'
-                  : filterRecurring === 'co_dinh'
-                  ? 'bg-emerald-500 shadow-[0_0_14px_rgba(16,185,129,0.5)]'
-                  : filterRecurring === 'tam_thoi'
-                  ? 'bg-blue-500 shadow-[0_0_14px_rgba(59,130,246,0.5)]'
-                  : filterRecurring === 'trao_doi'
-                  ? 'bg-cyan-500 shadow-[0_0_14px_rgba(6,182,212,0.5)]'
-                  : 'bg-amber-500 shadow-[0_0_14px_rgba(245,158,11,0.5)]'
-              }`}
+              className={`absolute top-1 bottom-1 rounded-lg transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] pointer-events-none ${indicatorBg}`}
               style={{
-                left: filterRecurring === 'all' 
-                  ? '4px' 
-                  : filterRecurring === 'co_dinh' 
-                  ? 'calc(20% + 1px)' 
-                  : filterRecurring === 'tam_thoi' 
-                  ? 'calc(40% + 1px)' 
-                  : filterRecurring === 'trao_doi'
-                  ? 'calc(60% + 1px)'
-                  : 'calc(80% + 1px)',
-                width: 'calc(20% - 4px)',
+                left: activeIdx === 0 ? '4px' : `calc((100% / 6) * ${activeIdx} + 1px)`,
+                width: 'calc((100% / 6) - 2px)',
               }}
             />
             <button
@@ -380,6 +399,13 @@ export const FlowTransactionsSection: React.FC<FlowTransactionsSectionProps> = (
               className={`flex-1 relative z-10 py-1 text-center transition-colors cursor-pointer ${filterRecurring === 'trao_doi' ? 'text-white font-black' : 'text-slate-400 hover:text-white'}`}
             >
               Trao đổi
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterRecurring('khong_xep_loai')}
+              className={`flex-1 relative z-10 py-1 text-center transition-colors cursor-pointer ${filterRecurring === 'khong_xep_loai' ? 'text-white font-black' : 'text-slate-400 hover:text-white'}`}
+            >
+              Không xếp loại
             </button>
             <button
               type="button"
@@ -421,6 +447,19 @@ export const FlowTransactionsSection: React.FC<FlowTransactionsSectionProps> = (
                 ? 'Không có biên lai chuyển tiền nào trong tháng đã chọn.' 
                 : 'Chưa có biên lai chuyển tiền nào được ghi nhận từ Gmail.'
             }
+          />
+        </div>
+      ) : filterRecurring === 'khong_xep_loai' ? (
+        <div className="space-y-4">
+          <DataTable
+            tableId="flow_unclassified_receipts"
+            userId={currentUser.id}
+            data={unclassifiedBankReceipts}
+            columns={bankReceiptColumns}
+            pageSize={20}
+            exportFilename="bien_lai_chua_xep_loai"
+            searchPlaceholder="Tìm kiếm chưa xếp loại..."
+            emptyMessage="Tất cả biên lai đã được phân loại đầy đủ."
           />
         </div>
       ) : (
