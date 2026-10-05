@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
-import { Edit2, RotateCcw } from 'lucide-react';
 import { DataTable } from '@/components/DataTable';
 import { formatVND, isHungTrangVcbTransfer, formatDateTimeVN } from '@/lib/utils';
 import { useToast } from '@/context/ToastContext';
@@ -138,54 +137,8 @@ export const FlowTransactionsSection: React.FC<FlowTransactionsSectionProps> = (
           </span>
         );
       }
-    },
-    {
-      id: 'actions',
-      header: 'Thao Tác',
-      size: 120,
-      enableSorting: false,
-      cell: ({ row }) => {
-        const r = row.original;
-        const isClassified = r.status === 'classified';
-        const isInternalExchange = isHungTrangVcbTransfer(r);
-        return (
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onOpenClassify(r);
-              }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer shadow-md ${
-                isClassified
-                  ? 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10'
-                  : isInternalExchange
-                  ? 'bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 hover:scale-[1.02]'
-                  : 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-[0_0_12px_rgba(245,158,11,0.4)]'
-              }`}
-            >
-              {isClassified ? 'Sửa' : isInternalExchange ? 'Trao đổi' : 'Phân loại'}
-            </button>
-            {isClassified && handleUnclassifyReceipt && (
-              <button
-                type="button"
-                title="Bỏ phân loại"
-                onClick={async (e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  await handleUnclassifyReceipt(r.id);
-                }}
-                className="p-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/25 hover:scale-105"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-        );
-      }
     }
-  ], [handleUnclassifyReceipt, onOpenClassify]);
+  ], []);
 
   const transactionColumns = useMemo<ColumnDef<any>[]>(() => [
     {
@@ -280,38 +233,8 @@ export const FlowTransactionsSection: React.FC<FlowTransactionsSectionProps> = (
           </span>
         );
       }
-    },
-    {
-      id: 'actions',
-      header: 'Thao Tác',
-      size: 80,
-      minSize: 80,
-      maxSize: 80,
-      enableResizing: false,
-      enableSorting: false,
-      cell: ({ row }) => {
-        const t = row.original;
-        return (
-          <button
-            type="button"
-            onClick={() => onEditTransaction({
-              id: t.id,
-              desc: t.desc,
-              amount: t.amount,
-              type: t.type,
-              category: t.category,
-              date: t.date,
-              isRecurring: !!t.isRecurring
-            })}
-            className="h-7 w-7 bg-white/[0.04] border border-white/10 hover:border-indigo-500/40 hover:bg-indigo-500/10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-all shadow-sm cursor-pointer mx-auto"
-            title="Chỉnh sửa hoặc Xóa giao dịch"
-          >
-            <Edit2 className="h-3.5 w-3.5" />
-          </button>
-        );
-      }
     }
-  ], [getCategoryIconName, onEditTransaction]);
+  ], [getCategoryIconName]);
 
   const unclassifiedBankReceipts = useMemo(() => {
     return (filteredBankReceipts || []).filter(
@@ -422,6 +345,7 @@ export const FlowTransactionsSection: React.FC<FlowTransactionsSectionProps> = (
             pageSize={20}
             exportFilename="bien_lai_ngan_hang"
             searchPlaceholder="Tìm kiếm biên lai..."
+            onRowDoubleClick={(row) => onOpenClassify(row)}
             toolbarRight={
               <button
                 type="button"
@@ -453,6 +377,7 @@ export const FlowTransactionsSection: React.FC<FlowTransactionsSectionProps> = (
             pageSize={20}
             exportFilename="bien_lai_chua_xep_loai"
             searchPlaceholder="Tìm kiếm chưa xếp loại..."
+            onRowDoubleClick={(row) => onOpenClassify(row)}
             emptyMessage="Tất cả biên lai đã được phân loại đầy đủ."
           />
         </div>
@@ -466,6 +391,15 @@ export const FlowTransactionsSection: React.FC<FlowTransactionsSectionProps> = (
             pageSize={20}
             exportFilename="danh_sach_giao_dich"
             searchPlaceholder="Tìm kiếm giao dịch..."
+            onRowDoubleClick={(row) => onEditTransaction({
+              id: row.id,
+              desc: row.desc,
+              amount: row.amount,
+              type: row.type,
+              category: row.category,
+              date: row.date,
+              isRecurring: !!row.isRecurring
+            })}
             emptyMessage="Chưa ghi nhận giao dịch nào."
           />
         </div>

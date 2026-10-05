@@ -84,6 +84,7 @@ export interface DataTableProps<TData> {
 
   // Callbacks
   onRowClick?: (row: TData) => void;
+  onRowDoubleClick?: (row: TData) => void;
   onSelectionChange?: (selectedRows: TData[]) => void;
   renderSubComponent?: (props: { row: Row<TData> }) => React.ReactNode;
 
@@ -519,6 +520,7 @@ export function DataTable<TData>({
   initialColumnVisibility = {},
   initialColumnPinning = {},
   onRowClick,
+  onRowDoubleClick,
   onSelectionChange,
   renderSubComponent,
   toolbarLeft,
@@ -1079,7 +1081,7 @@ export function DataTable<TData>({
                           }}
                           className={`
                             group transition-colors duration-150
-                            ${enableRowReorder ? 'cursor-grab active:cursor-grabbing' : onRowClick ? 'cursor-pointer' : ''}
+                            ${enableRowReorder ? 'cursor-grab active:cursor-grabbing' : (onRowClick || onRowDoubleClick) ? 'cursor-pointer select-none' : ''}
                             ${draggedRowIdx === rowIdx ? 'opacity-40 bg-indigo-500/20' : ''}
                             ${row.getIsSelected()
                               ? 'bg-indigo-500/10 hover:bg-indigo-500/15'
@@ -1088,6 +1090,7 @@ export function DataTable<TData>({
                               : 'bg-[#0b0f1c] hover:bg-[#131928]'}
                           `}
                           onClick={() => onRowClick?.(row.original)}
+                          onDoubleClick={() => onRowDoubleClick?.(row.original)}
                         >
                           {row.getVisibleCells().map((cell, cellIdx) => {
                             const isPinned = cell.column.getIsPinned();
