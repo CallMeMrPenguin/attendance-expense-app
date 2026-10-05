@@ -132,16 +132,19 @@ export const FlowTab: React.FC<FlowTabProps> = ({
 
   // Combined All Transactions (real cash flow: manual transactions + classified bank receipts)
   const allCombinedTransactions = useMemo(() => {
-    const cleanReceiptIds = new Set(
-      receiptTransactions.map(t => String(t.id).replace('tx-receipt-', '').replace('vcb-', ''))
+    const manualReceiptCleanIds = new Set(
+      (manualTransactions || [])
+        .filter(t => String(t.id).startsWith('tx-receipt-'))
+        .map(t => String(t.id).replace('tx-receipt-', '').replace('vcb-', ''))
     );
 
-    const filteredManual = (manualTransactions || []).filter(t => {
-      const cId = String(t.id).replace('tx-receipt-', '').replace('vcb-', '');
-      return !cleanReceiptIds.has(cId);
+    // Bank receipts that are not yet materialized in manualTransactions
+    const fallbackReceipts = receiptTransactions.filter(r => {
+      const cId = String(r.id).replace('tx-receipt-', '').replace('vcb-', '');
+      return !manualReceiptCleanIds.has(cId);
     });
 
-    return [...filteredManual, ...receiptTransactions].sort(
+    return [...(manualTransactions || []), ...fallbackReceipts].sort(
       (a, b) => (b.date || '').localeCompare(a.date || '')
     );
   }, [manualTransactions, receiptTransactions]);
@@ -364,7 +367,11 @@ export const FlowTab: React.FC<FlowTabProps> = ({
 
   const handleSaveTxEdit = (updatedTx: any) => {
     if (!saveTransactions || !updatedTx) return;
-    const nextList = (manualTransactions || []).map(t => (t.id === updatedTx.id ? updatedTx : t));
+    const exists = (manualTransactions || []).some(t => t.id === updatedTx.id);
+    const txToSave = { ...updatedTx, isManual: true };
+    const nextList = exists
+      ? (manualTransactions || []).map(t => (t.id === updatedTx.id ? txToSave : t))
+      : [txToSave, ...(manualTransactions || [])];
     saveTransactions(currentUser.id, nextList);
   };
 

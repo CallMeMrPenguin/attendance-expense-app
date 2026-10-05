@@ -294,7 +294,7 @@ export const FlowTransactionsSection: React.FC<FlowTransactionsSectionProps> = (
       enableSorting: false,
       cell: ({ row }) => {
         const t = row.original;
-        return t.isManual ? (
+        return (
           <button
             type="button"
             onClick={() => onEditTransaction({
@@ -311,19 +311,10 @@ export const FlowTransactionsSection: React.FC<FlowTransactionsSectionProps> = (
           >
             <Edit2 className="h-3.5 w-3.5" />
           </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => showToast('Giao dịch tự động liên kết với Lịch Trình. Vui lòng chỉnh sửa giá hoặc trạng thái ca dạy trong tab Lịch Trình để cập nhật.', 'info')}
-            className="h-7 w-7 bg-white/[0.04] border border-white/10 hover:border-indigo-500/40 hover:bg-indigo-500/10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-all shadow-sm cursor-pointer mx-auto"
-            title="Thông tin giao dịch tự động"
-          >
-            <Edit2 className="h-3.5 w-3.5" />
-          </button>
         );
       }
     }
-  ], [getCategoryIconName, onEditTransaction, showToast]);
+  ], [getCategoryIconName, onEditTransaction]);
 
   return (
     <div className="calendar-container-depth p-5 bg-[#06080e] rounded-3xl space-y-4 border-2 border-transparent [background:linear-gradient(#06080e,#06080e)_padding-box,linear-gradient(135deg,#3b82f6,#60a5fa,#1d4ed8)_border-box] shadow-[0_0_25px_rgba(59,130,246,0.35)]">

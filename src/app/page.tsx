@@ -323,7 +323,8 @@ export default function Dashboard() {
         type: txType,
         category,
         date: targetReceipt.trans_date || new Date().toISOString().split('T')[0],
-        isRecurring: false
+        isRecurring: false,
+        isManual: true
       };
       setManualTransactions(prev => {
         const existingIndex = prev.findIndex(t => t.id === txId || t.id.includes(receiptId));
@@ -378,7 +379,8 @@ export default function Dashboard() {
                     type: t.type,
                     category: t.category,
                     date: t.date,
-                    isRecurring
+                    isRecurring,
+                    isManual: true
                   };
                 });
                 setManualTransactions(formatted);
@@ -700,7 +702,8 @@ export default function Dashboard() {
               type: t.type,
               category: t.category,
               date: t.date,
-              isRecurring
+              isRecurring,
+              isManual: true
             };
           });
           setManualTransactions(formatted);
@@ -816,7 +819,8 @@ export default function Dashboard() {
                     type: t.type,
                     category: t.category,
                     date: t.date,
-                    isRecurring
+                    isRecurring,
+                    isManual: true
                   };
                 });
                 setManualTransactions(updatedList);
@@ -835,6 +839,28 @@ export default function Dashboard() {
   // Direct Supabase Save Helpers (Updates React State & Supabase Cloud directly without localStorage)
   const saveTransactions = useCallback((userId: string, data: any[]) => {
     setManualTransactions(data);
+
+    // Keep bankReceipts state in sync if any receipt transaction was modified
+    const receiptUpdates = new Map<string, any>(
+      data
+        .filter(t => t.id && String(t.id).startsWith('tx-receipt-'))
+        .map(t => [String(t.id).replace('tx-receipt-', '').replace('vcb-', ''), t])
+    );
+    if (receiptUpdates.size > 0) {
+      setBankReceipts(prev => prev.map(r => {
+        const cleanId = String(r.id).replace('vcb-', '');
+        const updated = receiptUpdates.get(cleanId);
+        if (updated) {
+          return {
+            ...r,
+            type: updated.type,
+            category: updated.category,
+            details: updated.desc || r.details
+          };
+        }
+        return r;
+      }));
+    }
 
     if (!currentUser) return;
     const teacherName = currentUser.teacherName || 'Admin';
@@ -861,6 +887,16 @@ export default function Dashboard() {
             console.error('Supabase manual_transactions upsert error:', error.message);
             const fallbackRecords = records.map(({ user_name, ...rest }: any) => ({ ...rest, teacher_name: user_name }));
             await (supabase.from('manual_transactions') as any).upsert(fallbackRecords, { onConflict: 'id' });
+          }
+
+          // Keep bank_receipts table in sync if receipt transactions were modified
+          const receiptRecords = data.filter(t => t.id && String(t.id).startsWith('tx-receipt-'));
+          for (const rt of receiptRecords) {
+            const rawId = String(rt.id).replace('tx-receipt-', '');
+            const cleanId = rawId.replace(/^vcb-/, '');
+            await (supabase.from('bank_receipts') as any)
+              .update({ type: rt.type, category: rt.category })
+              .or(`id.eq.${rawId},id.eq.vcb-${cleanId},id.eq.${cleanId}`);
           }
         }
       } catch (err) {
