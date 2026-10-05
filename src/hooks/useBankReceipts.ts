@@ -73,7 +73,8 @@ export function useBankReceipts({
     createRule: boolean,
     matchField: string,
     matchValue: string,
-    note?: string
+    note?: string,
+    isZeroPoint?: boolean
   ) => {
     // Remove from deletedTxIds if user explicitly re-classifies manually
     if (currentUser?.id) {
@@ -96,6 +97,35 @@ export function useBankReceipts({
     const trimmedNote = (note || '').trim();
 
     // 1. Optimistic instant local update for receipts
+    const targetReceipt = bankReceipts.find(r => r.id === receiptId);
+    const priorIds = new Set<string>();
+
+    if (isZeroPoint && type === 'exchange' && targetReceipt) {
+      const tDate = targetReceipt.trans_date || '';
+      const monthPrefix = tDate.substring(0, 7);
+      const sName = (targetReceipt.remitter_name || targetReceipt.sender_name || '').toUpperCase();
+      const dAcc = String(targetReceipt.debit_account || '');
+      const isTrang = sName.includes('PHAM THI THU TRANG') || sName.includes('THU TRANG') || dAcc.includes('9981397845');
+
+      bankReceipts.forEach(r => {
+        if (r.id === receiptId) return;
+        const rDate = r.trans_date || '';
+        if (monthPrefix && !rDate.startsWith(monthPrefix)) return;
+        if (rDate >= tDate) return;
+        const rsName = (r.remitter_name || r.sender_name || '').toUpperCase();
+        const rdAcc = String(r.debit_account || '');
+        const rIsTrang = rsName.includes('PHAM THI THU TRANG') || rsName.includes('THU TRANG') || rdAcc.includes('9981397845');
+        if ((isTrang && rIsTrang) || (!isTrang && !rIsTrang)) {
+          priorIds.add(r.id);
+          const raw = r.id.replace(/^vcb-/, '');
+          priorIds.add(raw);
+          priorIds.add(`vcb-${raw}`);
+          priorIds.add(`tx-receipt-${r.id}`);
+          priorIds.add(`tx-receipt-vcb-${raw}`);
+        }
+      });
+    }
+
     setBankReceipts(prev => {
       return prev.map(r => {
         if (r.id === receiptId) {
@@ -110,12 +140,19 @@ export function useBankReceipts({
             details: updatedDetails
           };
         }
+        if (priorIds.has(r.id)) {
+          return {
+            ...r,
+            status: 'unclassified',
+            type: null,
+            category: null
+          };
+        }
         return r;
       });
     });
 
     // 2. Optimistic instant local update for manual transactions
-    const targetReceipt = bankReceipts.find(r => r.id === receiptId);
     if (targetReceipt) {
       const baseDetails = (targetReceipt.details || '').split(' | Ghi chú: ')[0];
       const notePrefix = trimmedNote ? `${trimmedNote} ` : '';
@@ -135,18 +172,19 @@ export function useBankReceipts({
         isManual: true
       };
       setManualTransactions(prev => {
-        const existingIndex = prev.findIndex(t => t.id === txId || t.id.includes(receiptId));
+        const filtered = priorIds.size > 0 ? prev.filter(t => !priorIds.has(t.id)) : prev;
+        const existingIndex = filtered.findIndex(t => t.id === txId || t.id.includes(receiptId));
         if (existingIndex >= 0) {
-          const nextArr = [...prev];
+          const nextArr = [...filtered];
           nextArr[existingIndex] = newTxObj;
           return nextArr;
         } else {
-          return [newTxObj, ...prev];
+          return [newTxObj, ...filtered];
         }
       });
     }
 
-    showToast('Đã phân loại biên lai!', 'success');
+    showToast(isZeroPoint ? 'Đã thiết lập mốc 0đ và chuyển các giao dịch trước về Chưa phân loại!' : 'Đã phân loại biên lai!', 'success');
 
     // 3. Non-blocking background save to API & Supabase
     runBackgroundSave(async () => {
@@ -162,7 +200,8 @@ export function useBankReceipts({
             createRule,
             matchField,
             matchValue,
-            note: trimmedNote
+            note: trimmedNote,
+            isZeroPoint: !!isZeroPoint
           })
         });
 

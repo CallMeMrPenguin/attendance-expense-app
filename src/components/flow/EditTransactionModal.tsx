@@ -4,6 +4,7 @@ import { X, Trash2, ChevronDown } from 'lucide-react';
 import { formatNumberDots, parseNumberDots } from '@/lib/utils';
 import CustomDatePicker from '@/components/CustomDatePicker';
 import CustomSelect from '@/components/CustomSelect';
+import MaterialSymbol from '@/components/MaterialSymbol';
 
 interface EditTransactionModalProps {
   isOpen: boolean;
@@ -148,9 +149,30 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
               )}
             </div>
             {editingTx.type === 'exchange' && (
-              <p className="text-[10px] text-cyan-400/90 font-medium mt-1">
-                Giao dịch loại Trao đổi không tính vào Tổng Thu nhập hay Tổng Chi tiêu.
-              </p>
+              <div className="space-y-2 mt-2">
+                <p className="text-[10px] text-cyan-400/90 font-medium">
+                  Giao dịch loại Trao đổi không tính vào Tổng Thu nhập hay Tổng Chi tiêu.
+                </p>
+                <div className="p-3 bg-cyan-950/20 border border-cyan-500/30 rounded-xl space-y-1.5 transition-all">
+                  <label className="flex items-center justify-between cursor-pointer select-none">
+                    <div className="flex items-center gap-2">
+                      <MaterialSymbol icon="restart_alt" size={18} className="text-cyan-400" />
+                      <span className="text-xs font-black text-cyan-300">
+                        Thiết lập mốc 0đ (Zero Point)
+                      </span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={!!editingTx.isZeroPoint}
+                      onChange={(e) => setEditingTx((prev: any) => prev ? { ...prev, isZeroPoint: e.target.checked } : null)}
+                      className="w-4 h-4 rounded border-cyan-500/40 text-cyan-500 focus:ring-cyan-500/20 bg-[#0d1018] cursor-pointer"
+                    />
+                  </label>
+                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold">
+                    Khi bật, các giao dịch trước thời điểm này trong tháng sẽ tự động chuyển thành <span className="text-amber-300 font-bold">Không xếp loại</span>.
+                  </p>
+                </div>
+              </div>
             )}
           </div>
 

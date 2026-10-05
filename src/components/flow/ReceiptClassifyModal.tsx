@@ -20,7 +20,8 @@ interface ReceiptClassifyModalProps {
     createRule: boolean,
     matchField: string,
     matchValue: string,
-    note?: string
+    note?: string,
+    isZeroPoint?: boolean
   ) => Promise<void> | void;
   onUnclassify?: (receiptId: string) => Promise<void> | void;
 }
@@ -41,10 +42,12 @@ export const ReceiptClassifyModal: React.FC<ReceiptClassifyModalProps> = ({
   const [matchField, setMatchField] = useState<'credit_account' | 'sender_name' | 'remitter_name' | 'details' | 'remitter_beneficiary_details'>('details');
   const [matchValue, setMatchValue] = useState<string>('');
   const [receiptNote, setReceiptNote] = useState<string>('');
+  const [isZeroPoint, setIsZeroPoint] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (receipt) {
+      setIsZeroPoint(false);
       const isInternal = isHungTrangVcbTransfer(receipt);
       const initialType: 'income' | 'expense' | 'saving' | 'exchange' = 
         receipt.type || (isInternal ? 'exchange' : 'expense');
@@ -234,9 +237,30 @@ export const ReceiptClassifyModal: React.FC<ReceiptClassifyModalProps> = ({
               />
             )}
             {selectedType === 'exchange' && (
-              <p className="text-[10px] text-cyan-400/90 font-medium mt-1">
-                Giao dịch loại Trao đổi không tính vào Tổng Thu nhập hay Tổng Chi tiêu.
-              </p>
+              <div className="space-y-2 mt-2">
+                <p className="text-[10px] text-cyan-400/90 font-medium">
+                  Giao dịch loại Trao đổi không tính vào Tổng Thu nhập hay Tổng Chi tiêu.
+                </p>
+                <div className="p-3 bg-cyan-950/20 border border-cyan-500/30 rounded-xl space-y-1.5 transition-all">
+                  <label className="flex items-center justify-between cursor-pointer select-none">
+                    <div className="flex items-center gap-2">
+                      <MaterialSymbol icon="restart_alt" size={18} className="text-cyan-400" />
+                      <span className="text-xs font-black text-cyan-300">
+                        Thiết lập mốc 0đ (Zero Point)
+                      </span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={isZeroPoint}
+                      onChange={(e) => setIsZeroPoint(e.target.checked)}
+                      className="w-4 h-4 rounded border-cyan-500/40 text-cyan-500 focus:ring-cyan-500/20 bg-[#0d1018] cursor-pointer"
+                    />
+                  </label>
+                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold">
+                    Khi bật, giao dịch này xác nhận tài khoản của <span className="text-cyan-300 font-bold">{receipt?.debit_account?.includes('9981397845') || (receipt?.remitter_name || receipt?.sender_name || '').toUpperCase().includes('TRANG') ? 'Phạm Thị Thu Trang' : 'Bùi Đức Hùng'}</span> về 0đ. Toàn bộ các giao dịch trước thời điểm này trong tháng sẽ tự động chuyển về trạng thái <span className="text-amber-300 font-bold">Không xếp loại</span>.
+                  </p>
+                </div>
+              </div>
             )}
           </div>
 
@@ -350,7 +374,8 @@ export const ReceiptClassifyModal: React.FC<ReceiptClassifyModalProps> = ({
                     willCreateRule,
                     matchField,
                     matchValue,
-                    receiptNote
+                    receiptNote,
+                    selectedType === 'exchange' && isZeroPoint
                   );
                   setIsSaving(false);
                   onClose();

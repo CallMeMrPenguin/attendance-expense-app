@@ -36,7 +36,7 @@ export interface FlowTabProps {
   ) => void;
   saveTransactions?: (userId: string, data: any[]) => void;
   toggleChartMonth?: (mStr: string) => void;
-  handleClassifyReceipt?: (receiptId: string, type: 'income' | 'expense' | 'saving' | 'exchange', category: string, createRule: boolean, matchField: string, matchValue: string, note?: string) => void | Promise<void>;
+  handleClassifyReceipt?: (receiptId: string, type: 'income' | 'expense' | 'saving' | 'exchange', category: string, createRule: boolean, matchField: string, matchValue: string, note?: string, isZeroPoint?: boolean) => void | Promise<void>;
   handleUnclassifyReceipt?: (receiptId: string) => void | Promise<void>;
   handleSyncReceipts?: () => Promise<void>;
   trangAccountBalance?: number;

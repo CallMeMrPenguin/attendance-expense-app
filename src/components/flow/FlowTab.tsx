@@ -372,9 +372,30 @@ export const FlowTab: React.FC<FlowTabProps> = ({
     if (!saveTransactions || !updatedTx) return;
     const exists = (manualTransactions || []).some(t => t.id === updatedTx.id);
     const txToSave = { ...updatedTx, isManual: true };
-    const nextList = exists
+    let nextList = exists
       ? (manualTransactions || []).map(t => (t.id === updatedTx.id ? txToSave : t))
       : [txToSave, ...(manualTransactions || [])];
+
+    if (updatedTx.isZeroPoint && updatedTx.type === 'exchange') {
+      const tDate = updatedTx.date || '';
+      const mPrefix = tDate.substring(0, 7);
+      const descUpper = (updatedTx.desc || '').toUpperCase();
+      const isTrang = descUpper.includes('PHAM THI THU TRANG') || descUpper.includes('THU TRANG');
+
+      nextList = nextList.filter(t => {
+        if (t.id === updatedTx.id) return true;
+        const td = t.date || '';
+        if (mPrefix && !td.startsWith(mPrefix)) return true;
+        if (td >= tDate) return true;
+        const tDesc = (t.desc || '').toUpperCase();
+        const tIsTrang = tDesc.includes('PHAM THI THU TRANG') || tDesc.includes('THU TRANG');
+        if ((isTrang && tIsTrang) || (!isTrang && !tIsTrang)) {
+          return false;
+        }
+        return true;
+      });
+    }
+
     saveTransactions(currentUser.id, nextList);
   };
 

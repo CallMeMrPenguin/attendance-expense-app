@@ -40,7 +40,7 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { receiptId, type, category, userId, createRule, matchField, matchValue, note, unclassify } = body;
+    const { receiptId, type, category, userId, createRule, matchField, matchValue, note, unclassify, isZeroPoint } = body;
 
     if (!receiptId) {
       return NextResponse.json({ success: false, error: 'Missing required parameters' }, { status: 400 });
@@ -161,6 +161,56 @@ export async function POST(req: Request) {
         await supabaseAdmin.from('manual_transactions').upsert(fallbackTx as any, { onConflict: 'id' });
       }
     } catch (e) {}
+
+    // 3.5 If marked as Zero Point for exchange, unclassify all prior receipts of this individual in this month
+    if (isZeroPoint && type === 'exchange') {
+      try {
+        const targetDate = receipt.trans_date || new Date().toISOString();
+        const monthStart = targetDate.substring(0, 7) + '-01 00:00:00';
+        const sName = (receipt.remitter_name || receipt.sender_name || '').toUpperCase();
+        const dAcc = String(receipt.debit_account || '');
+        const isTrang = sName.includes('PHAM THI THU TRANG') || sName.includes('THU TRANG') || dAcc.includes('9981397845');
+
+        const { data: candidates } = await supabaseAdmin
+          .from('bank_receipts')
+          .select('id, trans_date, remitter_name, sender_name, debit_account, status')
+          .gte('trans_date', monthStart)
+          .lt('trans_date', targetDate)
+          .neq('id', receiptId);
+
+        const matchingPrior = (candidates || []).filter((r: any) => {
+          const rsName = (r.remitter_name || r.sender_name || '').toUpperCase();
+          const rdAcc = String(r.debit_account || '');
+          const rIsTrang = rsName.includes('PHAM THI THU TRANG') || rsName.includes('THU TRANG') || rdAcc.includes('9981397845');
+          return isTrang ? rIsTrang : !rIsTrang;
+        });
+
+        const unclassIds = matchingPrior.map((r: any) => r.id);
+        if (unclassIds.length > 0) {
+          await (supabaseAdmin.from('bank_receipts') as any)
+            .update({
+              status: 'unclassified',
+              type: null,
+              category: null,
+              note: null
+            })
+            .in('id', unclassIds);
+
+          const allTxIdsToDelete: string[] = [];
+          unclassIds.forEach((id: string) => {
+            const raw = id.replace(/^vcb-/, '');
+            allTxIdsToDelete.push(id, raw, `vcb-${raw}`, `tx-receipt-${id}`, `tx-receipt-vcb-${raw}`);
+          });
+
+          await supabaseAdmin
+            .from('manual_transactions')
+            .delete()
+            .in('id', allTxIdsToDelete);
+        }
+      } catch (err) {
+        console.error('Error applying zero point logic in API:', err);
+      }
+    }
 
     // 4. Save auto-classification rule if requested (ignore default transfer descriptions like 'bui duc hung chuyen tien')
     const isDefault = (matchField === 'details' || matchField === 'remitter_beneficiary_details') && isDefaultTransferDetails(matchValue);
