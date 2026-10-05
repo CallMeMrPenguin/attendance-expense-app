@@ -99,9 +99,6 @@ export const FlowCategoryGrid: React.FC<FlowCategoryGridProps> = ({
               <span className={`font-black text-xs truncate ${isIncome ? 'text-emerald-400 text-glow-green' : 'text-red-500 text-glow-red'}`}>
                 {item.name}
               </span>
-              <span className="text-[10px] text-slate-400 font-semibold truncate mt-0.5" title={item.noteText}>
-                {item.noteText}
-              </span>
             </div>
           </div>
         );

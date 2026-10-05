@@ -101,7 +101,7 @@ export const ReceiptClassifyModal: React.FC<ReceiptClassifyModalProps> = ({
           Phân Loại Biên Lai Ngân Hàng
         </h3>
         <p className="text-xs text-slate-400 font-semibold mb-4">
-          {(receipt.sender_name || receipt.remitter_name || (receipt.debit_account?.includes('9981397845') ? 'PHAM THI THU TRANG' : 'BUI DUC HUNG'))} ➔ {receipt.beneficiary_name || 'Vietcombank'}
+          {(receipt.sender_name || receipt.remitter_name || (receipt.debit_account?.includes('9981397845') ? 'PHAM THI THU TRANG' : 'BUI DUC HUNG'))} {'->'} {receipt.beneficiary_name || 'Vietcombank'}
         </p>
 
         <div className="bg-[#090b10] p-3 rounded-xl border border-white/5 space-y-1 mb-4 text-xs font-semibold">
@@ -124,12 +124,6 @@ export const ReceiptClassifyModal: React.FC<ReceiptClassifyModalProps> = ({
         </div>
 
         <div className="space-y-4 text-left">
-          {isHungTrangVcbTransfer(receipt) && (
-            <div className="p-2.5 bg-cyan-500/10 border border-cyan-500/25 rounded-xl flex items-center gap-2 text-xs text-cyan-300 font-semibold">
-              <MaterialSymbol icon="sync_alt" size={16} />
-              <span>Giao dịch lưu thông tiền nội bộ giữa Bùi Đức Hùng VCB và Phạm Thị Thu Trang VCB.</span>
-            </div>
-          )}
 
           {/* Type selection with 4-way animated sliding tab toggle */}
           <div className="space-y-1.5">
@@ -210,7 +204,7 @@ export const ReceiptClassifyModal: React.FC<ReceiptClassifyModalProps> = ({
             <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Chọn Danh Mục</label>
             {selectedType === 'exchange' ? (
               <div className="w-full bg-[#0d1018] border border-cyan-500/30 text-xs font-bold text-cyan-300 rounded-xl px-3.5 py-2.5">
-                Trao đổi (Lưu thông nội bộ)
+                {isZeroPoint || selectedCat === 'Trao đổi (Reset)' ? 'Trao đổi (Reset)' : 'Trao đổi'}
               </div>
             ) : (
               <CustomSelect
@@ -226,40 +220,33 @@ export const ReceiptClassifyModal: React.FC<ReceiptClassifyModalProps> = ({
                     : selectedType === 'income'
                     ? incomeCats.map(cat => ({
                         value: cat.name,
-                        label: cat.note ? `${cat.name} (${cat.note})` : cat.name,
+                        label: cat.name,
                       }))
                     : expenseCats.map(cat => ({
                         value: cat.name,
-                        label: cat.note ? `${cat.name} (${cat.note})` : cat.name,
+                        label: cat.name,
                       }))
                 }
                 placeholder="Chọn danh mục"
               />
             )}
             {selectedType === 'exchange' && (
-              <div className="space-y-2 mt-2">
-                <p className="text-[10px] text-cyan-400/90 font-medium">
-                  Giao dịch loại Trao đổi không tính vào Tổng Thu nhập hay Tổng Chi tiêu.
-                </p>
-                <div className="p-3 bg-cyan-950/20 border border-cyan-500/30 rounded-xl space-y-1.5 transition-all">
-                  <label className="flex items-center justify-between cursor-pointer select-none">
-                    <div className="flex items-center gap-2">
-                      <MaterialSymbol icon="restart_alt" size={18} className="text-cyan-400" />
-                      <span className="text-xs font-black text-cyan-300">
-                        Thiết lập mốc 0đ (Zero Point)
-                      </span>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={isZeroPoint}
-                      onChange={(e) => setIsZeroPoint(e.target.checked)}
-                      className="w-4 h-4 rounded border-cyan-500/40 text-cyan-500 focus:ring-cyan-500/20 bg-[#0d1018] cursor-pointer"
-                    />
-                  </label>
-                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold">
-                    Khi bật, giao dịch này xác nhận tài khoản của <span className="text-cyan-300 font-bold">{receipt?.debit_account?.includes('9981397845') || (receipt?.remitter_name || receipt?.sender_name || '').toUpperCase().includes('TRANG') ? 'Phạm Thị Thu Trang' : 'Bùi Đức Hùng'}</span> về 0đ. Toàn bộ các giao dịch trước thời điểm này trong tháng sẽ tự động chuyển về trạng thái <span className="text-amber-300 font-bold">Không xếp loại</span>.
-                  </p>
-                </div>
+              <div className="mt-2.5 p-3 bg-cyan-950/20 border border-cyan-500/30 rounded-xl">
+                <label className="flex items-center justify-between cursor-pointer select-none">
+                  <span className="text-xs font-black text-cyan-300">
+                    Trao đổi (Reset)
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={isZeroPoint}
+                    onChange={(e) => {
+                      const val = e.target.checked;
+                      setIsZeroPoint(val);
+                      setSelectedCat(val ? 'Trao đổi (Reset)' : 'Trao đổi');
+                    }}
+                    className="w-4 h-4 rounded border-cyan-500/40 text-cyan-500 focus:ring-cyan-500/20 bg-[#0d1018] cursor-pointer"
+                  />
+                </label>
               </div>
             )}
           </div>
@@ -307,7 +294,7 @@ export const ReceiptClassifyModal: React.FC<ReceiptClassifyModalProps> = ({
                     options={[
                       { value: 'credit_account', label: 'Số tài khoản nhận (Credit Account Number)' },
                       { value: 'sender_name', label: 'Tên / STK Người gửi (Sender Name)' },
-                      { value: 'remitter_beneficiary_details', label: 'BÙI ĐỨC HÙNG ➔ PHẠM THỊ THU TRANG (Khớp theo Nội dung)' },
+                      { value: 'remitter_beneficiary_details', label: 'BÙI ĐỨC HÙNG -> PHẠM THỊ THU TRANG (Khớp theo Nội dung)' },
                       { value: 'details', label: 'Nội dung chuyển tiền (Details of Payment)' },
                     ]}
                     placeholder="Chọn trường khớp"

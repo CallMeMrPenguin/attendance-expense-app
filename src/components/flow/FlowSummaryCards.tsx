@@ -29,11 +29,6 @@ export const FlowSummaryCards: React.FC<FlowSummaryCardsProps> = ({
           <div className="space-y-1 flex-1 min-w-0">
             <span className="text-[10px] font-black text-purple-400 text-glow-purple uppercase tracking-widest block">Thu Nhập Dự Kiến</span>
             <span className="text-xl font-black text-purple-400 text-glow-purple tracking-tight block">{formatVND(projectedIncome)}</span>
-            <div className="flex items-center gap-1 select-none">
-              <span className="text-[9px] font-black text-purple-300/80">
-                Dự kiến ca dạy + Mục tiêu thu nhập
-              </span>
-            </div>
           </div>
           <div className="p-2 bg-purple-500/10 text-purple-400 border border-purple-500/30 rounded-xl shadow-[0_0_12px_rgba(168,85,247,0.35)] shrink-0 flex items-center justify-center">
             <MaterialSymbol icon="monitoring" size={20} className="text-purple-400" />

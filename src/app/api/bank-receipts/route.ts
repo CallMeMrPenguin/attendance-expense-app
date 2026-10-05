@@ -96,6 +96,7 @@ export async function POST(req: Request) {
     if (!type || !category) {
       return NextResponse.json({ success: false, error: 'Missing type or category' }, { status: 400 });
     }
+    const finalCategory = ((isZeroPoint && type === 'exchange') || category === 'Trao đổi (Reset)') ? 'Trao đổi (Reset)' : category;
     const trimmedNote = note ? String(note).trim() : '';
 
     // 1. Fetch targeted receipt from DB
@@ -121,7 +122,7 @@ export async function POST(req: Request) {
       ...receipt,
       status: 'classified',
       type,
-      category,
+      category: finalCategory,
       details: updatedDetails,
       user_id: userId || receipt.user_id
     };
@@ -138,7 +139,7 @@ export async function POST(req: Request) {
     const notePrefix = trimmedNote ? `${trimmedNote} ` : '';
     const sName = receipt.remitter_name || receipt.sender_name || (receipt.debit_account?.includes('9981397845') ? 'PHAM THI THU TRANG' : 'BUI DUC HUNG');
     const bName = receipt.beneficiary_name || '';
-    const descText = `${notePrefix}[Biên lai Vietcombank] ${sName} ➔ ${bName}: ${baseDetails}`;
+    const descText = `${notePrefix}[Biên lai Vietcombank] ${sName} -> ${bName}: ${baseDetails}`;
 
     const txType = type === 'saving' ? 'expense' : type;
 
@@ -149,7 +150,7 @@ export async function POST(req: Request) {
       desc_text: descText,
       amount: Number(receipt.amount),
       type: txType,
-      category,
+      category: finalCategory,
       date: receipt.trans_date || new Date().toISOString().split('T')[0]
     };
 

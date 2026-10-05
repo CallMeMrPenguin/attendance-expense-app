@@ -54,25 +54,19 @@ export const FlowTransactionsSection: React.FC<FlowTransactionsSectionProps> = (
     },
     {
       accessorKey: 'sender_name',
-      header: 'Người Gửi ➔ Người Nhận',
+      header: 'Người Gửi -> Người Nhận',
       cell: ({ row }) => {
         const r = row.original;
         const detailsStr = r.details || '';
         const hasNoteInDetails = detailsStr.includes(' | Ghi chú: ');
         const mainDetails = hasNoteInDetails ? detailsStr.split(' | Ghi chú: ')[0] : detailsStr;
-        const noteText = r.note || (hasNoteInDetails ? detailsStr.split(' | Ghi chú: ')[1] : '');
         const sender = r.sender_name || r.remitter_name || (r.debit_account?.includes('9981397845') ? 'PHAM THI THU TRANG' : 'BUI DUC HUNG');
         return (
           <div className="flex flex-col text-left max-w-xs truncate">
             <span className="font-extrabold text-white text-xs truncate">
-              {sender} ➔ {r.beneficiary_name || 'N/A'}
+              {sender} {'->'} {r.beneficiary_name || 'N/A'}
             </span>
             <span className="text-[10px] text-slate-400 truncate">{mainDetails}</span>
-            {noteText ? (
-              <span className="text-[10px] text-amber-300 font-semibold truncate block mt-0.5">
-                Ghi chú: {noteText}
-              </span>
-            ) : null}
           </div>
         );
       }

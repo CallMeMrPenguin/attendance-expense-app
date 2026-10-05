@@ -39,8 +39,24 @@ export const TrangAccountCard: React.FC<TrangAccountCardProps> = ({
       return chartSelectedMonths.includes(tMonth);
     };
 
+    const trangResetDates = [
+      ...bankReceipts.filter(r => isTrangTx(r) && (r.category === 'Trao đổi (Reset)' || r.isZeroPoint)),
+      ...manualTransactions.filter(t => isTrangTx(t) && (t.category === 'Trao đổi (Reset)' || t.isZeroPoint))
+    ].map(item => item.trans_date || item.date || '').filter(Boolean);
+
+    const latestTrangReset = trangResetDates.length > 0 ? [...trangResetDates].sort().reverse()[0] : null;
+
     const receiptsTrang = bankReceipts
-      .filter(r => r.status === 'classified' && (r.type === 'expense' || !r.type) && isTrangTx(r) && isReceiptInSelectedMonths(r))
+      .filter(r => {
+        if (r.status !== 'classified') return false;
+        if (r.type !== 'expense') return false;
+        if (r.category === 'Không xếp loại' || r.category === 'Trao đổi (Reset)') return false;
+        if (!isTrangTx(r)) return false;
+        if (!isReceiptInSelectedMonths(r)) return false;
+        const rDate = r.trans_date || r.created_at || '';
+        if (latestTrangReset && rDate < latestTrangReset) return false;
+        return true;
+      })
       .map(r => ({
         id: r.id,
         desc: r.details,
@@ -50,7 +66,15 @@ export const TrangAccountCard: React.FC<TrangAccountCardProps> = ({
       }));
 
     const manualTrang = manualTransactions
-      .filter(t => isTrangTx(t) && t.type === 'expense' && isTxInSelectedMonths(t))
+      .filter(t => {
+        if (t.type !== 'expense') return false;
+        if (t.category === 'Không xếp loại' || t.category === 'Trao đổi (Reset)') return false;
+        if (!isTrangTx(t)) return false;
+        if (!isTxInSelectedMonths(t)) return false;
+        const tDate = t.date || '';
+        if (latestTrangReset && tDate < latestTrangReset) return false;
+        return true;
+      })
       .map(t => ({
         id: t.id,
         desc: t.desc,

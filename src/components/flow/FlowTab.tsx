@@ -172,6 +172,7 @@ export const FlowTab: React.FC<FlowTabProps> = ({
 
     allCombinedTransactions.forEach(t => {
       if (t.type === 'exchange') return;
+      if (!t.category || t.category === 'Không xếp loại' || t.category === 'Chưa phân loại' || t.category === 'Trao đổi (Reset)') return;
       const tYear = (t.date || '').substring(0, 4);
       const isMatch = distMode === 'avg_year'
         ? tYear === String(distYear)
@@ -376,23 +377,23 @@ export const FlowTab: React.FC<FlowTabProps> = ({
       ? (manualTransactions || []).map(t => (t.id === updatedTx.id ? txToSave : t))
       : [txToSave, ...(manualTransactions || [])];
 
-    if (updatedTx.isZeroPoint && updatedTx.type === 'exchange') {
+    if ((updatedTx.isZeroPoint || updatedTx.category === 'Trao đổi (Reset)') && updatedTx.type === 'exchange') {
       const tDate = updatedTx.date || '';
       const mPrefix = tDate.substring(0, 7);
       const descUpper = (updatedTx.desc || '').toUpperCase();
       const isTrang = descUpper.includes('PHAM THI THU TRANG') || descUpper.includes('THU TRANG');
 
-      nextList = nextList.filter(t => {
-        if (t.id === updatedTx.id) return true;
+      nextList = nextList.map(t => {
+        if (t.id === updatedTx.id) return t;
         const td = t.date || '';
-        if (mPrefix && !td.startsWith(mPrefix)) return true;
-        if (td >= tDate) return true;
+        if (mPrefix && !td.startsWith(mPrefix)) return t;
+        if (td >= tDate) return t;
         const tDesc = (t.desc || '').toUpperCase();
         const tIsTrang = tDesc.includes('PHAM THI THU TRANG') || tDesc.includes('THU TRANG');
         if ((isTrang && tIsTrang) || (!isTrang && !tIsTrang)) {
-          return false;
+          return { ...t, category: 'Không xếp loại' };
         }
-        return true;
+        return t;
       });
     }
 
@@ -405,7 +406,6 @@ export const FlowTab: React.FC<FlowTabProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-white/5 pb-4 select-none">
         <div className="flex flex-col text-left">
           <h2 className="text-2xl font-black text-white text-glow-white tracking-tight">Sổ Nhật Ký Dòng Tiền</h2>
-          <p className="text-slate-400 text-xs font-semibold mt-0.5">Theo dõi doanh thu, chi phí, lập ngân sách thu chi theo danh mục & thặng dư</p>
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">

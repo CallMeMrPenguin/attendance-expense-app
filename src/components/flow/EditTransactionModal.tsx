@@ -134,7 +134,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
             <div>
               {editingTx.type === 'exchange' ? (
                 <div className="w-full bg-[#0d1018] border border-cyan-500/30 text-xs font-bold text-cyan-300 rounded-xl px-3.5 py-2.5">
-                  Trao đổi (Lưu thông nội bộ)
+                  {editingTx.isZeroPoint || editingTx.category === 'Trao đổi (Reset)' ? 'Trao đổi (Reset)' : 'Trao đổi'}
                 </div>
               ) : (
                 <CustomSelect
@@ -142,36 +142,35 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
                   onChange={(val) => setEditingTx((prev: any) => prev ? { ...prev, category: val } : null)}
                   options={(editingTx.type === 'income' ? incomeCats : expenseCats).map((c) => ({
                     value: c.name,
-                    label: c.note ? `${c.name} (${c.note})` : c.name,
+                    label: c.name,
                   }))}
                   placeholder="Chọn danh mục"
                 />
               )}
             </div>
             {editingTx.type === 'exchange' && (
-              <div className="space-y-2 mt-2">
-                <p className="text-[10px] text-cyan-400/90 font-medium">
-                  Giao dịch loại Trao đổi không tính vào Tổng Thu nhập hay Tổng Chi tiêu.
-                </p>
-                <div className="p-3 bg-cyan-950/20 border border-cyan-500/30 rounded-xl space-y-1.5 transition-all">
-                  <label className="flex items-center justify-between cursor-pointer select-none">
-                    <div className="flex items-center gap-2">
-                      <MaterialSymbol icon="restart_alt" size={18} className="text-cyan-400" />
-                      <span className="text-xs font-black text-cyan-300">
-                        Thiết lập mốc 0đ (Zero Point)
-                      </span>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={!!editingTx.isZeroPoint}
-                      onChange={(e) => setEditingTx((prev: any) => prev ? { ...prev, isZeroPoint: e.target.checked } : null)}
-                      className="w-4 h-4 rounded border-cyan-500/40 text-cyan-500 focus:ring-cyan-500/20 bg-[#0d1018] cursor-pointer"
-                    />
-                  </label>
-                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold">
-                    Khi bật, các giao dịch trước thời điểm này trong tháng sẽ tự động chuyển thành <span className="text-amber-300 font-bold">Không xếp loại</span>.
-                  </p>
-                </div>
+              <div className="mt-2">
+                <label className="flex items-center justify-between p-3 bg-cyan-950/20 border border-cyan-500/30 rounded-xl cursor-pointer select-none">
+                  <div className="flex items-center gap-2">
+                    <MaterialSymbol icon="restart_alt" size={18} className="text-cyan-400" />
+                    <span className="text-xs font-black text-cyan-300">
+                      Trao đổi (Reset)
+                    </span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={!!editingTx.isZeroPoint || editingTx.category === 'Trao đổi (Reset)'}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setEditingTx((prev: any) => prev ? { 
+                        ...prev, 
+                        isZeroPoint: checked,
+                        category: checked ? 'Trao đổi (Reset)' : 'Trao đổi'
+                      } : null);
+                    }}
+                    className="w-4 h-4 rounded border-cyan-500/40 text-cyan-500 focus:ring-cyan-500/20 bg-[#0d1018] cursor-pointer"
+                  />
+                </label>
               </div>
             )}
           </div>
@@ -186,7 +185,6 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
           >
             <div className="flex flex-col text-left">
               <span className="text-xs font-extrabold text-white">Giao dịch Cố định (Hằng tháng)</span>
-              <span className="text-[9.5px] text-slate-400">Tự động cộng/trừ số tiền này cho các tháng tiếp theo</span>
             </div>
             <input 
               type="checkbox" 
