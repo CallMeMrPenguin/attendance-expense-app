@@ -49,47 +49,64 @@ function hexToHSL(hex: string) {
 export function getPremiumVioletStyle(timeStr: string, status: string, hexColor: string = '#7b61ff') {
   if (status === 'Hủy') {
     return {
-      bg: 'rgba(148, 163, 184, 0.12)', // Visible light gray background
-      border: 'rgba(148, 163, 184, 0.3)', // Visible light gray border
-      innerBorder: 'rgba(148, 163, 184, 0.15)',
-      color: '#94a3b8', // Slate-400 text color for time and metadata
-      titleColor: '#cbd5e1', // Slate-300 text color for student name
-      priceColor: '#94a3b8',
-      shadow: 'none'
+      bg: 'rgba(148, 163, 184, 0.06)', // Visible light gray background
+      border: 'rgba(148, 163, 184, 0.20)', // Subtle light gray border
+      innerBorder: 'rgba(148, 163, 184, 0.10)',
+      color: '#64748b', // Muted slate text
+      titleColor: '#94a3b8',
+      priceColor: '#64748b',
+      shadow: 'none',
+      opacity: '0.55'
     };
   }
 
   const { h: hue, s: initialSat, l: initialLight } = hexToHSL(hexColor);
   
+  const isDone = status === 'Đã dạy' || status === 'Đã làm';
+
   let sat = initialSat;
   let lightness = initialLight;
 
-  if (status === 'Đã dạy' || status === 'Đã làm') {
-    sat = Math.max(25, Math.round(initialSat * 0.55));
-    lightness = 52;
+  if (isDone) {
+    sat = Math.max(10, Math.round(initialSat * 0.18));
+    lightness = 40;
   } else {
     sat = Math.min(90, Math.max(70, initialSat));
     lightness = Math.min(80, Math.max(55, initialLight));
   }
 
-  const alphaBg = (status === 'Đã dạy' || status === 'Đã làm') ? '0.14' : '0.22';
+  const alphaBg = isDone ? '0.05' : '0.22';
   const bg = `hsla(${hue}, ${sat}%, ${lightness}%, ${alphaBg})`;
-  const border = `hsla(${hue}, ${sat}%, ${lightness}%, 0.85)`;
-  const color = `hsla(${hue}, 95%, 92%, 0.98)`;
+  const border = isDone
+    ? `hsla(${hue}, ${sat}%, ${lightness}%, 0.20)`
+    : `hsla(${hue}, ${sat}%, ${lightness}%, 0.85)`;
+  const innerBorder = isDone
+    ? `hsla(${hue}, ${sat}%, ${lightness}%, 0.10)`
+    : `hsla(${hue}, ${sat}%, ${lightness}%, 0.45)`;
+  const color = isDone
+    ? 'rgba(148, 163, 184, 0.70)'
+    : `hsla(${hue}, 95%, 92%, 0.98)`;
+  const titleColor = isDone
+    ? '#94a3b8'
+    : '#FFFFFF';
+  const priceColor = isDone
+    ? 'rgba(148, 163, 184, 0.70)'
+    : color;
   
-  // High-intensity noticeable vibrant glow shadow effect matching day indicator glow
-  const shadow = (status === 'Đã dạy' || status === 'Đã làm')
-    ? `0 0 16px hsla(${hue}, ${sat}%, ${lightness}%, 0.40), 0 0 4px hsla(${hue}, ${sat}%, ${lightness}%, 0.80)`
+  // High-intensity noticeable vibrant glow shadow effect matching day indicator glow for upcoming sessions
+  const shadow = isDone
+    ? 'none'
     : `0 0 20px hsla(${hue}, ${sat}%, ${lightness}%, 0.65), 0 0 8px hsla(${hue}, ${sat}%, ${lightness}%, 0.90), 0 4px 14px rgba(0, 0, 0, 0.4)`;
 
   return {
     bg,
     border,
-    innerBorder: `hsla(${hue}, ${sat}%, ${lightness}%, 0.45)`,
+    innerBorder,
     color,
-    titleColor: '#FFFFFF',
-    priceColor: color,
-    shadow
+    titleColor,
+    priceColor,
+    shadow,
+    opacity: isDone ? '0.68' : '1'
   };
 }
 
@@ -251,11 +268,12 @@ export default function CalendarMonthView({
                         <div
                           key={s.id || `session-${dateStr}-${s.time}-${sIdx}`}
                           onClick={() => onSessionClick(s.id)}
-                          className="flex rounded-xl cursor-pointer transition-all active:scale-[0.98] min-h-[52px] border border-solid event-float overflow-hidden"
+                          className="flex rounded-xl cursor-pointer transition-all active:scale-[0.98] min-h-[52px] border border-solid event-float overflow-hidden hover:opacity-100"
                           style={{
                             backgroundColor: vStyle.bg,
                             borderColor: vStyle.border,
-                            boxShadow: vStyle.shadow
+                            boxShadow: vStyle.shadow,
+                            opacity: vStyle.opacity,
                           }}
                         >
                           {/* Left Time Bar */}
@@ -275,7 +293,8 @@ export default function CalendarMonthView({
                           <div className="flex-grow p-2 flex flex-col justify-center overflow-hidden">
                             <div className="flex items-center justify-between gap-1">
                               <h4 
-                                className="text-[12px] font-black truncate leading-tight text-left tracking-tight text-white"
+                                className="text-[12px] font-black truncate leading-tight text-left tracking-tight"
+                                style={{ color: vStyle.titleColor }}
                               >
                                 {s.job_name || s.student_name}
                               </h4>

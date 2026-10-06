@@ -407,11 +407,13 @@ export function ScheduleStatsView({
                           onSelectSession(s);
                           onOpenEditModal();
                         }}
-                        className="p-2.5 rounded-xl bg-[#141824] hover:bg-[#1c2234] border border-white/5 hover:border-indigo-500/30 transition-all cursor-pointer flex flex-col justify-between gap-2 shadow-sm"
+                        className={`p-2.5 rounded-xl bg-[#141824] hover:bg-[#1c2234] border border-white/5 hover:border-indigo-500/30 transition-all cursor-pointer flex flex-col justify-between gap-2 shadow-sm ${
+                          isDone ? 'opacity-65 bg-[#0f131f]' : ''
+                        }`}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-1.5 min-w-0">
-                            <span className="text-[11px] font-black text-white truncate">
+                            <span className={`text-[11px] font-black truncate ${isDone ? 'text-slate-400' : 'text-white'}`}>
                               {formatDateVN(s.date)}
                             </span>
                             {(s.student_count ?? 1) > 1 && !isReduced && (
@@ -427,7 +429,7 @@ export function ScheduleStatsView({
                           </div>
                           <span className={`text-[9px] font-black px-1.5 py-0.5 rounded border shrink-0 ${
                             isDone
-                              ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                              ? 'bg-emerald-500/10 text-emerald-400/70 border border-emerald-500/20'
                               : isCancel
                               ? 'bg-rose-500/15 text-rose-300 border-rose-500/30'
                               : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
@@ -438,7 +440,7 @@ export function ScheduleStatsView({
 
                         <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold">
                           <span>{formatCleanTimeString(s.time)} - {getEndTime(formatCleanTimeString(s.time), s.duration)}</span>
-                          <span className={`font-black ${isReduced ? 'text-amber-400' : 'text-slate-200'}`}>{formatVND(s.price)}</span>
+                          <span className={`font-black ${isReduced ? 'text-amber-400' : isDone ? 'text-slate-400' : 'text-slate-200'}`}>{formatVND(s.price)}</span>
                         </div>
                       </div>
                     );

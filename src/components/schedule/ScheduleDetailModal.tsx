@@ -224,20 +224,22 @@ export const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({
                   onSelectSession(s);
                   onOpenEditModal();
                 }}
-                className="p-3 rounded-xl bg-[#141824] hover:bg-[#1a2032] border border-white/5 hover:border-indigo-500/40 transition-all cursor-pointer flex items-center justify-between gap-3 shadow-sm group"
+                className={`p-3 rounded-xl bg-[#141824] hover:bg-[#1a2032] border border-white/5 hover:border-indigo-500/40 transition-all cursor-pointer flex items-center justify-between gap-3 shadow-sm group ${
+                  isDone ? 'opacity-65' : ''
+                }`}
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <span className="text-xs font-black text-slate-500 w-5 text-center">
                     #{idx + 1}
                   </span>
                   <div className="min-w-0">
-                    <span className="text-xs font-extrabold text-white block group-hover:text-indigo-300 transition-colors">
+                    <span className={`text-xs font-extrabold block group-hover:text-indigo-300 transition-colors ${isDone ? 'text-slate-300' : 'text-white'}`}>
                       {formatDateVN(s.date)}
                     </span>
                     <div className="flex items-center gap-2 mt-0.5 text-[10px] text-slate-400 font-bold flex-wrap">
                       <span>{formatCleanTimeString(s.time)} - {getEndTime(formatCleanTimeString(s.time), s.duration)} ({s.duration}h)</span>
                       <span>|</span>
-                      <span className="text-slate-300 font-black">{formatVND(s.price)}</span>
+                      <span className={`font-black ${isDone ? 'text-slate-400' : 'text-slate-300'}`}>{formatVND(s.price)}</span>
                       {((s.student_count ?? 1) > 1 || (s.original_student_count ?? 1) > 1) && (
                         <>
                           <span>|</span>
@@ -254,7 +256,7 @@ export const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({
                 <div className="flex items-center gap-2 shrink-0">
                   <span className={`text-[10px] font-black px-2.5 py-1 rounded-lg border ${
                     isDone
-                      ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                      ? 'bg-emerald-500/10 text-emerald-400/70 border border-emerald-500/20'
                       : isCancel
                       ? 'bg-rose-500/15 text-rose-300 border-rose-500/30'
                       : 'bg-amber-500/15 text-amber-300 border-amber-500/30'

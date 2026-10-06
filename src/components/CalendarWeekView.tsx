@@ -332,11 +332,12 @@ export default function CalendarWeekView({
                                 <div
                                   key={s.id || `session-${s.date}-${s.time}`}
                                   onClick={() => onSessionClick(s.id)}
-                                  className="flex rounded-xl cursor-pointer transition-all active:scale-[0.98] min-h-[56px] border border-solid event-float overflow-hidden shrink-0 shadow-md hover:brightness-110"
+                                  className="flex rounded-xl cursor-pointer transition-all active:scale-[0.98] min-h-[56px] border border-solid event-float overflow-hidden shrink-0 shadow-md hover:brightness-110 hover:opacity-100"
                                   style={{
                                     backgroundColor: vStyle.bg,
                                     borderColor: vStyle.border,
                                     boxShadow: vStyle.shadow,
+                                    opacity: vStyle.opacity,
                                   }}
                                   title={`Bấm để chỉnh sửa: ${jobName} (${s.status})`}
                                 >
@@ -356,7 +357,10 @@ export default function CalendarWeekView({
                                   {/* Info Column */}
                                   <div className="flex-grow p-2 flex flex-col justify-between overflow-hidden">
                                     <div className="flex items-center justify-between gap-1">
-                                      <h4 className="text-[12px] font-black truncate leading-tight text-left tracking-tight text-white">
+                                      <h4 
+                                        className="text-[12px] font-black truncate leading-tight text-left tracking-tight"
+                                        style={{ color: vStyle.titleColor }}
+                                      >
                                         {jobName}
                                       </h4>
                                       {(s.student_count ?? 1) < (s.original_student_count ?? (s.student_count ?? 1)) ? (
@@ -389,7 +393,7 @@ export default function CalendarWeekView({
                                       <span
                                         className={`text-[8.5px] font-black px-1.5 py-0.5 rounded ${
                                           s.status === 'Đã làm' || s.status === 'Đã dạy'
-                                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                            ? 'bg-emerald-500/10 text-emerald-400/70 border border-emerald-500/20'
                                             : s.status === 'Hủy'
                                             ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
                                             : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
