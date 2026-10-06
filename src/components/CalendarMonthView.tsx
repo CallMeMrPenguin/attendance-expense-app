@@ -49,33 +49,45 @@ function hexToHSL(hex: string) {
 export function getPremiumVioletStyle(timeStr: string, status: string, hexColor: string = '#7b61ff') {
   if (status === 'Hủy') {
     return {
-      bg: 'rgba(148, 163, 184, 0.08)', // Visible light gray background
-      border: 'rgba(148, 163, 184, 0.22)', // Visible light gray border
-      innerBorder: 'rgba(148, 163, 184, 0.12)',
-      color: '#94a3b8', // Slate-400 text color for time and metadata
-      titleColor: '#94a3b8', // Slate-400 text color for student name
-      priceColor: '#94a3b8',
+      bg: 'rgba(148, 163, 184, 0.05)', // Xám trung tính nhạt cho ca hủy
+      border: 'rgba(148, 163, 184, 0.20)', // Viền xám mảnh
+      innerBorder: 'rgba(148, 163, 184, 0.10)',
+      color: '#64748b', // Text xám mờ
+      titleColor: '#64748b', // Tên xám mờ
+      priceColor: '#64748b',
       shadow: 'none',
       opacity: '1'
     };
   }
 
+  const { h: hue, s: initialSat, l: initialLight } = hexToHSL(hexColor);
   const isDone = status === 'Đã dạy' || status === 'Đã làm';
 
   if (isDone) {
+    // GIỮ TÔNG MÀU RIÊNG CỦA MÔN HỌC Ở MỨC NHẠT (PALE), TUYỆT ĐỐI KHÔNG CÓ GLOW
+    const sat = Math.max(35, Math.round(initialSat * 0.50)); // Độ bão hòa dịu nhẹ, giữ nhận diện màu
+    const lightness = 48;
+
+    const bg = `hsla(${hue}, ${sat}%, ${lightness}%, 0.10)`; // Nền màu nhạt, trong trẻo
+    const border = `hsla(${hue}, ${sat}%, ${lightness}%, 0.38)`; // Viền màu mảnh 0.38, thanh thoát
+    const innerBorder = `hsla(${hue}, ${sat}%, ${lightness}%, 0.20)`;
+    const color = `hsla(${hue}, 55%, 82%, 0.90)`; // Chữ thời gian có ánh màu nhẹ
+    const titleColor = '#ffffff'; // Tên học sinh màu trắng sáng rõ 100%
+    const priceColor = color;
+    const shadow = 'none'; // BỎ HOÀN TOÀN GLOW EFFECT
+
     return {
-      bg: 'rgba(148, 163, 184, 0.12)', // Màu xám dễ nhìn giống lịch hủy
-      border: 'rgba(148, 163, 184, 0.28)', // Viền xám rõ nét, không phát sáng
-      innerBorder: 'rgba(148, 163, 184, 0.16)',
-      color: '#94a3b8', // Slate-400 cho giờ
-      titleColor: '#f1f5f9', // Slate-100 rõ nét, dễ đọc, không mờ tịt
-      priceColor: '#94a3b8',
-      shadow: 'none', // MẤT HOÀN TOÀN GLOW EFFECT
-      opacity: '1' // RÕ RÀNG 100%, KHÔNG BỊ MỜ MẤT CHỮ
+      bg,
+      border,
+      innerBorder,
+      color,
+      titleColor,
+      priceColor,
+      shadow,
+      opacity: '1'
     };
   }
 
-  const { h: hue, s: initialSat, l: initialLight } = hexToHSL(hexColor);
   const sat = Math.min(90, Math.max(70, initialSat));
   const lightness = Math.min(80, Math.max(55, initialLight));
 
@@ -86,7 +98,7 @@ export function getPremiumVioletStyle(timeStr: string, status: string, hexColor:
   const titleColor = '#FFFFFF';
   const priceColor = color;
   
-  // High-intensity noticeable vibrant glow shadow effect matching day indicator glow for upcoming sessions
+  // High-intensity noticeable vibrant glow shadow effect chỉ dành cho ca Chưa làm
   const shadow = `0 0 20px hsla(${hue}, ${sat}%, ${lightness}%, 0.65), 0 0 8px hsla(${hue}, ${sat}%, ${lightness}%, 0.90), 0 4px 14px rgba(0, 0, 0, 0.4)`;
 
   return {
@@ -262,8 +274,10 @@ export default function CalendarMonthView({
                           key={s.id || `session-${dateStr}-${s.time}-${sIdx}`}
                           onClick={() => onSessionClick(s.id)}
                           className={`flex rounded-xl cursor-pointer transition-all active:scale-[0.98] min-h-[52px] border border-solid overflow-hidden ${
-                            isDone || isCancel 
-                              ? 'hover:border-slate-400/40 hover:bg-slate-500/15' 
+                            isCancel 
+                              ? 'opacity-60 hover:opacity-90' 
+                              : isDone 
+                              ? 'hover:brightness-105' 
                               : 'event-float hover:brightness-105'
                           }`}
                           style={{
@@ -290,8 +304,10 @@ export default function CalendarMonthView({
                           <div className="flex-grow p-2 flex flex-col justify-center overflow-hidden">
                             <div className="flex items-center justify-between gap-1">
                               <h4 
-                                className="text-[12px] font-black truncate leading-tight text-left tracking-tight"
-                                style={{ color: vStyle.titleColor }}
+                                className={`text-[12px] font-black truncate leading-tight text-left tracking-tight ${
+                                  isCancel ? 'line-through text-slate-500' : ''
+                                }`}
+                                style={{ color: isCancel ? undefined : vStyle.titleColor }}
                               >
                                 {s.job_name || s.student_name}
                               </h4>
@@ -304,8 +320,10 @@ export default function CalendarMonthView({
                                 </span>
                               ) : (s.student_count ?? 1) > 1 ? (
                                 <span className={`text-[8px] font-black px-1 py-0.2 rounded shrink-0 ${
-                                  isDone || isCancel
-                                    ? 'bg-slate-500/20 text-slate-300 border border-slate-500/30' 
+                                  isCancel
+                                    ? 'bg-slate-500/20 text-slate-400 border border-slate-500/30'
+                                    : isDone
+                                    ? 'bg-white/10 text-white/90 border border-white/15'
                                     : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
                                 }`}>
                                   {s.student_count} HS
@@ -316,7 +334,7 @@ export default function CalendarMonthView({
                               className="text-[9.5px] font-bold mt-0.5 select-none leading-none text-left opacity-90 flex items-center gap-1.5"
                               style={{ color: vStyle.color }}
                             >
-                              <span className={isDone ? 'text-emerald-400 font-extrabold' : isCancel ? 'text-slate-400 line-through' : ''}>
+                              <span className={isDone ? 'text-emerald-400 font-extrabold' : isCancel ? 'text-rose-400/80 font-bold' : ''}>
                                 {s.status}
                               </span>
                               {s.absent_students && s.absent_students.length > 0 && (

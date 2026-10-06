@@ -335,8 +335,10 @@ export default function CalendarWeekView({
                                   key={s.id || `session-${s.date}-${s.time}`}
                                   onClick={() => onSessionClick(s.id)}
                                   className={`flex rounded-xl cursor-pointer transition-all active:scale-[0.98] min-h-[56px] border border-solid overflow-hidden shrink-0 ${
-                                    isDone || isCancel 
-                                      ? 'hover:border-slate-400/40 hover:bg-slate-500/15' 
+                                    isCancel 
+                                      ? 'opacity-60 hover:opacity-90' 
+                                      : isDone 
+                                      ? 'hover:brightness-105' 
                                       : 'event-float shadow-md hover:brightness-110'
                                   }`}
                                   style={{
@@ -364,8 +366,10 @@ export default function CalendarWeekView({
                                   <div className="flex-grow p-2 flex flex-col justify-between overflow-hidden">
                                     <div className="flex items-center justify-between gap-1">
                                       <h4 
-                                        className="text-[12px] font-black truncate leading-tight text-left tracking-tight"
-                                        style={{ color: vStyle.titleColor }}
+                                        className={`text-[12px] font-black truncate leading-tight text-left tracking-tight ${
+                                          isCancel ? 'line-through text-slate-500' : ''
+                                        }`}
+                                        style={{ color: isCancel ? undefined : vStyle.titleColor }}
                                       >
                                         {jobName}
                                       </h4>
@@ -378,8 +382,10 @@ export default function CalendarWeekView({
                                         </span>
                                       ) : (s.student_count ?? 1) > 1 ? (
                                         <span className={`text-[8px] font-black px-1 py-0.2 rounded shrink-0 ${
-                                          isDone || isCancel 
-                                            ? 'bg-slate-500/20 text-slate-300 border border-slate-500/30' 
+                                          isCancel 
+                                            ? 'bg-slate-500/20 text-slate-400 border border-slate-500/30' 
+                                            : isDone 
+                                            ? 'bg-white/10 text-white/90 border border-white/15'
                                             : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
                                         }`}>
                                           {s.student_count} HS
@@ -405,7 +411,7 @@ export default function CalendarWeekView({
                                           isDone
                                             ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/25'
                                             : isCancel
-                                            ? 'bg-slate-500/20 text-slate-400 border border-slate-500/30 line-through'
+                                            ? 'bg-rose-500/15 text-rose-300 border border-rose-500/25 line-through'
                                             : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                                         }`}
                                       >
