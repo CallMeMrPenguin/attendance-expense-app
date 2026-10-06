@@ -273,7 +273,7 @@ export default function CalendarMonthView({
                         <div
                           key={s.id || `session-${dateStr}-${s.time}-${sIdx}`}
                           onClick={() => onSessionClick(s.id)}
-                          className={`flex rounded-xl cursor-pointer transition-all active:scale-[0.98] min-h-[52px] border border-solid overflow-hidden ${
+                          className={`session-event-card flex rounded-[10px] cursor-pointer transition-all active:scale-[0.98] min-h-[52px] border border-solid overflow-hidden ${
                             isCancel 
                               ? 'opacity-60 hover:opacity-90' 
                               : isDone 
@@ -285,6 +285,7 @@ export default function CalendarMonthView({
                             borderColor: vStyle.border,
                             boxShadow: vStyle.shadow,
                             opacity: vStyle.opacity,
+                            borderRadius: '10px',
                           }}
                         >
                           {/* Left Time Bar */}

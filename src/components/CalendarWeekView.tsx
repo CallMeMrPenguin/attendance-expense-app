@@ -334,7 +334,7 @@ export default function CalendarWeekView({
                                 <div
                                   key={s.id || `session-${s.date}-${s.time}`}
                                   onClick={() => onSessionClick(s.id)}
-                                  className={`flex rounded-xl cursor-pointer transition-all active:scale-[0.98] min-h-[56px] border border-solid overflow-hidden shrink-0 ${
+                                  className={`session-event-card flex rounded-[10px] cursor-pointer transition-all active:scale-[0.98] min-h-[56px] border border-solid overflow-hidden shrink-0 ${
                                     isCancel 
                                       ? 'opacity-60 hover:opacity-90' 
                                       : isDone 
@@ -346,6 +346,7 @@ export default function CalendarWeekView({
                                     borderColor: vStyle.border,
                                     boxShadow: vStyle.shadow,
                                     opacity: vStyle.opacity,
+                                    borderRadius: '10px',
                                   }}
                                   title={`Bấm để chỉnh sửa: ${jobName} (${s.status})`}
                                 >
@@ -428,7 +429,7 @@ export default function CalendarWeekView({
                               <button
                                 type="button"
                                 onClick={() => onAddSessionOnDate(dayInfo.dateStr)}
-                                className="w-full h-full min-h-[56px] flex items-center justify-center rounded-xl opacity-0 group-hover/cell:opacity-100 hover:bg-white/5 border border-dashed border-white/10 hover:border-indigo-500/50 text-slate-400 hover:text-indigo-300 transition-all cursor-pointer"
+                                className="w-full h-full min-h-[56px] flex items-center justify-center rounded-[10px] opacity-0 group-hover/cell:opacity-100 hover:bg-white/5 border border-dashed border-white/10 hover:border-indigo-500/50 text-slate-400 hover:text-indigo-300 transition-all cursor-pointer"
                                 title={`Thêm ca dạy ngày ${dayInfo.displayDate}`}
                               >
                                 <Plus className="h-4 w-4" />

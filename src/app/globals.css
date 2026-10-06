@@ -283,7 +283,7 @@ select {
 
 
 /* Floating Event Cards with Glowing Effect */
-.event-float {
+.event-float, .session-event-card {
   border-radius: 10px;
   will-change: transform, box-shadow;
 }
