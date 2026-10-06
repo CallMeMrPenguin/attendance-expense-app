@@ -327,12 +327,15 @@ export default function CalendarWeekView({
                               const endTime = getEndTime(startTime, s.duration);
                               const jobName = s.job_name || s.student_name || '';
                               const vStyle = getPremiumVioletStyle(s.time, s.status, s.color || getStudentColor(jobName));
+                              const isDone = s.status === 'Đã làm' || s.status === 'Đã dạy';
 
                               return (
                                 <div
                                   key={s.id || `session-${s.date}-${s.time}`}
                                   onClick={() => onSessionClick(s.id)}
-                                  className="flex rounded-xl cursor-pointer transition-all active:scale-[0.98] min-h-[56px] border border-solid event-float overflow-hidden shrink-0 shadow-md hover:brightness-110 hover:opacity-100"
+                                  className={`flex rounded-xl cursor-pointer transition-all active:scale-[0.98] min-h-[56px] border border-solid overflow-hidden shrink-0 ${
+                                    isDone ? 'hover:opacity-85' : 'event-float shadow-md hover:brightness-110 hover:opacity-100'
+                                  }`}
                                   style={{
                                     backgroundColor: vStyle.bg,
                                     borderColor: vStyle.border,
@@ -371,7 +374,11 @@ export default function CalendarWeekView({
                                           {s.student_count}/{s.original_student_count} HS
                                         </span>
                                       ) : (s.student_count ?? 1) > 1 ? (
-                                        <span className="text-[8px] font-black px-1 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shrink-0">
+                                        <span className={`text-[8px] font-black px-1 py-0.2 rounded shrink-0 ${
+                                          isDone 
+                                            ? 'bg-slate-500/10 text-slate-400/70 border border-slate-500/20' 
+                                            : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+                                        }`}>
                                           {s.student_count} HS
                                         </span>
                                       ) : null}
@@ -392,8 +399,8 @@ export default function CalendarWeekView({
 
                                       <span
                                         className={`text-[8.5px] font-black px-1.5 py-0.5 rounded ${
-                                          s.status === 'Đã làm' || s.status === 'Đã dạy'
-                                            ? 'bg-emerald-500/10 text-emerald-400/70 border border-emerald-500/20'
+                                          isDone
+                                            ? 'bg-slate-500/10 text-slate-400/70 border border-slate-500/20'
                                             : s.status === 'Hủy'
                                             ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
                                             : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'

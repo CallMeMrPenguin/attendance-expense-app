@@ -49,54 +49,46 @@ function hexToHSL(hex: string) {
 export function getPremiumVioletStyle(timeStr: string, status: string, hexColor: string = '#7b61ff') {
   if (status === 'Hủy') {
     return {
-      bg: 'rgba(148, 163, 184, 0.06)', // Visible light gray background
-      border: 'rgba(148, 163, 184, 0.20)', // Subtle light gray border
-      innerBorder: 'rgba(148, 163, 184, 0.10)',
-      color: '#64748b', // Muted slate text
-      titleColor: '#94a3b8',
+      bg: 'rgba(148, 163, 184, 0.04)',
+      border: 'rgba(148, 163, 184, 0.14)',
+      innerBorder: 'rgba(148, 163, 184, 0.06)',
+      color: '#64748b',
+      titleColor: '#64748b',
       priceColor: '#64748b',
       shadow: 'none',
-      opacity: '0.55'
+      opacity: '0.45'
+    };
+  }
+
+  const isDone = status === 'Đã dạy' || status === 'Đã làm';
+
+  if (isDone) {
+    const { h: hue } = hexToHSL(hexColor);
+    return {
+      bg: `hsla(${hue}, 10%, 20%, 0.12)`, // Rất nhạt, chìm sâu vào nền tối
+      border: `hsla(${hue}, 10%, 35%, 0.14)`, // Viền cực mờ, không sáng
+      innerBorder: 'rgba(255, 255, 255, 0.04)',
+      color: 'rgba(148, 163, 184, 0.55)', // Giờ & text slate mờ
+      titleColor: 'rgba(203, 213, 225, 0.65)', // Tên công việc slate dịu
+      priceColor: 'rgba(148, 163, 184, 0.55)',
+      shadow: 'none', // MẤT HOÀN TOÀN GLOW EFFECT
+      opacity: '0.52' // Nhạt rõ rệt
     };
   }
 
   const { h: hue, s: initialSat, l: initialLight } = hexToHSL(hexColor);
-  
-  const isDone = status === 'Đã dạy' || status === 'Đã làm';
+  const sat = Math.min(90, Math.max(70, initialSat));
+  const lightness = Math.min(80, Math.max(55, initialLight));
 
-  let sat = initialSat;
-  let lightness = initialLight;
-
-  if (isDone) {
-    sat = Math.max(10, Math.round(initialSat * 0.18));
-    lightness = 40;
-  } else {
-    sat = Math.min(90, Math.max(70, initialSat));
-    lightness = Math.min(80, Math.max(55, initialLight));
-  }
-
-  const alphaBg = isDone ? '0.05' : '0.22';
-  const bg = `hsla(${hue}, ${sat}%, ${lightness}%, ${alphaBg})`;
-  const border = isDone
-    ? `hsla(${hue}, ${sat}%, ${lightness}%, 0.20)`
-    : `hsla(${hue}, ${sat}%, ${lightness}%, 0.85)`;
-  const innerBorder = isDone
-    ? `hsla(${hue}, ${sat}%, ${lightness}%, 0.10)`
-    : `hsla(${hue}, ${sat}%, ${lightness}%, 0.45)`;
-  const color = isDone
-    ? 'rgba(148, 163, 184, 0.70)'
-    : `hsla(${hue}, 95%, 92%, 0.98)`;
-  const titleColor = isDone
-    ? '#94a3b8'
-    : '#FFFFFF';
-  const priceColor = isDone
-    ? 'rgba(148, 163, 184, 0.70)'
-    : color;
+  const bg = `hsla(${hue}, ${sat}%, ${lightness}%, 0.22)`;
+  const border = `hsla(${hue}, ${sat}%, ${lightness}%, 0.85)`;
+  const innerBorder = `hsla(${hue}, ${sat}%, ${lightness}%, 0.45)`;
+  const color = `hsla(${hue}, 95%, 92%, 0.98)`;
+  const titleColor = '#FFFFFF';
+  const priceColor = color;
   
   // High-intensity noticeable vibrant glow shadow effect matching day indicator glow for upcoming sessions
-  const shadow = isDone
-    ? 'none'
-    : `0 0 20px hsla(${hue}, ${sat}%, ${lightness}%, 0.65), 0 0 8px hsla(${hue}, ${sat}%, ${lightness}%, 0.90), 0 4px 14px rgba(0, 0, 0, 0.4)`;
+  const shadow = `0 0 20px hsla(${hue}, ${sat}%, ${lightness}%, 0.65), 0 0 8px hsla(${hue}, ${sat}%, ${lightness}%, 0.90), 0 4px 14px rgba(0, 0, 0, 0.4)`;
 
   return {
     bg,
@@ -106,7 +98,7 @@ export function getPremiumVioletStyle(timeStr: string, status: string, hexColor:
     titleColor,
     priceColor,
     shadow,
-    opacity: isDone ? '0.68' : '1'
+    opacity: '1'
   };
 }
 
@@ -263,12 +255,15 @@ export default function CalendarMonthView({
                       const startTime = formatCleanTimeString(s.time);
                       const endTime = getEndTime(startTime, s.duration);
                       const vStyle = getPremiumVioletStyle(s.time, s.status, s.color || getStudentColor(s.student_name));
+                      const isDone = s.status === 'Đã làm' || s.status === 'Đã dạy';
 
                       return (
                         <div
                           key={s.id || `session-${dateStr}-${s.time}-${sIdx}`}
                           onClick={() => onSessionClick(s.id)}
-                          className="flex rounded-xl cursor-pointer transition-all active:scale-[0.98] min-h-[52px] border border-solid event-float overflow-hidden hover:opacity-100"
+                          className={`flex rounded-xl cursor-pointer transition-all active:scale-[0.98] min-h-[52px] border border-solid overflow-hidden ${
+                            isDone ? 'hover:opacity-85' : 'event-float hover:brightness-105'
+                          }`}
                           style={{
                             backgroundColor: vStyle.bg,
                             borderColor: vStyle.border,
@@ -306,7 +301,11 @@ export default function CalendarMonthView({
                                   {s.student_count}/{s.original_student_count} HS
                                 </span>
                               ) : (s.student_count ?? 1) > 1 ? (
-                                <span className="text-[8px] font-black px-1 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shrink-0">
+                                <span className={`text-[8px] font-black px-1 py-0.2 rounded shrink-0 ${
+                                  isDone 
+                                    ? 'bg-slate-500/10 text-slate-400/70 border border-slate-500/20' 
+                                    : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+                                }`}>
                                   {s.student_count} HS
                                 </span>
                               ) : null}
