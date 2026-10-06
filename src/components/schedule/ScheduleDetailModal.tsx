@@ -225,7 +225,7 @@ export const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({
                   onOpenEditModal();
                 }}
                 className={`p-3 rounded-xl bg-[#141824] hover:bg-[#1a2032] border border-white/5 hover:border-indigo-500/40 transition-all cursor-pointer flex items-center justify-between gap-3 shadow-sm group ${
-                  isDone ? 'opacity-65' : ''
+                  isDone ? 'bg-[#111524] border-white/10' : ''
                 }`}
               >
                 <div className="flex items-center gap-3 min-w-0">
@@ -233,17 +233,17 @@ export const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({
                     #{idx + 1}
                   </span>
                   <div className="min-w-0">
-                    <span className={`text-xs font-extrabold block group-hover:text-indigo-300 transition-colors ${isDone ? 'text-slate-300' : 'text-white'}`}>
+                    <span className={`text-xs font-extrabold block group-hover:text-indigo-300 transition-colors ${isDone ? 'text-slate-200' : 'text-white'}`}>
                       {formatDateVN(s.date)}
                     </span>
                     <div className="flex items-center gap-2 mt-0.5 text-[10px] text-slate-400 font-bold flex-wrap">
                       <span>{formatCleanTimeString(s.time)} - {getEndTime(formatCleanTimeString(s.time), s.duration)} ({s.duration}h)</span>
                       <span>|</span>
-                      <span className={`font-black ${isDone ? 'text-slate-400' : 'text-slate-300'}`}>{formatVND(s.price)}</span>
+                      <span className={`font-black ${isDone ? 'text-slate-300' : 'text-white'}`}>{formatVND(s.price)}</span>
                       {((s.student_count ?? 1) > 1 || (s.original_student_count ?? 1) > 1) && (
                         <>
                           <span>|</span>
-                          <span className={(s.student_count ?? 1) < (s.original_student_count ?? (s.student_count ?? 1)) ? 'text-amber-300 font-black bg-amber-500/15 px-1.5 py-0.5 rounded border border-amber-500/30' : 'text-indigo-300 font-extrabold'}>
+                          <span className={(s.student_count ?? 1) < (s.original_student_count ?? (s.student_count ?? 1)) ? 'text-amber-300 font-black bg-amber-500/15 px-1.5 py-0.5 rounded border border-amber-500/30' : isDone ? 'text-slate-300 font-extrabold' : 'text-indigo-300 font-extrabold'}>
                             {s.student_count}{(s.student_count ?? 1) < (s.original_student_count ?? (s.student_count ?? 1)) ? `/${s.original_student_count}` : ''} HS ({formatVND(s.price_per_student || 0)}/HS)
                             {s.absent_students && s.absent_students.length > 0 && ` - Vắng: ${s.absent_students.join(', ')}`}
                           </span>
@@ -256,10 +256,10 @@ export const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({
                 <div className="flex items-center gap-2 shrink-0">
                   <span className={`text-[10px] font-black px-2.5 py-1 rounded-lg border ${
                     isDone
-                      ? 'bg-emerald-500/10 text-emerald-400/70 border border-emerald-500/20'
+                      ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/25'
                       : isCancel
-                      ? 'bg-rose-500/15 text-rose-300 border-rose-500/30'
-                      : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                      ? 'bg-slate-500/20 text-slate-400 border border-slate-500/30 line-through'
+                      : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
                   }`}>
                     {s.status}
                   </span>
