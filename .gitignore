@@ -49,3 +49,12 @@ data/*.db-journal
 __pycache__/
 *.py[cod]
 
+# sensitive vps credentials & local deployment notes
+vps_config.json
+THONG_TIN_TRIEN_KHAI_VPS.txt
+HUONG_DAN_TAI_SU_DUNG_VPS.md
+*vps*.json
+*vps*.txt
+*VPS*
+*.bat
+
