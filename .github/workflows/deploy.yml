@@ -1,0 +1,28 @@
+name: Auto Deploy to VPS
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to VPS via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        continue-on-error: true
+        with:
+          host: ${{ secrets.VPS_HOST || '160.30.161.121' }}
+          username: ${{ secrets.VPS_USER || 'root' }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script: |
+            TARGET_DIR="/var/www/attendance-expense-app"
+            if [ ! -d "$TARGET_DIR" ]; then
+              TARGET_DIR="/root/attendance-expense-app"
+            fi
+            if [ -d "$TARGET_DIR" ]; then
+              cd "$TARGET_DIR"
+              bash auto_update.sh
+            fi

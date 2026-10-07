@@ -1,0 +1,41 @@
+﻿================================================================================
+                    THONG TIN VA HUONG DAN TRIEN KHAI VPS
+                             CENTER MANAGER APP
+================================================================================
+Thoi gian cap nhat: 2026-10-07 10:32:40
+Duong dan du an: C:\Users\ACER\Desktop\Center_Manager_App
+Github Repository: https://github.com/CallMeMrPenguin/Center_manager.git (Branch: main)
+
+--------------------------------------------------------------------------------
+1. TAI KHOAN DANG NHAP HE THONG (WEB APP)
+--------------------------------------------------------------------------------
+- Duong dan Web: https://upkidscentermanager.io.vn
+- Ten dang nhap: admin
+- Mat khau moi (Bao mat cao): CenterManager@2026
+- Quyen: Quan tri vien (Full quyen)
+
+--------------------------------------------------------------------------------
+2. THONG TIN CO SO DU LIEU (POSTGRESQL 16 TRONG DOCKER)
+--------------------------------------------------------------------------------
+- User DB: center_user
+- Mat khau DB moi: Center_Db_2026_SecureP@ss
+- Database: center_manager
+- Port: 127.0.0.1:5432 (Chi ket noi noi bo tu may chu, an toan tuyet doi)
+- RAM ao (Swap RAM): 2GB da duoc kich hoat tren VPS
+
+--------------------------------------------------------------------------------
+3. THONG TIN DANG NHAP TEN MIEN (ZHOST & CLOUDFLARE)
+--------------------------------------------------------------------------------
+- Ten mien: upkidscentermanager.io.vn
+- Trang quan ly DNS: https://dash.cloudflare.com
+- Mat khau ZHost goc: Px3!Y7AdO3NZ151
+- Nameservers Cloudflare: amit.ns.cloudflare.com / karina.ns.cloudflare.com
+
+--------------------------------------------------------------------------------
+4. THONG TIN DANG NHAP VPS
+--------------------------------------------------------------------------------
+- Dia chi IP VPS: 160.30.161.121
+- User quan tri VPS: root
+- Mat khau VPS: ga+$IL|3
+- File .bat mo xem file VPS: C:\Users\ACER\Desktop\RANDOM PROJECT\MO_VPS_VIEW_FILE.bat
+================================================================================

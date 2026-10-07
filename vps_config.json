@@ -1,0 +1,55 @@
+{
+  "server": {
+    "ip": "160.30.161.121",
+    "ssh_port": 22,
+    "user": "root",
+    "password": "ga+$IL|3",
+    "ssh_public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICqfonfEzne6QWYenI25Ev6s3baneW0J8+PX83rM/V0Y mgw.ps99@gmail.com",
+    "os": "Ubuntu 22.04 LTS",
+    "swap_ram": "2GB (/swapfile)",
+    "firewall": "ufw (allowed: 22/tcp, 80/tcp, 443/tcp)"
+  },
+  "domain_and_dns": {
+    "primary_domain": "upkidscentermanager.io.vn",
+    "subdomain_pattern": "*.upkidscentermanager.io.vn",
+    "dns_provider": "Cloudflare",
+    "cloudflare_url": "https://dash.cloudflare.com",
+    "nameservers": [
+      "amit.ns.cloudflare.com",
+      "karina.ns.cloudflare.com"
+    ],
+    "domain_registrar": "ZHost",
+    "zhost_password": "Px3!Y7AdO3NZ151"
+  },
+  "web_server": {
+    "type": "Caddy 2",
+    "main_caddyfile": "/etc/caddy/Caddyfile",
+    "modular_config_dir": "/etc/caddy/conf.d",
+    "web_root_base": "/var/www",
+    "center_manager_dist": "/var/www/center_manager/dist"
+  },
+  "database": {
+    "type": "PostgreSQL 16 (Docker)",
+    "container_name": "center_manager_db",
+    "host": "127.0.0.1",
+    "port": 5432,
+    "user": "center_user",
+    "password": "Center_Db_2026_SecureP@ss",
+    "existing_databases": [
+      "center_manager"
+    ]
+  },
+  "reusable_instructions": {
+    "deploy_new_web_project": {
+      "step_1": "Create web directory on VPS: mkdir -p /var/www/<project_name>/dist",
+      "step_2": "Create modular Caddyfile: /etc/caddy/conf.d/<project_name>.caddy",
+      "caddy_template": "<subdomain>.upkidscentermanager.io.vn { handle /api/* { reverse_proxy localhost:<port>; } handle { root * /var/www/<project_name>/dist; try_files {path} /index.html; file_server; } }",
+      "step_3": "Reload Caddy: systemctl reload caddy",
+      "note": "Let's Encrypt SSL certificates are automatically managed by Caddy!"
+    },
+    "create_new_database": {
+      "command": "docker exec -i center_manager_db psql -U center_user -d postgres -c \"CREATE DATABASE <new_db_name>;\""
+    },
+    "quick_ssh_command": "ssh root@160.30.161.121"
+  }
+}
