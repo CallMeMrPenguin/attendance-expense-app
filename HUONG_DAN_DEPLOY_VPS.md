@@ -1,26 +1,38 @@
-# HƯỚNG DẪN TRIỂN KHAI CLOUDFLARE 24/7 CHO DỰ ÁN CHẤM CÔNG
+# HƯỚNG DẪN TRIỂN KHAI 24/7 DỰ ÁN CHẤM CÔNG (CỔNG 9000)
 
 > **Dự án**: Chấm Công & Quản Lý Thu Chi (`attendance-expense-app`)  
-> **Cổng nội bộ**: `127.0.0.1:9000` (Không chạm đến cổng 8000 của Center Manager)  
-> **Đường link Cloudflare**: `https://chamcong.upkidscentermanager.io.vn`  
+> **Cổng nội bộ**: `127.0.0.1:9000` (Độc lập 100%, không chạm vào bất kỳ app hay tên miền nào khác trên VPS)  
 > **Quản lý tiến trình 24/7**: PM2 ([ecosystem.config.cjs](file:///c:/Users/ACER/Desktop/RANDOM%20PROJECT/CHẤM%20CÔNG/ecosystem.config.cjs)) + Tự khởi động cùng VPS (Systemd Boot Persistence)  
-> **Cơ chế bảo mật**: Cloudflare Proxy ẩn IP thật 100% + Hỗ trợ Cloudflare Zero Trust OTP (Tùy chọn)  
+> **Cơ chế cập nhật**: Tự động phát hiện thay đổi trên GitHub mỗi 2 phút (`auto_update.sh`)  
 
 ---
 
-## ⚡ 1. CÁC TỐI ƯU HIỆU NĂNG 24/7
+## ❓ GIẢI ĐÁP: CLOUDFLARE ZERO TRUST FREE TIER CÓ BỊ TÍNH PHÍ OVERLIMIT KHÔNG?
+
+**Trả lời ngắn gọn: KHÔNG BAO GIỜ.**
+
+1. **Không yêu cầu thẻ tín dụng**: Gói Free của Cloudflare Zero Trust không bắt buộc nhập thông tin thanh toán.
+2. **Cơ chế Hard-Cap (Chặn chứ không trừ tiền)**:
+   - Giới hạn gói Free là **50 người dùng (seats)**.
+   - Nếu có người thứ 51 truy cập, hệ thống sẽ **hiển thị thông báo từ chối truy cập (Access Denied)** chứ **TUYỆT ĐỐI KHÔNG TỰ ĐỘNG NÂNG CẤP HAY THU PHÍ PHÁT SINH**.
+   - Bạn chỉ dùng cho cá nhân (1 người), tức là chỉ sử dụng **1/50 seat** (2% hạn mức).
+3. **Băng thông & Lưu lượng web**: **Không giới hạn** và hoàn toàn miễn phí trọn đời cho lưu lượng duyệt web thông thường.
+4. **Bạn hoàn toàn có thể không dùng Zero Trust**: Nếu không muốn dùng, bạn có thể tự trỏ tên miền riêng hoặc dùng Cloudflare Tunnel thông thường (xem mục 4).
+
+---
+
+## ⚡ 1. CÁC TỐI ƯU HIỆU NĂNG 24/7 ĐÃ CẤU HÌNH
 
 1. **Khống chế RAM Node.js & Chống Tràn Bộ Nhớ**:
-   - Cấu hình Node V8 heap ceiling `--max-old-space-size=512`.
-   - PM2 tự động restart nếu vượt ngưỡng `600MB RAM`, bổ sung `kill_timeout: 5000ms` bảo vệ an toàn cho các giao dịch SQLite.
+   - Node V8 heap ceiling: `--max-old-space-size=512`.
+   - PM2 tự động khởi động lại nếu vượt ngưỡng `600MB RAM`, bổ sung `kill_timeout: 5000ms` bảo vệ an toàn cho các giao dịch SQLite.
 2. **Tối ưu SQLite Tốc Độ Cao 24/7**:
    - `journal_mode = WAL`: Ghi và đọc đồng thời không gây lock database.
    - `synchronous = NORMAL`: Giảm hơn 80% áp lực ghi đĩa so với FULL.
    - `temp_store = MEMORY`: Xử lý bảng tạm và sắp xếp trực tiếp trên RAM.
    - `mmap_size = 256MB`: Tăng tốc độ đọc dữ liệu qua bộ nhớ đệm trang.
    - `busy_timeout = 5000ms` & `cache_size = 16MB`: Khắc phục triệt để lỗi lock khi có nhiều yêu cầu.
-3. **Nén dữ liệu HTTP**: Bật `compress: true` trong `next.config.ts`.
-4. **Bảo toàn dữ liệu**: Đặt cờ `assume-unchanged` cho database `data/local.db` và tự động backup ra `/var/backups/chamcong/` trước mỗi lần cập nhật.
+3. **Bảo toàn dữ liệu**: Đặt cờ `assume-unchanged` cho database `data/local.db` và tự động backup ra `/var/backups/chamcong/` trước mỗi lần cập nhật.
 
 ---
 
@@ -29,7 +41,7 @@
 Trên màn hình **Console** hoặc terminal của VPS:
 
 ```bash
-# 1. Đi vào thư mục web
+# 1. Đi vào thư mục chứa code
 cd /var/www
 
 # 2. Tải mã nguồn từ GitHub
@@ -42,43 +54,38 @@ bash deploy_vps.sh
 
 ### ✨ Script `deploy_vps.sh` sẽ tự động:
 1. Cài đặt Node.js 20 LTS, PM2 và build Next.js tối ưu.
-2. Khởi chạy ứng dụng qua PM2 trên cổng `9000`.
-3. Kích hoạt tự khởi động khi VPS reboot (`pm2-root.service` và `caddy.service`).
-4. Cấu hình Caddy Reverse Proxy tại `/etc/caddy/conf.d/chamcong.caddy`.
-5. Đăng ký cronjob tự động kiểm tra Git (`auto_update.sh`) chạy ngầm mỗi 2 phút.
-
-Sau khi chạy xong, bạn mở trình duyệt trên điện thoại hoặc máy tính là truy cập được ngay:  
-👉 **`https://chamcong.upkidscentermanager.io.vn`**
+2. Khởi chạy ứng dụng qua PM2 trên cổng nội bộ `127.0.0.1:9000`.
+3. Kích hoạt tự khởi động khi VPS reboot (`pm2-root.service`).
+4. Đăng ký cronjob tự động kiểm tra Git (`auto_update.sh`) chạy ngầm mỗi 2 phút.
+5. **Không can thiệp vào bất kỳ tên miền hay web nào khác trên VPS.**
 
 ---
 
-## 🔒 3. CÁCH KHÓA BẢO MẬT (CHỈ BẠN MỚI ĐƯỢC VÀO WEB) BẰNG CLOUDFLARE ZERO TRUST
-
-Nếu bạn muốn **chỉ duy nhất bạn mới vào được link này** (không ai khác trên mạng xem được) mà **không cần cài app VPN**:
-
-1. Đăng nhập [dash.cloudflare.com](https://dash.cloudflare.com) -> Vào mục **Zero Trust** (menu bên trái).
-2. Chọn **Access** -> **Applications** -> Bấm **Add an application** -> Chọn **Self-hosted**.
-3. Điền thông tin:
-   - **Application name**: `Chấm Công`
-   - **Subdomain**: `chamcong`
-   - **Domain**: `upkidscentermanager.io.vn`
-4. Ở bước **Add a policy**:
-   - **Policy name**: `Chi Cho Phep Admin`
-   - **Action**: `Allow`
-   - **Rule type**: `Emails` -> Điền email của bạn (ví dụ: `buiduchung2004@gmail.com`).
-5. Bấm **Next** -> **Save application**.
-
-**Kết quả**: Bất kỳ ai vào web `https://chamcong.upkidscentermanager.io.vn` sẽ gặp màn hình yêu cầu nhập mã OTP gửi về Gmail. Chỉ có bạn nhận được mã nên chỉ có bạn mới vào được!
-
----
-
-## 🔄 4. CƠ CHẾ TỰ ĐỘNG CẬP NHẬT KHI CÓ THAY ĐỔI Ở GIT
+## 🔄 3. CƠ CHẾ TỰ ĐỘNG CẬP NHẬT KHI CÓ THAY ĐỔI Ở GIT
 
 Khi bạn chỉnh sửa code ở máy tính và push lên GitHub:
 ```bash
 git add . ; git commit -m "feat: cap nhat" ; git push origin main
 ```
-Trong vòng tối đa 2 phút, VPS sẽ **tự động sao lưu database, kéo code mới, build lại và reload ứng dụng** mà không làm gián đoạn người dùng.
+Trong vòng tối đa 2 phút, VPS sẽ **tự động sao lưu database, kéo code mới, build lại và reload ứng dụng** mà không làm gián đoạn hệ thống.
+
+---
+
+## 🌐 4. CÁCH TỰ KẾT NỐI CLOUDFLARE LINK QUA VPS (TÙY Ý BẠN)
+
+Sau khi app đã chạy tại `127.0.0.1:9000`, bạn có thể tự thêm kết nối Cloudflare theo cách bạn muốn:
+
+### Cách A: Cloudflare Quick Tunnel (Không cần tên miền, miễn phí 100%)
+Cài đặt `cloudflared` trên VPS và chạy lệnh:
+```bash
+cloudflared tunnel --url http://127.0.0.1:9000
+```
+Cloudflare sẽ cung cấp ngay cho bạn một link HTTPS miễn phí dạng `https://<ten-ngau-nhien>.trycloudflare.com` để bạn truy cập từ điện thoại/máy tính bất kỳ lúc nào.
+
+### Cách B: Gán vào tên miền riêng của bạn
+Nếu bạn có một tên miền riêng (ví dụ `chamcong.tenmienrieng.com`):
+- Trỏ bản ghi DNS của tên miền đó về IP của VPS (bật proxy đám mây cam Cloudflare).
+- Thêm cấu hình Reverse Proxy tới `127.0.0.1:9000` trên Caddy hoặc Nginx.
 
 ---
 
@@ -89,5 +96,5 @@ Trong vòng tối đa 2 phút, VPS sẽ **tự động sao lưu database, kéo c
 | **Xem trạng thái app** | `pm2 status` |
 | **Xem log app trực tiếp** | `pm2 logs chamcong` |
 | **Khởi động lại app thủ công** | `pm2 restart chamcong` |
-| **Xem log tự cập nhật** | `tail -f /var/log/chamcong_autoupdate.log` |
-| **Xem log Caddy** | `journalctl -u caddy -e -n 50` |
+| **Xem log tự cập nhật Git** | `tail -f /var/log/chamcong_autoupdate.log` |
+| **Kiểm tra cổng 9000 đang chạy** | `curl -I http://127.0.0.1:9000` |
