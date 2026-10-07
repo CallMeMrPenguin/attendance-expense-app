@@ -6,6 +6,7 @@ import MaterialSymbol from '@/components/MaterialSymbol';
 import CustomSelect from '@/components/CustomSelect';
 import { useToast } from '@/context/ToastContext';
 import { isDefaultTransferDetails } from './flow-constants';
+import { cleanString } from '@/lib/constants/categories';
 
 interface ReceiptClassifyModalProps {
   isOpen: boolean;
@@ -218,11 +219,11 @@ export const ReceiptClassifyModal: React.FC<ReceiptClassifyModalProps> = ({
                         { value: 'Tiết kiệm khác', label: 'Tiết kiệm khác' },
                       ]
                     : selectedType === 'income'
-                    ? incomeCats.map(cat => ({
+                    ? Array.from(new Map(incomeCats.map(cat => [cleanString(cat.name), cat])).values()).map(cat => ({
                         value: cat.name,
                         label: cat.name,
                       }))
-                    : expenseCats.map(cat => ({
+                    : Array.from(new Map(expenseCats.map(cat => [cleanString(cat.name), cat])).values()).map(cat => ({
                         value: cat.name,
                         label: cat.name,
                       }))

@@ -8,6 +8,7 @@ import {
   getCategoryPaletteColor,
   matchKeyword,
 } from './flow-constants';
+import { cleanString } from '@/lib/constants/categories';
 import MonthPickerDropdown from './MonthPickerDropdown';
 import FlowSummaryCards from './FlowSummaryCards';
 import FlowDonutCharts, { PieSlice } from './FlowDonutCharts';
@@ -67,24 +68,31 @@ export const FlowTab: React.FC<FlowTabProps> = ({
     const defaultIn = ['Lương', 'Giáo dục', 'Đầu tư', 'Gia Sư', 'Thu Nợ'];
     const defaultEx = [
       'Ăn uống', 'Di chuyển', 'Xăng', 'Đi Chợ', 'Shopping', 'Quần Áo', 'Mỹ Phẩm', 'Làm Mặt',
-      'Hóa đơn', 'Hóa Đơn', 'Photo', 'Giải trí', 'Giải Trí', 'Công Nghệ', 'Gia Đình',
+      'Hóa Đơn', 'Photo', 'Giải Trí', 'Công Nghệ', 'Gia Đình',
       'Bảo Dưỡng Xe', 'Trả Nợ', 'Nhu Yếu Phẩm', 'Đăng Ký Gói', 'Sai Số', 'Chỉnh Sửa Sai Số',
       'Sức khỏe', 'Nhà cửa', 'Cà phê', 'Du lịch', 'Khác'
     ];
 
-    const allKeys = Array.from(new Set([...defaultIn, ...defaultEx, ...rawKeys]));
+    const seenClean = new Set<string>();
+    const allKeys: string[] = [];
+    [...defaultIn, ...defaultEx, ...rawKeys].forEach(k => {
+      const c = cleanString(k);
+      if (!c || seenClean.has(c)) return;
+      seenClean.add(c);
+      allKeys.push(k);
+    });
 
     allKeys.forEach(name => {
       if (name === 'Trao đổi' || (categoryTypes[name] as string) === 'exchange') return;
-      const type = categoryTypes[name] || (defaultIn.includes(name) ? 'income' : 'expense');
+      const type = categoryTypes[name] || (defaultIn.some(d => cleanString(d) === cleanString(name)) ? 'income' : 'expense');
       const icon = categoryIcons[name] || DEFAULT_CATEGORY_ICONS[name] || (type === 'income' ? 'TrendingUp' : 'Coins');
       const note = categoryNotes[name] || DEFAULT_CATEGORY_NOTES[name] || '';
       const kw = categoryKeywords[name] || '';
 
       if (type === 'income') {
-        if (!inList.some(c => c.name === name)) inList.push({ name, icon, note, keywords: kw });
+        if (!inList.some(c => cleanString(c.name) === cleanString(name))) inList.push({ name, icon, note, keywords: kw });
       } else {
-        if (!exList.some(c => c.name === name)) exList.push({ name, icon, note, keywords: kw });
+        if (!exList.some(c => cleanString(c.name) === cleanString(name))) exList.push({ name, icon, note, keywords: kw });
       }
     });
 
@@ -132,16 +140,27 @@ export const FlowTab: React.FC<FlowTabProps> = ({
 
   // Combined All Transactions (real cash flow: manual transactions + classified bank receipts)
   const allCombinedTransactions = useMemo(() => {
-    const manualReceiptCleanIds = new Set(
-      (manualTransactions || [])
-        .filter(t => String(t.id).startsWith('tx-receipt-'))
-        .map(t => String(t.id).replace('tx-receipt-', '').replace('vcb-', ''))
-    );
+    const normalizeId = (id: any) => String(id || '').replace(/^tx-receipt-/, '').replace(/^(vcb-)+/, '').trim();
+
+    const manualReceiptCleanIds = new Set<string>();
+    const manualOrderNumbers = new Set<string>();
+
+    (manualTransactions || []).forEach(t => {
+      const cleanId = normalizeId(t.id);
+      if (cleanId) manualReceiptCleanIds.add(cleanId);
+      if (t.orderNumber) manualOrderNumbers.add(String(t.orderNumber).trim());
+
+      const match = String(t.desc || '').match(/\b(16\d{9})\b/);
+      if (match) manualOrderNumbers.add(match[1]);
+    });
 
     // Bank receipts that are not yet materialized in manualTransactions
     const fallbackReceipts = receiptTransactions.filter(r => {
-      const cId = String(r.id).replace('tx-receipt-', '').replace('vcb-', '');
-      return !manualReceiptCleanIds.has(cId);
+      const cleanId = normalizeId(r.id);
+      const orderNum = String(r.orderNumber || '').trim();
+      if (cleanId && manualReceiptCleanIds.has(cleanId)) return false;
+      if (orderNum && manualOrderNumbers.has(orderNum)) return false;
+      return true;
     });
 
     return [...(manualTransactions || []), ...fallbackReceipts].sort(
@@ -182,10 +201,12 @@ export const FlowTab: React.FC<FlowTabProps> = ({
 
       const amt = Number(t.amount) || 0;
       if (t.type === 'income') {
-        incMap[t.category] = (incMap[t.category] || 0) + amt;
+        const canonical = incomeCats.find(c => cleanString(c.name) === cleanString(t.category))?.name || t.category;
+        incMap[canonical] = (incMap[canonical] || 0) + amt;
         incSum += amt;
       } else if (t.type === 'expense') {
-        expMap[t.category] = (expMap[t.category] || 0) + amt;
+        const canonical = expenseCats.find(c => cleanString(c.name) === cleanString(t.category))?.name || t.category;
+        expMap[canonical] = (expMap[canonical] || 0) + amt;
         expSum += amt;
       }
     });
@@ -224,7 +245,7 @@ export const FlowTab: React.FC<FlowTabProps> = ({
       totalPieInc: pieInc,
       totalPieExp: pieExp,
     };
-  }, [allCombinedTransactions, chartSelectedMonths, distMode, distYear]);
+  }, [allCombinedTransactions, chartSelectedMonths, distMode, distYear, incomeCats, expenseCats]);
 
   const projectedIncome = useMemo(() => {
     // 1. Session earnings in selected months (teaching sessions counted in projected income)
@@ -246,12 +267,14 @@ export const FlowTab: React.FC<FlowTabProps> = ({
 
   const getCategoryActual = (catName: string, isExpense: boolean) => {
     const targetType = isExpense ? 'expense' : 'income';
+    const cleanTargetCat = cleanString(catName);
     return allCombinedTransactions
       .filter(t => {
         if (t.type !== targetType) return false;
         if (!isTxInSelectedMonths(t, chartSelectedMonths)) return false;
-        if (t.category === catName) return true;
-        if (catName === 'Gia Sư' && (t.category === 'Giáo dục' || t.category === 'Gia Sư')) return true;
+        const cleanCat = cleanString(t.category);
+        if (cleanCat === cleanTargetCat) return true;
+        if (cleanTargetCat === 'gia su' && (cleanCat === 'giao duc' || cleanCat === 'gia su')) return true;
         return false;
       })
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
