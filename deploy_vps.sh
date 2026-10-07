@@ -50,7 +50,7 @@ if ! command -v cloudflared &> /dev/null; then
     echo 'deb [signed-by=/usr/share/keyrings/cloudflare-public-v2.gpg] https://pkg.cloudflare.com/cloudflared any main' | tee /etc/apt/sources.list.d/cloudflared.list
     apt-get update -y && apt-get install -y cloudflared
 fi
-echo -e "${GREEN}[OK] Cloudflared version: $(cloudflared --version)${NC}"
+echo -e "${GREEN}[OK] Cloudflared: $(cloudflared --version 2>/dev/null || echo 'san sang')${NC}"
 
 # 5. Cai dat PM2 quan ly tien trinh chay ngam 24/7
 if ! command -v pm2 &> /dev/null; then
@@ -99,8 +99,31 @@ pm2 startup systemd -u root --hp /root 2>/dev/null || true
 systemctl enable pm2-root 2>/dev/null || true
 echo -e "${GREEN}[OK] pm2-root.service da duoc bat thanh cong.${NC}"
 
-# 10. Thiet lap Auto-Update Cronjob (Kiem tra Git moi 2 phut)
+# 10. Thiet lap Git Auto-Update Daemon (Systemd Watcher Service moi 45s)
 chmod +x "$PROJECT_DIR/auto_update.sh"
+
+cat << EOF > /etc/systemd/system/chamcong-watcher.service
+[Unit]
+Description=Cham Cong Git Auto-Update Watcher Daemon
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=$PROJECT_DIR
+ExecStart=/bin/bash $PROJECT_DIR/auto_update.sh --loop
+Restart=always
+RestartSec=10
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable --now chamcong-watcher.service 2>/dev/null || true
+
+# Dự phòng thêm cronjob
 CRON_CMD="*/2 * * * * bash $PROJECT_DIR/auto_update.sh >/dev/null 2>&1"
 (crontab -l 2>/dev/null | grep -v "auto_update.sh" ; echo "$CRON_CMD") | crontab -
 
@@ -115,6 +138,6 @@ echo -e "✔ HOAN TOAN KHONG DONG DEN BAT KY TEN MIEN HOAC WEB NAO KHAC TREN VPS
 echo -e "✔ Port 9000 chay doc lap (khong dung cham Center Manager port 8000 hay Postgres)."
 echo -e "✔ Toi uu RAM 24/7 (Node ceiling 512MB, PM2 auto-restart 600MB, SQLite WAL)."
 echo -e "✔ Tu dong khoi dong lai khi VPS reboot (pm2-root.service da duoc enable)."
-echo -e "✔ Tu dong keo code ve build lai trong vong 2 phut sau khi 'git push'."
-echo -e "✔ Ban co the tu them Cloudflare Tunnel hoac ten mien rieng cua ban tro vao port 9000."
+echo -e "✔ Git Auto-Update Watcher (chamcong-watcher.service) kiem tra code moi 45s/lan."
+echo -e "  Moi khi ban 'git push origin main' o may tinh, VPS se tu dong keo code ve build lai!"
 echo -e "======================================================================"

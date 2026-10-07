@@ -1,16 +1,36 @@
 #!/bin/bash
 # ==============================================================================
 # SCRIPT TU DONG KIEM TRA GIT VA CAP NHAT TRIEN KHAI UNG DUNG CHAM CONG
-# Tich hop an toan Database SQLite va PM2 Zero-Downtime Reload
+# Tich hop an toan Database SQLite, PM2 Zero-Downtime va Systemd Watcher
 # ==============================================================================
+
+# 1. Dam bao PATH co day du thu muc chua node, npm, pm2, git
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
+if [ -d "/root/.nvm" ]; then
+    export NVM_DIR="/root/.nvm"
+    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" 2>/dev/null || true
+fi
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$REPO_DIR" || exit 1
 
+# Tranh loi safe.directory tren Git moi
+git config --global --add safe.directory "$REPO_DIR" 2>/dev/null || true
+
 LOG_FILE="/var/log/chamcong_autoupdate.log"
 LOCK_FILE="/tmp/chamcong_update.lock"
 
-# Tranh truong hop chay trung lap nhieu tien trinh update cung luc
+# 2. Ho tro che do loop chay ngam (Systemd Daemon Service)
+if [ "$1" = "--loop" ] || [ "$1" = "-l" ]; then
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Khoi dong Git Watcher Daemon (Chu ky kiem tra: 45 giay)..." | tee -a "$LOG_FILE"
+    while true; do
+        bash "$REPO_DIR/auto_update.sh" --once
+        sleep 45
+    done
+    exit 0
+fi
+
+# 3. Tranh truong hop chay trung lap nhieu tien trinh update cung luc
 if [ -f "$LOCK_FILE" ]; then
     PID=$(cat "$LOCK_FILE" 2>/dev/null)
     if [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null; then
@@ -23,9 +43,15 @@ log_msg() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
 }
 
-# Kiem tra ket noi mang va fetch git moi nhat
+# 4. Kiem tra ket noi mang va fetch git moi nhat
 git fetch origin main --quiet 2>/dev/null
-if [ $? -ne 0 ]; then
+FETCH_STATUS=$?
+if [ $FETCH_STATUS -ne 0 ]; then
+    # Thu fetch lai khong co quiet de ghi ro loi neu co
+    FETCH_ERR=$(git fetch origin main 2>&1 || true)
+    if echo "$FETCH_ERR" | grep -qi "fatal"; then
+        log_msg "CANH BAO git fetch: $FETCH_ERR"
+    fi
     rm -f "$LOCK_FILE"
     exit 0
 fi
@@ -40,7 +66,7 @@ if [ "$LOCAL_HASH" != "$REMOTE_HASH" ] && [ -n "$REMOTE_HASH" ]; then
     log_msg "Remote: $REMOTE_HASH"
     log_msg "Dang tien hanh cap nhat..."
 
-    # 1. Bao ve du lieu database SQLite local.db (Khong de git ghi de)
+    # 1. Bao ve du lieu database SQLite local.db (Khong bao gio de bi ghi de)
     if [ -f "data/local.db" ]; then
         mkdir -p /var/backups/chamcong
         cp "data/local.db" "/var/backups/chamcong/local_$(date '+%Y%m%d_%H%M%S').db" 2>/dev/null
@@ -66,7 +92,7 @@ if [ "$LOCAL_HASH" != "$REMOTE_HASH" ] && [ -n "$REMOTE_HASH" ]; then
     npm run build >> "$LOG_FILE" 2>&1
 
     if [ $? -ne 0 ]; then
-        log_msg "LOI: Build that bai! Vui long kiem tra log."
+        log_msg "LOI: Build that bai! Vui long kiem tra $LOG_FILE."
         rm -f "$LOCK_FILE"
         exit 1
     fi
