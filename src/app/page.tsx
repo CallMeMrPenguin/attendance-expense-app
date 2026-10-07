@@ -171,8 +171,8 @@ export default function Dashboard() {
     setBankReceiptsPlaceholder(receipts.bankReceipts);
   }, [receipts.bankReceipts]);
 
-  // Loading Screen Guard
-  if (authLoading || !currentUser || !selectedMonth) {
+  // Loading Screen Guard - only show while auth is actively resolving and currentUser is not yet set
+  if (authLoading && !currentUser) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#090b10] gap-4">
         <div className="h-10 w-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>

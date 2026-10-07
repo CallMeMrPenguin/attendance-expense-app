@@ -74,8 +74,12 @@ if [ "$LOCAL_HASH" != "$REMOTE_HASH" ] && [ -n "$REMOTE_HASH" ]; then
     fi
 
     # 2. Keo code moi nhat
+    git checkout -- . 2>/dev/null || true
     git reset --hard HEAD --quiet
-    git pull origin main --quiet
+    git pull origin main --quiet || {
+        log_msg "Thu reset ve origin/main..."
+        git reset --hard origin/main --quiet
+    }
 
     if [ $? -ne 0 ]; then
         log_msg "LOI: Khong the git pull code moi."
@@ -86,6 +90,7 @@ if [ "$LOCAL_HASH" != "$REMOTE_HASH" ] && [ -n "$REMOTE_HASH" ]; then
     # 3. Cai dat thu vien moi (neu co)
     log_msg "Dang cai dat dependencies (npm install)..."
     npm install --no-audit --no-fund >> "$LOG_FILE" 2>&1
+    npm rebuild better-sqlite3 >> "$LOG_FILE" 2>&1 || true
 
     # 4. Dong goi ung dung Next.js
     log_msg "Dang build Next.js production (npm run build)..."

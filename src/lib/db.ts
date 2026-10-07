@@ -14,13 +14,15 @@ export function getDb(): Database.Database {
   }
 
   const dbPath = path.join(dataDir, 'local.db');
-  const db = new Database(dbPath);
-  db.pragma('journal_mode = WAL');
+  const db = new Database(dbPath, { timeout: 10000 });
+  try {
+    db.pragma('journal_mode = WAL');
+  } catch (e) {
+    try {
+      db.pragma('journal_mode = DELETE');
+    } catch (e2) {}
+  }
   db.pragma('foreign_keys = ON');
-  db.pragma('synchronous = NORMAL');
-  db.pragma('temp_store = MEMORY');
-  db.pragma('mmap_size = 268435456');
-  db.pragma('cache_size = -16000');
   db.pragma('busy_timeout = 5000');
 
   // Initialize tables
@@ -204,14 +206,18 @@ export function getDb(): Database.Database {
     } catch (e) {}
 
     // Seed default preserved data if profiles or sessions table is empty
-    const userCount = db.prepare('SELECT COUNT(*) as count FROM profiles').get() as { count: number };
-    if (userCount.count === 0) {
-      seedPreservedData(db);
-    } else {
-      const sessCount = db.prepare('SELECT COUNT(*) as count FROM sessions').get() as { count: number };
-      if (sessCount.count === 0) {
+    try {
+      const userCount = db.prepare('SELECT COUNT(*) as count FROM profiles').get() as { count: number };
+      if (!userCount || userCount.count === 0) {
         seedPreservedData(db);
+      } else {
+        const sessCount = db.prepare('SELECT COUNT(*) as count FROM sessions').get() as { count: number };
+        if (!sessCount || sessCount.count === 0) {
+          seedPreservedData(db);
+        }
       }
+    } catch (e) {
+      console.warn('[Local SQLite] Seed check warning:', e);
     }
 
     // Ensure all sessions have valid unique UUIDs

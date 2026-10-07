@@ -83,6 +83,7 @@ fi
 # 7. Cai dat dependencies & build production Next.js
 echo -e "${BLUE}[3/6] Cai dat dependencies (npm install)...${NC}"
 npm install
+npm rebuild better-sqlite3 2>/dev/null || true
 
 echo -e "${BLUE}[4/6] Dong goi ban build toi uu (npm run build)...${NC}"
 npm run build
