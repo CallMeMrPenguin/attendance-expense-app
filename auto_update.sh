@@ -1,7 +1,7 @@
 #!/bin/bash
 # ==============================================================================
 # SCRIPT TU DONG KIEM TRA GIT VA CAP NHAT TRIEN KHAI UNG DUNG CHAM CONG
-# Tich hop an toan Database SQLite, PM2 Zero-Downtime va Tailscale
+# Tich hop an toan Database SQLite va PM2 Zero-Downtime Reload
 # ==============================================================================
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -40,7 +40,7 @@ if [ "$LOCAL_HASH" != "$REMOTE_HASH" ] && [ -n "$REMOTE_HASH" ]; then
     log_msg "Remote: $REMOTE_HASH"
     log_msg "Dang tien hanh cap nhat..."
 
-    # 1. Bao ve du lieu database SQLite local.db
+    # 1. Bao ve du lieu database SQLite local.db (Khong de git ghi de)
     if [ -f "data/local.db" ]; then
         mkdir -p /var/backups/chamcong
         cp "data/local.db" "/var/backups/chamcong/local_$(date '+%Y%m%d_%H%M%S').db" 2>/dev/null
@@ -71,16 +71,11 @@ if [ "$LOCAL_HASH" != "$REMOTE_HASH" ] && [ -n "$REMOTE_HASH" ]; then
         exit 1
     fi
 
-    # 5. Khoi dong lai tien trinh Next.js tren PM2
+    # 5. Khoi dong lai tien trinh Next.js tren PM2 (Zero Downtime)
     log_msg "Dang reload ung dung tren PM2..."
     if command -v pm2 &> /dev/null; then
         pm2 reload chamcong || pm2 restart chamcong || pm2 start ecosystem.config.cjs
         pm2 save --force >> "$LOG_FILE" 2>&1
-    fi
-
-    # 6. Kiem tra va dam bao Tailscale Serve van duy tri cho port 9000
-    if command -v tailscale &> /dev/null; then
-        tailscale serve --bg http://127.0.0.1:9000 2>/dev/null || true
     fi
 
     log_msg "HOAN TAT CAP NHAT & TRIEN KHAI THANH CONG!"
