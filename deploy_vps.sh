@@ -127,6 +127,12 @@ systemctl enable --now chamcong-watcher.service 2>/dev/null || true
 CRON_CMD="*/2 * * * * bash $PROJECT_DIR/auto_update.sh >/dev/null 2>&1"
 (crontab -l 2>/dev/null | grep -v "auto_update.sh" ; echo "$CRON_CMD") | crontab -
 
+# 11. Kich hoat Cloudflare Tunnel Service
+if [ -f "$PROJECT_DIR/setup_tunnel.sh" ]; then
+    chmod +x "$PROJECT_DIR/setup_tunnel.sh"
+    bash "$PROJECT_DIR/setup_tunnel.sh"
+fi
+
 echo -e "${GREEN}======================================================================${NC}"
 echo -e "${GREEN}             TRIEN KHAI & TOI UU HOAN TAT 100%!                      ${NC}"
 echo -e "${GREEN}======================================================================${NC}"
