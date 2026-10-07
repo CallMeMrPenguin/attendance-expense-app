@@ -42,6 +42,16 @@ if ! command -v node &> /dev/null || [ "$(node -v | cut -d'.' -f1 | tr -d 'v')" 
 fi
 echo -e "${GREEN}[OK] Node.js: $(node -v) | npm: $(npm -v)${NC}"
 
+# Cai dat cloudflared neu chua co
+if ! command -v cloudflared &> /dev/null; then
+    echo -e "${YELLOW}[INFO] Dang cai dat cloudflared...${NC}"
+    mkdir -p --mode=0755 /usr/share/keyrings
+    curl -fsSL https://pkg.cloudflare.com/cloudflare-public-v2.gpg | tee /usr/share/keyrings/cloudflare-public-v2.gpg >/dev/null
+    echo 'deb [signed-by=/usr/share/keyrings/cloudflare-public-v2.gpg] https://pkg.cloudflare.com/cloudflared any main' | tee /etc/apt/sources.list.d/cloudflared.list
+    apt-get update -y && apt-get install -y cloudflared
+fi
+echo -e "${GREEN}[OK] Cloudflared version: $(cloudflared --version)${NC}"
+
 # 5. Cai dat PM2 quan ly tien trinh chay ngam 24/7
 if ! command -v pm2 &> /dev/null; then
     echo -e "${YELLOW}[INFO] Dang cai dat PM2 de quan ly ung dung 24/7...${NC}"
