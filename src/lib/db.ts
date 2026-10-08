@@ -3,10 +3,51 @@ import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
 
-let _db: Database.Database | null = null;
+// Global SQLite singleton & high performance cache
+interface GlobalDbHolder {
+  _dbInstance?: Database.Database;
+  _schemaInitialized?: boolean;
+  _statementCache?: Map<string, Database.Statement>;
+  _queryCache?: Map<string, { data: any; count?: number; timestamp: number; version: number }>;
+  _tableVersion?: Record<string, number>;
+  _tableColumnsCache?: Record<string, Set<string>>;
+}
+
+const globalForDb = globalThis as unknown as GlobalDbHolder;
+if (!globalForDb._statementCache) globalForDb._statementCache = new Map();
+if (!globalForDb._queryCache) globalForDb._queryCache = new Map();
+if (!globalForDb._tableVersion) globalForDb._tableVersion = {};
+if (!globalForDb._tableColumnsCache) globalForDb._tableColumnsCache = {};
+
+export function getCachedStatement(db: Database.Database, sql: string): Database.Statement {
+  const cache = globalForDb._statementCache!;
+  let stmt = cache.get(sql);
+  if (!stmt) {
+    if (cache.size > 500) {
+      const keys = Array.from(cache.keys()).slice(0, 50);
+      for (const k of keys) cache.delete(k);
+    }
+    stmt = db.prepare(sql);
+    cache.set(sql, stmt);
+  }
+  return stmt;
+}
+
+export function invalidateTableCache(table: string) {
+  if (!globalForDb._tableVersion) globalForDb._tableVersion = {};
+  globalForDb._tableVersion[table] = (globalForDb._tableVersion[table] || 0) + 1;
+  if (globalForDb._queryCache) {
+    const prefix = `${table}:`;
+    for (const key of globalForDb._queryCache.keys()) {
+      if (key.startsWith(prefix)) {
+        globalForDb._queryCache.delete(key);
+      }
+    }
+  }
+}
 
 export function getDb(): Database.Database {
-  if (_db) return _db;
+  if (globalForDb._dbInstance) return globalForDb._dbInstance;
 
   const dataDir = path.resolve(process.cwd(), 'data');
   if (!fs.existsSync(dataDir)) {
@@ -22,8 +63,20 @@ export function getDb(): Database.Database {
       db.pragma('journal_mode = DELETE');
     } catch (e2) {}
   }
+  db.pragma('synchronous = NORMAL');
+  try {
+    db.pragma('mmap_size = 268435456');
+    db.pragma('cache_size = -64000');
+    db.pragma('temp_store = MEMORY');
+  } catch (e) {}
   db.pragma('foreign_keys = ON');
-  db.pragma('busy_timeout = 5000');
+  db.pragma('busy_timeout = 10000');
+
+  // If schema was already initialized in this process, skip all DDL & migrations for 0ms startup
+  if (globalForDb._schemaInitialized) {
+    globalForDb._dbInstance = db;
+    return db;
+  }
 
   // Initialize tables
   db.exec(`
@@ -159,114 +212,128 @@ export function getDb(): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_sessions_date ON sessions(date);
     CREATE INDEX IF NOT EXISTS idx_sessions_month_year ON sessions(month_year);
     CREATE INDEX IF NOT EXISTS idx_sessions_teacher ON sessions(teacher_name);
+    CREATE INDEX IF NOT EXISTS idx_sessions_user_month ON sessions(user_name, month_year);
+    CREATE INDEX IF NOT EXISTS idx_sessions_teacher_month ON sessions(teacher_name, month_year);
+    CREATE INDEX IF NOT EXISTS idx_sessions_updated_at ON sessions(updated_at DESC);
     CREATE INDEX IF NOT EXISTS idx_manual_tx_date ON manual_transactions(date);
+    CREATE INDEX IF NOT EXISTS idx_manual_tx_date_desc ON manual_transactions(date DESC);
     CREATE INDEX IF NOT EXISTS idx_manual_tx_type ON manual_transactions(type);
     CREATE INDEX IF NOT EXISTS idx_manual_tx_cat ON manual_transactions(category);
+    CREATE INDEX IF NOT EXISTS idx_manual_tx_updated_at ON manual_transactions(updated_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_bank_receipts_created_desc ON bank_receipts(created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_bank_receipts_trans_date ON bank_receipts(trans_date);
+    CREATE INDEX IF NOT EXISTS idx_bank_receipts_trans_date_desc ON bank_receipts(trans_date DESC);
     CREATE INDEX IF NOT EXISTS idx_bank_receipts_status ON bank_receipts(status);
+    CREATE INDEX IF NOT EXISTS idx_bank_receipts_updated_at ON bank_receipts(updated_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_receipt_rules_created_desc ON receipt_rules(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_receipt_rules_updated_at ON receipt_rules(updated_at DESC);
     CREATE INDEX IF NOT EXISTS idx_category_budgets_user_cat ON category_budgets(user_id, category);
+    CREATE INDEX IF NOT EXISTS idx_category_budgets_updated_at ON category_budgets(updated_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_savings_history_date_desc ON savings_history(date DESC);
   `);
 
-    // Ensure all optional columns exist in sessions
-    const sessionCols = db.prepare('PRAGMA table_info(sessions)').all().map((c: any) => c.name);
-    if (!sessionCols.includes('auto_check_in')) db.exec('ALTER TABLE sessions ADD COLUMN auto_check_in INTEGER DEFAULT 1');
-    if (!sessionCols.includes('loai_hinh_lich')) db.exec('ALTER TABLE sessions ADD COLUMN loai_hinh_lich TEXT');
-    if (!sessionCols.includes('loai_hinh')) db.exec('ALTER TABLE sessions ADD COLUMN loai_hinh TEXT');
-    if (!sessionCols.includes('income_category')) db.exec('ALTER TABLE sessions ADD COLUMN income_category TEXT');
+  // Ensure all optional columns exist in sessions
+  const sessionCols = db.prepare('PRAGMA table_info(sessions)').all().map((c: any) => c.name);
+  if (!sessionCols.includes('auto_check_in')) db.exec('ALTER TABLE sessions ADD COLUMN auto_check_in INTEGER DEFAULT 1');
+  if (!sessionCols.includes('loai_hinh_lich')) db.exec('ALTER TABLE sessions ADD COLUMN loai_hinh_lich TEXT');
+  if (!sessionCols.includes('loai_hinh')) db.exec('ALTER TABLE sessions ADD COLUMN loai_hinh TEXT');
+  if (!sessionCols.includes('income_category')) db.exec('ALTER TABLE sessions ADD COLUMN income_category TEXT');
 
-    // Ensure table_settings has table_id and layout
-    const tableSettingCols = db.prepare('PRAGMA table_info(table_settings)').all().map((c: any) => c.name);
-    if (!tableSettingCols.includes('table_id')) db.exec('ALTER TABLE table_settings ADD COLUMN table_id TEXT');
-    if (!tableSettingCols.includes('layout')) db.exec('ALTER TABLE table_settings ADD COLUMN layout TEXT');
+  // Ensure table_settings has table_id and layout
+  const tableSettingCols = db.prepare('PRAGMA table_info(table_settings)').all().map((c: any) => c.name);
+  if (!tableSettingCols.includes('table_id')) db.exec('ALTER TABLE table_settings ADD COLUMN table_id TEXT');
+  if (!tableSettingCols.includes('layout')) db.exec('ALTER TABLE table_settings ADD COLUMN layout TEXT');
 
-    // Ensure sync support tables exist
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS sync_deletions (
-        table_name TEXT NOT NULL,
-        record_id TEXT NOT NULL,
-        deleted_at TEXT NOT NULL DEFAULT (datetime('now')),
-        PRIMARY KEY (table_name, record_id)
-      );
-      CREATE INDEX IF NOT EXISTS idx_sync_deletions_time ON sync_deletions(deleted_at);
+  // Ensure sync support tables exist
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS sync_deletions (
+      table_name TEXT NOT NULL,
+      record_id TEXT NOT NULL,
+      deleted_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (table_name, record_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_sync_deletions_time ON sync_deletions(deleted_at);
+    CREATE INDEX IF NOT EXISTS idx_sync_deletions_table_time_desc ON sync_deletions(table_name, deleted_at DESC);
 
-      CREATE TABLE IF NOT EXISTS sync_meta (
-        key TEXT PRIMARY KEY,
-        value TEXT,
-        updated_at TEXT DEFAULT (datetime('now'))
-      );
-    `);
+    CREATE TABLE IF NOT EXISTS sync_meta (
+      key TEXT PRIMARY KEY,
+      value TEXT,
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+  `);
 
-    // Ensure updated_at exists on all syncable tables for conflict resolution
-    const ensureCol = (tbl: string, col: string) => {
-      try {
-        const cols = db.prepare(`PRAGMA table_info("${tbl}")`).all().map((c: any) => c.name);
-        if (!cols.includes(col)) {
-          db.exec(`ALTER TABLE "${tbl}" ADD COLUMN ${col} TEXT`);
-          db.exec(`UPDATE "${tbl}" SET ${col} = datetime('now') WHERE ${col} IS NULL`);
-        }
-      } catch (e) {}
-    };
-
-    ['teachers', 'profiles', 'sessions', 'manual_transactions', 'savings_funds', 'category_budgets', 'savings_history', 'bank_receipts', 'receipt_rules', 'table_settings'].forEach(t => {
-      ensureCol(t, 'updated_at');
-    });
-
-    // Ensure manual_transactions supports 'exchange' type
+  // Ensure updated_at exists on all syncable tables for conflict resolution
+  const ensureCol = (tbl: string, col: string) => {
     try {
-      const mtSchema = db.prepare("SELECT sql FROM sqlite_master WHERE name = 'manual_transactions'").get() as { sql: string } | undefined;
-      if (mtSchema && mtSchema.sql && !mtSchema.sql.includes('exchange')) {
-        db.pragma('foreign_keys = OFF');
-        db.exec(`
-          CREATE TABLE manual_transactions_new (
-            id TEXT PRIMARY KEY,
-            user_id TEXT NOT NULL,
-            user_name TEXT,
-            teacher_name TEXT,
-            desc_text TEXT NOT NULL,
-            amount REAL NOT NULL,
-            type TEXT NOT NULL CHECK (type IN ('income', 'expense', 'saving', 'exchange')),
-            category TEXT NOT NULL,
-            date TEXT NOT NULL,
-            created_at TEXT DEFAULT (datetime('now'))
-          );
-          INSERT INTO manual_transactions_new SELECT * FROM manual_transactions;
-          DROP TABLE manual_transactions;
-          ALTER TABLE manual_transactions_new RENAME TO manual_transactions;
-        `);
-        db.pragma('foreign_keys = ON');
+      const cols = db.prepare(`PRAGMA table_info("${tbl}")`).all().map((c: any) => c.name);
+      if (!cols.includes(col)) {
+        db.exec(`ALTER TABLE "${tbl}" ADD COLUMN ${col} TEXT`);
+        db.exec(`UPDATE "${tbl}" SET ${col} = datetime('now') WHERE ${col} IS NULL`);
       }
     } catch (e) {}
+  };
 
-    // Seed default preserved data if profiles or sessions table is empty
-    try {
-      const userCount = db.prepare('SELECT COUNT(*) as count FROM profiles').get() as { count: number };
-      if (!userCount || userCount.count === 0) {
+  ['teachers', 'profiles', 'sessions', 'manual_transactions', 'savings_funds', 'category_budgets', 'savings_history', 'bank_receipts', 'receipt_rules', 'table_settings'].forEach(t => {
+    ensureCol(t, 'updated_at');
+  });
+
+  // Ensure manual_transactions supports 'exchange' type
+  try {
+    const mtSchema = db.prepare("SELECT sql FROM sqlite_master WHERE name = 'manual_transactions'").get() as { sql: string } | undefined;
+    if (mtSchema && mtSchema.sql && !mtSchema.sql.includes('exchange')) {
+      db.pragma('foreign_keys = OFF');
+      db.exec(`
+        CREATE TABLE manual_transactions_new (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          user_name TEXT,
+          teacher_name TEXT,
+          desc_text TEXT NOT NULL,
+          amount REAL NOT NULL,
+          type TEXT NOT NULL CHECK (type IN ('income', 'expense', 'saving', 'exchange')),
+          category TEXT NOT NULL,
+          date TEXT NOT NULL,
+          created_at TEXT DEFAULT (datetime('now'))
+        );
+        INSERT INTO manual_transactions_new SELECT * FROM manual_transactions;
+        DROP TABLE manual_transactions;
+        ALTER TABLE manual_transactions_new RENAME TO manual_transactions;
+      `);
+      db.pragma('foreign_keys = ON');
+    }
+  } catch (e) {}
+
+  // Seed default preserved data if profiles or sessions table is empty
+  try {
+    const userCount = db.prepare('SELECT COUNT(*) as count FROM profiles').get() as { count: number };
+    if (!userCount || userCount.count === 0) {
+      seedPreservedData(db);
+    } else {
+      const sessCount = db.prepare('SELECT COUNT(*) as count FROM sessions').get() as { count: number };
+      if (!sessCount || sessCount.count === 0) {
         seedPreservedData(db);
-      } else {
-        const sessCount = db.prepare('SELECT COUNT(*) as count FROM sessions').get() as { count: number };
-        if (!sessCount || sessCount.count === 0) {
-          seedPreservedData(db);
-        }
       }
-    } catch (e) {
-      console.warn('[Local SQLite] Seed check warning:', e);
     }
+  } catch (e) {
+    console.warn('[Local SQLite] Seed check warning:', e);
+  }
 
-    // Ensure all sessions have valid unique UUIDs
-    try {
-      const nullSessions = db.prepare("SELECT rowid FROM sessions WHERE id IS NULL OR id = ''").all() as { rowid: number }[];
-      if (nullSessions.length > 0) {
-        const updateStmt = db.prepare("UPDATE sessions SET id = ? WHERE rowid = ?");
-        for (const s of nullSessions) {
-          updateStmt.run(crypto.randomUUID(), s.rowid);
-        }
+  // Ensure all sessions have valid unique UUIDs
+  try {
+    const nullSessions = db.prepare("SELECT rowid FROM sessions WHERE id IS NULL OR id = ''").all() as { rowid: number }[];
+    if (nullSessions.length > 0) {
+      const updateStmt = db.prepare("UPDATE sessions SET id = ? WHERE rowid = ?");
+      for (const s of nullSessions) {
+        updateStmt.run(crypto.randomUUID(), s.rowid);
       }
-    } catch (e) {
-      console.warn('[Local SQLite] Check null sessions id error:', e);
     }
+  } catch (e) {
+    console.warn('[Local SQLite] Check null sessions id error:', e);
+  }
 
-  _db = db;
-  return _db;
+  globalForDb._schemaInitialized = true;
+  globalForDb._dbInstance = db;
+  return db;
 }
 
 function seedPreservedData(db: Database.Database) {
@@ -488,14 +555,25 @@ export interface QueryOptions {
 
 export function queryTable(table: string, options: QueryOptions = {}) {
   const db = getDb();
-  const whereClauses: string[] = [];
-  const params: any[] = [];
 
   // Check valid table name
   const validTables = ['teachers', 'profiles', 'sessions', 'manual_transactions', 'savings_funds', 'category_budgets', 'savings_history', 'bank_receipts', 'receipt_rules', 'table_settings'];
   if (!validTables.includes(table)) {
     throw new Error(`Invalid table name: ${table}`);
   }
+
+  const currentVersion = globalForDb._tableVersion?.[table] || 0;
+  const cacheKey = `${table}:${JSON.stringify(options)}`;
+  const now = Date.now();
+
+  // Fast path: In-memory cache hit (valid for 3000ms if table has not mutated)
+  const cached = globalForDb._queryCache?.get(cacheKey);
+  if (cached && cached.version === currentVersion && (now - cached.timestamp < 3000)) {
+    return { data: cached.data, count: cached.count, error: null };
+  }
+
+  const whereClauses: string[] = [];
+  const params: any[] = [];
 
   // Handle count / head
   if (options.count === 'exact' && options.head) {
@@ -506,8 +584,12 @@ export function queryTable(table: string, options: QueryOptions = {}) {
       }
     }
     const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
-    const row = db.prepare(`SELECT COUNT(*) as count FROM "${table}" ${whereSql}`).get(...params) as { count: number };
-    return { data: null, count: row.count, error: null };
+    const countSql = `SELECT COUNT(*) as count FROM "${table}" ${whereSql}`;
+    const stmt = getCachedStatement(db, countSql);
+    const row = stmt.get(...params) as { count: number };
+    const res = { data: null, count: row.count, error: null };
+    globalForDb._queryCache?.set(cacheKey, { data: null, count: row.count, timestamp: now, version: currentVersion });
+    return res;
   }
 
   if (options.eq) {
@@ -595,18 +677,40 @@ export function queryTable(table: string, options: QueryOptions = {}) {
   const query = `SELECT ${cols} FROM "${table}" ${whereSql} ${orderSql} ${limitSql}`;
 
   try {
+    let resultData: any;
+    let totalCount: number | undefined;
+
+    const stmt = getCachedStatement(db, query);
     if (options.maybeSingle) {
-      const row = db.prepare(query).get(...params);
-      return { data: row || null, error: null };
+      const row = stmt.get(...params);
+      resultData = row || null;
+    } else {
+      const rows = stmt.all(...params);
+      resultData = rows;
+      totalCount = rows.length;
+      if (options.count === 'exact') {
+        const countQuery = `SELECT COUNT(*) as count FROM "${table}" ${whereSql}`;
+        const countStmt = getCachedStatement(db, countQuery);
+        const countRow = countStmt.get(...params) as { count: number };
+        totalCount = countRow.count;
+      }
     }
 
-    const rows = db.prepare(query).all(...params);
-    let totalCount = rows.length;
-    if (options.count === 'exact') {
-      const countRow = db.prepare(`SELECT COUNT(*) as count FROM "${table}" ${whereSql}`).get(...params) as { count: number };
-      totalCount = countRow.count;
+    // Cache the result
+    if (globalForDb._queryCache) {
+      if (globalForDb._queryCache.size > 1000) {
+        const oldestKeys = Array.from(globalForDb._queryCache.keys()).slice(0, 200);
+        for (const k of oldestKeys) globalForDb._queryCache.delete(k);
+      }
+      globalForDb._queryCache.set(cacheKey, {
+        data: resultData,
+        count: totalCount,
+        timestamp: now,
+        version: currentVersion
+      });
     }
-    return { data: rows, count: totalCount, error: null };
+
+    return { data: resultData, count: totalCount, error: null };
   } catch (err: any) {
     console.error(`[Local SQLite] query error on ${table}:`, err.message);
     return { data: null, error: { message: err.message } };
@@ -622,13 +726,13 @@ export function sanitizeSqliteValue(v: any): any {
   return v;
 }
 
-const tableColumnsCache: Record<string, Set<string>> = {};
 function getTableColumns(db: Database.Database, table: string): Set<string> {
-  if (!tableColumnsCache[table]) {
-    const cols = db.prepare(`PRAGMA table_info("${table}")`).all() as { name: string }[];
-    tableColumnsCache[table] = new Set(cols.map(c => c.name));
+  const cache = globalForDb._tableColumnsCache!;
+  if (!cache[table]) {
+    const cols = getCachedStatement(db, `PRAGMA table_info("${table}")`).all() as { name: string }[];
+    cache[table] = new Set(cols.map(c => c.name));
   }
-  return tableColumnsCache[table];
+  return cache[table];
 }
 
 export function insertTable(table: string, records: any | any[]) {
@@ -640,6 +744,7 @@ export function insertTable(table: string, records: any | any[]) {
   if (!validTables.includes(table)) throw new Error(`Invalid table: ${table}`);
 
   try {
+    invalidateTableCache(table);
     const validCols = getTableColumns(db, table);
     const results: any[] = [];
     const runInsert = db.transaction(() => {
@@ -662,7 +767,7 @@ export function insertTable(table: string, records: any | any[]) {
         const keys = Object.keys(cleanRec);
         const cols = keys.map(k => `"${k}"`).join(', ');
         const placeholders = keys.map(k => `@${k}`).join(', ');
-        const stmt = db.prepare(`INSERT INTO "${table}" (${cols}) VALUES (${placeholders})`);
+        const stmt = getCachedStatement(db, `INSERT INTO "${table}" (${cols}) VALUES (${placeholders})`);
         stmt.run(cleanRec);
         results.push(cleanRec);
       }
@@ -684,6 +789,7 @@ export function upsertTable(table: string, records: any | any[], onConflictKey?:
   if (!validTables.includes(table)) throw new Error(`Invalid table: ${table}`);
 
   try {
+    invalidateTableCache(table);
     const validCols = getTableColumns(db, table);
     const results: any[] = [];
     const runUpsert = db.transaction(() => {
@@ -708,7 +814,7 @@ export function upsertTable(table: string, records: any | any[], onConflictKey?:
         const placeholders = keys.map(k => `@${k}`).join(', ');
         
         // Use INSERT OR REPLACE INTO for standard SQLite upsert behavior
-        const stmt = db.prepare(`INSERT OR REPLACE INTO "${table}" (${cols}) VALUES (${placeholders})`);
+        const stmt = getCachedStatement(db, `INSERT OR REPLACE INTO "${table}" (${cols}) VALUES (${placeholders})`);
         stmt.run(cleanRec);
         results.push(cleanRec);
       }
@@ -727,6 +833,7 @@ export function updateTable(table: string, updates: Record<string, any>, conditi
   if (!validTables.includes(table)) throw new Error(`Invalid table: ${table}`);
 
   try {
+    invalidateTableCache(table);
     const validCols = getTableColumns(db, table);
     const setClauses: string[] = [];
     const params: any[] = [];
@@ -780,7 +887,8 @@ export function updateTable(table: string, updates: Record<string, any>, conditi
 
     const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
     const query = `UPDATE "${table}" SET ${setClauses.join(', ')} ${whereSql}`;
-    const result = db.prepare(query).run(...params);
+    const stmt = getCachedStatement(db, query);
+    const result = stmt.run(...params);
     return { data: { changes: result.changes }, error: null };
   } catch (err: any) {
     console.error(`[Local SQLite] update error on ${table}:`, err.message);
@@ -794,6 +902,7 @@ export function deleteTable(table: string, conditions: { eq?: Record<string, any
   if (!validTables.includes(table)) throw new Error(`Invalid table: ${table}`);
 
   try {
+    invalidateTableCache(table);
     const whereClauses: string[] = [];
     const params: any[] = [];
 
@@ -837,12 +946,14 @@ export function deleteTable(table: string, conditions: { eq?: Record<string, any
     
     // Capture records to be deleted for tombstone tracking in sync_deletions
     const idCol = table === 'teachers' ? 'name' : (table === 'savings_funds' ? 'user_id' : 'id');
-    const recordsToDelete = db.prepare(`SELECT "${idCol}" as del_id FROM "${table}" ${whereSql}`).all(...params) as { del_id: any }[];
+    const recordsToDeleteStmt = getCachedStatement(db, `SELECT "${idCol}" as del_id FROM "${table}" ${whereSql}`);
+    const recordsToDelete = recordsToDeleteStmt.all(...params) as { del_id: any }[];
 
     const query = `DELETE FROM "${table}" ${whereSql}`;
     const runDelete = db.transaction(() => {
-      const result = db.prepare(query).run(...params);
-      const tombstoneStmt = db.prepare(`INSERT OR REPLACE INTO sync_deletions (table_name, record_id, deleted_at) VALUES (?, ?, ?)`);
+      const stmt = getCachedStatement(db, query);
+      const result = stmt.run(...params);
+      const tombstoneStmt = getCachedStatement(db, `INSERT OR REPLACE INTO sync_deletions (table_name, record_id, deleted_at) VALUES (?, ?, ?)`);
       const now = new Date().toISOString();
       for (const r of recordsToDelete) {
         if (r.del_id !== undefined && r.del_id !== null) {

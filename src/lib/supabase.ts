@@ -1,5 +1,22 @@
 // Universal Client-Safe Local Client (Safe for browser and SSR)
 
+// Client-side in-flight deduplication & short-lived micro-cache
+const clientQueryCache = new Map<string, { data: any; count?: number; error: any; timestamp: number }>();
+const inFlightRequests = new Map<string, Promise<{ data: any; count?: number; error: any }>>();
+
+export function invalidateClientCache(table?: string) {
+  if (!table) {
+    clientQueryCache.clear();
+    return;
+  }
+  const prefix = `${table}:`;
+  for (const k of clientQueryCache.keys()) {
+    if (k.startsWith(prefix)) {
+      clientQueryCache.delete(k);
+    }
+  }
+}
+
 interface QueryBuilderState {
   table: string;
   columns?: string;
@@ -132,16 +149,54 @@ class QueryBuilder {
       maybeSingle: this.state.isMaybeSingle
     };
 
-    try {
-      const res = await fetch('/api/db', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'query', table: this.state.table, options: opts })
-      });
-      return await res.json();
-    } catch (err: any) {
-      return { data: null, error: { message: err.message } };
+    const cacheKey = `${this.state.table}:${JSON.stringify(opts)}`;
+    const now = Date.now();
+
+    // 1. Check client-side micro cache (TTL: 2000ms)
+    const cached = clientQueryCache.get(cacheKey);
+    if (cached && (now - cached.timestamp < 2000)) {
+      return {
+        data: Array.isArray(cached.data) ? [...cached.data] : (cached.data && typeof cached.data === 'object' ? { ...cached.data } : cached.data),
+        count: cached.count,
+        error: cached.error
+      };
     }
+
+    // 2. Check in-flight request deduplication
+    if (inFlightRequests.has(cacheKey)) {
+      return inFlightRequests.get(cacheKey)!;
+    }
+
+    const fetchPromise = (async () => {
+      try {
+        const res = await fetch('/api/db', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'query', table: this.state.table, options: opts })
+        });
+        const json = await res.json();
+        if (!json.error) {
+          if (clientQueryCache.size > 200) {
+            const oldest = Array.from(clientQueryCache.keys()).slice(0, 50);
+            for (const k of oldest) clientQueryCache.delete(k);
+          }
+          clientQueryCache.set(cacheKey, {
+            data: json.data,
+            count: json.count,
+            error: null,
+            timestamp: Date.now()
+          });
+        }
+        return json;
+      } catch (err: any) {
+        return { data: null, error: { message: err.message } };
+      } finally {
+        inFlightRequests.delete(cacheKey);
+      }
+    })();
+
+    inFlightRequests.set(cacheKey, fetchPromise);
+    return fetchPromise;
   }
 
   then<TResult1 = any, TResult2 = never>(
@@ -190,6 +245,7 @@ class UpdateBuilder {
   }
 
   async execute(): Promise<{ data: any; error: any }> {
+    invalidateClientCache(this.table);
     const conditions = {
       eq: Object.keys(this.eqMap).length > 0 ? this.eqMap : undefined,
       in: Object.keys(this.inMap).length > 0 ? this.inMap : undefined,
@@ -253,6 +309,7 @@ class DeleteBuilder {
   }
 
   async execute(): Promise<{ data: any; error: any }> {
+    invalidateClientCache(this.table);
     const conditions = {
       eq: Object.keys(this.eqMap).length > 0 ? this.eqMap : undefined,
       in: Object.keys(this.inMap).length > 0 ? this.inMap : undefined,
@@ -325,6 +382,7 @@ function createLocalClient() {
         return new QueryBuilder(table).select(columns, options);
       },
       insert: (records: any | any[]) => {
+        invalidateClientCache(table);
         return new InsertBuilder(async () => {
           try {
             const res = await fetch('/api/db', {
@@ -339,6 +397,7 @@ function createLocalClient() {
         });
       },
       upsert: (records: any | any[], options?: { onConflict?: string }) => {
+        invalidateClientCache(table);
         return new UpsertBuilder(async () => {
           try {
             const res = await fetch('/api/db', {

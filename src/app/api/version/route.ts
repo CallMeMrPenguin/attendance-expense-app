@@ -4,7 +4,16 @@ import path from 'path';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+let cachedBuildId: string | null = null;
+let lastCheckTime = 0;
+
+function getBuildId(): string {
+  const now = Date.now();
+  if (cachedBuildId && now - lastCheckTime < 60000) {
+    return cachedBuildId;
+  }
+  lastCheckTime = now;
+
   let buildId = process.env.BUILD_ID;
 
   if (!buildId) {
@@ -33,8 +42,14 @@ export async function GET() {
     } catch (e) {}
   }
 
-  return NextResponse.json({
-    version: buildId || `build-${Date.now()}`,
-    timestamp: Date.now()
-  });
+  cachedBuildId = buildId || `build-${now}`;
+  return cachedBuildId;
+}
+
+export async function GET() {
+  const version = getBuildId();
+  return NextResponse.json(
+    { version, timestamp: Date.now() },
+    { headers: { 'Cache-Control': 'public, max-age=15, stale-while-revalidate=30' } }
+  );
 }

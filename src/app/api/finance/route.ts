@@ -32,30 +32,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid user session token' }, { status: 401 });
     }
 
-    // 1. Fetch manual_transactions (shared across admins)
-    const { data: txData, error: txError } = await admin
-      .from('manual_transactions')
-      .select('*')
-      .order('date', { ascending: false });
-
-    // 2. Fetch savings_funds (shared latest fund balance)
-    const { data: fundsData, error: fundsError } = await admin
-      .from('savings_funds')
-      .select('*')
-      .order('updated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    // 3. Fetch category_budgets (shared budget limits and keywords)
-    const { data: budgetsData, error: budgetsError } = await admin
-      .from('category_budgets')
-      .select('*');
-
-    // 4. Fetch savings_history (shared savings history)
-    const { data: historyData, error: historyError } = await admin
-      .from('savings_history')
-      .select('*')
-      .order('date', { ascending: false });
+    // Parallel fetch for financial tables
+    const [
+      { data: txData, error: txError },
+      { data: fundsData, error: fundsError },
+      { data: budgetsData, error: budgetsError },
+      { data: historyData, error: historyError }
+    ] = await Promise.all([
+      admin.from('manual_transactions').select('*').order('date', { ascending: false }),
+      admin.from('savings_funds').select('*').order('updated_at', { ascending: false }).limit(1).maybeSingle(),
+      admin.from('category_budgets').select('*'),
+      admin.from('savings_history').select('*').order('date', { ascending: false })
+    ]);
 
     // Check if tables are missing in Postgres DB (Code 42P01)
     const tableMissingErr = [txError, fundsError, budgetsError, historyError].find(

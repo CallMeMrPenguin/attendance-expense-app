@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase-server';
-import { getDb } from '@/lib/db';
+import { getDb, getCachedStatement } from '@/lib/db';
 
 // Helper to normalize username from teacher name
 function generateUsername(name: string): string {
@@ -24,12 +24,18 @@ async function verifyAdmin(request: NextRequest) {
   const token = authHeader.replace('Bearer ', '').trim();
   const db = getDb();
 
-  // Find profile by token / id / username
-  const profile = db.prepare(`
-    SELECT * FROM profiles 
-    WHERE id = ? OR username = ? OR ('local_token_' || id) LIKE ?
-    LIMIT 1
-  `).get(token, token, `%${token}%`) as any;
+  // Fast path: find profile by direct index lookup
+  let profile: any = null;
+  if (token.startsWith('local_token_')) {
+    const parts = token.split('_');
+    const extractedId = parts[2];
+    if (extractedId) {
+      profile = getCachedStatement(db, 'SELECT * FROM profiles WHERE id = ? LIMIT 1').get(extractedId);
+    }
+  }
+  if (!profile) {
+    profile = getCachedStatement(db, 'SELECT * FROM profiles WHERE id = ? OR username = ? LIMIT 1').get(token, token);
+  }
 
   if (!profile) {
     return { error: 'Invalid or expired session', status: 401 };
