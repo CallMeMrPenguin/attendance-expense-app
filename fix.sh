@@ -25,7 +25,8 @@ echo "[3/4] Dang build Next.js..."
 npm run build
 
 echo "[4/4] Dang khoi dong lai PM2..."
-pm2 restart chamcong || pm2 reload chamcong || pm2 start ecosystem.config.cjs
+pm2 delete chamcong 2>/dev/null || true
+pm2 start ecosystem.config.cjs
 pm2 save --force
 
 echo "[5/5] Kich hoat Git Watcher tu dong cap nhat 24/7 (chamcong-watcher)..."

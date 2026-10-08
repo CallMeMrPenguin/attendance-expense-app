@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 
 import MaterialSymbol from './MaterialSymbol';
+import { SyncStatusBadge } from './sync/SyncStatusBadge';
 
 interface SidebarProps {
   activeTab: 'dashboard' | 'flow' | 'saving' | 'schedule' | 'settings';
@@ -151,8 +152,13 @@ export default function Sidebar({
         })}
       </nav>
 
+      {/* Real-time Bidirectional Sync Status Badge */}
+      <div className={`pt-3 border-t border-white/5 ${collapsed ? 'flex justify-center' : 'px-1'}`}>
+        <SyncStatusBadge />
+      </div>
+
       {/* User profile section with popup dropdown menu */}
-      <div className="border-t border-white/5 pt-4 flex flex-col shrink-0 relative" ref={profileRef}>
+      <div className="pt-2 flex flex-col shrink-0 relative" ref={profileRef}>
         <button
           onClick={() => setProfileOpen(!profileOpen)}
           className={`flex items-center py-2.5 rounded-xl hover:bg-white/[0.04] transition-all duration-300 text-left w-full cursor-pointer ${collapsed ? 'justify-center px-0' : 'gap-2.5 px-2'}`}

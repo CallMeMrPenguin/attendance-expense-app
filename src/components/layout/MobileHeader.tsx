@@ -1,6 +1,7 @@
 import React from 'react';
 import { Menu, Users, Wallet } from 'lucide-react';
 import { UserProfile } from '@/types/auth';
+import { SyncStatusBadge } from '@/components/sync/SyncStatusBadge';
 
 interface MobileHeaderProps {
   onOpenMobileMenu: () => void;
@@ -40,7 +41,9 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
         </div>
       </div>
 
-      <div className="flex items-center gap-3 relative">
+      <div className="flex items-center gap-2 relative">
+        <SyncStatusBadge />
+
         {pendingSavesCount > 0 && (
           <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/15 border border-amber-500/30 text-amber-300 rounded-xl text-[10px] font-black shadow-sm animate-pulse">
             <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-ping"></span>
@@ -60,6 +63,7 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
           </button>
         )}
       </div>
+
     </header>
   );
 };

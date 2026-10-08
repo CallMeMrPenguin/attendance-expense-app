@@ -102,16 +102,18 @@ if [ "$LOCAL_HASH" != "$REMOTE_HASH" ] && [ -n "$REMOTE_HASH" ]; then
         exit 1
     fi
 
-    # 5. Khoi dong lai tien trinh Next.js tren PM2 (Zero Downtime)
+    # 5. Khoi dong lai tien trinh Next.js tren PM2
     log_msg "Dang reload ung dung tren PM2..."
     if command -v pm2 &> /dev/null; then
-        pm2 reload chamcong || pm2 restart chamcong || pm2 start ecosystem.config.cjs
+        pm2 delete chamcong 2>/dev/null || true
+        pm2 start ecosystem.config.cjs >> "$LOG_FILE" 2>&1
         pm2 save --force >> "$LOG_FILE" 2>&1
     fi
 
     log_msg "HOAN TAT CAP NHAT & TRIEN KHAI THANH CONG!"
     log_msg "======================================================="
 fi
+
 
 rm -f "$LOCK_FILE"
 exit 0

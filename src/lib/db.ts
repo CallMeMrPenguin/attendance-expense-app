@@ -179,6 +179,38 @@ export function getDb(): Database.Database {
     if (!tableSettingCols.includes('table_id')) db.exec('ALTER TABLE table_settings ADD COLUMN table_id TEXT');
     if (!tableSettingCols.includes('layout')) db.exec('ALTER TABLE table_settings ADD COLUMN layout TEXT');
 
+    // Ensure sync support tables exist
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS sync_deletions (
+        table_name TEXT NOT NULL,
+        record_id TEXT NOT NULL,
+        deleted_at TEXT NOT NULL DEFAULT (datetime('now')),
+        PRIMARY KEY (table_name, record_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_sync_deletions_time ON sync_deletions(deleted_at);
+
+      CREATE TABLE IF NOT EXISTS sync_meta (
+        key TEXT PRIMARY KEY,
+        value TEXT,
+        updated_at TEXT DEFAULT (datetime('now'))
+      );
+    `);
+
+    // Ensure updated_at exists on all syncable tables for conflict resolution
+    const ensureCol = (tbl: string, col: string) => {
+      try {
+        const cols = db.prepare(`PRAGMA table_info("${tbl}")`).all().map((c: any) => c.name);
+        if (!cols.includes(col)) {
+          db.exec(`ALTER TABLE "${tbl}" ADD COLUMN ${col} TEXT`);
+          db.exec(`UPDATE "${tbl}" SET ${col} = datetime('now') WHERE ${col} IS NULL`);
+        }
+      } catch (e) {}
+    };
+
+    ['teachers', 'profiles', 'sessions', 'manual_transactions', 'savings_funds', 'category_budgets', 'savings_history', 'bank_receipts', 'receipt_rules', 'table_settings'].forEach(t => {
+      ensureCol(t, 'updated_at');
+    });
+
     // Ensure manual_transactions supports 'exchange' type
     try {
       const mtSchema = db.prepare("SELECT sql FROM sqlite_master WHERE name = 'manual_transactions'").get() as { sql: string } | undefined;
@@ -704,6 +736,10 @@ export function updateTable(table: string, updates: Record<string, any>, conditi
       setClauses.push(`"${k}" = ?`);
       params.push(sanitizeSqliteValue(v));
     }
+    if (validCols.has('updated_at') && !updates.updated_at) {
+      setClauses.push('"updated_at" = ?');
+      params.push(new Date().toISOString());
+    }
 
     const whereClauses: string[] = [];
     if (conditions.eq) {
@@ -798,14 +834,32 @@ export function deleteTable(table: string, conditions: { eq?: Record<string, any
     }
 
     const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+    
+    // Capture records to be deleted for tombstone tracking in sync_deletions
+    const idCol = table === 'teachers' ? 'name' : (table === 'savings_funds' ? 'user_id' : 'id');
+    const recordsToDelete = db.prepare(`SELECT "${idCol}" as del_id FROM "${table}" ${whereSql}`).all(...params) as { del_id: any }[];
+
     const query = `DELETE FROM "${table}" ${whereSql}`;
-    const result = db.prepare(query).run(...params);
+    const runDelete = db.transaction(() => {
+      const result = db.prepare(query).run(...params);
+      const tombstoneStmt = db.prepare(`INSERT OR REPLACE INTO sync_deletions (table_name, record_id, deleted_at) VALUES (?, ?, ?)`);
+      const now = new Date().toISOString();
+      for (const r of recordsToDelete) {
+        if (r.del_id !== undefined && r.del_id !== null) {
+          tombstoneStmt.run(table, String(r.del_id), now);
+        }
+      }
+      return result;
+    });
+
+    const result = runDelete();
     return { data: { changes: result.changes }, error: null };
   } catch (err: any) {
     console.error(`[Local SQLite] delete error on ${table}:`, err.message);
     return { data: null, error: { message: err.message } };
   }
 }
+
 
 export function authenticateUser(usernameOrEmail: string, password: string) {
   const db = getDb();

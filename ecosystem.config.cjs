@@ -4,6 +4,7 @@ module.exports = {
       name: 'chamcong',
       script: 'node_modules/next/dist/bin/next',
       args: 'start -p 9000',
+      interpreter: 'node',
       cwd: __dirname,
       instances: 1,
       exec_mode: 'fork',

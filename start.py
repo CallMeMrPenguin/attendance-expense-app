@@ -6,6 +6,13 @@ Khởi động ứng dụng Chấm Công & Quản Lý Chi Phí (Next.js - Port 9
 
 import os
 import sys
+
+# Ensure UTF-8 output encoding on Windows console to prevent UnicodeEncodeError
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 import time
 import socket
 import shutil
@@ -28,6 +35,32 @@ def is_port_in_use(port=PORT, host=HOST) -> bool:
             return True
     except (socket.timeout, ConnectionRefusedError, OSError):
         return False
+
+
+def is_server_healthy(url=APP_URL) -> bool:
+    """Kiểm tra server có phản hồi HTTP bình thường hay không."""
+    try:
+        req = urllib.request.Request(f"{url}/api/version", headers={"User-Agent": "LauncherHealthCheck"})
+        with urllib.request.urlopen(req, timeout=1.5) as resp:
+            return resp.status == 200
+    except Exception:
+        return False
+
+
+def kill_process_on_port(port=PORT):
+    """Giải phóng cổng nếu bị chiếm bởi tiến trình treo (zombie)."""
+    try:
+        if os.name == "nt":
+            out = subprocess.check_output(f"netstat -ano | findstr :{port}", shell=True, text=True)
+            for line in out.strip().splitlines():
+                parts = line.split()
+                if len(parts) >= 5 and "LISTENING" in parts:
+                    pid = parts[-1]
+                    print(f"[INFO] Dang giai phong cong {port} bi treo (PID: {pid})...")
+                    subprocess.run(f"taskkill /F /PID {pid}", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        time.sleep(1)
+    except Exception:
+        pass
 
 
 def wait_for_server_and_open_browser(url: str, stop_event: threading.Event, timeout_secs: int = 60):
@@ -90,16 +123,21 @@ def main():
 
     # 1. Kiểm tra xem server đã đang chạy hay chưa
     if is_port_in_use(PORT, HOST):
-        print(f"[INFO] Phat hien may chu da dang chay tren cong {PORT}.")
-        print(f"[INFO] Dang mo ung dung tren trinh duyet: {APP_URL}")
-        try:
-            webbrowser.open(APP_URL)
-            print("[OK] Da mo trinh duyet thanh cong.")
-        except Exception as e:
-            print(f"[CANH BAO] Khong the mo trinh duyet tu dong: {e}")
-            print(f"[INFO] Vui long truy cap thu cong tai: {APP_URL}")
-        time.sleep(1.5)
-        return
+        if is_server_healthy():
+            print(f"[INFO] May chu da dang hoat dong binh thuong tren cong {PORT}.")
+            print(f"[INFO] Dang mo ung dung tren trinh duyet: {APP_URL}")
+            try:
+                webbrowser.open(APP_URL)
+                print("[OK] Da mo trinh duyet thanh cong.")
+            except Exception as e:
+                print(f"[CANH BAO] Khong the mo trinh duyet tu dong: {e}")
+                print(f"[INFO] Vui long truy cap thu cong tai: {APP_URL}")
+            time.sleep(1.5)
+            return
+        else:
+            print(f"[CANH BAO] Phat hien cong {PORT} bi chiem boi tien trinh cu khong phan hoi.")
+            kill_process_on_port(PORT)
+
 
     # 2. Tìm binary npm hoặc pnpm / yarn
     npm_cmd = shutil.which("npm.cmd") if os.name == "nt" else shutil.which("npm")
