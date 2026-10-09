@@ -303,16 +303,15 @@ export function getDb(): Database.Database {
     }
   } catch (e) {}
 
-  // Seed default preserved data if profiles or sessions table is empty
+  // Seed default preserved data if any primary table is empty
   try {
-    const userCount = db.prepare('SELECT COUNT(*) as count FROM profiles').get() as { count: number };
-    if (!userCount || userCount.count === 0) {
+    const userCount = (db.prepare('SELECT COUNT(*) as count FROM profiles').get() as { count: number })?.count || 0;
+    const sessCount = (db.prepare('SELECT COUNT(*) as count FROM sessions').get() as { count: number })?.count || 0;
+    const txCount = (db.prepare('SELECT COUNT(*) as count FROM manual_transactions').get() as { count: number })?.count || 0;
+    const rcptCount = (db.prepare('SELECT COUNT(*) as count FROM bank_receipts').get() as { count: number })?.count || 0;
+
+    if (userCount === 0 || sessCount === 0 || txCount === 0 || rcptCount === 0) {
       seedPreservedData(db);
-    } else {
-      const sessCount = db.prepare('SELECT COUNT(*) as count FROM sessions').get() as { count: number };
-      if (!sessCount || sessCount.count === 0) {
-        seedPreservedData(db);
-      }
     }
   } catch (e) {
     console.warn('[Local SQLite] Seed check warning:', e);
@@ -338,194 +337,70 @@ export function getDb(): Database.Database {
 
 function seedPreservedData(db: Database.Database) {
   try {
-    const backupPath = path.resolve(process.cwd(), 'scratch/backup_preserved_data.json');
     let backupData: any = null;
-    if (fs.existsSync(backupPath)) {
+    const seedPath = path.resolve(process.cwd(), 'data/seed_data.json');
+    const backupPath = path.resolve(process.cwd(), 'scratch/backup_preserved_data.json');
+
+    if (fs.existsSync(seedPath)) {
+      backupData = JSON.parse(fs.readFileSync(seedPath, 'utf8'));
+    } else if (fs.existsSync(backupPath)) {
       backupData = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
     }
 
-    const insertProfile = db.prepare(`
-      INSERT OR REPLACE INTO profiles (id, username, user_name, teacher_name, role, email, password, created_at)
-      VALUES (@id, @username, @user_name, @teacher_name, @role, @email, @password, @created_at)
-    `);
+    if (!backupData) {
+      console.warn('[Local SQLite] No seed file found at data/seed_data.json or scratch/backup_preserved_data.json');
+      // Minimal fallback default admin
+      const insertProfile = db.prepare(`
+        INSERT OR IGNORE INTO profiles (id, username, user_name, teacher_name, role, email, password, created_at)
+        VALUES (@id, @username, @user_name, @teacher_name, @role, @email, @password, @created_at)
+      `);
+      insertProfile.run({
+        id: '2d3a11e1-4d71-474c-b8df-abb85394e9c8',
+        username: 'buiduchung2004',
+        user_name: 'ADMIN',
+        teacher_name: 'ADMIN',
+        role: 'admin',
+        email: 'buiduchung2004@gmail.com',
+        password: 'callmemrpenguin',
+        created_at: new Date().toISOString()
+      });
+      db.prepare(`INSERT OR IGNORE INTO teachers (name, created_at) VALUES ('ADMIN', datetime('now'))`).run();
+      return;
+    }
 
-    const insertTeacher = db.prepare(`
-      INSERT OR IGNORE INTO teachers (name, created_at)
-      VALUES (?, datetime('now'))
-    `);
-
-    const insertBudget = db.prepare(`
-      INSERT OR REPLACE INTO category_budgets (id, user_id, user_name, teacher_name, category, amount, type, icon, note, keywords, updated_at)
-      VALUES (@id, @user_id, @user_name, @teacher_name, @category, @amount, @type, @icon, @note, @keywords, @updated_at)
-    `);
-
-    const insertFund = db.prepare(`
-      INSERT OR REPLACE INTO savings_funds (user_id, user_name, teacher_name, emergency_current, emergency_target, accumulation_current, accumulation_target, updated_at)
-      VALUES (@user_id, @user_name, @teacher_name, @emergency_current, @emergency_target, @accumulation_current, @accumulation_target, @updated_at)
-    `);
-
-    const insertRule = db.prepare(`
-      INSERT OR REPLACE INTO receipt_rules (id, user_id, match_field, match_value, target_type, target_category, created_at)
-      VALUES (@id, @user_id, @match_field, @match_value, @target_type, @target_category, @created_at)
-    `);
+    const tables = [
+      'profiles',
+      'teachers',
+      'category_budgets',
+      'savings_funds',
+      'receipt_rules',
+      'manual_transactions',
+      'savings_history',
+      'bank_receipts',
+      'sessions',
+      'table_settings'
+    ];
 
     db.transaction(() => {
-      // 1. Profiles
-      if (backupData?.profiles?.length > 0) {
-        for (const p of backupData.profiles) {
-          const tName = p.user_name || p.teacher_name || p.username;
-          insertProfile.run({
-            id: p.id,
-            username: p.username,
-            user_name: p.user_name || tName,
-            teacher_name: tName,
-            role: p.role,
-            email: p.email,
-            password: p.password || '123456',
-            created_at: p.created_at || new Date().toISOString()
-          });
-          insertTeacher.run(tName);
-        }
-      } else {
-        // Fallback default admin profile
-        const adminId = '2d3a11e1-4d71-474c-b8df-abb85394e9c8';
-        insertProfile.run({
-          id: adminId,
-          username: 'buiduchung2004',
-          user_name: 'ADMIN',
-          teacher_name: 'ADMIN',
-          role: 'admin',
-          email: 'buiduchung2004@gmail.com',
-          password: 'callmemrpenguin',
-          created_at: new Date().toISOString()
-        });
-        insertTeacher.run('ADMIN');
-      }
-
-      // 2. Category Budgets (Preserved 25 categories)
-      if (backupData?.category_budgets?.length > 0) {
-        for (const b of backupData.category_budgets) {
-          let kw = '';
-          let noteText = '';
-          if (b.note && typeof b.note === 'string' && b.note.startsWith('{')) {
-            try {
-              const parsed = JSON.parse(b.note);
-              noteText = parsed.text || '';
-              kw = parsed.kw || '';
-            } catch (e) {}
+      for (const table of tables) {
+        const rows = backupData[table];
+        if (Array.isArray(rows) && rows.length > 0) {
+          const currentCount = (db.prepare(`SELECT COUNT(*) as c FROM "${table}"`).get() as { c: number })?.c || 0;
+          if (currentCount === 0) {
+            console.log(`[Local SQLite] Seeding ${rows.length} rows into empty table "${table}"...`);
+            for (const r of rows) {
+              const keys = Object.keys(r);
+              const cols = keys.map(k => `"${k}"`).join(', ');
+              const placeholders = keys.map(k => `@${k}`).join(', ');
+              const stmt = getCachedStatement(db, `INSERT OR IGNORE INTO "${table}" (${cols}) VALUES (${placeholders})`);
+              stmt.run(r);
+            }
           }
-          insertBudget.run({
-            id: b.id || b.category,
-            user_id: b.user_id || '2d3a11e1-4d71-474c-b8df-abb85394e9c8',
-            user_name: b.user_name || 'ADMIN',
-            teacher_name: b.user_name || 'ADMIN',
-            category: b.category,
-            amount: Number(b.amount) || 0,
-            type: b.type || 'expense',
-            icon: b.icon || 'Coins',
-            note: b.note || '',
-            keywords: b.keywords || kw || '',
-            updated_at: b.updated_at || new Date().toISOString()
-          });
-        }
-      }
-
-      // 3. Savings Funds (Preserved savings funds & balances)
-      if (backupData?.savings_funds?.length > 0) {
-        for (const f of backupData.savings_funds) {
-          insertFund.run({
-            user_id: f.user_id,
-            user_name: f.user_name || 'ADMIN',
-            teacher_name: f.user_name || 'ADMIN',
-            emergency_current: Number(f.emergency_current) || 0,
-            emergency_target: Number(f.emergency_target) || 30000000,
-            accumulation_current: Number(f.accumulation_current) || 0,
-            accumulation_target: Number(f.accumulation_target) || 150000000,
-            updated_at: f.updated_at || new Date().toISOString()
-          });
-        }
-      }
-
-      // 3.1. Savings History (Preserved savings deposits & withdrawals)
-      if (backupData?.savings_history?.length > 0) {
-        const insertHist = db.prepare(`
-          INSERT OR REPLACE INTO savings_history (
-            id, user_id, user_name, teacher_name, fund, type, amount, date, created_at
-          ) VALUES (
-            @id, @user_id, @user_name, @teacher_name, @fund, @type, @amount, @date, @created_at
-          )
-        `);
-        for (const h of backupData.savings_history) {
-          insertHist.run({
-            id: h.id,
-            user_id: h.user_id || '2d3a11e1-4d71-474c-b8df-abb85394e9c8',
-            user_name: h.user_name || 'ADMIN',
-            teacher_name: h.teacher_name || h.user_name || 'ADMIN',
-            fund: h.fund,
-            type: h.type,
-            amount: Number(h.amount) || 0,
-            date: h.date,
-            created_at: h.created_at || new Date().toISOString()
-          });
-        }
-      }
-
-      // 4. Receipt Rules
-      if (backupData?.receipt_rules?.length > 0) {
-        for (const r of backupData.receipt_rules) {
-          insertRule.run({
-            id: r.id,
-            user_id: r.user_id,
-            match_field: r.match_field,
-            match_value: r.match_value,
-            target_type: r.target_type,
-            target_category: r.target_category,
-            created_at: r.created_at || new Date().toISOString()
-          });
-        }
-      }
-
-      // 5. Sessions (Preserved teaching schedules)
-      if (backupData?.sessions?.length > 0) {
-        const insertSession = db.prepare(`
-          INSERT OR REPLACE INTO sessions (
-            id, user_name, teacher_name, job_name, student_name, day_of_week, time, duration, price, status,
-            month_year, color, date, auto_checkin, auto_check_in, loai_hinh_lich, loai_hinh, income_category,
-            created_at, updated_at
-          ) VALUES (
-            @id, @user_name, @teacher_name, @job_name, @student_name, @day_of_week, @time, @duration, @price, @status,
-            @month_year, @color, @date, @auto_checkin, @auto_check_in, @loai_hinh_lich, @loai_hinh, @income_category,
-            @created_at, @updated_at
-          )
-        `);
-        for (const s of backupData.sessions) {
-          insertSession.run({
-            id: s.id,
-            user_name: s.user_name || 'ADMIN',
-            teacher_name: s.teacher_name || s.user_name || 'ADMIN',
-            job_name: s.job_name || s.student_name || 'Buổi dạy',
-            student_name: s.student_name || s.job_name || 'Buổi dạy',
-            day_of_week: s.day_of_week || 'Thứ 2',
-            time: s.time || '18:00',
-            duration: Number(s.duration || 2),
-            price: Number(s.price || 0),
-            status: s.status || 'Chưa làm',
-            month_year: s.month_year,
-            color: s.color || '#7c3aed',
-            date: s.date,
-            auto_checkin: s.auto_checkin ? 1 : 0,
-            auto_check_in: s.auto_check_in ? 1 : 0,
-            loai_hinh_lich: s.loai_hinh_lich || 'co_dinh',
-            loai_hinh: s.loai_hinh || 'co_dinh',
-            income_category: s.income_category || 'Giáo dục',
-            created_at: s.created_at || new Date().toISOString(),
-            updated_at: s.updated_at || new Date().toISOString()
-          });
         }
       }
     })();
 
-    console.log('[Local SQLite] Preserved data successfully seeded into local.db');
+    console.log('[Local SQLite] Preserved data successfully verified and seeded into local.db');
   } catch (err) {
     console.error('[Local SQLite] Error seeding preserved data:', err);
   }

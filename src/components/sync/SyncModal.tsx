@@ -12,7 +12,9 @@ import {
   HardDrive, 
   ArrowLeftRight,
   ShieldCheck,
-  Globe
+  Globe,
+  Download,
+  Upload
 } from 'lucide-react';
 import { SyncState, SyncStats } from '@/hooks/useSyncManager';
 
@@ -48,8 +50,74 @@ export function SyncModal({
   const [testResult, setTestResult] = useState<any>(null);
   const [isSavingUrl, setIsSavingUrl] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [backupMessage, setBackupMessage] = useState<string | null>(null);
 
   if (!isOpen) return null;
+
+  const handleExportBackup = async () => {
+    setIsExporting(true);
+    setBackupMessage(null);
+    try {
+      const res = await fetch('/api/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'export_backup' })
+      });
+      const data = await res.json();
+      if (data.success && data.data) {
+        const jsonStr = JSON.stringify(data.data, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const nowStr = new Date().toISOString().slice(0, 10);
+        a.href = url;
+        a.download = `chamcong_backup_${nowStr}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        setBackupMessage('Đã xuất file sao lưu JSON thành công!');
+      } else {
+        setBackupMessage(data.error || 'Xuất file sao lưu thất bại.');
+      }
+    } catch (e: any) {
+      setBackupMessage(`Lỗi khi xuất file: ${e.message}`);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleImportBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsImporting(true);
+    setBackupMessage(null);
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      const res = await fetch('/api/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'import_backup', data: parsed })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setBackupMessage(data.message || 'Đã khôi phục dữ liệu thành công!');
+        if (typeof window !== 'undefined') {
+          setTimeout(() => window.location.reload(), 1200);
+        }
+      } else {
+        setBackupMessage(data.error || 'Khôi phục dữ liệu thất bại.');
+      }
+    } catch (err: any) {
+      setBackupMessage(`Lỗi đọc file JSON: ${err.message}`);
+    } finally {
+      setIsImporting(false);
+      e.target.value = '';
+    }
+  };
 
   const handleTest = async () => {
     setIsTesting(true);
@@ -280,6 +348,42 @@ export function SyncModal({
               </div>
             </div>
           )}
+          {/* JSON Backup Export & Import */}
+          <div className="p-4 rounded-xl bg-[#121626] border border-[#212c4b] space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-300 flex items-center gap-2">
+                <HardDrive className="w-4 h-4 text-emerald-400" />
+                Sao Lưu & Khôi Phục Dữ Liệu Nhanh (File JSON)
+              </label>
+              <span className="text-[11px] text-slate-500">Toàn bộ 10 bảng dữ liệu</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleExportBackup}
+                disabled={isExporting}
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-emerald-950/40 hover:bg-emerald-900/40 border border-emerald-500/30 text-emerald-300 rounded-xl text-xs font-bold transition-colors disabled:opacity-50"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>{isExporting ? 'Đang xuất...' : 'Tải File Sao Lưu (.json)'}</span>
+              </button>
+              <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-indigo-950/40 hover:bg-indigo-900/40 border border-indigo-500/30 text-indigo-300 rounded-xl text-xs font-bold cursor-pointer transition-colors">
+                <Upload className="w-3.5 h-3.5" />
+                <span>{isImporting ? 'Đang nạp...' : 'Khôi Phục Từ File (.json)'}</span>
+                <input
+                  type="file"
+                  accept=".json"
+                  onChange={handleImportBackup}
+                  disabled={isImporting}
+                  className="hidden"
+                />
+              </label>
+            </div>
+            {backupMessage && (
+              <div className="p-2.5 rounded-lg bg-emerald-950/30 border border-emerald-500/30 text-emerald-300 text-xs">
+                {backupMessage}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Footer Actions */}

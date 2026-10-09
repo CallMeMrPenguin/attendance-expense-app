@@ -66,11 +66,11 @@ if [ "$LOCAL_HASH" != "$REMOTE_HASH" ] && [ -n "$REMOTE_HASH" ]; then
     log_msg "Remote: $REMOTE_HASH"
     log_msg "Dang tien hanh cap nhat..."
 
-    # 1. Bao ve du lieu database SQLite local.db (Khong bao gio de bi ghi de)
+    # 1. Sao luu an toan database SQLite local.db
+    git update-index --no-assume-unchanged data/local.db 2>/dev/null || true
     if [ -f "data/local.db" ]; then
         mkdir -p /var/backups/chamcong
         cp "data/local.db" "/var/backups/chamcong/local_$(date '+%Y%m%d_%H%M%S').db" 2>/dev/null
-        git update-index --assume-unchanged data/local.db 2>/dev/null || true
     fi
 
     # 2. Keo code moi nhat
@@ -92,7 +92,11 @@ if [ "$LOCAL_HASH" != "$REMOTE_HASH" ] && [ -n "$REMOTE_HASH" ]; then
     npm install --no-audit --no-fund >> "$LOG_FILE" 2>&1
     npm install better-sqlite3@11.8.1 --no-audit --no-fund >> "$LOG_FILE" 2>&1 || true
 
-    # 4. Dong goi ung dung Next.js
+    # 4. Kiem tra va nap du lieu seed neu database SQLite tren VPS dang trong
+    log_msg "Dang kiem tra va nap du lieu mau (data/seed_data.json)..."
+    node data/seed_runner.cjs >> "$LOG_FILE" 2>&1 || true
+
+    # 5. Dong goi ung dung Next.js
     log_msg "Dang build Next.js production (npm run build)..."
     npm run build >> "$LOG_FILE" 2>&1
 

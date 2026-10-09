@@ -111,6 +111,54 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Action 4: Xuất toàn bộ dữ liệu ra JSON để tải về
+    if (action === 'export_backup') {
+      const db = getDb();
+      const exportData: Record<string, any[]> = {};
+      for (const [table] of Object.entries(SYNC_TABLES)) {
+        try {
+          exportData[table] = db.prepare(`SELECT * FROM "${table}"`).all();
+        } catch (e) {
+          exportData[table] = [];
+        }
+      }
+      return NextResponse.json({
+        success: true,
+        data: exportData,
+        exported_at: new Date().toISOString()
+      });
+    }
+
+    // Action 5: Nhập dữ liệu từ JSON vào cơ sở dữ liệu
+    if (action === 'import_backup') {
+      const importPayload = body.data;
+      if (!importPayload || typeof importPayload !== 'object') {
+        return NextResponse.json({ success: false, error: 'Dữ liệu JSON không hợp lệ' }, { status: 400 });
+      }
+      const db = getDb();
+      let importedCount = 0;
+      db.transaction(() => {
+        for (const [table] of Object.entries(SYNC_TABLES)) {
+          const rows = importPayload[table];
+          if (Array.isArray(rows) && rows.length > 0) {
+            for (const r of rows) {
+              const keys = Object.keys(r);
+              const cols = keys.map(k => `"${k}"`).join(', ');
+              const placeholders = keys.map(k => `@${k}`).join(', ');
+              const stmt = db.prepare(`INSERT OR REPLACE INTO "${table}" (${cols}) VALUES (${placeholders})`);
+              stmt.run(r);
+              importedCount++;
+            }
+          }
+        }
+      })();
+      return NextResponse.json({
+        success: true,
+        message: `Đã nhập thành công ${importedCount} bản ghi vào hệ thống`,
+        imported_count: importedCount
+      });
+    }
+
     // Luồng Sync Incoming (Web Server nhận sync từ Local Client hoặc ngược lại)
     const { since, changes, deletions } = body;
 
