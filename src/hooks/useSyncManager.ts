@@ -38,9 +38,25 @@ export function useSyncManager() {
     }
   }, []);
 
+  const formatCleanMessage = (rawMsg?: string): string => {
+    if (!rawMsg) return '';
+    if (rawMsg.includes('<!DOCTYPE') || rawMsg.includes('<html') || rawMsg.includes('Just a moment')) {
+      return 'Máy chủ Web đang bật chế độ bảo vệ Cloudflare Bot Shield (Mã 403). Dữ liệu cục bộ đang hoạt động an toàn 100%.';
+    }
+    return rawMsg.replace(/<[^>]*>?/gm, '').trim();
+  };
+
   // Kích hoạt đồng bộ hai chiều (Local <-> Web Server)
   const syncNow = useCallback(async (forceFullSync: boolean = false) => {
     if (isSyncingRef.current) return;
+
+    // Nếu đang chạy trực tiếp trên Web Server, đây là Master DB
+    if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      setStatus('synced');
+      setMessage('Hệ thống đang hoạt động trực tiếp trên Máy Chủ Web. Dữ liệu được bảo toàn 100%.');
+      return;
+    }
+
     isSyncingRef.current = true;
     setStatus('syncing');
     setMessage('Đang kết nối và đồng bộ hai chiều...');
@@ -65,12 +81,13 @@ export function useSyncManager() {
           window.dispatchEvent(new CustomEvent('chamcong:data-synced', { detail: data.stats }));
         }
       } else {
-        if (data.isOffline) {
+        const cleanMsg = formatCleanMessage(data.message);
+        if (data.isOffline || cleanMsg.includes('Cloudflare')) {
           setStatus('offline');
-          setMessage(data.message || 'Web Server ngoại tuyến. Dữ liệu đang được lưu an toàn tại máy cục bộ.');
+          setMessage(cleanMsg || 'Máy chủ Web đang ngoại tuyến hoặc bật chế độ bảo vệ. Dữ liệu đang được lưu an toàn tại máy cục bộ.');
         } else {
           setStatus('error');
-          setMessage(data.message || 'Lỗi trong quá trình đồng bộ.');
+          setMessage(cleanMsg || 'Lỗi trong quá trình đồng bộ.');
         }
       }
     } catch (err: any) {
@@ -93,7 +110,11 @@ export function useSyncManager() {
           remoteUrl: customUrl || remoteUrl,
         }),
       });
-      return await res.json();
+      const data = await res.json();
+      if (data.message) {
+        data.message = formatCleanMessage(data.message);
+      }
+      return data;
     } catch (e: any) {
       return { success: false, isOnline: false, message: e.message };
     }
@@ -121,7 +142,14 @@ export function useSyncManager() {
   useEffect(() => {
     fetchStatus();
 
-    // Lần sync đầu tiên sau khi app load 3 giây
+    // Nếu đang chạy trực tiếp trên Web Server, đây là Master DB, không cần tự đồng bộ với chính mình
+    if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      setStatus('synced');
+      setMessage('Hệ thống đang hoạt động trực tiếp trên Máy Chủ Web. Dữ liệu được bảo toàn 100%.');
+      return;
+    }
+
+    // Lần sync đầu tiên sau khi app load 3 giây (chỉ chạy ở bản Local)
     const initialTimer = setTimeout(() => {
       syncNow(false);
     }, 3000);

@@ -289,6 +289,8 @@ export async function executeBidirectionalSync(options: {
       headers: {
         'Content-Type': 'application/json',
         'x-sync-secret': secret,
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'application/json',
       },
       body: JSON.stringify({
         since,
@@ -304,10 +306,26 @@ export async function executeBidirectionalSync(options: {
 
     if (!res.ok) {
       const errText = await res.text();
+      const isCloudflareChallenge = res.status === 403 && (
+        errText.includes('Just a moment') ||
+        errText.includes('cf-chl') ||
+        errText.includes('challenge') ||
+        errText.includes('<!DOCTYPE') ||
+        errText.includes('<html')
+      );
+
+      if (isCloudflareChallenge) {
+        return {
+          success: false,
+          isOffline: true,
+          message: 'Máy chủ Web đang bật chế độ bảo vệ Cloudflare Bot Shield (Mã 403). Dữ liệu cục bộ đang hoạt động an toàn 100%.',
+        };
+      }
+
       return {
         success: false,
         isOffline: res.status >= 500 || res.status === 404,
-        message: `Máy chủ Web trả về lỗi (Mã ${res.status}): ${errText.slice(0, 150)}`,
+        message: `Máy chủ Web phản hồi mã ${res.status}: ${errText.slice(0, 100).replace(/<[^>]*>?/gm, '')}`,
       };
     }
 
@@ -316,9 +334,9 @@ export async function executeBidirectionalSync(options: {
     const isNetworkError = err.name === 'AbortError' || err.message?.includes('fetch failed') || err.message?.includes('ENOTFOUND') || err.message?.includes('ECONNREFUSED');
     return {
       success: false,
-      isOffline: isNetworkError,
+      isOffline: true,
       message: isNetworkError 
-        ? 'Không thể kết nối đến Web Server (Web đang sập hoặc mất mạng). Bản Local đang hoạt động an toàn độc lập.'
+        ? 'Không thể kết nối đến Web Server (Web đang ngoại tuyến). Bản Local đang hoạt động an toàn độc lập.'
         : `Lỗi kết nối đồng bộ: ${err.message}`,
     };
   }

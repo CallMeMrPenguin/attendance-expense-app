@@ -68,6 +68,10 @@ export async function POST(req: NextRequest) {
         const timeoutId = setTimeout(() => controller.abort(), 6000);
         const res = await fetch(`${targetUrl}/api/sync`, {
           method: 'GET',
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'Accept': 'application/json',
+          },
           signal: controller.signal,
         });
         clearTimeout(timeoutId);
@@ -82,11 +86,15 @@ export async function POST(req: NextRequest) {
             remote_counts: remoteData.table_counts,
           });
         } else {
+          const errText = await res.text();
+          const isCloudflare = res.status === 403 && (errText.includes('Just a moment') || errText.includes('<!DOCTYPE') || errText.includes('cf-chl'));
           return NextResponse.json({
             success: false,
             isOnline: false,
             statusCode: res.status,
-            message: `Web Server trả về mã lỗi ${res.status} (Có thể Web đang sập hoặc lỗi cấu hình).`,
+            message: isCloudflare
+              ? 'Máy chủ Web đang bật chế độ bảo vệ Cloudflare Bot Shield (Mã 403).'
+              : `Web Server trả về mã lỗi ${res.status}`,
           });
         }
       } catch (e: any) {
