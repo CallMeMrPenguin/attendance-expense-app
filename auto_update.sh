@@ -77,6 +77,7 @@ if [ "$LOCAL_HASH" != "$REMOTE_HASH" ] && [ -n "$REMOTE_HASH" ]; then
     if [ -f "data/local.db" ]; then
         mkdir -p /var/backups/chamcong
         cp "data/local.db" "/var/backups/chamcong/local_$(date '+%Y%m%d_%H%M%S').db" 2>/dev/null
+        cp "data/local.db" "/tmp/chamcong_local_db_preservation.db" 2>/dev/null
     fi
 
     # 3. Keo code moi nhat
@@ -86,6 +87,13 @@ if [ "$LOCAL_HASH" != "$REMOTE_HASH" ] && [ -n "$REMOTE_HASH" ]; then
         log_msg "Thu reset ve origin/main..."
         git reset --hard origin/main --quiet
     }
+
+    # 3.1. Phuc hoi va bao ve tuyet doi du lieu hien tai cua VPS (tranh bi git ghi de)
+    if [ -f "/tmp/chamcong_local_db_preservation.db" ]; then
+        log_msg "Bao ve toan ven du lieu VPS (giu nguyen database live)..."
+        cp "/tmp/chamcong_local_db_preservation.db" "data/local.db"
+        rm -f "/tmp/chamcong_local_db_preservation.db"
+    fi
 
     if [ $? -ne 0 ]; then
         log_msg "LOI: Khong the git pull code moi."

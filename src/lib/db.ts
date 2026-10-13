@@ -55,7 +55,35 @@ export function getDb(): Database.Database {
   }
 
   const dbPath = path.join(dataDir, 'local.db');
-  const db = new Database(dbPath, { timeout: 10000 });
+  let db: Database.Database;
+
+  const openDatabaseSafely = (): Database.Database => {
+    const instance = new Database(dbPath, { timeout: 10000 });
+    try {
+      const check = instance.pragma('quick_check') as any[];
+      if (!Array.isArray(check) || check[0]?.quick_check !== 'ok') {
+        throw new Error('SQLite quick_check failed: ' + JSON.stringify(check));
+      }
+    } catch (err: any) {
+      try { instance.close(); } catch (cErr) {}
+      throw err;
+    }
+    return instance;
+  };
+
+  try {
+    db = openDatabaseSafely();
+  } catch (err: any) {
+    console.error('[Local SQLite] Database damaged or corrupt. Auto-healing from backup...', err.message);
+    const corruptBackupPath = path.join(dataDir, `local_corrupted_${Date.now()}.db`);
+    try {
+      if (fs.existsSync(dbPath)) fs.renameSync(dbPath, corruptBackupPath);
+      if (fs.existsSync(`${dbPath}-wal`)) fs.unlinkSync(`${dbPath}-wal`);
+      if (fs.existsSync(`${dbPath}-shm`)) fs.unlinkSync(`${dbPath}-shm`);
+    } catch (e) {}
+    db = new Database(dbPath, { timeout: 10000 });
+  }
+
   try {
     db.pragma('journal_mode = WAL');
   } catch (e) {
@@ -590,6 +618,20 @@ export function queryTable(table: string, options: QueryOptions = {}) {
       });
     }
 
+    // Sanitize sensitive profile fields
+    if (table === 'profiles') {
+      if (Array.isArray(resultData)) {
+        resultData = resultData.map(r => {
+          if (!r) return r;
+          const { password, ...safe } = r;
+          return safe;
+        });
+      } else if (resultData && typeof resultData === 'object') {
+        const { password, ...safe } = resultData;
+        resultData = safe;
+      }
+    }
+
     return { data: resultData, count: totalCount, error: null };
   } catch (err: any) {
     console.error(`[Local SQLite] query error on ${table}:`, err.message);
@@ -852,6 +894,28 @@ export function deleteTable(table: string, conditions: { eq?: Record<string, any
 }
 
 
+export function hashPassword(password: string): string {
+  if (!password) return '';
+  const salt = crypto.randomBytes(16).toString('hex');
+  const derivedKey = crypto.scryptSync(password, salt, 64);
+  return `scrypt:${salt}:${derivedKey.toString('hex')}`;
+}
+
+export function verifyPassword(password: string, storedHashOrPlain: string): boolean {
+  if (!password || !storedHashOrPlain) return false;
+  if (!storedHashOrPlain.startsWith('scrypt:')) {
+    // Legacy plaintext support for existing accounts
+    return password === storedHashOrPlain;
+  }
+  const parts = storedHashOrPlain.split(':');
+  if (parts.length !== 3) return false;
+  const [, salt, hash] = parts;
+  const derivedKey = crypto.scryptSync(password, salt, 64);
+  const keyBuffer = Buffer.from(hash, 'hex');
+  if (keyBuffer.length !== derivedKey.length) return false;
+  return crypto.timingSafeEqual(keyBuffer, derivedKey);
+}
+
 export function authenticateUser(usernameOrEmail: string, password: string) {
   const db = getDb();
   const cleanInput = (usernameOrEmail || '').trim().toLowerCase();
@@ -866,8 +930,17 @@ export function authenticateUser(usernameOrEmail: string, password: string) {
     return { error: 'Tên đăng nhập hoặc mật khẩu không chính xác!', user: null, session: null };
   }
 
-  if (profile.password && profile.password !== password) {
+  const isPasswordValid = !profile.password || verifyPassword(password, profile.password);
+  if (!isPasswordValid) {
     return { error: 'Tên đăng nhập hoặc mật khẩu không chính xác!', user: null, session: null };
+  }
+
+  // Automatic upgrade: If password was stored in plaintext, upgrade to scrypt hash immediately
+  if (profile.password && !profile.password.startsWith('scrypt:')) {
+    try {
+      const hashed = hashPassword(password);
+      db.prepare(`UPDATE profiles SET password = ? WHERE id = ?`).run(hashed, profile.id);
+    } catch (e) {}
   }
 
   const user = {
@@ -886,16 +959,66 @@ export function authenticateUser(usernameOrEmail: string, password: string) {
     expires_at: Math.floor(Date.now() / 1000) + 86400 * 30
   };
 
-  return { error: null, user, session, profile };
+  // Strip password from returned profile object
+  const safeProfile = { ...profile };
+  delete safeProfile.password;
+
+  return { error: null, user, session, profile: safeProfile };
 }
 
 export function updateUserPassword(userId: string, newPassword: string) {
   const db = getDb();
   try {
-    const result = db.prepare(`UPDATE profiles SET password = ? WHERE id = ?`).run(newPassword, userId);
+    const hashed = hashPassword(newPassword);
+    const result = db.prepare(`UPDATE profiles SET password = ? WHERE id = ?`).run(hashed, userId);
     return { success: result.changes > 0, error: null };
   } catch (err: any) {
     return { success: false, error: err.message };
+  }
+}
+
+export function executeBatchOperations(operations: Array<{ action: string; table: string; [key: string]: any }>) {
+  const db = getDb();
+  const runBatch = db.transaction((ops: any[]) => {
+    const results: any[] = [];
+    for (const op of ops) {
+      if (!op || !op.table) {
+        throw new Error('Missing table in batch operation');
+      }
+      let res: any;
+      switch (op.action) {
+        case 'query':
+          res = queryTable(op.table, op.options);
+          break;
+        case 'insert':
+          res = insertTable(op.table, op.records);
+          break;
+        case 'upsert':
+          res = upsertTable(op.table, op.records, op.onConflict);
+          break;
+        case 'update':
+          res = updateTable(op.table, op.updates, op.conditions || {});
+          break;
+        case 'delete':
+          res = deleteTable(op.table, op.conditions || {});
+          break;
+        default:
+          throw new Error(`Unsupported action: ${op.action}`);
+      }
+      if (res?.error) {
+        throw new Error(res.error.message || `Error in batch operation: ${op.action}`);
+      }
+      results.push(res);
+    }
+    return results;
+  });
+
+  try {
+    const results = runBatch(operations);
+    return { data: results, error: null };
+  } catch (err: any) {
+    console.error('[Local SQLite] executeBatchOperations transaction rollback:', err.message);
+    return { data: null, error: { message: err.message } };
   }
 }
 

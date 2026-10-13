@@ -188,10 +188,23 @@ export function useScheduleData({
   const fetchSessionStudentConfigs = useCallback(async (teacherName: string): Promise<Record<string, any>> => {
     if (!teacherName) return {};
     try {
+      const key = getSessionStudentConfigsKey(teacherName);
+      // Check table_settings first
+      const { data: tsData } = await supabase
+        .from('table_settings')
+        .select('setting_value')
+        .eq('id', key)
+        .maybeSingle();
+      if (tsData?.setting_value) {
+        const parsed = JSON.parse(tsData.setting_value);
+        if (parsed && typeof parsed === 'object') return parsed;
+      }
+
+      // Fallback to category_budgets
       const { data } = await supabase
         .from('category_budgets')
         .select('note')
-        .eq('id', getSessionStudentConfigsKey(teacherName))
+        .eq('id', key)
         .maybeSingle();
       if (data?.note) {
         const parsed = JSON.parse(data.note);
@@ -208,16 +221,32 @@ export function useScheduleData({
     try {
       sessionStudentConfigsRef.current = configs;
       setSessionStudentConfigs(configs);
+      const key = getSessionStudentConfigsKey(teacherName);
+      const uId = userId || '2d3a11e1-4d71-474c-b8df-abb85394e9c8';
+      const jsonStr = JSON.stringify(configs);
+      const nowStr = new Date().toISOString();
+
+      // Save to table_settings
+      await (supabase.from('table_settings') as any).upsert({
+        id: key,
+        table_id: 'sessions',
+        user_id: uId,
+        setting_key: key,
+        setting_value: jsonStr,
+        updated_at: nowStr
+      }, { onConflict: 'id' });
+
+      // Save to category_budgets for backward compatibility
       const record = {
-        id: getSessionStudentConfigsKey(teacherName),
-        user_id: userId || '2d3a11e1-4d71-474c-b8df-abb85394e9c8',
+        id: key,
+        user_id: uId,
         user_name: teacherName,
         category: '__SESSION_STUDENT_CONFIGS__',
         amount: 0,
         type: 'settings',
         icon: 'Users',
-        note: JSON.stringify(configs),
-        updated_at: new Date().toISOString()
+        note: jsonStr,
+        updated_at: nowStr
       };
       await (supabase.from('category_budgets') as any).upsert(record, { onConflict: 'id' });
     } catch (err) {
@@ -230,10 +259,23 @@ export function useScheduleData({
   const fetchScheduleExclusions = useCallback(async (teacherName: string): Promise<Record<string, string[]>> => {
     if (!teacherName) return {};
     try {
+      const key = getScheduleExclusionsKey(teacherName);
+      // Check table_settings first
+      const { data: tsData } = await supabase
+        .from('table_settings')
+        .select('setting_value')
+        .eq('id', key)
+        .maybeSingle();
+      if (tsData?.setting_value) {
+        const parsed = JSON.parse(tsData.setting_value);
+        if (parsed && typeof parsed === 'object') return parsed;
+      }
+
+      // Fallback to category_budgets
       const { data } = await supabase
         .from('category_budgets')
         .select('note')
-        .eq('id', getScheduleExclusionsKey(teacherName))
+        .eq('id', key)
         .maybeSingle();
       if (data?.note) {
         const parsed = JSON.parse(data.note);
@@ -248,16 +290,32 @@ export function useScheduleData({
   const saveScheduleExclusions = useCallback(async (teacherName: string, exclusions: Record<string, string[]>, userId?: string) => {
     if (!teacherName) return;
     try {
+      const key = getScheduleExclusionsKey(teacherName);
+      const uId = userId || '2d3a11e1-4d71-474c-b8df-abb85394e9c8';
+      const jsonStr = JSON.stringify(exclusions);
+      const nowStr = new Date().toISOString();
+
+      // Save to table_settings
+      await (supabase.from('table_settings') as any).upsert({
+        id: key,
+        table_id: 'schedule_exclusions',
+        user_id: uId,
+        setting_key: key,
+        setting_value: jsonStr,
+        updated_at: nowStr
+      }, { onConflict: 'id' });
+
+      // Save to category_budgets for backward compatibility
       const record = {
-        id: getScheduleExclusionsKey(teacherName),
-        user_id: userId || '2d3a11e1-4d71-474c-b8df-abb85394e9c8',
+        id: key,
+        user_id: uId,
         user_name: teacherName,
         category: '__SCHEDULE_EXCLUSIONS__',
         amount: 0,
         type: 'settings',
         icon: 'CalendarX',
-        note: JSON.stringify(exclusions),
-        updated_at: new Date().toISOString()
+        note: jsonStr,
+        updated_at: nowStr
       };
       await (supabase.from('category_budgets') as any).upsert(record, { onConflict: 'id' });
     } catch (err) {
@@ -331,13 +389,19 @@ export function useScheduleData({
 
         patternMap.forEach((templateSession) => {
           const dates = getDatesForWeekday(targetMonth, templateSession.day_of_week);
+          const sJob = templateSession.job_name || templateSession.student_name;
+          const cleanTeacher = cleanString(teacherName).replace(/[^a-z0-9]/g, '');
+          const cleanJob = cleanString(sJob).replace(/[^a-z0-9]/g, '');
+          const cleanTime = (templateSession.time || '').replace(/[^0-9]/g, '');
+
           dates.forEach((dStr) => {
+            const deterministicId = `fix_${cleanTeacher}_${cleanJob}_${dStr.replace(/-/g, '')}_${cleanTime}`;
             newCandidates.push({
-              id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : undefined,
+              id: deterministicId,
               user_name: teacherName,
               teacher_name: teacherName,
-              job_name: templateSession.job_name || templateSession.student_name,
-              student_name: templateSession.student_name || templateSession.job_name,
+              job_name: sJob,
+              student_name: sJob,
               day_of_week: templateSession.day_of_week,
               time: formatCleanTimeString(templateSession.time),
               duration: Number(templateSession.duration || 2),
@@ -358,14 +422,12 @@ export function useScheduleData({
 
       if (newCandidates.length === 0) return currentMonthData;
 
-      let { data: insertedData, error: insertErr } = await supabase
-        .from('sessions')
-        .insert(newCandidates)
-        .select('*');
+      let { data: insertedData, error: insertErr } = await (supabase.from('sessions') as any)
+        .upsert(newCandidates, { onConflict: 'id' });
 
       if (insertErr) {
         const cleanCandidates = newCandidates.map(({ student_name, teacher_name, category, ...rest }: any) => rest);
-        const retryRes = await supabase.from('sessions').insert(cleanCandidates).select('*');
+        const retryRes = await (supabase.from('sessions') as any).upsert(cleanCandidates, { onConflict: 'id' });
         insertedData = retryRes.data;
         insertErr = retryRes.error;
       }

@@ -36,13 +36,7 @@ export function useFinanceData({
   const [categoryIcons, setCategoryIcons] = useState<Record<string, string>>({});
   const [categoryNotes, setCategoryNotes] = useState<Record<string, string>>({});
   const [categoryKeywords, setCategoryKeywords] = useState<Record<string, string>>({});
-  const [trangAccountBalance, setTrangAccountBalance] = useState<number>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('__TRANG_ACCOUNT_BALANCE__');
-      if (saved && !isNaN(Number(saved))) return Number(saved);
-    }
-    return 5000000;
-  });
+  const [trangAccountBalance, setTrangAccountBalance] = useState<number>(5000000);
 
   const [confirmDeleteTxId, setConfirmDeleteTxId] = useState<string | null>(null);
 
@@ -111,10 +105,9 @@ export function useFinanceData({
             if (b.category === '__TRANG_ACCOUNT_BALANCE__' || b.id === 'trang_account_balance') {
               const val = Number(b.amount) || 5000000;
               setTrangAccountBalance(val);
-              if (typeof window !== 'undefined') localStorage.setItem('__TRANG_ACCOUNT_BALANCE__', String(val));
               return;
             }
-            if (b.type === 'settings' || b.category?.includes('TABLE_SETTINGS')) return;
+            if (b.type === 'settings' || b.category?.startsWith('__') || b.category?.includes('TABLE_SETTINGS')) return;
             bMap[b.category] = Number(b.amount) || 0;
             let type: 'income' | 'expense' = b.type || (['Lương', 'Giáo dục', 'Đầu tư', 'Gia Sư'].includes(b.category) ? 'income' : 'expense');
             let icon = b.icon || DEFAULT_CATEGORY_ICONS[b.category] || (type === 'income' ? 'TrendingUp' : 'Coins');
@@ -428,9 +421,6 @@ export function useFinanceData({
 
   const saveTrangAccountBalance = useCallback((val: number) => {
     setTrangAccountBalance(val);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('__TRANG_ACCOUNT_BALANCE__', String(val));
-    }
     if (!currentUser) return;
 
     runBackgroundSave(async () => {
@@ -570,56 +560,92 @@ export function useFinanceData({
     return list.length > 0 ? list : ['Gia Sư', 'Lương', 'Thu Nợ', 'Khác'];
   }, [categoryBudgets, categoryTypes]);
 
+  const financialMetrics = useMemo(() => {
+    let totalIncome = 0;
+    let totalExpense = 0;
+    const monthlyIncomeMap = new Map<string, number>();
+    const monthlyExpenseMap = new Map<string, number>();
+    const categoryMonthTotals = new Map<string, number>(); // `${month}_${type}_${cat}` -> amount
+
+    for (const t of allFinanceTransactions) {
+      const amt = Number(t.amount) || 0;
+      const type = t.type;
+      const dateStr = typeof t.date === 'string' ? t.date : '';
+      const monthStr = dateStr.substring(0, 7);
+      const cat = t.category || '';
+
+      if (type === 'income') {
+        totalIncome += amt;
+        if (monthStr) {
+          monthlyIncomeMap.set(monthStr, (monthlyIncomeMap.get(monthStr) || 0) + amt);
+        }
+      } else if (type === 'expense') {
+        totalExpense += amt;
+        if (monthStr) {
+          monthlyExpenseMap.set(monthStr, (monthlyExpenseMap.get(monthStr) || 0) + amt);
+        }
+      }
+
+      if (monthStr && cat) {
+        const catKey = `${monthStr}_${type}_${cat}`;
+        categoryMonthTotals.set(catKey, (categoryMonthTotals.get(catKey) || 0) + amt);
+      }
+    }
+
+    return {
+      totalIncome,
+      totalExpense,
+      monthlyIncomeMap,
+      monthlyExpenseMap,
+      categoryMonthTotals
+    };
+  }, [allFinanceTransactions]);
+
   const getPrecedingRollOverBalance = useCallback((targetMonthStr: string) => {
     if (!targetMonthStr) return 0;
-
-    const prevInc = allFinanceTransactions
-      .filter(t => t.type === 'income' && typeof t.date === 'string' && t.date.substring(0, 7) < targetMonthStr)
-      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-
-    const prevExp = allFinanceTransactions
-      .filter(t => t.type === 'expense' && typeof t.date === 'string' && t.date.substring(0, 7) < targetMonthStr)
-      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-
+    let prevInc = 0;
+    let prevExp = 0;
+    financialMetrics.monthlyIncomeMap.forEach((val, m) => {
+      if (m < targetMonthStr) prevInc += val;
+    });
+    financialMetrics.monthlyExpenseMap.forEach((val, m) => {
+      if (m < targetMonthStr) prevExp += val;
+    });
     const prevNetSurplus = prevInc - prevExp;
     return Math.max(0, prevNetSurplus);
-  }, [allFinanceTransactions]);
+  }, [financialMetrics]);
 
   const getTotalIncome = useCallback(() => {
-    return allFinanceTransactions
-      .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-  }, [allFinanceTransactions]);
+    return financialMetrics.totalIncome;
+  }, [financialMetrics]);
 
   const getTotalExpense = useCallback(() => {
-    return allFinanceTransactions
-      .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-  }, [allFinanceTransactions]);
+    return financialMetrics.totalExpense;
+  }, [financialMetrics]);
 
   const getMonthlyIncome = useCallback((monthStr: string) => {
-    return allFinanceTransactions
-      .filter(t => t.type === 'income' && typeof t.date === 'string' && t.date.startsWith(monthStr))
-      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-  }, [allFinanceTransactions]);
+    return financialMetrics.monthlyIncomeMap.get(monthStr) || 0;
+  }, [financialMetrics]);
 
   const getMonthlyExpense = useCallback((monthStr: string) => {
-    return allFinanceTransactions
-      .filter(t => t.type === 'expense' && typeof t.date === 'string' && t.date.startsWith(monthStr))
-      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-  }, [allFinanceTransactions]);
+    return financialMetrics.monthlyExpenseMap.get(monthStr) || 0;
+  }, [financialMetrics]);
 
   const getSelectedMonthsIncome = useCallback(() => {
-    return allFinanceTransactions
-      .filter(t => t.type === 'income' && chartSelectedMonths.includes(String(t.date || '').substring(0, 7)))
-      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-  }, [allFinanceTransactions, chartSelectedMonths]);
+    let sum = 0;
+    for (const m of chartSelectedMonths) {
+      sum += financialMetrics.monthlyIncomeMap.get(m) || 0;
+    }
+    return sum;
+  }, [financialMetrics, chartSelectedMonths]);
 
   const getSelectedMonthsExpense = useCallback(() => {
-    return allFinanceTransactions
-      .filter(t => t.type === 'expense' && chartSelectedMonths.includes(String(t.date || '').substring(0, 7)))
-      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-  }, [allFinanceTransactions, chartSelectedMonths]);
+    let sum = 0;
+    for (const m of chartSelectedMonths) {
+      sum += financialMetrics.monthlyExpenseMap.get(m) || 0;
+    }
+    return sum;
+  }, [financialMetrics, chartSelectedMonths]);
 
   const getWeeklyIncome = useCallback((monthStr: string, startDay: number, endDay: number) => {
     return allFinanceTransactions
@@ -647,16 +673,17 @@ export function useFinanceData({
       : (categoryTypes[cat] ? categoryTypes[cat] === 'income' : ['Lương', 'Gia Sư', 'Giáo dục', 'Thu Nợ'].includes(cat));
     const expectedType = isInc ? 'income' : 'expense';
 
-    return allFinanceTransactions
-      .filter(t => {
-        if (t.type !== expectedType) return false;
-        if (!chartSelectedMonths.includes(String(t.date || '').substring(0, 7))) return false;
-        if (t.category === cat) return true;
-        if (cat === 'Gia Sư' && (t.category === 'Giáo dục' || t.category === 'Gia Sư')) return true;
-        return false;
-      })
-      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-  }, [allFinanceTransactions, categoryTypes, chartSelectedMonths]);
+    let sum = 0;
+    for (const m of chartSelectedMonths) {
+      const key = `${m}_${expectedType}_${cat}`;
+      sum += financialMetrics.categoryMonthTotals.get(key) || 0;
+      if (cat === 'Gia Sư') {
+        const eduKey = `${m}_${expectedType}_Giáo dục`;
+        sum += financialMetrics.categoryMonthTotals.get(eduKey) || 0;
+      }
+    }
+    return sum;
+  }, [financialMetrics, categoryTypes, chartSelectedMonths]);
 
   return {
     manualTransactions,

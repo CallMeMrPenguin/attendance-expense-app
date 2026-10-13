@@ -17,10 +17,21 @@ echo "[0/4] Tam dung PM2 de giai phong file lock SQLite..."
 pm2 stop chamcong 2>/dev/null || true
 
 echo "[1/4] Dang dong bo Git moi nhat..."
+if [ -f "data/local.db" ]; then
+    mkdir -p /var/backups/chamcong
+    cp "data/local.db" "/var/backups/chamcong/local_$(date '+%Y%m%d_%H%M%S').db" 2>/dev/null
+    cp "data/local.db" "/tmp/chamcong_local_db_preservation.db" 2>/dev/null
+fi
 git update-index --no-assume-unchanged data/local.db 2>/dev/null || true
 git checkout -- . 2>/dev/null || true
 git reset --hard origin/main 2>/dev/null || true
 git pull origin main
+
+if [ -f "/tmp/chamcong_local_db_preservation.db" ]; then
+    echo "[1.5/4] Bao ve toan ven du lieu VPS (giu nguyen database live)..."
+    cp "/tmp/chamcong_local_db_preservation.db" "data/local.db"
+    rm -f "/tmp/chamcong_local_db_preservation.db"
+fi
 
 echo "[2/4] Dang cai dat phien ban SQLite on dinh (11.8.1)..."
 npm install better-sqlite3@11.8.1 --no-audit --no-fund

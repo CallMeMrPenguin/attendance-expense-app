@@ -8,7 +8,8 @@ import {
   authenticateUser, 
   updateUserPassword,
   getCachedStatement,
-  getDb
+  getDb,
+  executeBatchOperations
 } from '@/lib/db';
 
 export async function POST(req: NextRequest) {
@@ -18,33 +19,11 @@ export async function POST(req: NextRequest) {
     const { action, table, options, records, updates, conditions, username, password, newPassword, userId, fn, args, operations } = body;
 
     if (action === 'batch' && Array.isArray(operations)) {
-      const results: any[] = [];
-      for (const op of operations) {
-        if (!op || !op.table) {
-          results.push({ error: { message: 'Missing table in batch operation' } });
-          continue;
-        }
-        switch (op.action) {
-          case 'query':
-            results.push(queryTable(op.table, op.options));
-            break;
-          case 'insert':
-            results.push(insertTable(op.table, op.records));
-            break;
-          case 'upsert':
-            results.push(upsertTable(op.table, op.records, op.onConflict));
-            break;
-          case 'update':
-            results.push(updateTable(op.table, op.updates, op.conditions || {}));
-            break;
-          case 'delete':
-            results.push(deleteTable(op.table, op.conditions || {}));
-            break;
-          default:
-            results.push({ error: { message: `Unsupported action: ${op.action}` } });
-        }
+      const res = executeBatchOperations(operations);
+      if (res.error) {
+        return NextResponse.json({ data: null, error: res.error }, { status: 400 });
       }
-      const response = NextResponse.json({ data: results, error: null });
+      const response = NextResponse.json({ data: res.data, error: null });
       response.headers.set('Cache-Control', 'private, no-cache, no-store, must-revalidate');
       response.headers.set('X-Response-Time', `${Date.now() - startTime}ms`);
       return response;

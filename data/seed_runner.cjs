@@ -262,7 +262,7 @@ function runSeed() {
             const keys = Object.keys(r);
             const cols = keys.map(k => `"${k}"`).join(', ');
             const placeholders = keys.map(k => `@${k}`).join(', ');
-            const stmt = db.prepare(`INSERT OR REPLACE INTO "${table}" (${cols}) VALUES (${placeholders})`);
+            const stmt = db.prepare(`INSERT OR IGNORE INTO "${table}" (${cols}) VALUES (${placeholders})`);
             stmt.run(r);
           }
         });
