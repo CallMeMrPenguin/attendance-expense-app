@@ -214,21 +214,16 @@ export function getDb(): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_sessions_teacher ON sessions(teacher_name);
     CREATE INDEX IF NOT EXISTS idx_sessions_user_month ON sessions(user_name, month_year);
     CREATE INDEX IF NOT EXISTS idx_sessions_teacher_month ON sessions(teacher_name, month_year);
-    CREATE INDEX IF NOT EXISTS idx_sessions_updated_at ON sessions(updated_at DESC);
     CREATE INDEX IF NOT EXISTS idx_manual_tx_date ON manual_transactions(date);
     CREATE INDEX IF NOT EXISTS idx_manual_tx_date_desc ON manual_transactions(date DESC);
     CREATE INDEX IF NOT EXISTS idx_manual_tx_type ON manual_transactions(type);
     CREATE INDEX IF NOT EXISTS idx_manual_tx_cat ON manual_transactions(category);
-    CREATE INDEX IF NOT EXISTS idx_manual_tx_updated_at ON manual_transactions(updated_at DESC);
     CREATE INDEX IF NOT EXISTS idx_bank_receipts_created_desc ON bank_receipts(created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_bank_receipts_trans_date ON bank_receipts(trans_date);
     CREATE INDEX IF NOT EXISTS idx_bank_receipts_trans_date_desc ON bank_receipts(trans_date DESC);
     CREATE INDEX IF NOT EXISTS idx_bank_receipts_status ON bank_receipts(status);
-    CREATE INDEX IF NOT EXISTS idx_bank_receipts_updated_at ON bank_receipts(updated_at DESC);
     CREATE INDEX IF NOT EXISTS idx_receipt_rules_created_desc ON receipt_rules(created_at DESC);
-    CREATE INDEX IF NOT EXISTS idx_receipt_rules_updated_at ON receipt_rules(updated_at DESC);
     CREATE INDEX IF NOT EXISTS idx_category_budgets_user_cat ON category_budgets(user_id, category);
-    CREATE INDEX IF NOT EXISTS idx_category_budgets_updated_at ON category_budgets(updated_at DESC);
     CREATE INDEX IF NOT EXISTS idx_savings_history_date_desc ON savings_history(date DESC);
   `);
 
@@ -276,6 +271,16 @@ export function getDb(): Database.Database {
   ['teachers', 'profiles', 'sessions', 'manual_transactions', 'savings_funds', 'category_budgets', 'savings_history', 'bank_receipts', 'receipt_rules', 'table_settings'].forEach(t => {
     ensureCol(t, 'updated_at');
   });
+
+  try {
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_sessions_updated_at ON sessions(updated_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_manual_tx_updated_at ON manual_transactions(updated_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_bank_receipts_updated_at ON bank_receipts(updated_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_receipt_rules_updated_at ON receipt_rules(updated_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_category_budgets_updated_at ON category_budgets(updated_at DESC);
+    `);
+  } catch (e) {}
 
   // Ensure manual_transactions supports 'exchange' type
   try {
