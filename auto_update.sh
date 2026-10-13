@@ -66,14 +66,20 @@ if [ "$LOCAL_HASH" != "$REMOTE_HASH" ] && [ -n "$REMOTE_HASH" ]; then
     log_msg "Remote: $REMOTE_HASH"
     log_msg "Dang tien hanh cap nhat..."
 
-    # 1. Sao luu an toan database SQLite local.db
+    # 1. Tam dung PM2 truoc de flush WAL va giai phong file lock SQLite
+    log_msg "Tam dung PM2 de bao ve toan ven SQLite database..."
+    if command -v pm2 &> /dev/null; then
+        pm2 stop chamcong 2>/dev/null || true
+    fi
+
+    # 2. Sao luu an toan database SQLite local.db
     git update-index --no-assume-unchanged data/local.db 2>/dev/null || true
     if [ -f "data/local.db" ]; then
         mkdir -p /var/backups/chamcong
         cp "data/local.db" "/var/backups/chamcong/local_$(date '+%Y%m%d_%H%M%S').db" 2>/dev/null
     fi
 
-    # 2. Keo code moi nhat
+    # 3. Keo code moi nhat
     git checkout -- . 2>/dev/null || true
     git reset --hard HEAD --quiet
     git pull origin main --quiet || {
@@ -84,30 +90,36 @@ if [ "$LOCAL_HASH" != "$REMOTE_HASH" ] && [ -n "$REMOTE_HASH" ]; then
     if [ $? -ne 0 ]; then
         log_msg "LOI: Khong the git pull code moi."
         rm -f "$LOCK_FILE"
+        if command -v pm2 &> /dev/null; then
+            pm2 start ecosystem.config.cjs >> "$LOG_FILE" 2>&1 || true
+        fi
         exit 1
     fi
 
-    # 3. Cai dat thu vien moi (neu co)
+    # 4. Cai dat thu vien moi (neu co)
     log_msg "Dang cai dat dependencies (npm install)..."
     npm install --no-audit --no-fund >> "$LOG_FILE" 2>&1
     npm install better-sqlite3@11.8.1 --no-audit --no-fund >> "$LOG_FILE" 2>&1 || true
 
-    # 4. Kiem tra va nap du lieu seed neu database SQLite tren VPS dang trong
-    log_msg "Dang kiem tra va nap du lieu mau (data/seed_data.json)..."
+    # 5. Kiem tra toan ven va nap/dong bo du lieu mau (data/seed_runner.cjs)
+    log_msg "Dang kiem tra toan ven va nap du lieu (data/seed_runner.cjs)..."
     node data/seed_runner.cjs >> "$LOG_FILE" 2>&1 || true
 
-    # 5. Dong goi ung dung Next.js
+    # 6. Dong goi ung dung Next.js
     log_msg "Dang build Next.js production (npm run build)..."
     npm run build >> "$LOG_FILE" 2>&1
 
     if [ $? -ne 0 ]; then
         log_msg "LOI: Build that bai! Vui long kiem tra $LOG_FILE."
         rm -f "$LOCK_FILE"
+        if command -v pm2 &> /dev/null; then
+            pm2 start ecosystem.config.cjs >> "$LOG_FILE" 2>&1 || true
+        fi
         exit 1
     fi
 
-    # 5. Khoi dong lai tien trinh Next.js tren PM2
-    log_msg "Dang reload ung dung tren PM2..."
+    # 7. Khoi dong lai tien trinh Next.js tren PM2
+    log_msg "Dang khoi dong lai ung dung tren PM2..."
     if command -v pm2 &> /dev/null; then
         pm2 delete chamcong 2>/dev/null || true
         pm2 start ecosystem.config.cjs >> "$LOG_FILE" 2>&1

@@ -13,6 +13,9 @@ if [ ! -d "$PROJECT_DIR" ]; then
 fi
 
 cd "$PROJECT_DIR" || exit 1
+echo "[0/4] Tam dung PM2 de giai phong file lock SQLite..."
+pm2 stop chamcong 2>/dev/null || true
+
 echo "[1/4] Dang dong bo Git moi nhat..."
 git update-index --no-assume-unchanged data/local.db 2>/dev/null || true
 git checkout -- . 2>/dev/null || true
@@ -22,7 +25,7 @@ git pull origin main
 echo "[2/4] Dang cai dat phien ban SQLite on dinh (11.8.1)..."
 npm install better-sqlite3@11.8.1 --no-audit --no-fund
 
-echo "[2.5/4] Kiem tra va nap du lieu mau (data/seed_data.json)..."
+echo "[2.5/4] Kiem tra toan ven va nap du lieu mau (data/seed_data.json)..."
 node data/seed_runner.cjs || true
 
 echo "[3/4] Dang build Next.js..."

@@ -561,7 +561,7 @@ export function useFinanceData({
     });
 
     return [...filteredManual, ...receiptTransactions].sort(
-      (a, b) => (b.date || '').localeCompare(a.date || '')
+      (a, b) => String(b.date || '').localeCompare(String(a.date || ''))
     );
   }, [bankReceipts, manualTransactions]);
 
@@ -574,11 +574,11 @@ export function useFinanceData({
     if (!targetMonthStr) return 0;
 
     const prevInc = allFinanceTransactions
-      .filter(t => t.type === 'income' && t.date && t.date.substring(0, 7) < targetMonthStr)
+      .filter(t => t.type === 'income' && typeof t.date === 'string' && t.date.substring(0, 7) < targetMonthStr)
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
 
     const prevExp = allFinanceTransactions
-      .filter(t => t.type === 'expense' && t.date && t.date.substring(0, 7) < targetMonthStr)
+      .filter(t => t.type === 'expense' && typeof t.date === 'string' && t.date.substring(0, 7) < targetMonthStr)
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
 
     const prevNetSurplus = prevInc - prevExp;
@@ -599,32 +599,32 @@ export function useFinanceData({
 
   const getMonthlyIncome = useCallback((monthStr: string) => {
     return allFinanceTransactions
-      .filter(t => t.type === 'income' && t.date && t.date.startsWith(monthStr))
+      .filter(t => t.type === 'income' && typeof t.date === 'string' && t.date.startsWith(monthStr))
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
   }, [allFinanceTransactions]);
 
   const getMonthlyExpense = useCallback((monthStr: string) => {
     return allFinanceTransactions
-      .filter(t => t.type === 'expense' && t.date && t.date.startsWith(monthStr))
+      .filter(t => t.type === 'expense' && typeof t.date === 'string' && t.date.startsWith(monthStr))
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
   }, [allFinanceTransactions]);
 
   const getSelectedMonthsIncome = useCallback(() => {
     return allFinanceTransactions
-      .filter(t => t.type === 'income' && chartSelectedMonths.includes((t.date || '').substring(0, 7)))
+      .filter(t => t.type === 'income' && chartSelectedMonths.includes(String(t.date || '').substring(0, 7)))
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
   }, [allFinanceTransactions, chartSelectedMonths]);
 
   const getSelectedMonthsExpense = useCallback(() => {
     return allFinanceTransactions
-      .filter(t => t.type === 'expense' && chartSelectedMonths.includes((t.date || '').substring(0, 7)))
+      .filter(t => t.type === 'expense' && chartSelectedMonths.includes(String(t.date || '').substring(0, 7)))
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
   }, [allFinanceTransactions, chartSelectedMonths]);
 
   const getWeeklyIncome = useCallback((monthStr: string, startDay: number, endDay: number) => {
     return allFinanceTransactions
       .filter(t => {
-        if (t.type !== 'income' || !t.date || !t.date.startsWith(monthStr)) return false;
+        if (t.type !== 'income' || typeof t.date !== 'string' || !t.date.startsWith(monthStr)) return false;
         const d = Number(t.date.split('-')[2]) || 1;
         return d >= startDay && d <= endDay;
       })
@@ -634,7 +634,7 @@ export function useFinanceData({
   const getWeeklyExpense = useCallback((monthStr: string, startDay: number, endDay: number) => {
     return allFinanceTransactions
       .filter(t => {
-        if (t.type !== 'expense' || !t.date || !t.date.startsWith(monthStr)) return false;
+        if (t.type !== 'expense' || typeof t.date !== 'string' || !t.date.startsWith(monthStr)) return false;
         const d = Number(t.date.split('-')[2]) || 1;
         return d >= startDay && d <= endDay;
       })
@@ -650,7 +650,7 @@ export function useFinanceData({
     return allFinanceTransactions
       .filter(t => {
         if (t.type !== expectedType) return false;
-        if (!chartSelectedMonths.includes((t.date || '').substring(0, 7))) return false;
+        if (!chartSelectedMonths.includes(String(t.date || '').substring(0, 7))) return false;
         if (t.category === cat) return true;
         if (cat === 'Gia Sư' && (t.category === 'Giáo dục' || t.category === 'Gia Sư')) return true;
         return false;
