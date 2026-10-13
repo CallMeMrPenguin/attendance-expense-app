@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Clock, Eye } from 'lucide-react';
+import { Clock, Eye, Plus } from 'lucide-react';
 import { 
   formatVND, 
   Session, 
@@ -18,6 +18,7 @@ interface ScheduleStatsViewProps {
   onSelectDetailSchedule: (schedule: ScheduleWorkSummary) => void;
   onSelectSession: (session: Session) => void;
   onOpenEditModal: () => void;
+  onAddTemporarySession?: (schedule: ScheduleWorkSummary) => void;
 }
 
 export function ScheduleStatsView({
@@ -26,6 +27,7 @@ export function ScheduleStatsView({
   onSelectDetailSchedule,
   onSelectSession,
   onOpenEditModal,
+  onAddTemporarySession,
 }: ScheduleStatsViewProps) {
   // Define columns for TanStack DataTable
   const columns = useMemo<ColumnDef<ScheduleWorkSummary>[]>(() => [
@@ -202,7 +204,7 @@ export function ScheduleStatsView({
       cell: ({ row }) => {
         const item = row.original;
         return (
-          <div className="flex justify-center">
+          <div className="flex items-center justify-center gap-1.5">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -213,11 +215,24 @@ export function ScheduleStatsView({
               <Eye className="h-3.5 w-3.5" />
               <span>Xem Ca</span>
             </button>
+            {onAddTemporarySession && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAddTemporarySession(item);
+                }}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-[#5c36f5]/25 hover:bg-[#5c36f5] text-white border border-indigo-400/30 text-[11px] font-extrabold transition-all cursor-pointer shadow-sm active:scale-95"
+                title="Thêm 1 buổi tạm thời / học bù"
+              >
+                <Plus className="h-3.5 w-3.5 text-white" />
+                <span>+ Buổi Bù</span>
+              </button>
+            )}
           </div>
         );
       },
     },
-  ], [onSelectDetailSchedule]);
+  ], [onSelectDetailSchedule, onAddTemporarySession]);
 
   return (
     <div className="space-y-6">
@@ -342,13 +357,25 @@ export function ScheduleStatsView({
                 </span>
               </div>
 
-              <button
-                onClick={() => onSelectDetailSchedule(item)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 hover:text-white border border-indigo-500/30 text-[11px] font-extrabold transition-all cursor-pointer shadow-sm active:scale-95 shrink-0"
-              >
-                <Eye className="h-3.5 w-3.5" />
-                <span>Chi tiết ({item.totalShifts})</span>
-              </button>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  onClick={() => onSelectDetailSchedule(item)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 hover:text-white border border-indigo-500/30 text-[11px] font-extrabold transition-all cursor-pointer shadow-sm active:scale-95"
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  <span>Chi tiết ({item.totalShifts})</span>
+                </button>
+                {onAddTemporarySession && (
+                  <button
+                    onClick={() => onAddTemporarySession(item)}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-[#5c36f5]/25 hover:bg-[#5c36f5] text-white border border-indigo-400/30 text-[11px] font-extrabold transition-all cursor-pointer shadow-sm active:scale-95"
+                    title="Thêm 1 buổi tạm thời / học bù"
+                  >
+                    <Plus className="h-3.5 w-3.5 text-white" />
+                    <span>+ Buổi Bù</span>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         ))}

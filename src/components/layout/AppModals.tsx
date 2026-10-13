@@ -41,6 +41,8 @@ interface AppModalsProps {
   sessionStudentConfigs: Record<string, any>;
   onSaveSessionStudentConfigs: (teacherName: string, configs: Record<string, any>, userId?: string) => Promise<void>;
   availableIncomeCats: string[];
+  initialScheduleData?: any;
+  onClearInitialScheduleData?: () => void;
 
   // Edit Session Modal
   editModalOpen: boolean;
@@ -101,6 +103,8 @@ export const AppModals: React.FC<AppModalsProps> = ({
   sessionStudentConfigs,
   onSaveSessionStudentConfigs,
   availableIncomeCats,
+  initialScheduleData,
+  onClearInitialScheduleData,
   editModalOpen,
   setEditModalOpen,
   selectedSession,
@@ -177,6 +181,7 @@ export const AppModals: React.FC<AppModalsProps> = ({
           onClose={() => {
             setAddModalOpen(false);
             setPreSelectedAddDate(null);
+            if (onClearInitialScheduleData) onClearInitialScheduleData();
           }}
           onSave={fetchSessions}
           activeTeacherName={activeTeacherName}
@@ -189,6 +194,7 @@ export const AppModals: React.FC<AppModalsProps> = ({
           sessionStudentConfigs={sessionStudentConfigs}
           onSaveSessionStudentConfigs={onSaveSessionStudentConfigs}
           incomeCategories={availableIncomeCats}
+          initialScheduleData={initialScheduleData}
         />
       )}
 

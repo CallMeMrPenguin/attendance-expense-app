@@ -118,6 +118,7 @@ export default function Dashboard() {
   const [modalTxType, setModalTxType] = useState<'income' | 'expense' | 'saving' | 'exchange'>('expense');
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [preSelectedAddDate, setPreSelectedAddDate] = useState<string | null>(null);
+  const [preFillScheduleData, setPreFillScheduleData] = useState<any | null>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [teachersModalOpen, setTeachersModalOpen] = useState(false);
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
@@ -126,6 +127,11 @@ export default function Dashboard() {
   const handleOpenTxModal = useCallback((type: 'income' | 'expense' | 'saving' | 'exchange') => {
     setModalTxType(type);
     setTxModalOpen(true);
+  }, []);
+
+  const handleAddTemporarySession = useCallback((schedule: any) => {
+    setPreFillScheduleData(schedule);
+    setAddModalOpen(true);
   }, []);
 
   // Lock background scrolling completely when any modal window is open
@@ -326,6 +332,7 @@ export default function Dashboard() {
                 }}
                 onDeleteSchedule={handleDeleteSchedule}
                 onDeleteSingleSession={handleDeleteSingleSession}
+                onAddTemporarySession={handleAddTemporarySession}
               />
             </div>
           )}
@@ -394,6 +401,8 @@ export default function Dashboard() {
         sessionStudentConfigs={sessionStudentConfigs}
         onSaveSessionStudentConfigs={saveSessionStudentConfigs}
         availableIncomeCats={finance.availableIncomeCats}
+        initialScheduleData={preFillScheduleData}
+        onClearInitialScheduleData={() => setPreFillScheduleData(null)}
         editModalOpen={editModalOpen}
         setEditModalOpen={setEditModalOpen}
         selectedSession={selectedSession}

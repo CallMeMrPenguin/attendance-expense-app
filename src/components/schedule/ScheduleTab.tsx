@@ -47,6 +47,7 @@ export interface ScheduleTabProps {
   onAddSessionOnDate?: (dateStr: string) => void;
   onDeleteSchedule?: (jobName: string, scope: 'month' | 'all') => Promise<void>;
   onDeleteSingleSession?: (sessionId: string) => Promise<void>;
+  onAddTemporarySession?: (schedule: ScheduleWorkSummary) => void;
 }
 
 export default function ScheduleTab({
@@ -69,7 +70,8 @@ export default function ScheduleTab({
   setEditModalOpen,
   onAddSessionOnDate,
   onDeleteSchedule,
-  onDeleteSingleSession
+  onDeleteSingleSession,
+  onAddTemporarySession
 }: ScheduleTabProps) {
   const [monthPickerOpen, setMonthPickerOpen] = useState(false);
   const [pickerYear, setPickerYear] = useState(() => new Date().getFullYear());
@@ -132,9 +134,10 @@ export default function ScheduleTab({
         return (a.time || '').localeCompare(b.time || '');
       });
 
-      const sample = sortedSessions[0];
+      const sample = sortedSessions.find(s => (s.loai_hinh || s.loai_hinh_lich) === 'co_dinh') || sortedSessions[0];
       const color = sample.color || getStudentColor(name);
-      const loai_hinh = (sample.loai_hinh || sample.loai_hinh_lich || 'co_dinh') as 'co_dinh' | 'tam_thoi';
+      const hasCoDinh = sortedSessions.some(s => (s.loai_hinh || s.loai_hinh_lich) === 'co_dinh');
+      const loai_hinh = (hasCoDinh ? 'co_dinh' : (sample.loai_hinh || sample.loai_hinh_lich || 'co_dinh')) as 'co_dinh' | 'tam_thoi';
       const income_category = sample.income_category || sample.category || 'Giáo dục';
       const price = Number(sample.price) || 0;
       const duration = Number(sample.duration) || 2;
@@ -415,6 +418,7 @@ export default function ScheduleTab({
             onSelectDetailSchedule={setSelectedDetailSchedule}
             onSelectSession={setSelectedSession}
             onOpenEditModal={() => setEditModalOpen(true)}
+            onAddTemporarySession={onAddTemporarySession}
           />
         ) : (
           /* CALENDAR MONTH & WEEK VIEWS */
@@ -478,6 +482,7 @@ export default function ScheduleTab({
           setDeleteScheduleScope('month');
           setShowDeleteScheduleModal(true);
         }}
+        onAddTemporarySession={onAddTemporarySession}
         copiedId={copiedId}
         handleCopyText={handleCopyText}
       />

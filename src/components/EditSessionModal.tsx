@@ -338,6 +338,37 @@ export default function EditSessionModal({
     );
   };
 
+  const handleAddSiblingSession = (dateStr: string, timeStr: string, dur: number) => {
+    if (!dateStr) return;
+    const dateObj = new Date(dateStr);
+    const dayIndex = dateObj.getUTCDay();
+    const dayMapIndex = dayIndex === 0 ? 6 : dayIndex - 1;
+    const dayOfWeekStr = DAYS[dayMapIndex];
+
+    setSiblings((prev) => {
+      const existingIdx = prev.findIndex((s) => s.date === dateStr);
+      if (existingIdx >= 0) {
+        const copy = [...prev];
+        copy[existingIdx] = {
+          ...copy[existingIdx],
+          checked: true,
+          time: formatCleanTimeString(timeStr),
+          duration: dur,
+        };
+        return copy;
+      }
+      const newItem: SiblingCheck = {
+        id: undefined,
+        date: dateStr,
+        day_of_week: dayOfWeekStr,
+        checked: true,
+        time: formatCleanTimeString(timeStr),
+        duration: dur,
+      };
+      return [...prev, newItem].sort((a, b) => a.date.localeCompare(b.date));
+    });
+  };
+
   const handleRecurringCheck = (day: string, checked: boolean) => {
     setRecurringConfigs((prev) => ({
       ...prev,
@@ -1117,6 +1148,7 @@ export default function EditSessionModal({
             onRecurringCheck={handleRecurringCheck}
             onRecurringTimeChange={handleRecurringTimeChange}
             onRecurringDurationChange={handleRecurringDurationChange}
+            onAddSiblingSession={handleAddSiblingSession}
           />
 
           {/* Block 1: Basic Information */}

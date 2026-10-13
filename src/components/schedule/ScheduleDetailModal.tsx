@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Users, Copy, Check, Edit3, Trash2 } from 'lucide-react';
+import { X, Users, Copy, Check, Edit3, Trash2, Plus } from 'lucide-react';
 import {
   ScheduleWorkSummary,
   Session,
@@ -16,6 +16,7 @@ interface ScheduleDetailModalProps {
   onSelectSession: (s: Session) => void;
   onOpenEditModal: () => void;
   onOpenDeleteScheduleModal?: () => void;
+  onAddTemporarySession?: (schedule: ScheduleWorkSummary) => void;
   copiedId: string | null;
   handleCopyText: (text: string, id: string) => void;
 }
@@ -27,6 +28,7 @@ export const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({
   onSelectSession,
   onOpenEditModal,
   onOpenDeleteScheduleModal,
+  onAddTemporarySession,
   copiedId,
   handleCopyText,
 }) => {
@@ -68,12 +70,29 @@ export const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-xl hover:bg-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer shrink-0"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {onAddTemporarySession && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onAddTemporarySession(schedule);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#5c36f5] hover:bg-[#7351f7] text-white text-xs font-black rounded-xl shadow-[0_0_14px_rgba(92,54,245,0.4)] cursor-pointer transition-all active:scale-95 border border-white/20 select-none"
+                title="Thêm nhanh 1 buổi tạm thời / học bù cho lịch này"
+              >
+                <Plus className="h-3.5 w-3.5 text-white font-black" />
+                <span className="hidden sm:inline">Thêm Buổi Tạm Thời</span>
+                <span className="sm:hidden">+ Buổi Bù</span>
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-xl hover:bg-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer shrink-0"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         {/* Quick Metrics Bar inside Modal */}
@@ -249,6 +268,14 @@ export const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({
                           </span>
                         </>
                       )}
+                      {(s.loai_hinh === 'tam_thoi' || s.loai_hinh_lich === 'tam_thoi') && (
+                        <>
+                          <span>|</span>
+                          <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded border bg-amber-500/15 text-amber-300 border-amber-500/30">
+                            Tạm thời
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -274,17 +301,32 @@ export const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({
 
         {/* Modal Footer */}
         <div className="pt-4 border-t border-white/10 flex flex-wrap justify-between items-center gap-3 shrink-0">
-          {onOpenDeleteScheduleModal && (
-            <button
-              type="button"
-              onClick={onOpenDeleteScheduleModal}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 hover:text-white font-black text-xs transition-all cursor-pointer shadow-sm active:scale-95 shrink-0"
-              title="Xóa lịch trình này"
-            >
-              <Trash2 className="h-4 w-4" />
-              <span>Xóa Lịch Trình Này</span>
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {onOpenDeleteScheduleModal && (
+              <button
+                type="button"
+                onClick={onOpenDeleteScheduleModal}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 hover:text-white font-black text-xs transition-all cursor-pointer shadow-sm active:scale-95 shrink-0"
+                title="Xóa lịch trình này"
+              >
+                <Trash2 className="h-4 w-4" />
+                <span>Xóa Lịch Trình Này</span>
+              </button>
+            )}
+            {onAddTemporarySession && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onAddTemporarySession(schedule);
+                }}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-indigo-300 hover:text-white font-black text-xs transition-all cursor-pointer shadow-sm active:scale-95 shrink-0"
+              >
+                <Plus className="h-4 w-4 text-white" />
+                <span>+ Thêm Buổi Tạm Thời</span>
+              </button>
+            )}
+          </div>
 
           <div className="flex items-center gap-3 ml-auto">
             <span className="hidden sm:inline text-xs font-bold text-slate-400">

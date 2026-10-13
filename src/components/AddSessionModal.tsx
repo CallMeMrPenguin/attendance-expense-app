@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Calendar, Plus, Clock, Loader2, AlertTriangle, Users } from 'lucide-react';
+import { X, Calendar, Plus, Clock, Loader2, AlertTriangle, Users, Sparkles, CheckCircle2, RotateCcw } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { 
   DAYS, 
@@ -37,6 +37,7 @@ interface AddSessionModalProps {
   sessionStudentConfigs?: Record<string, any>;
   onSaveSessionStudentConfigs?: (teacherName: string, configs: Record<string, any>) => void;
   incomeCategories?: string[];
+  initialScheduleData?: any;
 }
 
 interface DayConfig {
@@ -71,7 +72,8 @@ export default function AddSessionModal({
   onClearExclusion,
   sessionStudentConfigs,
   onSaveSessionStudentConfigs,
-  incomeCategories: propIncomeCategories
+  incomeCategories: propIncomeCategories,
+  initialScheduleData
 }: AddSessionModalProps) {
   const [assignedTeacherName, setAssignedTeacherName] = useState(activeTeacherName);
   const [studentName, setStudentName] = useState('');
@@ -79,7 +81,8 @@ export default function AddSessionModal({
   const [studentNames, setStudentNames] = useState<string[]>([]);
   const [pricePerStudent, setPricePerStudent] = useState<string>('');
   const [price, setPrice] = useState('');
-  const [status, setStatus] = useState('Chưa dạy');
+  const [status, setStatus] = useState('Chưa làm');
+  const [selectedExistingScheduleName, setSelectedExistingScheduleName] = useState<string | null>(null);
 
   // Load custom income categories from prop or default
   const incomeCategories = React.useMemo(() => {
@@ -116,39 +119,165 @@ export default function AddSessionModal({
   const [singleTime, setSingleTime] = useState('18:00');
   const [singleDuration, setSingleDuration] = useState(2);
 
+  // Extract unique schedules from existingSessions and sessionStudentConfigs to allow quick autofill
+  const existingSchedules = React.useMemo(() => {
+    const map = new Map<string, {
+      name: string;
+      color: string;
+      income_category: string;
+      student_count: number;
+      price_per_student: number;
+      price: number;
+      student_names: string[];
+      time: string;
+      duration: number;
+      auto_check_in: boolean;
+      loai_hinh: 'co_dinh' | 'tam_thoi';
+      total_sessions: number;
+    }>();
+
+    (existingSessions || []).forEach((s) => {
+      const name = (s.job_name || s.student_name || '').trim();
+      if (!name) return;
+      const count = s.student_count || 1;
+      const p = Number(s.price) || 0;
+      const pPer = s.price_per_student || (count > 0 ? Math.round(p / count) : p);
+
+      if (!map.has(name)) {
+        map.set(name, {
+          name,
+          color: s.color || getStudentColor(name),
+          income_category: s.income_category || s.category || 'Gia Sư',
+          student_count: count,
+          price_per_student: pPer,
+          price: p,
+          student_names: s.student_names || (count > 1 ? Array.from({ length: count }, (_, i) => `Học sinh ${i + 1}`) : []),
+          time: formatCleanTimeString(s.time) || '18:00',
+          duration: Number(s.duration) || 2,
+          auto_check_in: s.auto_check_in ?? s.auto_checkin ?? true,
+          loai_hinh: (s.loai_hinh || s.loai_hinh_lich || 'co_dinh') as 'co_dinh' | 'tam_thoi',
+          total_sessions: 1,
+        });
+      } else {
+        const item = map.get(name)!;
+        item.total_sessions += 1;
+        if ((s.loai_hinh || s.loai_hinh_lich) === 'co_dinh') {
+          item.loai_hinh = 'co_dinh';
+        }
+        if (s.student_names && s.student_names.length > item.student_names.length) {
+          item.student_names = s.student_names;
+        }
+      }
+    });
+
+    return Array.from(map.values()).sort((a, b) => b.total_sessions - a.total_sessions || a.name.localeCompare(b.name));
+  }, [existingSessions]);
+
+  const handleSelectExistingSchedule = (sched: typeof existingSchedules[0]) => {
+    setSelectedExistingScheduleName(sched.name);
+    setStudentName(sched.name);
+    setIncomeCategory(sched.income_category || 'Gia Sư');
+    setColor(sched.color || '#7c3aed');
+    setIsColorCustomized(true);
+    setStudentCount(sched.student_count || 1);
+    setStudentNames(sched.student_names || (sched.student_count > 1 ? Array.from({ length: sched.student_count }, (_, i) => `Học sinh ${i + 1}`) : []));
+    setPrice(sched.price ? String(sched.price) : '');
+    setPricePerStudent(sched.price_per_student ? String(sched.price_per_student) : '');
+    setSingleTime(sched.time || '18:00');
+    setSingleDuration(sched.duration || 2);
+    setAutoCheckIn(sched.auto_check_in ?? true);
+    setLoaiHinh('tam_thoi');
+    setIsSingleSession(true);
+    if (!singleDate) {
+      const todayStr = new Date().toISOString().split('T')[0];
+      setSingleDate(todayStr.startsWith(selectedMonth) ? todayStr : `${selectedMonth}-01`);
+    }
+  };
+
+  const handleResetToNewSchedule = () => {
+    setSelectedExistingScheduleName(null);
+    setStudentName('');
+    setStudentCount(1);
+    setStudentNames([]);
+    setPrice('');
+    setPricePerStudent('');
+    setColor('#7c3aed');
+    setIsColorCustomized(false);
+    setLoaiHinh('co_dinh');
+    setIsSingleSession(false);
+  };
+
   React.useEffect(() => {
     if (isOpen) {
-      if (preSelectedDate) {
+      if (initialScheduleData) {
+        const s = initialScheduleData;
+        const sName = s.name || s.job_name || s.student_name || '';
+        setSelectedExistingScheduleName(sName);
+        setStudentName(sName);
+        const count = s.student_count || 1;
+        setStudentCount(count);
+        setStudentNames(s.student_names || (count > 1 ? Array.from({ length: count }, (_, i) => `Học sinh ${i + 1}`) : []));
+        const p = Number(s.price) || 0;
+        const pPer = s.price_per_student || (count > 0 ? Math.round(p / count) : p);
+        setPrice(p ? String(p) : '');
+        setPricePerStudent(pPer ? String(pPer) : '');
+        setStatus('Chưa làm');
+        if (s.color) {
+          setColor(s.color);
+          setIsColorCustomized(true);
+        }
+        if (s.income_category) {
+          setIncomeCategory(s.income_category);
+        }
+        if (s.time) {
+          setSingleTime(formatCleanTimeString(s.time));
+        }
+        if (s.duration) {
+          setSingleDuration(Number(s.duration));
+        }
         setIsSingleSession(true);
-        setSingleDate(preSelectedDate);
+        setLoaiHinh('tam_thoi');
+        setAutoCheckIn(s.auto_check_in ?? s.auto_checkin ?? true);
+        if (preSelectedDate) {
+          setSingleDate(preSelectedDate);
+        } else {
+          const todayStr = new Date().toISOString().split('T')[0];
+          setSingleDate(todayStr.startsWith(selectedMonth) ? todayStr : `${selectedMonth}-01`);
+        }
       } else {
-        setIsSingleSession(false);
-        setSingleDate(`${selectedMonth}-01`);
+        setSelectedExistingScheduleName(null);
+        if (preSelectedDate) {
+          setIsSingleSession(true);
+          setSingleDate(preSelectedDate);
+        } else {
+          setIsSingleSession(false);
+          setSingleDate(`${selectedMonth}-01`);
+        }
+        setStudentName('');
+        setStudentCount(1);
+        setStudentNames([]);
+        setPricePerStudent('');
+        setPrice('');
+        setStatus('Chưa làm');
+        setColor('#7c3aed');
+        setIsColorCustomized(false);
+        setLoaiHinh('co_dinh');
+        setAutoCheckIn(true);
+        setSingleTime('18:00');
+        setSingleDuration(2);
+        setDayConfigs(
+          DAYS.reduce((acc, day) => {
+            acc[day] = {
+              checked: day === 'Thứ 2',
+              time: '18:00',
+              duration: 2,
+            };
+            return acc;
+          }, {} as Record<string, DayConfig>)
+        );
       }
-      setStudentName('');
-      setStudentCount(1);
-      setStudentNames([]);
-      setPricePerStudent('');
-      setPrice('');
-      setStatus('Chưa dạy');
-      setColor('#7c3aed');
-      setIsColorCustomized(false);
-      setLoaiHinh('co_dinh');
-      setAutoCheckIn(true);
-      setSingleTime('18:00');
-      setSingleDuration(2);
-      setDayConfigs(
-        DAYS.reduce((acc, day) => {
-          acc[day] = {
-            checked: day === 'Thứ 2',
-            time: '18:00',
-            duration: 2,
-          };
-          return acc;
-        }, {} as Record<string, DayConfig>)
-      );
     }
-  }, [isOpen, preSelectedDate, selectedMonth]);
+  }, [isOpen, preSelectedDate, selectedMonth, initialScheduleData]);
 
   const handlePriceChange = (valStr: string) => {
     const rawVal = parseNumberDots(valStr);
@@ -535,6 +664,72 @@ export default function AddSessionModal({
               </div>
             )}
 
+            {/* Quick Autofill from Existing Schedule Header */}
+            {existingSchedules.length > 0 && (
+              <div className="p-3.5 bg-[#0d1018] border border-indigo-500/30 rounded-2xl space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-indigo-400" />
+                    <span className="text-xs font-black text-white uppercase tracking-wider">
+                      Chọn Từ Lịch Cố Định Đã Có (Điền Nhanh)
+                    </span>
+                  </div>
+                  {selectedExistingScheduleName && (
+                    <button
+                      type="button"
+                      onClick={handleResetToNewSchedule}
+                      className="flex items-center gap-1 text-[11px] font-bold text-slate-400 hover:text-white transition-colors cursor-pointer"
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      <span>Nhập mới từ đầu</span>
+                    </button>
+                  )}
+                </div>
+
+                <p className="text-[11px] text-slate-400 font-medium">
+                  Bấm vào lịch dưới đây để tự động điền học sinh, học phí, sĩ số và chuyển sang thêm 1 buổi tạm thời:
+                </p>
+
+                <div className="flex flex-wrap gap-2 pt-0.5 max-h-[130px] overflow-y-auto custom-scrollbar">
+                  {existingSchedules.map((sched) => {
+                    const isSelected = selectedExistingScheduleName === sched.name;
+                    return (
+                      <button
+                        key={sched.name}
+                        type="button"
+                        onClick={() => handleSelectExistingSchedule(sched)}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer select-none ${
+                          isSelected
+                            ? 'bg-[#5c36f5] text-white border-indigo-400 shadow-[0_0_12px_rgba(92,54,245,0.6)] scale-[1.02]'
+                            : 'bg-[#141824] text-slate-300 border-white/10 hover:border-indigo-500/40 hover:bg-[#1c2236]'
+                        }`}
+                      >
+                        <span
+                          className="h-2.5 w-2.5 rounded-full shrink-0 shadow-[0_0_6px_currentColor]"
+                          style={{ backgroundColor: sched.color, color: sched.color }}
+                        />
+                        <span className="truncate max-w-[150px]">{sched.name}</span>
+                        <span className={`text-[10px] px-1.5 py-0.2 rounded font-extrabold ${
+                          isSelected ? 'bg-black/30 text-white' : 'bg-white/5 text-slate-400'
+                        }`}>
+                          {sched.student_count > 1 ? `${sched.student_count} HS` : formatVND(sched.price)}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {selectedExistingScheduleName && (
+                  <div className="flex items-center gap-2 pt-1 text-[11px] text-emerald-400 font-bold bg-emerald-500/10 px-3 py-1.5 rounded-xl border border-emerald-500/20">
+                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                    <span>
+                      Đã điền thông tin từ "{selectedExistingScheduleName}". Đã chuyển sang chế độ <b>Lịch 1 Buổi</b>, bạn chỉ cần chọn ngày & giờ!
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="space-y-1.5">
               <label htmlFor="studentName" className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider">
                 Tên công việc / Đối tác *
@@ -755,7 +950,7 @@ export default function AddSessionModal({
                   onChange={(val) => setLoaiHinh(val as any)}
                   options={[
                     { value: 'co_dinh', label: 'Cố định' },
-                    { value: 'tam_thoi', label: 'Tạm thời (chỉ 1 tuần)' },
+                    { value: 'tam_thoi', label: 'Tạm thời / Học bù (1 buổi lẻ)' },
                   ]}
                   placeholder="Chọn loại hình"
                 />
