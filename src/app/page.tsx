@@ -16,6 +16,8 @@ import { useBackgroundSave } from '@/hooks/useBackgroundSave';
 import { useBankReceipts } from '@/hooks/useBankReceipts';
 import { useFinanceData } from '@/hooks/useFinanceData';
 import { useScheduleData } from '@/hooks/useScheduleData';
+import { useTrashBin } from '@/hooks/useTrashBin';
+import { TrashModal } from '@/components/schedule/TrashModal';
 
 export default function Dashboard() {
   const { currentUser, loading: authLoading, handleLogout } = useAuthSession();
@@ -107,7 +109,8 @@ export default function Dashboard() {
     handleDeleteSchedule,
     handleDeleteSingleSession,
     handleClearScheduleExclusion,
-    saveSessionStudentConfigs
+    saveSessionStudentConfigs,
+    optimisticUpsertSessions
   } = useScheduleData({
     currentUser,
     chartSelectedMonths
@@ -122,7 +125,9 @@ export default function Dashboard() {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [teachersModalOpen, setTeachersModalOpen] = useState(false);
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [trashModalOpen, setTrashModalOpen] = useState(false);
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
+  const trash = useTrashBin();
 
   const handleOpenTxModal = useCallback((type: 'income' | 'expense' | 'saving' | 'exchange') => {
     setModalTxType(type);
@@ -136,7 +141,7 @@ export default function Dashboard() {
 
   // Lock background scrolling completely when any modal window is open
   useEffect(() => {
-    const isModalActive = txModalOpen || addModalOpen || editModalOpen || teachersModalOpen || passwordModalOpen;
+    const isModalActive = txModalOpen || addModalOpen || editModalOpen || teachersModalOpen || passwordModalOpen || trashModalOpen;
     if (isModalActive) {
       document.body.classList.add('modal-open');
       document.documentElement.classList.add('modal-open');
@@ -148,7 +153,7 @@ export default function Dashboard() {
       document.body.classList.remove('modal-open');
       document.documentElement.classList.remove('modal-open');
     };
-  }, [txModalOpen, addModalOpen, editModalOpen, teachersModalOpen, passwordModalOpen]);
+  }, [txModalOpen, addModalOpen, editModalOpen, teachersModalOpen, passwordModalOpen, trashModalOpen]);
 
   // Finance Data Hook
   const [bankReceiptsPlaceholder, setBankReceiptsPlaceholder] = useState<any[]>([]);
@@ -333,6 +338,8 @@ export default function Dashboard() {
                 onDeleteSchedule={handleDeleteSchedule}
                 onDeleteSingleSession={handleDeleteSingleSession}
                 onAddTemporarySession={handleAddTemporarySession}
+                trashCount={trash.trashCount}
+                onOpenTrash={() => setTrashModalOpen(true)}
               />
             </div>
           )}
@@ -409,6 +416,7 @@ export default function Dashboard() {
         setSelectedSession={setSelectedSession}
         onDeleteSchedule={handleDeleteSchedule}
         onDeleteSingleSession={handleDeleteSingleSession}
+        optimisticUpsertSessions={optimisticUpsertSessions}
         teachersModalOpen={teachersModalOpen}
         setTeachersModalOpen={setTeachersModalOpen}
         onTeacherUpdated={handleTeacherUpdated}
@@ -423,6 +431,17 @@ export default function Dashboard() {
         setActiveTab={setActiveTab}
         handleLogout={handleLogout}
         handleOpenTxModal={handleOpenTxModal}
+      />
+
+      {/* Trash / Recently Deleted Modal */}
+      <TrashModal
+        isOpen={trashModalOpen}
+        onClose={() => setTrashModalOpen(false)}
+        trashItems={trash.trashItems}
+        loading={trash.loading}
+        onRestore={(item) => trash.restoreTrashItem(item, () => fetchSessions(true))}
+        onPermanentDelete={trash.permanentlyDeleteTrashItem}
+        onEmptyTrash={trash.emptyTrash}
       />
     </div>
   );

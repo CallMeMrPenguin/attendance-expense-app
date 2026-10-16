@@ -468,67 +468,78 @@ export function useScheduleData({
   const chartSelectedMonthsKey = chartSelectedMonths.join(',');
   const currentUserRole = currentUser?.role;
 
-  const fetchSessions = useCallback(async () => {
+  const fetchSessions = useCallback(async (isSilent = false) => {
     if (!selectedMonth) return;
-    setScheduleLoading(true);
-
-    let studentConfigs: Record<string, any> = {};
-    if (activeTeacherName) {
-      studentConfigs = await fetchSessionStudentConfigs(activeTeacherName);
-      if (JSON.stringify(studentConfigs) !== JSON.stringify(sessionStudentConfigsRef.current)) {
-        sessionStudentConfigsRef.current = studentConfigs;
-        setSessionStudentConfigs(studentConfigs);
-      }
-
-      let { data, error } = await supabase
-        .from('sessions')
-        .select('*')
-        .eq('user_name', activeTeacherName)
-        .eq('month_year', selectedMonth);
-
-      if ((error || !data || data.length === 0) && activeTeacherName) {
-        const res2 = await supabase
-          .from('sessions')
-          .select('*')
-          .eq('teacher_name', activeTeacherName)
-          .eq('month_year', selectedMonth);
-        if (!res2.error && res2.data) {
-          data = res2.data;
-          error = null;
-        }
-      }
-
-      const initialData = data || [];
-      const syncedData = await syncFixedSchedulesForMonth(selectedMonth, initialData, activeTeacherName);
-      const normalized = normalizeSessionList(syncedData, studentConfigs);
-      const processed = await processAutoCheckIn(normalized);
-      setSessions(processed);
-      calculateStats(processed);
-    } else {
-      setSessions([]);
-      calculateStats([]);
+    
+    // Only show full loading spinner on initial load when there is no data in memory
+    if (!isSilent && sessionsRef.current.length === 0) {
+      setScheduleLoading(true);
     }
 
-    if (currentUserRole === 'admin') {
-      const selectedList = chartSelectedMonths.length > 0 ? chartSelectedMonths : [selectedMonth];
-      const priorList = selectedList.map(m => getPrevMonthStr(m));
-      const monthsToFetch = Array.from(new Set([...selectedList, ...priorList]));
-      const { data, error } = await supabase
-        .from('sessions')
-        .select('*')
-        .in('month_year', monthsToFetch);
-      if (!error && data) {
-        const normalizedAll = normalizeSessionList(data, studentConfigs);
-        const processedAll = await processAutoCheckIn(normalizedAll);
-        setAllSessions(processedAll);
+    try {
+      let studentConfigs: Record<string, any> = {};
+      if (activeTeacherName) {
+        // Parallel fetch configs, current month sessions, and exclusions concurrently
+        const [fetchedConfigs, monthRes, exclusions] = await Promise.all([
+          fetchSessionStudentConfigs(activeTeacherName),
+          supabase
+            .from('sessions')
+            .select('*')
+            .eq('user_name', activeTeacherName)
+            .eq('month_year', selectedMonth),
+          fetchScheduleExclusions(activeTeacherName)
+        ]);
+
+        studentConfigs = fetchedConfigs || {};
+        if (JSON.stringify(studentConfigs) !== JSON.stringify(sessionStudentConfigsRef.current)) {
+          sessionStudentConfigsRef.current = studentConfigs;
+          setSessionStudentConfigs(studentConfigs);
+        }
+
+        let data = monthRes.data;
+        if (!data || data.length === 0) {
+          const res2 = await supabase
+            .from('sessions')
+            .select('*')
+            .eq('teacher_name', activeTeacherName)
+            .eq('month_year', selectedMonth);
+          if (res2.data) data = res2.data;
+        }
+
+        const initialData = data || [];
+        const syncedData = await syncFixedSchedulesForMonth(selectedMonth, initialData, activeTeacherName);
+        const normalized = normalizeSessionList(syncedData, studentConfigs);
+        const processed = await processAutoCheckIn(normalized);
+        setSessions(processed);
+        calculateStats(processed);
+      } else {
+        setSessions([]);
+        calculateStats([]);
+      }
+
+      if (currentUserRole === 'admin') {
+        const selectedList = chartSelectedMonths.length > 0 ? chartSelectedMonths : [selectedMonth];
+        const priorList = selectedList.map(m => getPrevMonthStr(m));
+        const monthsToFetch = Array.from(new Set([...selectedList, ...priorList]));
+        const { data, error } = await supabase
+          .from('sessions')
+          .select('*')
+          .in('month_year', monthsToFetch);
+        if (!error && data) {
+          const normalizedAll = normalizeSessionList(data, studentConfigs);
+          const processedAll = await processAutoCheckIn(normalizedAll);
+          setAllSessions(processedAll);
+        } else {
+          setAllSessions([]);
+        }
       } else {
         setAllSessions([]);
       }
-    } else {
-      setAllSessions([]);
+    } catch (err) {
+      console.error('Error in fetchSessions:', err);
+    } finally {
+      setScheduleLoading(false);
     }
-
-    setScheduleLoading(false);
   }, [
     activeTeacherName,
     selectedMonth,
@@ -536,18 +547,86 @@ export function useScheduleData({
     currentUserRole,
     processAutoCheckIn,
     fetchSessionStudentConfigs,
+    fetchScheduleExclusions,
     normalizeSessionList,
     syncFixedSchedulesForMonth,
     calculateStats,
     chartSelectedMonths
   ]);
 
+  // Optimistic In-Memory Sessions Updater (0ms instant UI update)
+  const optimisticUpsertSessions = useCallback((newSessions: Session[], oldIdsToRemove: string[] = []) => {
+    setSessions(prev => {
+      const keep = prev.filter(s => !oldIdsToRemove.includes(s.id));
+      const map = new Map<string, Session>();
+      keep.forEach(s => map.set(s.id, s));
+      newSessions.forEach(s => map.set(s.id, s));
+      const next = Array.from(map.values());
+      calculateStats(next);
+      return next;
+    });
+
+    setAllSessions(prev => {
+      const keep = prev.filter(s => !oldIdsToRemove.includes(s.id));
+      const map = new Map<string, Session>();
+      keep.forEach(s => map.set(s.id, s));
+      newSessions.forEach(s => map.set(s.id, s));
+      return Array.from(map.values());
+    });
+  }, [calculateStats]);
+
   const handleDeleteSchedule = useCallback(async (jobName: string, scope: 'month' | 'all') => {
     if (!jobName || !activeTeacherName) return;
-    setScheduleLoading(true);
+    const cleanName = jobName.trim();
+    const cleanKey = cleanName.toLowerCase();
+
+    // 1. Capture deleted sessions from current state for Trash preservation
+    const currentSessions = sessionsRef.current;
+    const deletedSessions = currentSessions.filter(s => {
+      const jName = (s.job_name || s.student_name || '').trim().toLowerCase();
+      return jName === cleanKey;
+    });
+
+    // 2. OPTIMISTIC UI UPDATE: Remove from state immediately (0ms delay, no spinner)
+    setSessions(prev => {
+      const next = prev.filter(s => {
+        const jName = (s.job_name || s.student_name || '').trim().toLowerCase();
+        return jName !== cleanKey;
+      });
+      calculateStats(next);
+      return next;
+    });
+
+    setAllSessions(prev => prev.filter(s => {
+      const jName = (s.job_name || s.student_name || '').trim().toLowerCase();
+      return jName !== cleanKey;
+    }));
+
+    // 3. Save to trash_items with 30-day auto-purge expiration
+    const now = new Date();
+    const expires = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const trashRecord = {
+      id: `trash_sched_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      item_type: 'schedule',
+      item_name: `Lịch ${cleanName} (${deletedSessions.length} ca)`,
+      item_data: JSON.stringify({
+        teacherName: activeTeacherName,
+        jobName: cleanName,
+        scope,
+        month: selectedMonth,
+        sessions: deletedSessions
+      }),
+      related_user: activeTeacherName,
+      scope,
+      deleted_month: selectedMonth,
+      deleted_at: now.toISOString(),
+      expires_at: expires.toISOString(),
+      updated_at: now.toISOString()
+    };
+
+    // Run trash save and database deletion in the background
     try {
-      const cleanName = jobName.trim();
-      const cleanKey = cleanName.toLowerCase();
+      await (supabase.from('trash_items') as any).upsert([trashRecord], { onConflict: 'id' });
 
       if (scope === 'month') {
         const { data: delRows } = await supabase
@@ -566,11 +645,6 @@ export function useScheduleData({
             .eq('month_year', selectedMonth);
         }
 
-        setSessions(prev => prev.filter(s => {
-          const jName = (s.job_name || s.student_name || '').trim().toLowerCase();
-          return jName !== cleanKey;
-        }));
-
         const exclusions = await fetchScheduleExclusions(activeTeacherName);
         const currentMonthList = exclusions[selectedMonth] || [];
         if (!currentMonthList.some(x => x.toLowerCase() === cleanKey)) {
@@ -578,7 +652,7 @@ export function useScheduleData({
           await saveScheduleExclusions(activeTeacherName, exclusions, currentUser?.id);
         }
 
-        showToast(`Đã xóa lịch trình "${cleanName}" trong tháng ${selectedMonth}!`, 'success');
+        showToast(`Đã chuyển lịch "${cleanName}" (${selectedMonth}) vào Thùng rác (lưu trữ 30 ngày)!`, 'success');
       } else {
         const { data: delRows } = await supabase
           .from('sessions')
@@ -594,11 +668,6 @@ export function useScheduleData({
             .ilike('job_name', cleanName);
         }
 
-        setSessions(prev => prev.filter(s => {
-          const jName = (s.job_name || s.student_name || '').trim().toLowerCase();
-          return jName !== cleanKey;
-        }));
-
         const exclusions = await fetchScheduleExclusions(activeTeacherName);
         const allList = exclusions['all'] || [];
         if (!allList.some(x => x.toLowerCase() === cleanKey)) {
@@ -606,38 +675,58 @@ export function useScheduleData({
           await saveScheduleExclusions(activeTeacherName, exclusions, currentUser?.id);
         }
 
-        showToast(`Đã xóa vĩnh viễn lịch trình "${cleanName}" khỏi hệ thống!`, 'success');
+        showToast(`Đã chuyển lịch "${cleanName}" vào Thùng rác (lưu trữ 30 ngày)!`, 'success');
       }
 
-      await fetchSessions();
+      // Silent background sync check without blocking UI
+      fetchSessions(true);
     } catch (err: any) {
       console.error('Error in handleDeleteSchedule:', err);
       showToast(err.message || 'Lỗi khi xóa lịch trình.', 'error');
-    } finally {
-      setScheduleLoading(false);
     }
-  }, [activeTeacherName, selectedMonth, currentUser, fetchScheduleExclusions, saveScheduleExclusions, fetchSessions, showToast]);
+  }, [activeTeacherName, selectedMonth, currentUser, fetchScheduleExclusions, saveScheduleExclusions, fetchSessions, calculateStats, showToast]);
 
   const handleDeleteSingleSession = useCallback(async (sessionId: string) => {
     if (!sessionId) return;
-    setScheduleLoading(true);
+    const sessionToDelete = sessionsRef.current.find(s => s.id === sessionId);
+
+    // 1. OPTIMISTIC UI UPDATE: Remove from state immediately (0ms delay)
+    setSessions(prev => {
+      const next = prev.filter(s => s.id !== sessionId);
+      calculateStats(next);
+      return next;
+    });
+
+    setAllSessions(prev => prev.filter(s => s.id !== sessionId));
+
+    // 2. Save single session to trash_items with 30-day expiration
+    if (sessionToDelete) {
+      const now = new Date();
+      const expires = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      const trashRecord = {
+        id: `trash_sess_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        item_type: 'session',
+        item_name: `Ca ${sessionToDelete.job_name || sessionToDelete.student_name} (${sessionToDelete.date} ${sessionToDelete.time})`,
+        item_data: JSON.stringify(sessionToDelete),
+        related_user: sessionToDelete.user_name || sessionToDelete.teacher_name,
+        scope: 'single',
+        deleted_month: sessionToDelete.month_year,
+        deleted_at: now.toISOString(),
+        expires_at: expires.toISOString(),
+        updated_at: now.toISOString()
+      };
+      (supabase.from('trash_items') as any).upsert([trashRecord], { onConflict: 'id' }).catch(() => {});
+    }
+
     try {
-      const { error: delErr } = await supabase
-        .from('sessions')
-        .delete()
-        .eq('id', sessionId);
-
-      if (delErr) throw new Error(delErr.message);
-
-      showToast('Đã xóa ca làm việc thành công!', 'success');
-      await fetchSessions();
+      await supabase.from('sessions').delete().eq('id', sessionId);
+      showToast('Đã chuyển ca dạy vào Thùng rác (lưu trữ 30 ngày)!', 'success');
+      fetchSessions(true);
     } catch (err: any) {
       console.error('Error in handleDeleteSingleSession:', err);
       showToast(err.message || 'Lỗi khi xóa ca làm việc.', 'error');
-    } finally {
-      setScheduleLoading(false);
     }
-  }, [fetchSessions, showToast]);
+  }, [fetchSessions, calculateStats, showToast]);
 
   const handleClearScheduleExclusion = useCallback(async (jobName: string, month: string) => {
     if (!jobName || !activeTeacherName) return;
@@ -735,6 +824,8 @@ export function useScheduleData({
     handleDeleteSchedule,
     handleDeleteSingleSession,
     handleClearScheduleExclusion,
-    saveSessionStudentConfigs
+    saveSessionStudentConfigs,
+    optimisticUpsertSessions,
+    setSessions
   };
 }

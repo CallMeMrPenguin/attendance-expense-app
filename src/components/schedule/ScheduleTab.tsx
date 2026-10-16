@@ -8,6 +8,7 @@ import {
   RefreshCw, 
   AlertCircle,
   BarChart3,
+  Trash2,
 } from 'lucide-react';
 import { 
   Session, 
@@ -48,6 +49,8 @@ export interface ScheduleTabProps {
   onDeleteSchedule?: (jobName: string, scope: 'month' | 'all') => Promise<void>;
   onDeleteSingleSession?: (sessionId: string) => Promise<void>;
   onAddTemporarySession?: (schedule: ScheduleWorkSummary) => void;
+  trashCount?: number;
+  onOpenTrash?: () => void;
 }
 
 export default function ScheduleTab({
@@ -71,7 +74,9 @@ export default function ScheduleTab({
   onAddSessionOnDate,
   onDeleteSchedule,
   onDeleteSingleSession,
-  onAddTemporarySession
+  onAddTemporarySession,
+  trashCount,
+  onOpenTrash
 }: ScheduleTabProps) {
   const [monthPickerOpen, setMonthPickerOpen] = useState(false);
   const [pickerYear, setPickerYear] = useState(() => new Date().getFullYear());
@@ -283,6 +288,24 @@ export default function ScheduleTab({
               <Plus className="h-3.5 w-3.5" />
               <span>Thêm Lịch Trình</span>
             </button>
+
+            {/* Trash / Recently Deleted Button */}
+            {onOpenTrash && (
+              <button
+                type="button"
+                onClick={onOpenTrash}
+                className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-[#121624] hover:bg-[#1a2035] text-slate-300 hover:text-white font-black text-[11px] rounded-xl border border-white/10 hover:border-rose-500/40 transition-all cursor-pointer shadow-md select-none group"
+                title="Xem các lịch trình hoặc ca dạy đã xóa trong vòng 30 ngày để khôi phục"
+              >
+                <Trash2 className="h-3.5 w-3.5 text-rose-400 group-hover:scale-110 transition-transform" />
+                <span>Đã Xóa Gần Đây</span>
+                {typeof trashCount === 'number' && trashCount > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                    {trashCount}
+                  </span>
+                )}
+              </button>
+            )}
 
             {/* Month Selector dropdown */}
             <div className="relative" data-picker>

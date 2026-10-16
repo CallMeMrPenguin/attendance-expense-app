@@ -19,6 +19,20 @@ if (!globalForDb._queryCache) globalForDb._queryCache = new Map();
 if (!globalForDb._tableVersion) globalForDb._tableVersion = {};
 if (!globalForDb._tableColumnsCache) globalForDb._tableColumnsCache = {};
 
+export const VALID_TABLES = [
+  'teachers',
+  'profiles',
+  'sessions',
+  'manual_transactions',
+  'savings_funds',
+  'category_budgets',
+  'savings_history',
+  'bank_receipts',
+  'receipt_rules',
+  'table_settings',
+  'trash_items'
+];
+
 export function getCachedStatement(db: Database.Database, sql: string): Database.Statement {
   const cache = globalForDb._statementCache!;
   let stmt = cache.get(sql);
@@ -237,6 +251,23 @@ export function getDb(): Database.Database {
       updated_at TEXT DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS trash_items (
+      id TEXT PRIMARY KEY,
+      item_type TEXT NOT NULL,
+      item_name TEXT NOT NULL,
+      item_data TEXT NOT NULL,
+      related_user TEXT,
+      scope TEXT,
+      deleted_month TEXT,
+      deleted_at TEXT NOT NULL DEFAULT (datetime('now')),
+      expires_at TEXT NOT NULL,
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_trash_expires ON trash_items(expires_at);
+    CREATE INDEX IF NOT EXISTS idx_trash_type ON trash_items(item_type);
+    CREATE INDEX IF NOT EXISTS idx_trash_user ON trash_items(related_user);
+
     CREATE INDEX IF NOT EXISTS idx_sessions_date ON sessions(date);
     CREATE INDEX IF NOT EXISTS idx_sessions_month_year ON sessions(month_year);
     CREATE INDEX IF NOT EXISTS idx_sessions_teacher ON sessions(teacher_name);
@@ -296,9 +327,14 @@ export function getDb(): Database.Database {
     } catch (e) {}
   };
 
-  ['teachers', 'profiles', 'sessions', 'manual_transactions', 'savings_funds', 'category_budgets', 'savings_history', 'bank_receipts', 'receipt_rules', 'table_settings'].forEach(t => {
+  VALID_TABLES.forEach(t => {
     ensureCol(t, 'updated_at');
   });
+
+  // Auto-prune trash items older than 30 days
+  try {
+    db.prepare("DELETE FROM trash_items WHERE expires_at < datetime('now')").run();
+  } catch (e) {}
 
   try {
     db.exec(`
@@ -465,9 +501,15 @@ export function queryTable(table: string, options: QueryOptions = {}) {
   const db = getDb();
 
   // Check valid table name
-  const validTables = ['teachers', 'profiles', 'sessions', 'manual_transactions', 'savings_funds', 'category_budgets', 'savings_history', 'bank_receipts', 'receipt_rules', 'table_settings'];
-  if (!validTables.includes(table)) {
+  if (!VALID_TABLES.includes(table)) {
     throw new Error(`Invalid table name: ${table}`);
+  }
+
+  // If querying trash_items, opportunistically prune expired records
+  if (table === 'trash_items') {
+    try {
+      db.prepare("DELETE FROM trash_items WHERE expires_at < datetime('now')").run();
+    } catch (e) {}
   }
 
   const currentVersion = globalForDb._tableVersion?.[table] || 0;
@@ -662,8 +704,7 @@ export function insertTable(table: string, records: any | any[]) {
   const arr = Array.isArray(records) ? records : [records];
   if (arr.length === 0) return { data: [], error: null };
 
-  const validTables = ['teachers', 'profiles', 'sessions', 'manual_transactions', 'savings_funds', 'category_budgets', 'savings_history', 'bank_receipts', 'receipt_rules', 'table_settings'];
-  if (!validTables.includes(table)) throw new Error(`Invalid table: ${table}`);
+  if (!VALID_TABLES.includes(table)) throw new Error(`Invalid table: ${table}`);
 
   try {
     invalidateTableCache(table);
@@ -707,8 +748,7 @@ export function upsertTable(table: string, records: any | any[], onConflictKey?:
   const arr = Array.isArray(records) ? records : [records];
   if (arr.length === 0) return { data: [], error: null };
 
-  const validTables = ['teachers', 'profiles', 'sessions', 'manual_transactions', 'savings_funds', 'category_budgets', 'savings_history', 'bank_receipts', 'receipt_rules', 'table_settings'];
-  if (!validTables.includes(table)) throw new Error(`Invalid table: ${table}`);
+  if (!VALID_TABLES.includes(table)) throw new Error(`Invalid table: ${table}`);
 
   try {
     invalidateTableCache(table);
@@ -751,8 +791,7 @@ export function upsertTable(table: string, records: any | any[], onConflictKey?:
 
 export function updateTable(table: string, updates: Record<string, any>, conditions: { eq?: Record<string, any>; in?: Record<string, any[]>; ilike?: Record<string, string>; or?: string }) {
   const db = getDb();
-  const validTables = ['teachers', 'profiles', 'sessions', 'manual_transactions', 'savings_funds', 'category_budgets', 'savings_history', 'bank_receipts', 'receipt_rules', 'table_settings'];
-  if (!validTables.includes(table)) throw new Error(`Invalid table: ${table}`);
+  if (!VALID_TABLES.includes(table)) throw new Error(`Invalid table: ${table}`);
 
   try {
     invalidateTableCache(table);
@@ -820,8 +859,7 @@ export function updateTable(table: string, updates: Record<string, any>, conditi
 
 export function deleteTable(table: string, conditions: { eq?: Record<string, any>; in?: Record<string, any[]>; ilike?: Record<string, string>; or?: string }) {
   const db = getDb();
-  const validTables = ['teachers', 'profiles', 'sessions', 'manual_transactions', 'savings_funds', 'category_budgets', 'savings_history', 'bank_receipts', 'receipt_rules', 'table_settings'];
-  if (!validTables.includes(table)) throw new Error(`Invalid table: ${table}`);
+  if (!VALID_TABLES.includes(table)) throw new Error(`Invalid table: ${table}`);
 
   try {
     invalidateTableCache(table);

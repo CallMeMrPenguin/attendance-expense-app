@@ -453,8 +453,24 @@ export function useFinanceData({
     if (!currentUser || !confirmDeleteTxId) return;
     const userId = currentUser.id;
     const idToDelete = confirmDeleteTxId;
-    const updated = manualTransactions.filter(t => t.id !== idToDelete);
-    setManualTransactions(updated);
+    const txToDelete = manualTransactions.find(t => t.id === idToDelete);
+    if (txToDelete) {
+      const now = new Date();
+      const expires = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      const trashRecord = {
+        id: `trash_tx_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        item_type: 'transaction',
+        item_name: `${txToDelete.desc || 'Giao dịch'} (${Number(txToDelete.amount || 0).toLocaleString('vi-VN')} đ)`,
+        item_data: JSON.stringify(txToDelete),
+        related_user: currentUser?.userName || currentUser?.teacherName || 'ADMIN',
+        scope: 'single',
+        deleted_month: txToDelete.date?.substring(0, 7) || '',
+        deleted_at: now.toISOString(),
+        expires_at: expires.toISOString(),
+        updated_at: now.toISOString()
+      };
+      (supabase.from('trash_items') as any).upsert([trashRecord], { onConflict: 'id' }).catch(() => {});
+    }
 
     runBackgroundSave(async () => {
       try {

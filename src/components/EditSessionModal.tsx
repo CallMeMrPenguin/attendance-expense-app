@@ -57,6 +57,7 @@ interface EditSessionModalProps {
   sessionStudentConfigs?: Record<string, any>;
   onSaveSessionStudentConfigs?: (teacherName: string, configs: Record<string, any>) => void;
   incomeCategories?: string[];
+  onOptimisticSave?: (newSessions: Session[], oldIdsToRemove: string[]) => void;
 }
 
 interface SiblingCheck {
@@ -111,7 +112,8 @@ export default function EditSessionModal({
   onDeleteSingleSession,
   sessionStudentConfigs,
   onSaveSessionStudentConfigs,
-  incomeCategories: propIncomeCategories
+  incomeCategories: propIncomeCategories,
+  onOptimisticSave
 }: EditSessionModalProps) {
   const [assignedTeacherName, setAssignedTeacherName] = useState(session?.teacher_name || '');
   const [studentName, setStudentName] = useState('');
@@ -584,38 +586,36 @@ export default function EditSessionModal({
 
 
   const executeUpsertSessions = async (newSessions: any[], oldIds: string[]) => {
-    setLoading(true);
-    setError('');
     setShowOverlapModal(false);
 
-    try {
-      const keepIds = newSessions.map((s) => s.id).filter(Boolean) as string[];
-      const deleteIds = oldIds.filter((id) => !keepIds.includes(id));
+    const keepIds = newSessions.map((s) => s.id).filter(Boolean) as string[];
+    const deleteIds = oldIds.filter((id) => !keepIds.includes(id));
+    const sanitizedSessions = newSessions.map(sanitizeSessionPayload);
 
+    // OPTIMISTIC UPDATE: Update calendar state immediately (0ms delay) and close modal
+    if (onOptimisticSave) {
+      onOptimisticSave(sanitizedSessions, deleteIds);
+    }
+    onClose();
+
+    // Background sync to database
+    try {
       if (deleteIds.length > 0) {
-        const { error: deleteError } = await supabase
+        await supabase
           .from('sessions')
           .delete()
           .in('id', deleteIds);
-        if (deleteError) throw new Error(deleteError.message);
       }
-
-      const sanitizedSessions = newSessions.map(sanitizeSessionPayload);
 
       if (sanitizedSessions.length > 0) {
-        const { error: upsertError } = await supabase
+        await supabase
           .from('sessions')
           .upsert(sanitizedSessions);
-
-        if (upsertError) throw new Error(upsertError.message);
       }
 
-      onSave();
-      onClose();
+      onSave(); // Silent background refresh
     } catch (err: any) {
-      setError(err.message || 'Lỗi khi cập nhật ca dạy.');
-    } finally {
-      setLoading(false);
+      console.error('Background update error in EditSessionModal:', err);
     }
   };
 

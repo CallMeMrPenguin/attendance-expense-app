@@ -11,6 +11,7 @@ export const SYNC_TABLES: Record<string, string> = {
   bank_receipts: 'id',
   receipt_rules: 'id',
   table_settings: 'id',
+  trash_items: 'id',
 };
 
 export interface SyncStats {

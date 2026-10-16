@@ -51,6 +51,7 @@ interface AppModalsProps {
   setSelectedSession: (s: Session | null) => void;
   onDeleteSchedule: (jobName: string, scope: 'month' | 'all') => Promise<void>;
   onDeleteSingleSession: (sessionId: string) => Promise<void>;
+  optimisticUpsertSessions?: (newSessions: Session[], oldIdsToRemove?: string[]) => void;
 
   // Manage Teachers Modal
   teachersModalOpen: boolean;
@@ -111,6 +112,7 @@ export const AppModals: React.FC<AppModalsProps> = ({
   setSelectedSession,
   onDeleteSchedule,
   onDeleteSingleSession,
+  optimisticUpsertSessions,
   teachersModalOpen,
   setTeachersModalOpen,
   onTeacherUpdated,
@@ -216,6 +218,7 @@ export const AppModals: React.FC<AppModalsProps> = ({
           sessionStudentConfigs={sessionStudentConfigs}
           onSaveSessionStudentConfigs={onSaveSessionStudentConfigs}
           incomeCategories={availableIncomeCats}
+          onOptimisticSave={optimisticUpsertSessions}
         />
       )}
 
