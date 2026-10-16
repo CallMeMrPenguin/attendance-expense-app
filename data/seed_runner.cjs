@@ -148,6 +148,23 @@ function initSchema(db) {
       updated_at TEXT DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS trash_items (
+      id TEXT PRIMARY KEY,
+      item_type TEXT NOT NULL,
+      item_name TEXT NOT NULL,
+      item_data TEXT NOT NULL,
+      related_user TEXT,
+      scope TEXT,
+      deleted_month TEXT,
+      deleted_at TEXT NOT NULL DEFAULT (datetime('now')),
+      expires_at TEXT NOT NULL,
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_trash_expires ON trash_items(expires_at);
+    CREATE INDEX IF NOT EXISTS idx_trash_type ON trash_items(item_type);
+    CREATE INDEX IF NOT EXISTS idx_trash_user ON trash_items(related_user);
+
     CREATE INDEX IF NOT EXISTS idx_sessions_user_month ON sessions(user_name, month_year);
     CREATE INDEX IF NOT EXISTS idx_sessions_teacher_month ON sessions(teacher_name, month_year);
     CREATE INDEX IF NOT EXISTS idx_sessions_date ON sessions(date);

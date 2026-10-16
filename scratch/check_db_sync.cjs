@@ -21,7 +21,9 @@ const tables = [
   'manual_transactions',
   'savings_history',
   'bank_receipts',
-  'sessions'
+  'sessions',
+  'table_settings',
+  'trash_items'
 ];
 
 let allOk = true;

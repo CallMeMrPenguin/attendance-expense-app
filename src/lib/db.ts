@@ -30,7 +30,9 @@ export const VALID_TABLES = [
   'bank_receipts',
   'receipt_rules',
   'table_settings',
-  'trash_items'
+  'trash_items',
+  'sync_deletions',
+  'sync_meta'
 ];
 
 export function getCachedStatement(db: Database.Database, sql: string): Database.Statement {
