@@ -1,4 +1,37 @@
+import dns from 'dns';
 import { getDb } from '@/lib/db';
+
+// Fallback IPs for domains when DNSSEC or upstream resolver fails
+const FALLBACK_IPS: Record<string, string> = {
+  'chamcong.upkidscentermanager.io.vn': '104.21.95.219',
+  'upkidscentermanager.io.vn': '104.21.95.219',
+};
+
+// Auto-fallback DNS resolver wrapper
+if (typeof dns !== 'undefined' && dns.lookup) {
+  const origLookup = dns.lookup;
+  if (!(origLookup as any).__wrapped_fallback) {
+    const wrappedLookup: any = function (hostname: string, options: any, callback: any) {
+      if (typeof options === 'function') {
+        callback = options;
+        options = {};
+      }
+      return (origLookup as any).call(dns, hostname, options, (err: any, address: any, family: any) => {
+        if (err && (FALLBACK_IPS[hostname] || (typeof hostname === 'string' && hostname.endsWith('.upkidscentermanager.io.vn')))) {
+          const fallbackIp = FALLBACK_IPS[hostname] || '104.21.95.219';
+          console.warn(`[DNS Fallback] DNS lookup failed for ${hostname} (${err.code}). Using fallback IP ${fallbackIp}`);
+          if (options && options.all) {
+            return callback(null, [{ address: fallbackIp, family: 4 }]);
+          }
+          return callback(null, fallbackIp, 4);
+        }
+        return callback(err, address, family);
+      });
+    };
+    wrappedLookup.__wrapped_fallback = true;
+    dns.lookup = wrappedLookup;
+  }
+}
 
 export const SYNC_TABLES: Record<string, string> = {
   teachers: 'name',
