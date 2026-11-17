@@ -270,6 +270,21 @@ export const FlowTransactionsSection: React.FC<FlowTransactionsSectionProps> = (
     ? 'Biên Lai Chưa Xếp Loại'
     : 'Sổ Giao Dịch Chi Tiết';
 
+  const gmailSyncButton = (
+    <button
+      type="button"
+      disabled={isSyncing}
+      onClick={async () => {
+        if (handleSyncReceipts) {
+          await handleSyncReceipts();
+        }
+      }}
+      className="px-3 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-xs font-black rounded-xl transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+    >
+      <span>{isSyncing ? 'Đang đồng bộ Gmail...' : 'Đồng bộ Gmail'}</span>
+    </button>
+  );
+
   return (
     <div className="calendar-container-depth p-5 bg-[#06080e] rounded-3xl space-y-4 border-2 border-transparent [background:linear-gradient(#06080e,#06080e)_padding-box,linear-gradient(135deg,#3b82f6,#60a5fa,#1d4ed8)_border-box] shadow-[0_0_25px_rgba(59,130,246,0.35)]">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-white/5 pb-3">
@@ -346,20 +361,7 @@ export const FlowTransactionsSection: React.FC<FlowTransactionsSectionProps> = (
             exportFilename="bien_lai_ngan_hang"
             searchPlaceholder="Tìm kiếm biên lai..."
             onRowDoubleClick={(row) => onOpenClassify(row)}
-            toolbarRight={
-              <button
-                type="button"
-                disabled={isSyncing}
-                onClick={async () => {
-                  if (handleSyncReceipts) {
-                    await handleSyncReceipts();
-                  }
-                }}
-                className="px-3 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-xs font-black rounded-xl transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
-              >
-                <span>{isSyncing ? 'Đang đồng bộ...' : 'Đồng bộ Gmail'}</span>
-              </button>
-            }
+            toolbarRight={gmailSyncButton}
             emptyMessage={
               bankReceiptsCount > 0 
                 ? 'Không có biên lai chuyển tiền nào trong tháng đã chọn.' 
@@ -378,6 +380,7 @@ export const FlowTransactionsSection: React.FC<FlowTransactionsSectionProps> = (
             exportFilename="bien_lai_chua_xep_loai"
             searchPlaceholder="Tìm kiếm chưa xếp loại..."
             onRowDoubleClick={(row) => onOpenClassify(row)}
+            toolbarRight={gmailSyncButton}
             emptyMessage="Tất cả biên lai đã được phân loại đầy đủ."
           />
         </div>
@@ -391,6 +394,7 @@ export const FlowTransactionsSection: React.FC<FlowTransactionsSectionProps> = (
             pageSize={20}
             exportFilename="danh_sach_giao_dich"
             searchPlaceholder="Tìm kiếm giao dịch..."
+            toolbarRight={gmailSyncButton}
             onRowDoubleClick={(row) => onEditTransaction({
               id: row.id,
               desc: row.desc,

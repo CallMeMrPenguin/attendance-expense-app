@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase, invalidateClientCache } from '@/lib/supabase';
 import { UserProfile } from '@/types/auth';
 import { DEFAULT_CATEGORY_KEYWORDS } from '@/lib/constants/categories';
 import { useToast } from '@/context/ToastContext';
@@ -307,8 +307,11 @@ export function useBankReceipts({
     });
   }, [currentUser, updateReceiptsState, showToast, runBackgroundSave, setManualTransactions]);
 
-  const handleSyncReceipts = useCallback(async () => {
+  const handleSyncReceipts = useCallback(async (isSilent: boolean = false) => {
     try {
+      if (!isSilent) {
+        showToast('Đang kết nối Gmail quét biên lai mới...', 'info');
+      }
       const activeKeywords = { ...DEFAULT_CATEGORY_KEYWORDS, ...categoryKeywords };
 
       const res = await fetch('/api/bank-receipts/sync', {
@@ -319,6 +322,8 @@ export function useBankReceipts({
       if (res.ok) {
         const data = await res.json();
         if (data.success && Array.isArray(data.receipts)) {
+          invalidateClientCache('bank_receipts');
+          invalidateClientCache('manual_transactions');
           updateReceiptsState(data.receipts);
           if (Array.isArray(data.transactions) && currentUser?.id) {
             setManualTransactions(prev => {
@@ -334,36 +339,70 @@ export function useBankReceipts({
               return Array.from(map.values()).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
             });
           }
-          showToast('Đang quét Gmail ngầm tìm biên lai mới...', 'info');
+          const newCount = Number(data.newlySyncedCount) || 0;
+          if (!isSilent) {
+            if (newCount > 0) {
+              showToast(`Đồng bộ Gmail thành công! Đã tải thêm ${newCount} biên lai mới (Tổng: ${data.receipts.length}).`, 'success');
+            } else {
+              showToast(`Đã đồng bộ Gmail thành công! Dữ liệu hiện tại đã mới nhất (${data.receipts.length} biên lai).`, 'success');
+            }
+          } else if (newCount > 0) {
+            showToast(`Đã tự động đồng bộ ${newCount} biên lai mới từ Gmail!`, 'success');
+          }
         }
+      } else if (!isSilent) {
+        showToast('Không thể đồng bộ Gmail lúc này.', 'error');
       }
     } catch (err) {
       console.error('Error syncing receipts:', err);
-      showToast('Có lỗi xảy ra khi đồng bộ Gmail.', 'error');
+      if (!isSilent) {
+        showToast('Có lỗi xảy ra khi đồng bộ Gmail.', 'error');
+      }
     }
   }, [showToast, updateReceiptsState, currentUser?.id, deletedTxIds, categoryKeywords, setManualTransactions]);
 
-  // Trigger Gmail IMAP scan ONLY when user switches to Dòng tiền (Flow) tab from another tab
+  // Trigger Gmail IMAP scan when user switches to Dòng tiền (Flow) tab from another tab
   const prevActiveTabRef = useRef<string>(activeTab);
   useEffect(() => {
     if (activeTab === 'flow' && prevActiveTabRef.current !== 'flow' && currentUser?.id) {
-      handleSyncReceipts();
+      handleSyncReceipts(true);
     }
     prevActiveTabRef.current = activeTab;
   }, [activeTab, currentUser?.id, handleSyncReceipts]);
 
-  // Fetch bank receipts on mount and 60-second periodic poll
+  // Initial background Gmail sync on startup + periodic 2-minute Gmail IMAP poll (works 100% locally even when Web VPS is down)
+  const initialGmailSyncDoneRef = useRef(false);
+  useEffect(() => {
+    if (!currentUser?.id) return;
+
+    if (!initialGmailSyncDoneRef.current) {
+      initialGmailSyncDoneRef.current = true;
+      const timer = setTimeout(() => {
+        handleSyncReceipts(true);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [currentUser?.id, handleSyncReceipts]);
+
+  // Fetch bank receipts on mount, 60-second local poll, and 120-second Gmail IMAP background poll
   useEffect(() => {
     fetchBankReceipts();
 
-    const interval = setInterval(() => {
+    const localPollInterval = setInterval(() => {
       fetchBankReceipts();
     }, 60000);
 
+    const imapPollInterval = setInterval(() => {
+      if (currentUser?.id) {
+        handleSyncReceipts(true);
+      }
+    }, 120000);
+
     return () => {
-      clearInterval(interval);
+      clearInterval(localPollInterval);
+      clearInterval(imapPollInterval);
     };
-  }, [fetchBankReceipts]);
+  }, [fetchBankReceipts, currentUser?.id, handleSyncReceipts]);
 
   return {
     bankReceipts,

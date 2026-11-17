@@ -270,12 +270,12 @@ export async function stopImapIdleListener() {
 
 let isSyncInProgress = false;
 
-export async function syncBankReceipts(clientKeywords?: Record<string, string>, userIdParam?: string): Promise<BankReceipt[]> {
+export async function syncBankReceipts(clientKeywords?: Record<string, string>, userIdParam?: string, forceFull: boolean = false): Promise<BankReceipt[]> {
   if (isSyncInProgress) {
     console.log('[IMAP Service] Sync already in progress, skipping duplicate concurrent connection.');
     const clientAdmin = getSupabaseAdmin();
     try {
-      const { data: dbData } = await clientAdmin.from('bank_receipts').select('id, user_id, order_number, trans_date, debit_account, remitter_name, credit_account, beneficiary_name, beneficiary_bank, amount, details, status, type, category, created_at').order('created_at', { ascending: false });
+      const { data: dbData } = await clientAdmin.from('bank_receipts').select('*').order('trans_date', { ascending: false });
       if (dbData && dbData.length > 0) return dbData as BankReceipt[];
     } catch (e) {}
     return [];
@@ -283,13 +283,13 @@ export async function syncBankReceipts(clientKeywords?: Record<string, string>, 
 
   isSyncInProgress = true;
   try {
-    return await executeSyncBankReceipts(clientKeywords, userIdParam);
+    return await executeSyncBankReceipts(clientKeywords, userIdParam, forceFull);
   } finally {
     isSyncInProgress = false;
   }
 }
 
-async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, userIdParam?: string): Promise<BankReceipt[]> {
+async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, userIdParam?: string, forceFull: boolean = false): Promise<BankReceipt[]> {
   // Pause IDLE listener temporarily to prevent IMAP connection pool overflow
   await stopImapIdleListener();
 
@@ -327,8 +327,8 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
   // 1. Fetch existing receipts, rules, and category budgets from Supabase DB FIRST
   try {
     const [receiptsRes, rulesRes, budgetsRes] = await Promise.all([
-      clientAdmin.from('bank_receipts').select('id, user_id, order_number, trans_date, debit_account, remitter_name, credit_account, beneficiary_name, beneficiary_bank, amount, details, status, type, category, created_at').order('created_at', { ascending: false }),
-      clientAdmin.from('receipt_rules').select('id, user_id, match_field, match_value, target_type, target_category, created_at').order('created_at', { ascending: false }),
+      clientAdmin.from('bank_receipts').select('*').order('trans_date', { ascending: false }),
+      clientAdmin.from('receipt_rules').select('*').order('created_at', { ascending: false }),
       clientAdmin.from('category_budgets').select('*')
     ]);
 
@@ -433,11 +433,15 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
         searchResult = await client.search({ since: twelveMonthsAgo });
       }
 
-      const msgIds = Array.isArray(searchResult) ? searchResult : [];
+      const allMsgIds = Array.isArray(searchResult) ? searchResult : [];
+      // When local DB already has historical receipts, only fetch recent messages for fast (~1s) sync unless forceFull is set
+      const msgIds = (!forceFull && existingMap.size >= 100 && allMsgIds.length > 60)
+        ? allMsgIds.slice(-60)
+        : allMsgIds;
       let newlyParsedCount = 0;
 
       if (msgIds.length > 0) {
-        // Fast batch streaming IMAP fetch instead of 70 sequential roundtrips
+        // Fast batch streaming IMAP fetch
         for await (const message of client.fetch(msgIds, { source: true, envelope: true })) {
           if (!message || !message.source) continue;
 
@@ -481,8 +485,8 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
           const receiptId = `vcb-${cleanOrderNo}`;
 
           let isNewReceipt = !existingMap.has(receiptId);
-          if (isNewReceipt) {
-            // Also check for duplicates by (date, amount, details)
+          // Only fallback to fuzzy (date, amount, details) deduplication if order_number was synthetic (AUTO-...)
+          if (isNewReceipt && cleanOrderNo.startsWith('AUTO-')) {
             const rDate = (receiptData.trans_date || '').split(' ')[0];
             const rAmt = Number(receiptData.amount);
             const rDet = (receiptData.details || '').trim().toLowerCase();
@@ -561,6 +565,7 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
             trans_time: receiptData.trans_time || '',
             debit_account: receiptData.debit_account || '',
             remitter_name: receiptData.remitter_name || '',
+            sender_name: receiptData.sender_name || receiptData.remitter_name || '',
             credit_account: receiptData.credit_account || '',
             beneficiary_name: receiptData.beneficiary_name || '',
             beneficiary_bank: receiptData.beneficiary_bank || '',
@@ -574,10 +579,9 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
 
           existingMap.set(receiptId, newReceipt);
 
-          // Save directly to Supabase DB
+          // Save directly to local SQLite DB
           try {
-            const { trans_time, ...payloadWithoutTime } = newReceipt;
-            const receiptPayload = targetUserId ? { ...payloadWithoutTime, user_id: targetUserId } : payloadWithoutTime;
+            const receiptPayload = targetUserId ? { ...newReceipt, user_id: targetUserId } : newReceipt;
             const { error: dbErr } = await clientAdmin.from('bank_receipts').upsert(receiptPayload as any, { onConflict: 'id' });
             if (dbErr) console.error('[Supabase bank_receipts upsert error]', dbErr.message);
 
@@ -613,7 +617,7 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
 
   // Combine DB receipts with in-memory map of newly parsed IMAP receipts
   try {
-    const { data: dbData } = await clientAdmin.from('bank_receipts').select('id, user_id, order_number, trans_date, debit_account, remitter_name, credit_account, beneficiary_name, beneficiary_bank, amount, details, status, type, category, created_at').order('created_at', { ascending: false });
+    const { data: dbData } = await clientAdmin.from('bank_receipts').select('*').order('trans_date', { ascending: false });
     if (dbData && Array.isArray(dbData)) {
       dbData.forEach((r: BankReceipt) => {
         if (!existingMap.has(r.id)) {

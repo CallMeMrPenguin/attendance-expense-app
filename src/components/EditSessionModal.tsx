@@ -251,8 +251,22 @@ export default function EditSessionModal({
     });
 
     // Set recurring weekdays configs first so we can use it to populate siblings
+    const coDinhRelated = related.filter((s) => (s.loai_hinh || s.loai_hinh_lich) !== 'tam_thoi');
+    const dayCounts = new Map<string, { total: number; nonCancelled: number }>();
+    let maxDayCount = 0;
+    coDinhRelated.forEach((s) => {
+      const cur = dayCounts.get(s.day_of_week) || { total: 0, nonCancelled: 0 };
+      cur.total++;
+      if (s.status !== 'Hủy') cur.nonCancelled++;
+      dayCounts.set(s.day_of_week, cur);
+      if (cur.total > maxDayCount) maxDayCount = cur.total;
+    });
+
     const recurringMap: Record<string, RecurringDayConfig> = DAYS.reduce((acc, day) => {
-      const match = related.find((s) => s.day_of_week === day);
+      const dayMatches = coDinhRelated.filter((s) => s.day_of_week === day);
+      const stats = dayCounts.get(day);
+      const isMakeupOnly = maxDayCount >= 3 && stats && stats.total <= 2 && stats.nonCancelled <= 1 && day !== session.day_of_week;
+      const match = !isMakeupOnly && dayMatches.length > 0 ? dayMatches[0] : (day === session.day_of_week ? session : undefined);
       acc[day] = {
         checked: !!match,
         time: match ? formatCleanTimeString(match.time) : '18:00',
@@ -263,46 +277,48 @@ export default function EditSessionModal({
 
     setRecurringConfigs(recurringMap);
 
-    // Build unique list of all dates from existing sessions + checked recurring weekdays
-    const datesSet = new Set<string>();
-    related.forEach((s) => datesSet.add(s.date));
+    // Build siblingList preserving ALL existing sessions in `related` (even if multiple exist on the same date)
+    const siblingList: SiblingCheck[] = [];
+    const existingDatesWithDay = new Set<string>();
+
+    related
+      .slice()
+      .sort((a, b) => a.date.localeCompare(b.date) || (a.time || '').localeCompare(b.time || ''))
+      .forEach((s) => {
+        const dateObj = new Date(s.date);
+        const dayIndex = dateObj.getUTCDay();
+        const dayMapIndex = dayIndex === 0 ? 6 : dayIndex - 1;
+        const dayOfWeekStr = s.day_of_week || DAYS[dayMapIndex];
+        existingDatesWithDay.add(s.date);
+        siblingList.push({
+          id: s.id,
+          date: s.date,
+          day_of_week: dayOfWeekStr,
+          checked: true,
+          time: formatCleanTimeString(s.time),
+          duration: s.duration,
+        });
+      });
+
     Object.entries(recurringMap).forEach(([day, conf]) => {
       if (conf.checked) {
         const dates = getDatesForWeekday(session.month_year, day);
-        dates.forEach((d) => datesSet.add(d));
+        dates.forEach((dStr) => {
+          if (!existingDatesWithDay.has(dStr)) {
+            siblingList.push({
+              id: undefined,
+              date: dStr,
+              day_of_week: day,
+              checked: false,
+              time: conf.time || '18:00',
+              duration: conf.duration || 2,
+            });
+          }
+        });
       }
     });
 
-    const sortedDates = Array.from(datesSet).sort();
-
-    const siblingList: SiblingCheck[] = sortedDates.map((dStr) => {
-      const match = related.find((s) => s.date === dStr);
-      const dateObj = new Date(dStr);
-      const dayIndex = dateObj.getUTCDay();
-      const dayMapIndex = dayIndex === 0 ? 6 : dayIndex - 1;
-      const dayOfWeekStr = DAYS[dayMapIndex];
-
-      if (match) {
-        return {
-          id: match.id,
-          date: dStr,
-          day_of_week: dayOfWeekStr,
-          checked: true,
-          time: formatCleanTimeString(match.time),
-          duration: match.duration,
-        };
-      } else {
-        return {
-          id: undefined,
-          date: dStr,
-          day_of_week: dayOfWeekStr,
-          checked: false,
-          time: recurringMap[dayOfWeekStr]?.time || '18:00',
-          duration: recurringMap[dayOfWeekStr]?.duration || 2,
-        };
-      }
-    });
-
+    siblingList.sort((a, b) => a.date.localeCompare(b.date) || (a.time || '').localeCompare(b.time || ''));
     setSiblings(siblingList);
     
     // Collapse by default when switching sessions
@@ -613,6 +629,65 @@ export default function EditSessionModal({
           .upsert(sanitizedSessions);
       }
 
+      // If editing a recurring (co_dinh) schedule, also reconcile future months (> session.month_year) so removed weekdays never reappear when switching months
+      if (loaiHinh === 'co_dinh' && session?.month_year && studentName.trim()) {
+        try {
+          const checkedDayConfigs = new Map<string, RecurringDayConfig>();
+          Object.entries(recurringConfigs).forEach(([day, cfg]) => {
+            if (cfg.checked) checkedDayConfigs.set(day, cfg);
+          });
+
+          const { data: futureRows } = await supabase
+            .from('sessions')
+            .select('*')
+            .ilike('job_name', studentName.trim())
+            .gt('month_year', session.month_year);
+
+          if (futureRows && Array.isArray(futureRows) && futureRows.length > 0) {
+            const futureDeleteIds: string[] = [];
+            const futureUpserts: any[] = [];
+            const seenDateDay = new Set<string>();
+
+            futureRows.forEach((fRow: any) => {
+              const fTeacher = (fRow.user_name || fRow.teacher_name || '').trim().toLowerCase();
+              if (assignedTeacherName && fTeacher && fTeacher !== assignedTeacherName.trim().toLowerCase()) return;
+              if ((fRow.loai_hinh || fRow.loai_hinh_lich) === 'tam_thoi') return;
+
+              const dayCfg = checkedDayConfigs.get(fRow.day_of_week);
+              const dateKey = `${fRow.date}_${fRow.day_of_week}`;
+              if (!dayCfg || seenDateDay.has(dateKey)) {
+                futureDeleteIds.push(fRow.id);
+              } else {
+                seenDateDay.add(dateKey);
+                if (fRow.status === 'Chưa làm' || fRow.status === 'Chưa dạy') {
+                  futureUpserts.push(sanitizeSessionPayload({
+                    ...fRow,
+                    job_name: studentName.trim(),
+                    student_name: studentName.trim(),
+                    time: formatCleanTimeString(dayCfg.time),
+                    duration: Number(dayCfg.duration),
+                    price: Number(price),
+                    color: color,
+                    income_category: incomeCategory,
+                    auto_check_in: autoCheckin,
+                    auto_checkin: autoCheckin,
+                  }));
+                }
+              }
+            });
+
+            if (futureDeleteIds.length > 0) {
+              await supabase.from('sessions').delete().in('id', futureDeleteIds);
+            }
+            if (futureUpserts.length > 0) {
+              await supabase.from('sessions').upsert(futureUpserts);
+            }
+          }
+        } catch (fErr) {
+          console.warn('Error reconciling future month schedules:', fErr);
+        }
+      }
+
       onSave(); // Silent background refresh
     } catch (err: any) {
       console.error('Background update error in EditSessionModal:', err);
@@ -667,6 +742,9 @@ export default function EditSessionModal({
 
         const isCurrent = sib.id === session.id;
         const matchOld = oldSiblings.find((s) => s.id === sib.id || (sib.id === undefined && s.date === sib.date));
+        // Extra makeup sessions on weekdays not checked in recurringConfigs should be saved as 'tam_thoi' so they don't pollute next month's fixed schedule
+        const isRecurringDay = !!recurringConfigs[sib.day_of_week]?.checked;
+        const effectiveLoaiHinh = (loaiHinh === 'co_dinh' && isRecurringDay) ? 'co_dinh' : 'tam_thoi';
 
         const baseItem: any = {
           user_name: assignedTeacherName,
@@ -678,8 +756,8 @@ export default function EditSessionModal({
           duration: Number(sib.duration),
           price: Number(price),
           color: sessionColor,
-          loai_hinh: loaiHinh,
-          loai_hinh_lich: loaiHinh,
+          loai_hinh: effectiveLoaiHinh,
+          loai_hinh_lich: effectiveLoaiHinh,
           income_category: incomeCategory,
           category: incomeCategory,
           auto_checkin: autoCheckin,

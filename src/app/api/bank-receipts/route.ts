@@ -13,11 +13,11 @@ export async function GET() {
       const [receiptsRes, rulesRes] = await Promise.all([
         supabaseAdmin
           .from('bank_receipts')
-          .select('id, user_id, order_number, trans_date, debit_account, remitter_name, credit_account, beneficiary_name, beneficiary_bank, amount, details, status, type, category, created_at')
-          .order('created_at', { ascending: false }),
+          .select('*')
+          .order('trans_date', { ascending: false }),
         supabaseAdmin
           .from('receipt_rules')
-          .select('id, user_id, match_field, match_value, target_type, target_category, created_at')
+          .select('*')
           .order('created_at', { ascending: false })
       ]);
       receipts = receiptsRes.data || [];
@@ -82,8 +82,8 @@ export async function POST(req: Request) {
       try {
         const { data } = await supabaseAdmin
           .from('bank_receipts')
-          .select('id, user_id, order_number, trans_date, debit_account, remitter_name, credit_account, beneficiary_name, beneficiary_bank, amount, details, status, type, category, created_at')
-          .order('created_at', { ascending: false });
+          .select('*')
+          .order('trans_date', { ascending: false });
         finalReceipts = (data as BankReceipt[]) || [];
       } catch (e) {}
 
@@ -104,7 +104,7 @@ export async function POST(req: Request) {
     try {
       const { data } = await supabaseAdmin
         .from('bank_receipts')
-        .select('id, user_id, order_number, trans_date, debit_account, remitter_name, credit_account, beneficiary_name, beneficiary_bank, amount, details, status, type, category, created_at')
+        .select('*')
         .eq('id', receiptId)
         .maybeSingle();
       if (data) receipt = data as BankReceipt;
@@ -235,7 +235,7 @@ export async function POST(req: Request) {
       try {
         const { data } = await supabaseAdmin
           .from('bank_receipts')
-          .select('id, user_id, order_number, trans_date, debit_account, remitter_name, credit_account, beneficiary_name, beneficiary_bank, amount, details, status, type, category, created_at')
+          .select('*')
           .eq('status', 'unclassified');
         dbUnclassified = (data as BankReceipt[]) || [];
       } catch (e) {}
@@ -286,8 +286,8 @@ export async function POST(req: Request) {
     try {
       const { data } = await supabaseAdmin
         .from('bank_receipts')
-        .select('id, user_id, order_number, trans_date, debit_account, remitter_name, credit_account, beneficiary_name, beneficiary_bank, amount, details, status, type, category, created_at')
-        .order('created_at', { ascending: false });
+        .select('*')
+        .order('trans_date', { ascending: false });
       finalReceipts = (data as BankReceipt[]) || [];
     } catch (e) {}
 

@@ -156,12 +156,32 @@ def main():
             print(f"[LOI] Cai dat that bai: {e}")
             sys.exit(1)
 
-    # 3. Kiểm tra xem đã có bản build production (.next) hay chưa
+    # 3. Kiểm tra xem đã có bản build production (.next) hay chưa hoặc mã nguồn có thay đổi mới hơn bản build không
     next_build_path = os.path.join(SCRIPT_DIR, ".next")
+    build_id_path = os.path.join(next_build_path, "BUILD_ID")
+    src_dir_path = os.path.join(SCRIPT_DIR, "src")
     is_dev = os.environ.get("NEXT_DEV", "").strip().lower() in ("1", "true", "yes")
 
-    if not is_dev and not os.path.exists(next_build_path):
-        print("[INFO] Chua phat hien ban build toi uu (.next). Dang tao build production...")
+    needs_build = not os.path.exists(build_id_path)
+    if not is_dev and not needs_build and os.path.exists(src_dir_path):
+        try:
+            build_mtime = os.path.getmtime(build_id_path)
+            latest_src_mtime = 0.0
+            for root, _, files in os.walk(src_dir_path):
+                for fname in files:
+                    if fname.endswith((".ts", ".tsx", ".js", ".jsx", ".css")):
+                        fpath = os.path.join(root, fname)
+                        mtime = os.path.getmtime(fpath)
+                        if mtime > latest_src_mtime:
+                            latest_src_mtime = mtime
+            if latest_src_mtime > build_mtime + 1.0:
+                print("[INFO] Phat hien cap nhat ma nguon moi hon ban build hien tai. Dang dong goi lai...")
+                needs_build = True
+        except Exception:
+            pass
+
+    if not is_dev and needs_build:
+        print("[INFO] Dang tao build production toi uu (.next)...")
         try:
             subprocess.run([npm_cmd, "run", "build"], cwd=SCRIPT_DIR, check=True)
             print("[OK] Dong goi ung dung thanh cong.")

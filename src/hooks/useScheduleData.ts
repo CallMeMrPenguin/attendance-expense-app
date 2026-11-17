@@ -345,54 +345,122 @@ export function useScheduleData({
       );
       if (coDinhItems.length === 0) return currentMonthData;
 
-      const priorMonths = Array.from(new Set(coDinhItems.map((s: any) => s.month_year))).sort();
-      const mostRecentPriorMonth = priorMonths[priorMonths.length - 1];
-      if (!mostRecentPriorMonth) return currentMonthData;
-
-      const latestPriorSessions = coDinhItems.filter((s: any) => s.month_year === mostRecentPriorMonth);
-
-      const existingStudentNames = new Set(
-        currentMonthData.map((s: any) => (s.student_name || s.job_name || '').trim().toLowerCase())
-      );
-
-      const studentsToCarryForwardMap = new Map<string, any[]>();
-      for (const s of latestPriorSessions) {
+      // Group prior co_dinh sessions by student and find each student's most recent prior month
+      const studentPriorByMonth = new Map<string, Map<string, any[]>>();
+      for (const s of coDinhItems) {
         const sName = (s.student_name || s.job_name || '').trim();
         if (!sName) continue;
         const key = sName.toLowerCase();
+        if (monthExclusions.includes(key) || allExclusions.includes(key)) continue;
 
-        if (monthExclusions.includes(key) || allExclusions.includes(key)) {
-          continue;
+        if (!studentPriorByMonth.has(key)) {
+          studentPriorByMonth.set(key, new Map());
         }
-
-        if (!existingStudentNames.has(key)) {
-          if (!studentsToCarryForwardMap.has(key)) {
-            studentsToCarryForwardMap.set(key, []);
-          }
-          studentsToCarryForwardMap.get(key)!.push(s);
+        const monthMap = studentPriorByMonth.get(key)!;
+        if (!monthMap.has(s.month_year)) {
+          monthMap.set(s.month_year, []);
         }
+        monthMap.get(s.month_year)!.push(s);
       }
 
-      if (studentsToCarryForwardMap.size === 0) {
-        return currentMonthData;
-      }
+      // Extract true weekly recurring templates per student from their most recent prior month
+      const studentValidTemplates = new Map<string, Map<string, any>>();
+      studentPriorByMonth.forEach((monthMap, studentKey) => {
+        const months = Array.from(monthMap.keys()).sort();
+        const latestMonth = months[months.length - 1];
+        if (!latestMonth) return;
+        const sessionsList = monthMap.get(latestMonth) || [];
 
-      const newCandidates: any[] = [];
-      studentsToCarryForwardMap.forEach((sessionsList) => {
-        const patternMap = new Map<string, any>();
+        // Group by day_of_week to distinguish true weekly recurring days from 1-2 time makeup sessions
+        const byDay = new Map<string, any[]>();
         sessionsList.forEach((s) => {
-          const patternKey = `${s.day_of_week}_${s.time}`;
-          if (!patternMap.has(patternKey)) {
-            patternMap.set(patternKey, s);
-          }
+          const day = s.day_of_week;
+          if (!day) return;
+          if (!byDay.has(day)) byDay.set(day, []);
+          byDay.get(day)!.push(s);
         });
 
-        patternMap.forEach((templateSession) => {
+        let maxDayCount = 0;
+        byDay.forEach((list) => {
+          if (list.length > maxDayCount) maxDayCount = list.length;
+        });
+
+        const dayTemplateMap = new Map<string, any>();
+        byDay.forEach((list, day) => {
+          const nonCancelled = list.filter((s) => s.status !== 'Hủy');
+          // If student has regular weekly slots (>= 3 sessions/month), ignore 1-2 time makeup/cancelled days
+          if (maxDayCount >= 3 && list.length <= 2 && nonCancelled.length <= 1) {
+            return;
+          }
+          if (list.length === 0) return;
+
+          // Pick the most frequent time on this weekday so we never generate duplicate sessions on the same day
+          const timeCounts = new Map<string, { count: number; template: any }>();
+          list.forEach((s) => {
+            const cleanT = formatCleanTimeString(s.time);
+            const cur = timeCounts.get(cleanT);
+            if (!cur) {
+              timeCounts.set(cleanT, { count: 1, template: s });
+            } else {
+              cur.count++;
+            }
+          });
+
+          let bestTemplate = list[0];
+          let bestCount = -1;
+          timeCounts.forEach(({ count, template }) => {
+            if (count > bestCount) {
+              bestCount = count;
+              bestTemplate = template;
+            }
+          });
+
+          dayTemplateMap.set(day, bestTemplate);
+        });
+
+        if (dayTemplateMap.size > 0) {
+          studentValidTemplates.set(studentKey, dayTemplateMap);
+        }
+      });
+
+      // Clean up any stale auto-generated (fix_...) sessions in currentMonthData that no longer match prior month's recurring days/times
+      const staleAutoIdsToDelete: string[] = [];
+      let cleanedCurrentMonthData = currentMonthData;
+
+      currentMonthData.forEach((s: any) => {
+        const sId = String(s.id || '');
+        if (!sId.startsWith('fix_')) return;
+        const sName = (s.student_name || s.job_name || '').trim().toLowerCase();
+        const validDaysMap = studentValidTemplates.get(sName);
+        if (!validDaysMap) return;
+
+        const matchingTemplate = validDaysMap.get(s.day_of_week);
+        if (!matchingTemplate || formatCleanTimeString(matchingTemplate.time) !== formatCleanTimeString(s.time)) {
+          staleAutoIdsToDelete.push(sId);
+        }
+      });
+
+      if (staleAutoIdsToDelete.length > 0) {
+        cleanedCurrentMonthData = currentMonthData.filter((s: any) => !staleAutoIdsToDelete.includes(String(s.id || '')));
+        try {
+          await supabase.from('sessions').delete().in('id', staleAutoIdsToDelete);
+        } catch (e) {}
+      }
+
+      const existingStudentNames = new Set(
+        cleanedCurrentMonthData.map((s: any) => (s.student_name || s.job_name || '').trim().toLowerCase())
+      );
+
+      const newCandidates: any[] = [];
+      studentValidTemplates.forEach((dayTemplateMap, studentKey) => {
+        if (existingStudentNames.has(studentKey)) return;
+
+        dayTemplateMap.forEach((templateSession) => {
           const dates = getDatesForWeekday(targetMonth, templateSession.day_of_week);
           const sJob = templateSession.job_name || templateSession.student_name;
           const cleanTeacher = cleanString(teacherName).replace(/[^a-z0-9]/g, '');
           const cleanJob = cleanString(sJob).replace(/[^a-z0-9]/g, '');
-          const cleanTime = (templateSession.time || '').replace(/[^0-9]/g, '');
+          const cleanTime = formatCleanTimeString(templateSession.time).replace(/[^0-9]/g, '');
 
           dates.forEach((dStr) => {
             const deterministicId = `fix_${cleanTeacher}_${cleanJob}_${dStr.replace(/-/g, '')}_${cleanTime}`;
@@ -420,7 +488,7 @@ export function useScheduleData({
         });
       });
 
-      if (newCandidates.length === 0) return currentMonthData;
+      if (newCandidates.length === 0) return cleanedCurrentMonthData;
 
       let { data: insertedData, error: insertErr } = await (supabase.from('sessions') as any)
         .upsert(newCandidates, { onConflict: 'id' });
@@ -433,10 +501,11 @@ export function useScheduleData({
       }
 
       if (!insertErr && insertedData && insertedData.length > 0) {
-        return [...currentMonthData, ...insertedData];
+        return [...cleanedCurrentMonthData, ...insertedData];
       } else if (newCandidates.length > 0) {
-        return [...currentMonthData, ...newCandidates];
+        return [...cleanedCurrentMonthData, ...newCandidates];
       }
+      return cleanedCurrentMonthData;
     } catch (err) {
       console.error('Error syncing fixed schedules:', err);
     }
