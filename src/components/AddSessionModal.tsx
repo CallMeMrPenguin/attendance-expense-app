@@ -246,13 +246,8 @@ export default function AddSessionModal({
         }
       } else {
         setSelectedExistingScheduleName(null);
-        if (preSelectedDate) {
-          setIsSingleSession(true);
-          setSingleDate(preSelectedDate);
-        } else {
-          setIsSingleSession(false);
-          setSingleDate(`${selectedMonth}-01`);
-        }
+        setIsSingleSession(false);
+        setSingleDate(preSelectedDate || `${selectedMonth}-01`);
         setStudentName('');
         setStudentCount(1);
         setStudentNames([]);
@@ -265,10 +260,18 @@ export default function AddSessionModal({
         setAutoCheckIn(true);
         setSingleTime('18:00');
         setSingleDuration(2);
+        let defaultDay = 'Thứ 2';
+        if (preSelectedDate) {
+          const dObj = new Date(preSelectedDate);
+          if (!isNaN(dObj.getTime())) {
+            const dIdx = dObj.getUTCDay();
+            defaultDay = DAYS[dIdx === 0 ? 6 : dIdx - 1] || 'Thứ 2';
+          }
+        }
         setDayConfigs(
           DAYS.reduce((acc, day) => {
             acc[day] = {
-              checked: day === 'Thứ 2',
+              checked: day === defaultDay,
               time: '18:00',
               duration: 2,
             };
@@ -503,11 +506,7 @@ export default function AddSessionModal({
       } else {
         const selectedDays = Object.entries(dayConfigs).filter(([_, config]) => config.checked);
         selectedDays.forEach(([day, config]) => {
-          let dates = getDatesForWeekday(selectedMonth, day);
-          if (loaiHinh === 'tam_thoi' && dates.length > 0) {
-            dates.sort((a, b) => a.localeCompare(b));
-            dates = [dates[0]];
-          }
+          const dates = getDatesForWeekday(selectedMonth, day);
           dates.forEach((dStr) => {
             candidates.push({
               id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : undefined,
@@ -525,8 +524,8 @@ export default function AddSessionModal({
               date: dStr,
               auto_check_in: autoCheckIn,
               auto_checkin: autoCheckIn,
-              loai_hinh_lich: loaiHinh,
-              loai_hinh: loaiHinh,
+              loai_hinh_lich: 'co_dinh',
+              loai_hinh: 'co_dinh',
               income_category: incomeCategory,
               student_count: studentCount,
               price_per_student: pPerStudent,
@@ -947,9 +946,13 @@ export default function AddSessionModal({
                 </label>
                 <CustomSelect
                   value={loaiHinh}
-                  onChange={(val) => setLoaiHinh(val as any)}
+                  onChange={(val) => {
+                    const nextType = val as 'co_dinh' | 'tam_thoi';
+                    setLoaiHinh(nextType);
+                    setIsSingleSession(nextType === 'tam_thoi');
+                  }}
                   options={[
-                    { value: 'co_dinh', label: 'Cố định' },
+                    { value: 'co_dinh', label: 'Cố định (Cả tháng)' },
                     { value: 'tam_thoi', label: 'Tạm thời / Học bù (1 buổi lẻ)' },
                   ]}
                   placeholder="Chọn loại hình"
@@ -978,7 +981,10 @@ export default function AddSessionModal({
             <div className="border-t border-slate-100 dark:border-slate-850 pt-4 flex gap-4">
               <button
                 type="button"
-                onClick={() => setIsSingleSession(false)}
+                onClick={() => {
+                  setIsSingleSession(false);
+                  setLoaiHinh('co_dinh');
+                }}
                 className={`flex-1 py-2.5 text-xs font-bold rounded-xl border transition-all ${
                   !isSingleSession
                     ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/40 shadow-sm'
@@ -989,7 +995,10 @@ export default function AddSessionModal({
               </button>
               <button
                 type="button"
-                onClick={() => setIsSingleSession(true)}
+                onClick={() => {
+                  setIsSingleSession(true);
+                  setLoaiHinh('tam_thoi');
+                }}
                 className={`flex-1 py-2.5 text-xs font-bold rounded-xl border transition-all ${
                   isSingleSession
                     ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/40 shadow-sm'

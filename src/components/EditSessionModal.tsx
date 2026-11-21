@@ -262,8 +262,11 @@ export default function EditSessionModal({
       if (cur.total > maxDayCount) maxDayCount = cur.total;
     });
 
+    // If the schedule has no full-month recurring days yet (maxDayCount < 3), include all related sessions so 1-week schedules retain all their weekdays
+    const effectiveRelated = coDinhRelated.length > 0 && maxDayCount >= 3 ? coDinhRelated : related;
+
     const recurringMap: Record<string, RecurringDayConfig> = DAYS.reduce((acc, day) => {
-      const dayMatches = coDinhRelated.filter((s) => s.day_of_week === day);
+      const dayMatches = effectiveRelated.filter((s) => s.day_of_week === day);
       const stats = dayCounts.get(day);
       const isMakeupOnly = maxDayCount >= 3 && stats && stats.total <= 2 && stats.nonCancelled <= 1 && day !== session.day_of_week;
       const match = !isMakeupOnly && dayMatches.length > 0 ? dayMatches[0] : (day === session.day_of_week ? session : undefined);
@@ -300,6 +303,9 @@ export default function EditSessionModal({
         });
       });
 
+    const isInitCoDinh = (session.loai_hinh || session.loai_hinh_lich) !== 'tam_thoi';
+    const shouldAutoCheckMissingMonthDates = isInitCoDinh && maxDayCount < 3;
+
     Object.entries(recurringMap).forEach(([day, conf]) => {
       if (conf.checked) {
         const dates = getDatesForWeekday(session.month_year, day);
@@ -309,7 +315,7 @@ export default function EditSessionModal({
               id: undefined,
               date: dStr,
               day_of_week: day,
-              checked: false,
+              checked: shouldAutoCheckMissingMonthDates,
               time: conf.time || '18:00',
               duration: conf.duration || 2,
             });
@@ -1119,7 +1125,34 @@ export default function EditSessionModal({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setLoaiHinh('co_dinh')}
+                    onClick={() => {
+                      setLoaiHinh('co_dinh');
+                      // Automatically populate and check all dates of checked recurring weekdays for the whole month
+                      setSiblings((prev) => {
+                        const updated = [...prev];
+                        Object.entries(recurringConfigs).forEach(([day, conf]) => {
+                          if (conf.checked) {
+                            const dates = getDatesForWeekday(session.month_year, day);
+                            dates.forEach((dStr) => {
+                              const existingIdx = updated.findIndex((s) => s.date === dStr && s.day_of_week === day);
+                              if (existingIdx >= 0) {
+                                updated[existingIdx] = { ...updated[existingIdx], checked: true };
+                              } else {
+                                updated.push({
+                                  id: undefined,
+                                  date: dStr,
+                                  day_of_week: day,
+                                  checked: true,
+                                  time: conf.time || '18:00',
+                                  duration: conf.duration || 2,
+                                });
+                              }
+                            });
+                          }
+                        });
+                        return updated.sort((a, b) => a.date.localeCompare(b.date) || (a.time || '').localeCompare(b.time || ''));
+                      });
+                    }}
                     className={`flex-1 py-1.5 text-[11px] font-bold rounded-lg transition-all ${
                       loaiHinh === 'co_dinh'
                         ? 'bg-indigo-500 text-white shadow-sm'
