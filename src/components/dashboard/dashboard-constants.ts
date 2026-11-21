@@ -27,7 +27,7 @@ export interface DashboardTabProps {
   getSelectedMonthsExpense: () => number;
   getTotalIncome: () => number;
   getTotalExpense: () => number;
-  getActualCategoryAmount: (cat: string) => number;
+  getActualCategoryAmount: (cat: string, targetType?: 'income' | 'expense') => number;
   getPrecedingRollOverBalance?: (monthStr: string) => number;
   
   handleOpenTxModal: (type: 'income' | 'expense' | 'saving' | 'exchange') => void;

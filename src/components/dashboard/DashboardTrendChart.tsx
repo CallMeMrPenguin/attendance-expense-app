@@ -6,7 +6,7 @@ import {
   ZoomIn, 
   ZoomOut 
 } from 'lucide-react';
-import { formatVND } from '@/lib/utils';
+import { formatVND, trunc1Dec } from '@/lib/utils';
 
 export interface ChartSeriesItem {
   title: string;
@@ -389,7 +389,7 @@ export function DashboardTrendChart({
                       fontWeight="800"
                       textAnchor="end"
                     >
-                      {val >= 1000000 ? `${(val / 1000000).toFixed(0)}M` : formatVND(val)}
+                      {val >= 1000000 ? `${trunc1Dec(val / 1000000)}M` : formatVND(val)}
                     </text>
                   </g>
                 );

@@ -111,12 +111,21 @@ export function getLocalSyncChanges(sinceIso: string | null) {
     try {
       let rows: any[] = [];
       if (sinceIso) {
-        // Lấy các bản ghi được tạo hoặc cập nhật sau mốc sinceIso
-        rows = db.prepare(`
-          SELECT * FROM "${table}" 
-          WHERE (updated_at IS NOT NULL AND updated_at > ?) 
-             OR (created_at IS NOT NULL AND created_at > ?)
-        `).all(sinceIso, sinceIso);
+        const cols = db.prepare(`PRAGMA table_info("${table}")`).all().map((c: any) => c.name);
+        const colSet = new Set(cols);
+        const tsPredicates: string[] = [];
+        const tsParams: any[] = [];
+        for (const col of ['updated_at', 'created_at', 'deleted_at']) {
+          if (colSet.has(col)) {
+            tsPredicates.push(`("${col}" IS NOT NULL AND "${col}" > ?)`);
+            tsParams.push(sinceIso);
+          }
+        }
+        if (tsPredicates.length > 0) {
+          rows = db.prepare(`SELECT * FROM "${table}" WHERE ${tsPredicates.join(' OR ')}`).all(...tsParams);
+        } else {
+          rows = db.prepare(`SELECT * FROM "${table}"`).all();
+        }
       } else {
         rows = db.prepare(`SELECT * FROM "${table}"`).all();
       }

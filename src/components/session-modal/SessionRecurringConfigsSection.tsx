@@ -82,7 +82,7 @@ export const SessionRecurringConfigsSection: React.FC<SessionRecurringConfigsSec
                     key={sib.id || sib.date}
                     className={`flex items-center justify-between gap-2.5 p-2 rounded-xl border ${
                       isCurrent
-                        ? 'bg-indigo-50/40 dark:bg-indigo-950/25 border-indigo-150 dark:border-indigo-900/40'
+                        ? 'bg-indigo-50/40 dark:bg-indigo-950/25 border-indigo-100 dark:border-indigo-900/40'
                         : 'bg-slate-50/40 dark:bg-slate-950/20 border-slate-200/50 dark:border-slate-850 hover:bg-slate-50 dark:hover:bg-slate-800'
                     }`}
                   >
@@ -91,7 +91,7 @@ export const SessionRecurringConfigsSection: React.FC<SessionRecurringConfigsSec
                         type="checkbox"
                         checked={sib.checked}
                         onChange={(e) => onSiblingCheck(sib.id || sib.date, e.target.checked)}
-                        className="h-4 w-4 rounded border-slate-350 dark:border-slate-700 text-indigo-650 focus:ring-indigo-500 cursor-pointer"
+                        className="h-4 w-4 rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                       />
                       <span className={`text-xs font-semibold truncate ${isCurrent ? 'text-indigo-950 dark:text-indigo-300 font-bold' : 'text-slate-700 dark:text-slate-300'}`}>
                         {formatDateVN(sib.date)} ({formatCleanTimeString(sib.time)} - {getEndTime(sib.time, sib.duration)})
@@ -206,7 +206,7 @@ export const SessionRecurringConfigsSection: React.FC<SessionRecurringConfigsSec
 
         {!recurringCollapsed && (
           <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-850 space-y-3">
-            <p className="text-slate-450 dark:text-slate-500 text-[10px] leading-tight">
+            <p className="text-slate-400 dark:text-slate-500 text-[10px] leading-tight">
               Điều chỉnh lịch học định kỳ trong tuần để tự động tái tạo (thêm/xóa) các buổi dạy trong tháng:
             </p>
             <div className="space-y-2">
@@ -227,9 +227,9 @@ export const SessionRecurringConfigsSection: React.FC<SessionRecurringConfigsSec
                         type="checkbox"
                         checked={config.checked}
                         onChange={(e) => onRecurringCheck(day, e.target.checked)}
-                        className="h-3.5 w-3.5 rounded border-slate-350 dark:border-slate-700 text-indigo-650 focus:ring-indigo-500"
+                        className="h-3.5 w-3.5 rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500"
                       />
-                      <span className={config.checked ? 'text-indigo-900 dark:text-indigo-300' : 'text-slate-550 dark:text-slate-455'}>
+                      <span className={config.checked ? 'text-indigo-900 dark:text-indigo-300' : 'text-slate-500 dark:text-slate-400'}>
                         {day}
                       </span>
                     </label>

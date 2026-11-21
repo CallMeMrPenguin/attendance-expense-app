@@ -297,7 +297,7 @@ export default function TransactionModal({
           {/* Row 1: Description Input (for income/expense) OR Saving Fund selection (for saving) */}
           <div className={modalTxType === 'saving' ? 'hidden' : 'block'}>
             <div className="space-y-1.5">
-              <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Mô tả giao dịch</label>
+              <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Mô tả giao dịch</label>
               <input
                 type="text"
                 placeholder="Ví dụ: Ăn trưa, Nhận lương tháng..."
@@ -312,7 +312,7 @@ export default function TransactionModal({
           <div className={modalTxType === 'saving' ? 'block' : 'hidden'}>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Quỹ tiết kiệm</label>
+                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Quỹ tiết kiệm</label>
                 <CustomSelect
                   value={modalSavingFund}
                   onChange={(val) => setModalSavingFund(val as any)}
@@ -324,7 +324,7 @@ export default function TransactionModal({
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Hành động</label>
+                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Hành động</label>
                 <CustomSelect
                   value={modalSavingAction}
                   onChange={(val) => setModalSavingAction(val as any)}
@@ -340,7 +340,7 @@ export default function TransactionModal({
           {/* Amount & Date Grid */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Số tiền (đ)</label>
+              <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Số tiền (đ)</label>
               <input
                 type="text"
                 placeholder="Nhập số tiền..."
@@ -352,7 +352,7 @@ export default function TransactionModal({
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Ngày ghi nhận</label>
+              <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Ngày ghi nhận</label>
               <CustomDatePicker
                 value={modalDate}
                 onChange={setModalDate}

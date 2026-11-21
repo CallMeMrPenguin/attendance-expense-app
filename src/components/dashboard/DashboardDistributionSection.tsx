@@ -7,7 +7,7 @@ import {
   AlertCircle, 
   CheckCircle2 
 } from 'lucide-react';
-import { formatVND } from '@/lib/utils';
+import { formatVND, trunc1Dec } from '@/lib/utils';
 import MaterialSymbol from '../MaterialSymbol';
 
 interface PieSlice {
@@ -99,7 +99,7 @@ export function DashboardDistributionSection({
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                   <span className="text-[9px] font-extrabold text-emerald-400 uppercase leading-none text-glow-green">Thu Nhập</span>
                   <span className="text-xs font-black text-white leading-none mt-1 truncate max-w-[85px]" title={formatVND(totalSelectedInc)}>
-                    {totalSelectedInc >= 1000000 ? `${(totalSelectedInc / 1000000).toFixed(1)}M` : formatVND(totalSelectedInc)}
+                    {totalSelectedInc >= 1000000 ? `${trunc1Dec(totalSelectedInc / 1000000)}M` : formatVND(totalSelectedInc)}
                   </span>
                 </div>
               </div>
@@ -170,7 +170,7 @@ export function DashboardDistributionSection({
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                   <span className="text-[9px] font-extrabold text-rose-400 uppercase leading-none text-glow-red">Chi Tiêu</span>
                   <span className="text-xs font-black text-white leading-none mt-1 truncate max-w-[85px]" title={formatVND(totalSelectedExp)}>
-                    {totalSelectedExp >= 1000000 ? `${(totalSelectedExp / 1000000).toFixed(1)}M` : formatVND(totalSelectedExp)}
+                    {totalSelectedExp >= 1000000 ? `${trunc1Dec(totalSelectedExp / 1000000)}M` : formatVND(totalSelectedExp)}
                   </span>
                 </div>
               </div>

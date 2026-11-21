@@ -18,10 +18,13 @@ async function verifyAdmin(request: NextRequest) {
   return getSupabaseAdmin();
 }
 
-// Direct purge and cleanup endpoint
-export async function GET() {
+// Direct purge and cleanup endpoint (Admin only)
+export async function GET(request: NextRequest) {
   try {
-    const adminClient = getSupabaseAdmin();
+    const adminClient = await verifyAdmin(request);
+    if (!adminClient) {
+      return NextResponse.json({ error: 'Unauthorized: Admin access required' }, { status: 403 });
+    }
     
     // Purge Giáo Viên 1 records
     await (adminClient.from('sessions') as any).delete().eq('teacher_name', 'Giáo Viên 1');

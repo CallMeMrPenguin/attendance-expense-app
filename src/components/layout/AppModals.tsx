@@ -37,7 +37,7 @@ interface AppModalsProps {
   selectedMonth: string;
   sessions: Session[];
   teachers: string[];
-  onClearScheduleExclusion: (jobName: string, month: string) => Promise<void>;
+  onClearScheduleExclusion: (jobName: string, month: string, teacherOverride?: string) => Promise<void>;
   sessionStudentConfigs: Record<string, any>;
   onSaveSessionStudentConfigs: (teacherName: string, configs: Record<string, any>, userId?: string) => Promise<void>;
   availableIncomeCats: string[];
@@ -192,7 +192,7 @@ export const AppModals: React.FC<AppModalsProps> = ({
           teachers={teachers}
           currentUser={currentUser}
           preSelectedDate={preSelectedAddDate}
-          onClearExclusion={(jobName) => onClearScheduleExclusion(jobName, selectedMonth)}
+          onClearExclusion={(jobName, teacherOverride) => onClearScheduleExclusion(jobName, selectedMonth, teacherOverride)}
           sessionStudentConfigs={sessionStudentConfigs}
           onSaveSessionStudentConfigs={onSaveSessionStudentConfigs}
           incomeCategories={availableIncomeCats}
@@ -215,6 +215,7 @@ export const AppModals: React.FC<AppModalsProps> = ({
           currentUser={currentUser}
           onDeleteSchedule={onDeleteSchedule}
           onDeleteSingleSession={onDeleteSingleSession}
+          onClearExclusion={(jobName, teacherOverride) => onClearScheduleExclusion(jobName, selectedSession?.month_year || selectedMonth, teacherOverride)}
           sessionStudentConfigs={sessionStudentConfigs}
           onSaveSessionStudentConfigs={onSaveSessionStudentConfigs}
           incomeCategories={availableIncomeCats}

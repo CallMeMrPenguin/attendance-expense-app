@@ -54,6 +54,7 @@ interface EditSessionModalProps {
   };
   onDeleteSchedule?: (jobName: string, scope: 'month' | 'all') => Promise<void>;
   onDeleteSingleSession?: (sessionId: string) => Promise<void>;
+  onClearExclusion?: (jobName: string, teacherOverride?: string) => Promise<void>;
   sessionStudentConfigs?: Record<string, any>;
   onSaveSessionStudentConfigs?: (teacherName: string, configs: Record<string, any>) => void;
   incomeCategories?: string[];
@@ -110,6 +111,7 @@ export default function EditSessionModal({
   currentUser,
   onDeleteSchedule,
   onDeleteSingleSession,
+  onClearExclusion,
   sessionStudentConfigs,
   onSaveSessionStudentConfigs,
   incomeCategories: propIncomeCategories,
@@ -232,7 +234,8 @@ export default function EditSessionModal({
     setLoaiHinh((session.loai_hinh || session.loai_hinh_lich) === 'tam_thoi' ? 'tam_thoi' : 'co_dinh');
     const rawCat = session.income_category || session.category || 'Gia Sư';
     setIncomeCategory(rawCat === 'Giáo dục' ? 'Gia Sư' : rawCat);
-    setAutoCheckin(session.auto_checkin ?? session.auto_check_in ?? true);
+    const rawAuto = (session.auto_checkin ?? session.auto_check_in ?? true) as boolean | number;
+    setAutoCheckin(rawAuto !== false && rawAuto !== 0);
     
     const studentColor = session.color || getStudentColor(session.student_name);
     setColor(studentColor);
@@ -635,6 +638,11 @@ export default function EditSessionModal({
           .upsert(sanitizedSessions);
       }
 
+      // Clear any stale schedule exclusion if saving a recurring (co_dinh) schedule
+      if (loaiHinh === 'co_dinh' && onClearExclusion && studentName.trim()) {
+        onClearExclusion(studentName.trim(), assignedTeacherName).catch(() => {});
+      }
+
       // If editing a recurring (co_dinh) schedule, also reconcile future months (> session.month_year) so removed weekdays never reappear when switching months
       if (loaiHinh === 'co_dinh' && session?.month_year && studentName.trim()) {
         try {
@@ -980,7 +988,7 @@ export default function EditSessionModal({
               type="button"
               disabled={loading}
               onClick={handleDeleteSessions}
-              className="px-3 py-1.5 bg-red-50 hover:bg-red-100 dark:bg-red-950/20 dark:hover:bg-red-950/40 border border-red-200 dark:border-red-900/30 text-red-650 dark:text-red-400 font-bold text-xs rounded-xl flex items-center gap-1 transition-all disabled:opacity-50 cursor-pointer shadow-sm"
+              className="px-3 py-1.5 bg-red-50 hover:bg-red-100 dark:bg-red-950/20 dark:hover:bg-red-950/40 border border-red-200 dark:border-red-900/30 text-red-600 dark:text-red-400 font-bold text-xs rounded-xl flex items-center gap-1 transition-all disabled:opacity-50 cursor-pointer shadow-sm"
               title="Xóa lịch trình"
             >
               <Trash2 className="h-3.5 w-3.5" />
@@ -1038,7 +1046,7 @@ export default function EditSessionModal({
 
           {/* Block 0: Status Function Buttons (chua day-da hoc-nghi) */}
           <div className="space-y-1.5 pb-2 border-b border-slate-100 dark:border-slate-800">
-            <label className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider block">
+            <label className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider block">
               Trạng thái công việc *
             </label>
             <div className="relative flex bg-slate-100 dark:bg-[#0d1018] border border-slate-200 dark:border-white/10 p-1 rounded-xl w-full">
@@ -1046,10 +1054,10 @@ export default function EditSessionModal({
               <div
                 className={`absolute top-1 bottom-1 rounded-[10px] transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] pointer-events-none ${
                   status === 'Chưa làm' || status === 'Chưa dạy'
-                    ? 'bg-indigo-650 dark:bg-indigo-500 shadow-[0_0_14px_rgba(99,102,241,0.4)]'
+                    ? 'bg-indigo-600 dark:bg-indigo-500 shadow-[0_0_14px_rgba(99,102,241,0.4)]'
                     : status === 'Đã làm' || status === 'Đã dạy'
-                    ? 'bg-emerald-650 dark:bg-emerald-500 shadow-[0_0_14px_rgba(16,185,129,0.4)]'
-                    : 'bg-rose-650 dark:bg-rose-500 shadow-[0_0_14px_rgba(244,63,94,0.4)]'
+                    ? 'bg-emerald-600 dark:bg-emerald-500 shadow-[0_0_14px_rgba(16,185,129,0.4)]'
+                    : 'bg-rose-600 dark:bg-rose-500 shadow-[0_0_14px_rgba(244,63,94,0.4)]'
                 }`}
                 style={{
                   left: '4px',
@@ -1066,7 +1074,7 @@ export default function EditSessionModal({
                 type="button"
                 onClick={() => setStatus('Chưa làm')}
                 className={`relative z-10 flex-1 py-2 text-xs font-black rounded-[10px] transition-colors duration-300 cursor-pointer ${
-                  status === 'Chưa làm' || status === 'Chưa dạy' ? 'text-white' : 'text-slate-550 dark:text-slate-455 hover:text-slate-800 dark:hover:text-slate-200'
+                  status === 'Chưa làm' || status === 'Chưa dạy' ? 'text-white' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                 }`}
               >
                 Chưa làm
@@ -1075,7 +1083,7 @@ export default function EditSessionModal({
                 type="button"
                 onClick={() => setStatus('Đã làm')}
                 className={`relative z-10 flex-1 py-2 text-xs font-black rounded-[10px] transition-colors duration-300 cursor-pointer ${
-                  status === 'Đã làm' || status === 'Đã dạy' ? 'text-white' : 'text-slate-550 dark:text-slate-455 hover:text-slate-800 dark:hover:text-slate-200'
+                  status === 'Đã làm' || status === 'Đã dạy' ? 'text-white' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                 }`}
               >
                 Đã làm
@@ -1084,7 +1092,7 @@ export default function EditSessionModal({
                 type="button"
                 onClick={() => setStatus('Hủy')}
                 className={`relative z-10 flex-1 py-2 text-xs font-black rounded-[10px] transition-colors duration-300 cursor-pointer ${
-                  status === 'Hủy' ? 'text-white' : 'text-slate-550 dark:text-slate-455 hover:text-slate-800 dark:hover:text-slate-200'
+                  status === 'Hủy' ? 'text-white' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                 }`}
               >
                 Hủy / Nghỉ
@@ -1189,7 +1197,7 @@ export default function EditSessionModal({
 
           {/* Color Picker Row */}
           <div className="space-y-2 pb-2 border-b border-slate-100 dark:border-slate-800">
-            <label className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider block">
+            <label className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider block">
               Màu sắc hiển thị ca dạy
             </label>
             <div className="flex flex-wrap items-center gap-2.5">
@@ -1265,7 +1273,7 @@ export default function EditSessionModal({
           {/* Block 1: Basic Information */}
           <div className="space-y-4 pt-2 border-t border-slate-100 dark:border-slate-800">
             <div className="space-y-1.5">
-              <label htmlFor="editStudentName" className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
+              <label htmlFor="editStudentName" className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
                 Tên học sinh *
               </label>
               <input
@@ -1297,7 +1305,7 @@ export default function EditSessionModal({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label htmlFor="editDay" className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
+                <label htmlFor="editDay" className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
                   Thứ trong tuần *
                 </label>
                 <CustomSelect
@@ -1309,7 +1317,7 @@ export default function EditSessionModal({
               </div>
 
               <div className="space-y-1.5">
-                <label htmlFor="editTime" className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
+                <label htmlFor="editTime" className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
                   Giờ học *
                 </label>
                 <input
@@ -1324,7 +1332,7 @@ export default function EditSessionModal({
             </div>
 
             <div className="space-y-1.5">
-              <label htmlFor="editDuration" className="text-slate-550 dark:text-slate-400 text-xs font-bold uppercase tracking-wider block">
+              <label htmlFor="editDuration" className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider block">
                 Số giờ dạy *
               </label>
               <input

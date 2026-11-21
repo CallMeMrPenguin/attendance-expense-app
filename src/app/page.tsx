@@ -274,12 +274,16 @@ export default function Dashboard() {
                 categoryIcons={finance.categoryIcons}
                 categoryNotes={finance.categoryNotes}
                 categoryKeywords={finance.categoryKeywords}
+                categoryOrder={finance.categoryOrder}
                 chartSelectedMonths={chartSelectedMonths}
                 bankReceipts={receipts.bankReceipts}
                 getActualCategoryAmount={finance.getActualCategoryAmount}
                 handleDeleteManualTx={finance.handleDeleteManualTx}
                 handleOpenTxModal={handleOpenTxModal}
                 saveBudgets={finance.saveBudgets}
+                saveCategoryOrder={finance.saveCategoryOrder}
+                getMonthlyIncome={finance.getMonthlyIncome}
+                getMonthlyExpense={finance.getMonthlyExpense}
                 saveTransactions={finance.saveTransactions}
                 toggleChartMonth={toggleChartMonth}
                 handleClassifyReceipt={receipts.handleClassifyReceipt}

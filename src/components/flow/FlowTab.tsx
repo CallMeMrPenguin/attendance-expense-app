@@ -9,6 +9,7 @@ import {
   matchKeyword,
 } from './flow-constants';
 import { cleanString } from '@/lib/constants/categories';
+import { getPrevMonthStr, trunc1Dec } from '@/lib/utils';
 import MonthPickerDropdown from './MonthPickerDropdown';
 import FlowSummaryCards from './FlowSummaryCards';
 import FlowDonutCharts, { PieSlice } from './FlowDonutCharts';
@@ -29,12 +30,16 @@ export const FlowTab: React.FC<FlowTabProps> = ({
   categoryIcons = {},
   categoryNotes = {},
   categoryKeywords = {},
+  categoryOrder,
   chartSelectedMonths = [],
   bankReceipts = [],
   getActualCategoryAmount,
   handleDeleteManualTx,
   handleOpenTxModal,
   saveBudgets,
+  saveCategoryOrder,
+  getMonthlyIncome,
+  getMonthlyExpense,
   saveTransactions,
   toggleChartMonth,
   handleClassifyReceipt,
@@ -96,9 +101,25 @@ export const FlowTab: React.FC<FlowTabProps> = ({
       }
     });
 
-    setIncomeCats(inList);
-    setExpenseCats(exList);
-  }, [categoryBudgets, categoryTypes, categoryIcons, categoryNotes, categoryKeywords]);
+    const applySavedOrder = (
+      arr: Array<{ name: string; icon: string; note: string; keywords?: string }>,
+      savedNames: string[] = []
+    ) => {
+      if (!savedNames || savedNames.length === 0) return arr;
+      const orderIdx = new Map(savedNames.map((n, i) => [cleanString(n), i]));
+      return [...arr].sort((a, b) => {
+        const ia = orderIdx.get(cleanString(a.name));
+        const ib = orderIdx.get(cleanString(b.name));
+        if (ia !== undefined && ib !== undefined) return ia - ib;
+        if (ia !== undefined) return -1;
+        if (ib !== undefined) return 1;
+        return 0;
+      });
+    };
+
+    setIncomeCats(applySavedOrder(inList, categoryOrder?.income));
+    setExpenseCats(applySavedOrder(exList, categoryOrder?.expense));
+  }, [categoryBudgets, categoryTypes, categoryIcons, categoryNotes, categoryKeywords, categoryOrder]);
 
   const getCategoryIconName = (cat: string, type: 'income' | 'expense') => {
     return categoryIcons[cat] || DEFAULT_CATEGORY_ICONS[cat] || (type === 'income' ? 'TrendingUp' : 'Coins');
@@ -233,19 +254,34 @@ export const FlowTab: React.FC<FlowTabProps> = ({
       });
     };
 
+    let prevIncSum = 0;
+    let prevExpSum = 0;
+    if (getMonthlyIncome && getMonthlyExpense && chartSelectedMonths.length > 0 && distMode !== 'avg_year') {
+      const prevMonths = Array.from(new Set(chartSelectedMonths.map(m => getPrevMonthStr(m)).filter(Boolean)));
+      for (const pm of prevMonths) {
+        prevIncSum += getMonthlyIncome(pm);
+        prevExpSum += getMonthlyExpense(pm);
+      }
+    }
+    const prevNetSum = prevIncSum - prevExpSum;
+    const calcPct = (curr: number, prev: number) =>
+      prev > 0 ? parseFloat(trunc1Dec(((curr - prev) / prev) * 100)) : 0;
+    const calcNetPct = (curr: number, prev: number) =>
+      Math.abs(prev) > 0 ? parseFloat(trunc1Dec(((curr - prev) / Math.abs(prev)) * 100)) : 0;
+
     return {
       totalIncome: incSum,
       totalExpense: expSum,
       netValue: incSum - expSum,
-      incomeChange: 0,
-      expenseChange: 0,
-      netChange: 0,
+      incomeChange: calcPct(incSum, prevIncSum),
+      expenseChange: calcPct(expSum, prevExpSum),
+      netChange: calcNetPct(incSum - expSum, prevNetSum),
       incomeSlices: buildSlices(incMap, pieInc, true),
       expenseSlices: buildSlices(expMap, pieExp, false),
       totalPieInc: pieInc,
       totalPieExp: pieExp,
     };
-  }, [allCombinedTransactions, chartSelectedMonths, distMode, distYear, incomeCats, expenseCats]);
+  }, [allCombinedTransactions, chartSelectedMonths, distMode, distYear, incomeCats, expenseCats, getMonthlyIncome, getMonthlyExpense]);
 
   const projectedIncome = useMemo(() => {
     // 1. Session earnings in selected months (teaching sessions counted in projected income)
@@ -380,6 +416,13 @@ export const FlowTab: React.FC<FlowTabProps> = ({
 
     if (isInc) setIncomeCats(list);
     else setExpenseCats(list);
+
+    if (saveCategoryOrder) {
+      saveCategoryOrder(currentUser.id, {
+        income: (isInc ? list : incomeCats).map(c => c.name),
+        expense: (!isInc ? list : expenseCats).map(c => c.name)
+      });
+    }
   };
 
   const handleReorderCategory = (type: 'income' | 'expense', fromIdx: number, toIdx: number) => {
@@ -390,6 +433,13 @@ export const FlowTab: React.FC<FlowTabProps> = ({
 
     if (isInc) setIncomeCats(list);
     else setExpenseCats(list);
+
+    if (saveCategoryOrder) {
+      saveCategoryOrder(currentUser.id, {
+        income: (isInc ? list : incomeCats).map(c => c.name),
+        expense: (!isInc ? list : expenseCats).map(c => c.name)
+      });
+    }
   };
 
   const handleSaveTxEdit = (updatedTx: any) => {

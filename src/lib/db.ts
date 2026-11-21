@@ -364,9 +364,11 @@ export function getDb(): Database.Database {
           type TEXT NOT NULL CHECK (type IN ('income', 'expense', 'saving', 'exchange')),
           category TEXT NOT NULL,
           date TEXT NOT NULL,
-          created_at TEXT DEFAULT (datetime('now'))
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now'))
         );
-        INSERT INTO manual_transactions_new SELECT * FROM manual_transactions;
+        INSERT INTO manual_transactions_new (id, user_id, user_name, teacher_name, desc_text, amount, type, category, date, created_at, updated_at)
+        SELECT id, user_id, user_name, teacher_name, desc_text, amount, type, category, date, created_at, COALESCE(updated_at, datetime('now')) FROM manual_transactions;
         DROP TABLE manual_transactions;
         ALTER TABLE manual_transactions_new RENAME TO manual_transactions;
       `);
@@ -432,7 +434,7 @@ function seedPreservedData(db: Database.Database) {
         teacher_name: 'ADMIN',
         role: 'admin',
         email: 'buiduchung2004@gmail.com',
-        password: 'callmemrpenguin',
+        password: hashPassword(process.env.DEFAULT_ADMIN_PASSWORD || 'callmemrpenguin'),
         created_at: new Date().toISOString()
       });
       db.prepare(`INSERT OR IGNORE INTO teachers (name, created_at) VALUES ('ADMIN', datetime('now'))`).run();

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { getDb } from '@/lib/db';
 import { 
   SYNC_TABLES, 
@@ -168,6 +169,15 @@ export async function POST(req: NextRequest) {
     }
 
     // Luồng Sync Incoming (Web Server nhận sync từ Local Client hoặc ngược lại)
+    const expectedSecret = process.env.SYNC_SECRET || 'chamcong_sync_secure_token_2026';
+    const incomingSecret = req.headers.get('x-sync-secret') || body.secretToken || '';
+    const isSecretValid =
+      incomingSecret.length === expectedSecret.length &&
+      crypto.timingSafeEqual(Buffer.from(incomingSecret), Buffer.from(expectedSecret));
+    if (!isSecretValid) {
+      return NextResponse.json({ success: false, error: 'Unauthorized: Invalid sync secret' }, { status: 401 });
+    }
+
     const { since, changes, deletions } = body;
 
     // 1. Áp dụng thay đổi từ caller vào cơ sở dữ liệu hiện tại

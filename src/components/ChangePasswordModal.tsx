@@ -99,7 +99,7 @@ export default function ChangePasswordModal({ isOpen, onClose }: ChangePasswordM
             )}
 
             <div className="space-y-1.5">
-              <label className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider">
+              <label className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider">
                 Mật Khẩu Mới *
               </label>
               <div className="relative">
@@ -125,7 +125,7 @@ export default function ChangePasswordModal({ isOpen, onClose }: ChangePasswordM
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider">
+              <label className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider">
                 Xác Nhận Mật Khẩu Mới *
               </label>
               <div className="relative">

@@ -197,7 +197,7 @@ export default function CalendarMonthView({
               <div
                 key={day}
                 className={`py-4 text-center text-[11px] font-extrabold uppercase tracking-widest ${
-                  isWeekend ? 'text-rose-450 dark:text-rose-400 bg-rose-500/[0.03]' : 'text-slate-350'
+                  isWeekend ? 'text-rose-400 bg-rose-500/[0.03]' : 'text-slate-300'
                 }`}
               >
                 {day}

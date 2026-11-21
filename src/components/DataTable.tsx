@@ -39,6 +39,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { supabase } from '@/lib/supabase';
+import { trunc1Dec } from '@/lib/utils';
 import {
   ChevronLeft, ChevronRight, RefreshCw, AlertCircle,
   ArrowUp, ArrowDown, ArrowUpDown, Search, ChevronDown, ChevronUp,
@@ -389,22 +390,25 @@ function ExportDropdown<TData>({
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  const isExportableColumnId = (id: string) =>
+    id !== 'select' && id !== '_expander' && id !== 'actions';
+
   const getExportRows = () =>
     table.getFilteredRowModel().rows.map(row =>
       row.getVisibleCells()
-        .filter(c => c.column.id !== 'select' && c.column.id !== '_expander')
+        .filter(c => isExportableColumnId(c.column.id))
         .map(c => {
-          const val = c.getValue();
+          const customMeta = c.column.columnDef.meta as { exportValue?: (r: TData) => any } | undefined;
+          const val = customMeta?.exportValue ? customMeta.exportValue(row.original) : c.getValue();
           if (val === null || val === undefined) return '';
           if (typeof val === 'number') {
             if (!Number.isInteger(val)) {
-              return Math.floor(val * 10 + 0.0000001) / 10;
+              return Number(trunc1Dec(val));
             }
             return val;
           }
-          if (typeof val === 'string' && !isNaN(Number(val)) && val.includes('.')) {
-            const num = Number(val);
-            return (Math.floor(num * 10 + 0.0000001) / 10).toFixed(1);
+          if (typeof val === 'string' && val.trim() !== '' && !isNaN(Number(val)) && val.includes('.')) {
+            return trunc1Dec(val);
           }
           if (typeof val === 'object') return JSON.stringify(val);
           return String(val);
@@ -413,7 +417,7 @@ function ExportDropdown<TData>({
 
   const getHeaders = () =>
     table.getHeaderGroups()[0].headers
-      .filter(h => h.column.id !== 'select' && h.column.id !== '_expander' && h.column.getIsVisible())
+      .filter(h => isExportableColumnId(h.column.id) && h.column.getIsVisible())
       .map(h => typeof h.column.columnDef.header === 'string' ? h.column.columnDef.header : h.column.id);
 
   const exportExcel = async () => {
@@ -439,14 +443,35 @@ function ExportDropdown<TData>({
       const headers = getHeaders();
       const rows = getExportRows();
       const doc = new jsPDF({ orientation: 'landscape' });
+
+      let activeFont = 'helvetica';
+      try {
+        const fontRes = await fetch('/fonts/Geist-Regular.ttf');
+        if (fontRes.ok) {
+          const fontBuf = await fontRes.arrayBuffer();
+          const bytes = new Uint8Array(fontBuf);
+          let binary = '';
+          const chunkSize = 0x8000;
+          for (let i = 0; i < bytes.length; i += chunkSize) {
+            binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+          }
+          const base64Font = btoa(binary);
+          doc.addFileToVFS('Geist-Regular.ttf', base64Font);
+          doc.addFont('Geist-Regular.ttf', 'Geist', 'normal');
+          doc.addFont('Geist-Regular.ttf', 'Geist', 'bold');
+          doc.setFont('Geist', 'normal');
+          activeFont = 'Geist';
+        }
+      } catch {}
+
       doc.setFontSize(12);
       doc.text(filename, 14, 15);
       autoTable(doc, {
         head: [headers],
         body: rows,
         startY: 22,
-        styles: { fontSize: 8, cellPadding: 3 },
-        headStyles: { fillColor: [30, 41, 82], textColor: [200, 200, 255], fontStyle: 'bold' },
+        styles: { font: activeFont, fontSize: 8, cellPadding: 3 },
+        headStyles: { font: activeFont, fillColor: [30, 41, 82], textColor: [200, 200, 255], fontStyle: 'bold' },
         alternateRowStyles: { fillColor: [245, 245, 255] },
       });
       doc.save(`${filename}.pdf`);
@@ -534,21 +559,9 @@ export function DataTable<TData>({
 
   const [draggedRowIdx, setDraggedRowIdx] = useState<number | null>(null);
 
-  const storageKey = `dt_layout_${tableId || exportFilename}`;
-
-  const savedLayout = React.useMemo(() => {
-    if (!storageKey || typeof window === 'undefined') return null;
-    try {
-      const item = localStorage.getItem(storageKey);
-      return item ? JSON.parse(item) : null;
-    } catch (e) {
-      return null;
-    }
-  }, [storageKey]);
-
-  const [columnSizing, setColumnSizing] = useState<Record<string, number>>(() => savedLayout?.sizing || {});
+  const [columnSizing, setColumnSizing] = useState<Record<string, number>>({});
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(() => {
-    const baseVis = { ...initialColumnVisibility, ...(savedLayout?.visibility || {}) };
+    const baseVis = { ...initialColumnVisibility };
     columns.forEach((col: any) => {
       const id = col.id || col.accessorKey;
       if (id && baseVis[id] === undefined) {
@@ -557,15 +570,15 @@ export function DataTable<TData>({
     });
     return baseVis;
   });
-  const [columnOrder, setColumnOrder] = useState<ColumnOrderState>(() => savedLayout?.order || []);
-  const [columnAlignments, setColumnAlignments] = useState<Record<string, 'center' | 'left'>>(() => savedLayout?.alignments || {});
+  const [columnOrder, setColumnOrder] = useState<ColumnOrderState>([]);
+  const [columnAlignments, setColumnAlignments] = useState<Record<string, 'center' | 'left'>>({});
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize });
 
   useEffect(() => {
     setPagination(prev => prev.pageSize !== pageSize ? { ...prev, pageSize } : prev);
   }, [pageSize]);
 
-  // Fetch table settings from Supabase DB on mount if available
+  // Fetch table settings from SQLite/Supabase DB on mount if available
   useEffect(() => {
     if (!tableId) return;
     let isMounted = true;
@@ -594,18 +607,15 @@ export function DataTable<TData>({
             if (parsed.visibility) setColumnVisibility(parsed.visibility);
             if (parsed.order) setColumnOrder(parsed.order);
             if (parsed.alignments) setColumnAlignments(parsed.alignments);
-            if (storageKey && typeof window !== 'undefined') {
-              localStorage.setItem(storageKey, JSON.stringify(parsed));
-            }
           }
         }
       } catch (e) {}
     };
     fetchDbLayout();
     return () => { isMounted = false; };
-  }, [tableId, storageKey]);
+  }, [tableId]);
 
-  // Save table layout updates to LocalStorage, table_settings table, and legacy category_budgets
+  // Save table layout updates directly to table_settings DB table
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -616,12 +626,6 @@ export function DataTable<TData>({
       order: columnOrder,
       alignments: columnAlignments,
     };
-
-    if (storageKey) {
-      try {
-        localStorage.setItem(storageKey, JSON.stringify(layout));
-      } catch (e) {}
-    }
 
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(async () => {
@@ -664,7 +668,7 @@ export function DataTable<TData>({
     return () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     };
-  }, [columnSizing, columnVisibility, columnOrder, columnAlignments, tableId, storageKey, userId, teacherName]);
+  }, [columnSizing, columnVisibility, columnOrder, columnAlignments, tableId, userId, teacherName]);
 
   const handleToggleAlignment = useCallback((colId: string) => {
     setColumnAlignments(prev => {
@@ -679,16 +683,12 @@ export function DataTable<TData>({
     setColumnVisibility(initialColumnVisibility);
     setColumnOrder([]);
     setColumnAlignments({});
-    if (storageKey && typeof window !== 'undefined') {
-      try {
-        localStorage.removeItem(storageKey);
-      } catch (e) {}
-    }
     if (tableId) {
       const settingId = `tbl_cfg_${tableId}`;
+      supabase.from('table_settings').delete().eq('id', settingId).then(() => {});
       supabase.from('category_budgets').delete().eq('id', settingId).then(() => {});
     }
-  }, [initialColumnVisibility, storageKey, tableId]);
+  }, [initialColumnVisibility, tableId]);
 
   const [globalFilter, setGlobalFilter] = useState('');
   const [sorting, setSorting] = useState<SortingState>(initialSorting);

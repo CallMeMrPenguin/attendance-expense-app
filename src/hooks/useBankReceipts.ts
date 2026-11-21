@@ -158,7 +158,7 @@ export function useBankReceipts({
       const notePrefix = trimmedNote ? `${trimmedNote} ` : '';
       const sName = targetReceipt.remitter_name || targetReceipt.sender_name || (targetReceipt.debit_account?.includes('9981397845') ? 'PHAM THI THU TRANG' : 'BUI DUC HUNG');
       const bName = targetReceipt.beneficiary_name || '';
-      const descText = `${notePrefix}[Biên lai Vietcombank] ${sName} ➔ ${bName}: ${baseDetails}`;
+      const descText = `${notePrefix}[Biên lai Vietcombank] ${sName} -> ${bName}: ${baseDetails}`;
       const txId = `tx-receipt-${receiptId}`;
       const txType = type === 'saving' ? 'expense' : type;
       const newTxObj = {

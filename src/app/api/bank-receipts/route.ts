@@ -270,7 +270,7 @@ export async function POST(req: Request) {
               user_id: userId || unRec.user_id,
               user_name: 'Admin',
               teacher_name: 'Admin',
-              desc_text: `${notePrefix}[Biên lai Vietcombank] ${unRec.sender_name || unRec.remitter_name || ''} ➔ ${unRec.beneficiary_name || ''}: ${unBaseDetails}`,
+              desc_text: `${notePrefix}[Biên lai Vietcombank] ${unRec.sender_name || unRec.remitter_name || ''} -> ${unRec.beneficiary_name || ''}: ${unBaseDetails}`,
               amount: Number(unRec.amount),
               type: type === 'saving' ? 'expense' : type,
               category,

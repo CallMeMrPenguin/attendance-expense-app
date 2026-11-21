@@ -1,6 +1,6 @@
 import React from 'react';
 import { TrendingUp, TrendingDown, ChevronLeft, ChevronRight } from 'lucide-react';
-import { formatVND } from '@/lib/utils';
+import { formatVND, trunc1Dec } from '@/lib/utils';
 
 export interface PieSlice {
   name: string;
@@ -135,7 +135,7 @@ export const FlowDonutCharts: React.FC<FlowDonutChartsProps> = ({
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                   <span className="text-[9px] font-extrabold text-emerald-400 uppercase leading-none text-glow-green">Thu Nhập</span>
                   <span className="text-xs font-black text-white leading-none mt-1 truncate max-w-[85px]" title={formatVND(totalPieInc)}>
-                    {totalPieInc >= 1000000 ? `${(totalPieInc / 1000000).toFixed(1)}M` : formatVND(totalPieInc)}
+                    {totalPieInc >= 1000000 ? `${trunc1Dec(totalPieInc / 1000000)}M` : formatVND(totalPieInc)}
                   </span>
                 </div>
               </div>
@@ -208,7 +208,7 @@ export const FlowDonutCharts: React.FC<FlowDonutChartsProps> = ({
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                   <span className="text-[9px] font-extrabold text-rose-400 uppercase leading-none">Chi Tiêu</span>
                   <span className="text-xs font-black text-white leading-none mt-1 truncate max-w-[85px]" title={formatVND(totalPieExp)}>
-                    {totalPieExp >= 1000000 ? `${(totalPieExp / 1000000).toFixed(1)}M` : formatVND(totalPieExp)}
+                    {totalPieExp >= 1000000 ? `${trunc1Dec(totalPieExp / 1000000)}M` : formatVND(totalPieExp)}
                   </span>
                 </div>
               </div>

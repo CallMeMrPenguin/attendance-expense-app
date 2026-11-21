@@ -63,6 +63,7 @@ export function ScheduleStatsView({
     },
     {
       id: 'daysOfWeek',
+      accessorFn: (row) => `${row.daysOfWeek.join(', ')} (${formatCleanTimeString(row.time)} - ${row.duration}h/ca)`,
       header: 'Lịch / Khung Giờ',
       cell: ({ row }) => {
         const item = row.original;
@@ -280,7 +281,7 @@ export function ScheduleStatsView({
                   {formatVND(item.price)}
                 </span>
                 <span className="text-[9px] font-bold text-slate-400 block">
-                  {(item.student_count ?? 1) > 1 ? `${item.student_count} HS • ` : ''}/ ca ({item.duration}h)
+                  {(item.student_count ?? 1) > 1 ? `${item.student_count} HS | ` : ''}/ ca ({item.duration}h)
                 </span>
               </div>
             </div>

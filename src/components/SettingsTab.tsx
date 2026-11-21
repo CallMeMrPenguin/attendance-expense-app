@@ -232,13 +232,13 @@ export default function SettingsTab({
           <div className="flex gap-3 pt-2">
             <button
               onClick={() => setPasswordModalOpen(true)}
-              className="flex-1 py-2.5 bg-indigo-500/10 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-355 font-extrabold text-[10px] uppercase tracking-wider rounded-xl transition-all cursor-pointer text-center"
+              className="flex-1 py-2.5 bg-indigo-500/10 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-300 font-extrabold text-[10px] uppercase tracking-wider rounded-xl transition-all cursor-pointer text-center"
             >
               Đổi mật khẩu
             </button>
             <button
               onClick={handleLogout}
-              className="flex-1 py-2.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25 text-rose-450 font-extrabold text-[10px] uppercase tracking-wider rounded-xl transition-all cursor-pointer text-center"
+              className="flex-1 py-2.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25 text-rose-400 font-extrabold text-[10px] uppercase tracking-wider rounded-xl transition-all cursor-pointer text-center"
             >
               Đăng xuất
             </button>
@@ -248,7 +248,7 @@ export default function SettingsTab({
         {/* Delete data card */}
         <div className="calendar-container-depth p-5 space-y-4 bg-[#141824]">
           <div className="flex items-center gap-2 border-b border-white/5 pb-3">
-            <Settings className="h-4.5 w-4.5 text-rose-450" />
+            <Settings className="h-4.5 w-4.5 text-rose-400" />
             <h3 className="text-xs font-black text-white uppercase tracking-wider">Quản lý vùng nhớ</h3>
           </div>
           <p className="text-[11px] text-slate-400 font-medium leading-relaxed">

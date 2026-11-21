@@ -7,6 +7,11 @@ import {
   DEFAULT_CATEGORY_KEYWORDS
 } from '@/lib/constants/categories';
 
+function extractDayOfMonth(dateStr: string): number {
+  const datePart = String(dateStr || '').split(/[T\s]/)[0];
+  return Number(datePart.split('-')[2]) || 1;
+}
+
 interface UseFinanceDataProps {
   currentUser: UserProfile | null;
   runBackgroundSave: (task: () => Promise<any>) => Promise<void>;
@@ -36,6 +41,7 @@ export function useFinanceData({
   const [categoryIcons, setCategoryIcons] = useState<Record<string, string>>({});
   const [categoryNotes, setCategoryNotes] = useState<Record<string, string>>({});
   const [categoryKeywords, setCategoryKeywords] = useState<Record<string, string>>({});
+  const [categoryOrder, setCategoryOrder] = useState<{ income: string[]; expense: string[] }>({ income: [], expense: [] });
   const [trangAccountBalance, setTrangAccountBalance] = useState<number>(5000000);
 
   const [confirmDeleteTxId, setConfirmDeleteTxId] = useState<string | null>(null);
@@ -61,12 +67,25 @@ export function useFinanceData({
 
     const fetchFinanceCloud = async () => {
       try {
-        const [txRes, fundRes, budgetRes, histRes] = await Promise.all([
+        const [txRes, fundRes, budgetRes, histRes, orderRes] = await Promise.all([
           supabase.from('manual_transactions').select('*').order('date', { ascending: false }),
           supabase.from('savings_funds').select('*').order('updated_at', { ascending: false }).limit(1).maybeSingle(),
           supabase.from('category_budgets').select('*').order('updated_at', { ascending: true }),
-          supabase.from('savings_history').select('*').order('date', { ascending: false })
+          supabase.from('savings_history').select('*').order('date', { ascending: false }),
+          supabase.from('table_settings').select('setting_value').eq('id', 'flow_category_order').maybeSingle()
         ]);
+
+        if (orderRes?.data?.setting_value) {
+          try {
+            const parsedOrder = JSON.parse(orderRes.data.setting_value);
+            if (parsedOrder && typeof parsedOrder === 'object') {
+              setCategoryOrder({
+                income: Array.isArray(parsedOrder.income) ? parsedOrder.income : [],
+                expense: Array.isArray(parsedOrder.expense) ? parsedOrder.expense : []
+              });
+            }
+          } catch {}
+        }
 
         if (txRes.data) {
           const formatted = txRes.data.map((t: any) => {
@@ -369,7 +388,10 @@ export function useFinanceData({
     const targetNotes = { ...categoryNotes, ...catNotes };
     const targetKeywords = { ...categoryKeywords, ...keywords };
 
+    const prevBudgetKeys = Object.keys(categoryBudgets).filter(k => !k.startsWith('__'));
     const validKeys = new Set(Object.keys(budgets));
+    const removedKeys = prevBudgetKeys.filter(k => !validKeys.has(k));
+
     Object.keys(targetTypes).forEach(k => { if (!validKeys.has(k)) delete targetTypes[k]; });
     Object.keys(targetIcons).forEach(k => { if (!validKeys.has(k)) delete targetIcons[k]; });
     Object.keys(targetNotes).forEach(k => { if (!validKeys.has(k)) delete targetNotes[k]; });
@@ -385,6 +407,10 @@ export function useFinanceData({
 
     runBackgroundSave(async () => {
       try {
+        if (removedKeys.length > 0) {
+          await supabase.from('category_budgets').delete().in('id', removedKeys);
+        }
+
         const records = Object.keys(budgets).map((cat, idx) => {
           const type = targetTypes[cat] || (['Lương', 'Giáo dục', 'Đầu tư', 'Gia Sư'].includes(cat) ? 'income' : 'expense');
           const kw = targetKeywords[cat] !== undefined ? targetKeywords[cat] : (DEFAULT_CATEGORY_KEYWORDS[cat] || '');
@@ -417,7 +443,26 @@ export function useFinanceData({
         console.error('Direct saveBudgets error:', err);
       }
     });
-  }, [currentUser, runBackgroundSave, categoryTypes, categoryIcons, categoryNotes, categoryKeywords]);
+  }, [currentUser, runBackgroundSave, categoryBudgets, categoryTypes, categoryIcons, categoryNotes, categoryKeywords]);
+
+  const saveCategoryOrder = useCallback((userId: string, nextOrder: { income: string[]; expense: string[] }) => {
+    setCategoryOrder(nextOrder);
+    if (!currentUser) return;
+    runBackgroundSave(async () => {
+      try {
+        await (supabase.from('table_settings') as any).upsert({
+          id: 'flow_category_order',
+          table_id: 'category_budgets',
+          user_id: userId,
+          setting_key: 'flow_category_order',
+          setting_value: JSON.stringify(nextOrder),
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'id' });
+      } catch (err) {
+        console.error('Direct saveCategoryOrder error:', err);
+      }
+    });
+  }, [currentUser, runBackgroundSave]);
 
   const saveTrangAccountBalance = useCallback((val: number) => {
     setTrangAccountBalance(val);
@@ -472,6 +517,19 @@ export function useFinanceData({
       (supabase.from('trash_items') as any).upsert([trashRecord], { onConflict: 'id' }).catch(() => {});
     }
 
+    // Optimistically remove deleted transaction from React state immediately
+    setManualTransactions(prev => prev.filter(t => t.id !== idToDelete));
+    if (idToDelete.startsWith('tx-receipt-')) {
+      const receiptId = idToDelete.replace('tx-receipt-', '');
+      const rawId = receiptId.replace(/^vcb-/, '');
+      setBankReceipts(prev => prev.map(r => {
+        if (r.id === receiptId || r.id === rawId || r.id === `vcb-${rawId}`) {
+          return { ...r, status: 'unclassified', type: null, category: null };
+        }
+        return r;
+      }));
+    }
+
     runBackgroundSave(async () => {
       try {
         await supabase.from('manual_transactions').delete().eq('id', idToDelete);
@@ -482,13 +540,6 @@ export function useFinanceData({
             .from('bank_receipts')
             .update({ status: 'unclassified', type: null, category: null })
             .or(`id.eq.${receiptId},id.eq.${rawId},id.eq.vcb-${rawId}`);
-
-          setBankReceipts(prev => prev.map(r => {
-            if (r.id === receiptId || r.id === rawId || r.id === `vcb-${rawId}`) {
-              return { ...r, status: 'unclassified', type: null, category: null };
-            }
-            return r;
-          }));
         } else if (idToDelete.startsWith('tx-sh-')) {
           const shId = idToDelete.replace('tx-sh-', '');
           const matchHist = savingsHistory.find(h => h.id === shId || `sh-${h.id}` === shId);
@@ -540,10 +591,29 @@ export function useFinanceData({
     setDeletedTxIds
   ]);
 
-  // Unified Finance Transactions: manual transactions + classified bank receipts
+  // Unified Finance Transactions: manual transactions take canonical precedence, supplemented by classified receipts
   const allFinanceTransactions = useMemo(() => {
-    const receiptTransactions = (bankReceipts || [])
+    const normalizeReceiptKey = (id: any) => String(id || '').replace(/^tx-receipt-/, '').replace(/^(vcb-)+/, '').trim();
+    const manualCleanIds = new Set<string>();
+    const manualOrderNumbers = new Set<string>();
+
+    (manualTransactions || []).forEach(t => {
+      const cId = normalizeReceiptKey(t.id);
+      if (cId) manualCleanIds.add(cId);
+      if (t.orderNumber) manualOrderNumbers.add(String(t.orderNumber).trim());
+      const match = String(t.desc || '').match(/\b(16\d{9})\b/);
+      if (match) manualOrderNumbers.add(match[1]);
+    });
+
+    const fallbackReceipts = (bankReceipts || [])
       .filter(r => r.status === 'classified' && r.category)
+      .filter(r => {
+        const cleanId = normalizeReceiptKey(r.id);
+        const orderNum = String(r.order_number || '').trim();
+        if (cleanId && manualCleanIds.has(cleanId)) return false;
+        if (orderNum && manualOrderNumbers.has(orderNum)) return false;
+        return true;
+      })
       .map(r => ({
         id: `tx-receipt-${r.id}`,
         desc: r.details || `Biên lai ${r.order_number || ''}`,
@@ -557,16 +627,7 @@ export function useFinanceData({
         orderNumber: r.order_number
       }));
 
-    const cleanReceiptIds = new Set(
-      receiptTransactions.map(t => String(t.id).replace('tx-receipt-', '').replace('vcb-', ''))
-    );
-
-    const filteredManual = (manualTransactions || []).filter(t => {
-      const cId = String(t.id).replace('tx-receipt-', '').replace('vcb-', '');
-      return !cleanReceiptIds.has(cId);
-    });
-
-    return [...filteredManual, ...receiptTransactions].sort(
+    return [...(manualTransactions || []), ...fallbackReceipts].sort(
       (a, b) => String(b.date || '').localeCompare(String(a.date || ''))
     );
   }, [bankReceipts, manualTransactions]);
@@ -667,7 +728,7 @@ export function useFinanceData({
     return allFinanceTransactions
       .filter(t => {
         if (t.type !== 'income' || typeof t.date !== 'string' || !t.date.startsWith(monthStr)) return false;
-        const d = Number(t.date.split('-')[2]) || 1;
+        const d = extractDayOfMonth(t.date);
         return d >= startDay && d <= endDay;
       })
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
@@ -677,7 +738,7 @@ export function useFinanceData({
     return allFinanceTransactions
       .filter(t => {
         if (t.type !== 'expense' || typeof t.date !== 'string' || !t.date.startsWith(monthStr)) return false;
-        const d = Number(t.date.split('-')[2]) || 1;
+        const d = extractDayOfMonth(t.date);
         return d >= startDay && d <= endDay;
       })
       .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
@@ -724,6 +785,8 @@ export function useFinanceData({
     setCategoryNotes,
     categoryKeywords,
     setCategoryKeywords,
+    categoryOrder,
+    saveCategoryOrder,
     trangAccountBalance,
     setTrangAccountBalance,
     confirmDeleteTxId,

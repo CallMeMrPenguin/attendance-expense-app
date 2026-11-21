@@ -21,28 +21,6 @@
       "password": "trang110902",
       "created_at": "2026-07-14T04:01:39.625881+00:00",
       "updated_at": "2026-10-08 15:19:37"
-    },
-    {
-      "id": "67131b3d-0b6e-43a9-8051-95eb25b0a362",
-      "username": "tester123",
-      "user_name": "tester123",
-      "teacher_name": "tester123",
-      "role": "user",
-      "email": "tester123@gmail.com",
-      "password": "tester123",
-      "created_at": "2026-07-16T16:32:31.00809+00:00",
-      "updated_at": "2026-10-08 15:19:37"
-    },
-    {
-      "id": "c10bf851-5ff6-46db-967f-d8e74f653d8e",
-      "username": "testuser7272",
-      "user_name": "Test Teacher",
-      "teacher_name": "Test Teacher",
-      "role": "admin",
-      "email": "testuser7272@giasupro.com",
-      "password": "123456",
-      "created_at": "2026-07-18T14:22:45.624494+00:00",
-      "updated_at": "2026-10-08 15:19:37"
     }
   ],
   "teachers": [
@@ -53,16 +31,6 @@
     },
     {
       "name": "Phạm Thị Thu Trang",
-      "created_at": "2026-09-27 17:19:40",
-      "updated_at": "2026-10-08 15:19:37"
-    },
-    {
-      "name": "tester123",
-      "created_at": "2026-09-27 17:19:40",
-      "updated_at": "2026-10-08 15:19:37"
-    },
-    {
-      "name": "Test Teacher",
       "created_at": "2026-09-27 17:19:40",
       "updated_at": "2026-10-08 15:19:37"
     }
@@ -428,7 +396,7 @@
       "amount": 0,
       "type": "settings",
       "icon": "CalendarX",
-      "note": "{\"all\":[\"test\",\"quang\"]}",
+      "note": "{\"all\":[\"test\"]}",
       "keywords": null,
       "updated_at": "2026-10-13T17:35:52.065Z"
     }

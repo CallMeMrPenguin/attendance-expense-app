@@ -136,7 +136,7 @@ export const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({
                     `---------------------------------`,
                     ...schedule.student_breakdowns!.map((st, i) => {
                       const absentText = st.absentSessions > 0 ? ` (Nghỉ ${st.absentSessions} buổi: ${st.absentDates.map(d => formatDateVN(d)).join(', ')})` : '';
-                      return `${i + 1}. ${st.name}: ${st.completedSessions} buổi${absentText} ➔ ${formatVND(st.totalFee)}`;
+                      return `${i + 1}. ${st.name}: ${st.completedSessions} buổi${absentText} -> ${formatVND(st.totalFee)}`;
                     }),
                     `---------------------------------`,
                     `Tổng học phí cả lớp: ${formatVND(schedule.student_breakdowns!.reduce((sum, st) => sum + st.totalFee, 0))}`

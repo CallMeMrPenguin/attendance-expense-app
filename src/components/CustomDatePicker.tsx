@@ -147,7 +147,7 @@ export default function CustomDatePicker({ value, onChange }: CustomDatePickerPr
           {/* Days of week header */}
           <div className="grid grid-cols-7 gap-1 mb-1.5 text-[9px] font-black uppercase text-slate-500 tracking-wider select-none">
             {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map(d => (
-              <div key={d} className={d === 'CN' ? 'text-rose-450' : ''}>{d}</div>
+              <div key={d} className={d === 'CN' ? 'text-rose-400' : ''}>{d}</div>
             ))}
           </div>
 
@@ -168,8 +168,8 @@ export default function CustomDatePicker({ value, onChange }: CustomDatePickerPr
                     active
                       ? 'bg-[#5c36f5] text-white shadow-[0_0_10px_rgba(92,54,245,0.5)] cursor-pointer'
                       : isWeekendCell
-                        ? 'text-rose-450 hover:bg-white/[0.06] cursor-pointer'
-                        : 'text-slate-350 hover:bg-white/[0.06] hover:text-white cursor-pointer'
+                        ? 'text-rose-400 hover:bg-white/[0.06] cursor-pointer'
+                        : 'text-slate-300 hover:bg-white/[0.06] hover:text-white cursor-pointer'
                   }`}
                 >
                   {day}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+import { cleanString } from '@/lib/utils';
 import { useToast } from '@/context/ToastContext';
 
 export interface TrashItem {
@@ -99,36 +100,70 @@ export function useTrashBin() {
           await (supabase.from('sessions') as any).upsert(refreshedSessions, { onConflict: 'id' });
         }
 
-        // 2. Remove from exclusions if present
+        // 2. Remove from exclusions in BOTH table_settings and category_budgets if present
         if (teacherName && jobName) {
-          const cleanKey = jobName.trim().toLowerCase();
-          const key = `schedule_exclusions_${teacherName.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
-          
-          try {
-            const { data: cbData } = await supabase
-              .from('category_budgets')
-              .select('note')
-              .eq('id', key)
-              .maybeSingle();
+          const normalizedJob = String(jobName)
+            .replace(/^Lịch\s+/i, '')
+            .replace(/\s*\(\d+\s*ca\)$/i, '')
+            .trim()
+            .toLowerCase();
+          const key = `schedule_exclusions_${cleanString(teacherName)}`;
 
-            if (cbData?.note) {
-              const parsed = JSON.parse(cbData.note);
+          const removeExclusionFromJson = (rawJson?: string | null): string | null => {
+            if (!rawJson) return null;
+            try {
+              const parsed = JSON.parse(rawJson);
               let changed = false;
-              if (targetMonth && parsed[targetMonth]) {
-                parsed[targetMonth] = parsed[targetMonth].filter((x: string) => x.toLowerCase() !== cleanKey);
-                changed = true;
+              if (targetMonth && Array.isArray(parsed[targetMonth])) {
+                const next = parsed[targetMonth].filter((x: string) => String(x).toLowerCase().trim() !== normalizedJob);
+                if (next.length !== parsed[targetMonth].length) {
+                  parsed[targetMonth] = next;
+                  changed = true;
+                }
               }
-              if (parsed['all']) {
-                parsed['all'] = parsed['all'].filter((x: string) => x.toLowerCase() !== cleanKey);
-                changed = true;
+              if (Array.isArray(parsed['all'])) {
+                const nextAll = parsed['all'].filter((x: string) => String(x).toLowerCase().trim() !== normalizedJob);
+                if (nextAll.length !== parsed['all'].length) {
+                  parsed['all'] = nextAll;
+                  changed = true;
+                }
               }
-              if (changed) {
-                await (supabase.from('category_budgets') as any).upsert({
-                  id: key,
-                  note: JSON.stringify(parsed),
-                  updated_at: new Date().toISOString()
-                }, { onConflict: 'id' });
-              }
+              return changed ? JSON.stringify(parsed) : null;
+            } catch {
+              return null;
+            }
+          };
+
+          try {
+            const nowStr = new Date().toISOString();
+            const [{ data: tsData }, { data: cbData }] = await Promise.all([
+              supabase.from('table_settings').select('setting_value').eq('id', key).maybeSingle(),
+              supabase.from('category_budgets').select('note').eq('id', key).maybeSingle()
+            ]);
+
+            const nextTsJson = removeExclusionFromJson(tsData?.setting_value);
+            if (nextTsJson !== null) {
+              await (supabase.from('table_settings') as any).upsert({
+                id: key,
+                table_id: 'schedule_exclusions',
+                setting_key: key,
+                setting_value: nextTsJson,
+                updated_at: nowStr
+              }, { onConflict: 'id' });
+            }
+
+            const nextCbJson = removeExclusionFromJson(cbData?.note);
+            const fallbackSyncJson = nextCbJson ?? nextTsJson;
+            if (fallbackSyncJson !== null) {
+              await (supabase.from('category_budgets') as any).upsert({
+                id: key,
+                user_name: teacherName,
+                category: '__SCHEDULE_EXCLUSIONS__',
+                amount: 0,
+                type: 'settings',
+                note: fallbackSyncJson,
+                updated_at: nowStr
+              }, { onConflict: 'id' });
             }
           } catch (e) {}
         }

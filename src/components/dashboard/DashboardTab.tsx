@@ -272,7 +272,7 @@ export default function DashboardTab({
 
   const expenseTotals = expenseCatsList.map(cat => ({
     name: cat,
-    value: getActualCategoryAmount(cat)
+    value: getActualCategoryAmount(cat, 'expense')
   }));
   const totalSelectedExp = getSelectedMonthsExpense();
   const C = 314.16;
@@ -316,7 +316,7 @@ export default function DashboardTab({
 
   const incomeTotals = incomeCatsList.map(cat => ({
     name: cat,
-    value: getActualCategoryAmount(cat)
+    value: getActualCategoryAmount(cat, 'income')
   }));
   const totalSelectedInc = getSelectedMonthsIncome();
 
@@ -339,17 +339,22 @@ export default function DashboardTab({
     });
 
   // Budget vs Actual tracker variables
-  const M = chartSelectedMonths.length;
+  const M = Math.max(1, chartSelectedMonths.length);
   const totalExpBudget = Object.keys(categoryBudgets)
-    .filter(c => ['Ăn uống', 'Di chuyển', 'Shopping', 'Hóa đơn', 'Giải trí', 'Khác'].includes(c))
-    .reduce((sum, c) => sum + (categoryBudgets[c] || 0), 0) * M;
+    .filter(c => {
+      if (c.startsWith('__')) return false;
+      const t = categoryTypes?.[c];
+      if (t) return t === 'expense';
+      return !['Lương', 'Giáo dục', 'Đầu tư', 'Gia Sư', 'Thu Nợ', 'Sai Số', 'Trao đổi'].includes(c);
+    })
+    .reduce((sum, c) => sum + (Number(categoryBudgets[c]) || 0), 0) * M;
 
   const budgetPercent = totalExpBudget > 0 ? Math.min(100, Math.round((expense / totalExpBudget) * 100)) : 0;
   const isOverBudget = expense > totalExpBudget;
 
   // Recent transactions preview
   const recentTransactions = useMemo<RecentTransactionItem[]>(() => {
-    const list = manualTransactions.map(t => ({
+    const list = allTxs.map(t => ({
       id: t.id,
       desc: t.desc,
       amount: Number(t.amount) || 0,
@@ -358,7 +363,7 @@ export default function DashboardTab({
       category: t.category
     }));
     return list.sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 4);
-  }, [manualTransactions]);
+  }, [allTxs]);
 
   const rollOverVal = getPrecedingRollOverBalance ? getPrecedingRollOverBalance(chartSelectedMonths[0] || '') : 0;
 

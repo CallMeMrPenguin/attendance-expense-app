@@ -23,7 +23,7 @@ export interface FlowTabProps {
   categoryKeywords?: Record<string, string>;
   chartSelectedMonths: string[];
   bankReceipts?: any[];
-  getActualCategoryAmount: (cat: string) => number;
+  getActualCategoryAmount: (cat: string, targetType?: 'income' | 'expense') => number;
   handleDeleteManualTx: (id: string) => void;
   handleOpenTxModal: (type: 'income' | 'expense' | 'saving' | 'exchange') => void;
   saveBudgets: (
@@ -34,6 +34,10 @@ export interface FlowTabProps {
     catIcons?: Record<string, string>,
     catNotes?: Record<string, string>
   ) => void;
+  categoryOrder?: { income: string[]; expense: string[] };
+  saveCategoryOrder?: (userId: string, nextOrder: { income: string[]; expense: string[] }) => void;
+  getMonthlyIncome?: (monthStr: string) => number;
+  getMonthlyExpense?: (monthStr: string) => number;
   saveTransactions?: (userId: string, data: any[]) => void;
   toggleChartMonth?: (mStr: string) => void;
   handleClassifyReceipt?: (receiptId: string, type: 'income' | 'expense' | 'saving' | 'exchange', category: string, createRule: boolean, matchField: string, matchValue: string, note?: string, isZeroPoint?: boolean) => void | Promise<void>;

@@ -158,11 +158,9 @@ select {
 }
 */
 
-/* Floating Glass Navbar */
+/* Floating Solid Dark Navbar (Zero-Blur GPU Performance) */
 .macos-toolbar {
-  background: rgba(13, 16, 24, 0.85);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: #0d1018;
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
@@ -205,11 +203,9 @@ select {
   background-clip: padding-box, border-box !important;
   background-origin: padding-box, border-box !important;
   background-image: 
-    linear-gradient(rgba(10, 13, 22, 0.75), rgba(10, 13, 22, 0.75)), 
+    linear-gradient(#0c0f1d, #0c0f1d), 
     linear-gradient(135deg, rgba(16, 185, 129, 0.45) 0%, rgba(16, 185, 129, 0.15) 100%) !important;
   border-radius: 22px;
-  backdrop-filter: blur(16px) !important;
-  -webkit-backdrop-filter: blur(16px) !important;
   box-shadow: 
     inset 0 0 15px rgba(16, 185, 129, 0.35),
     0 12px 30px rgba(0, 0, 0, 0.45), 
@@ -223,11 +219,9 @@ select {
   background-clip: padding-box, border-box !important;
   background-origin: padding-box, border-box !important;
   background-image: 
-    linear-gradient(rgba(10, 13, 22, 0.75), rgba(10, 13, 22, 0.75)), 
+    linear-gradient(#0c0f1d, #0c0f1d), 
     linear-gradient(135deg, rgba(239, 68, 68, 0.45) 0%, rgba(239, 68, 68, 0.15) 100%) !important;
   border-radius: 22px;
-  backdrop-filter: blur(16px) !important;
-  -webkit-backdrop-filter: blur(16px) !important;
   box-shadow: 
     inset 0 0 15px rgba(239, 68, 68, 0.35),
     0 12px 30px rgba(0, 0, 0, 0.45), 
@@ -241,22 +235,18 @@ select {
   background-clip: padding-box, border-box !important;
   background-origin: padding-box, border-box !important;
   background-image: 
-    linear-gradient(rgba(10, 13, 22, 0.75), rgba(10, 13, 22, 0.75)), 
+    linear-gradient(#0c0f1d, #0c0f1d), 
     linear-gradient(135deg, rgba(59, 130, 246, 0.45) 0%, rgba(59, 130, 246, 0.15) 100%) !important;
   border-radius: 22px;
-  backdrop-filter: blur(16px) !important;
-  -webkit-backdrop-filter: blur(16px) !important;
   box-shadow: 
     inset 0 0 15px rgba(59, 130, 246, 0.35),
     0 12px 30px rgba(0, 0, 0, 0.45), 
     0 0 25px rgba(59, 130, 246, 0.15) !important;
 }
 
-/* Sidebar Glass Glow (Inward soft glow & glassmorphism blur) */
+/* Sidebar High-Contrast Glow Surface */
 .sidebar-glass-glow {
-  background: rgba(10, 13, 22, 0.85) !important;
-  backdrop-filter: blur(20px) !important;
-  -webkit-backdrop-filter: blur(20px) !important;
+  background: #0a0d16 !important;
   border: 1px solid rgba(255, 255, 255, 0.04) !important; /* Ultra thin border */
   box-shadow: 
     inset 0 0 72px rgba(92, 54, 245, 0.28),
@@ -369,11 +359,9 @@ select {
   background-clip: padding-box, border-box !important;
   background-origin: padding-box, border-box !important;
   background-image: 
-    linear-gradient(rgba(10, 13, 22, 0.75), rgba(10, 13, 22, 0.75)), 
+    linear-gradient(#0c0f1d, #0c0f1d), 
     linear-gradient(135deg, rgba(168, 85, 247, 0.45) 0%, rgba(168, 85, 247, 0.15) 100%) !important;
   border-radius: 22px;
-  backdrop-filter: blur(16px) !important;
-  -webkit-backdrop-filter: blur(16px) !important;
   box-shadow: 
     inset 0 0 15px rgba(168, 85, 247, 0.35),
     0 12px 30px rgba(0, 0, 0, 0.45), 
@@ -423,9 +411,9 @@ input[type="date"] {
   color-scheme: dark !important;
 }
 input[type="date"]::-webkit-calendar-picker-indicator {
-  filter: invert(1) brightness(1) !important;
+  filter: invert(1) brightness(2) !important;
   cursor: pointer;
-  opacity: 0.8;
+  opacity: 0.9;
   transition: opacity 150ms ease;
 }
 input[type="date"]::-webkit-calendar-picker-indicator:hover {

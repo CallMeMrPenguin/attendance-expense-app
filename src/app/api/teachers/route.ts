@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase-server';
-import { getDb, getCachedStatement } from '@/lib/db';
+import { getDb, getCachedStatement, hashPassword, deleteTable, invalidateTableCache } from '@/lib/db';
 
 // Helper to normalize username from teacher name
 function generateUsername(name: string): string {
@@ -74,15 +74,19 @@ export async function POST(request: NextRequest) {
 
     const db = getDb();
     const userId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'teacher_' + Date.now();
+    const hashedPassword = hashPassword(password || '123456');
+    const nowIso = new Date().toISOString();
 
     // Insert or update teachers table
-    db.prepare(`INSERT OR IGNORE INTO teachers (name) VALUES (?)`).run(trimmedName);
+    db.prepare(`INSERT OR IGNORE INTO teachers (name, updated_at) VALUES (?, ?)`).run(trimmedName, nowIso);
+    invalidateTableCache('teachers');
 
-    // Insert or update profiles table
+    // Insert or update profiles table with scrypt hashed password
     db.prepare(`
-      INSERT OR REPLACE INTO profiles (id, username, user_name, teacher_name, role, email, password)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(userId, finalUsername, trimmedName, trimmedName, finalRole, mockEmail, password);
+      INSERT OR REPLACE INTO profiles (id, username, user_name, teacher_name, role, email, password, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(userId, finalUsername, trimmedName, trimmedName, finalRole, mockEmail, hashedPassword, nowIso);
+    invalidateTableCache('profiles');
 
     return NextResponse.json({
       status: 'success',
@@ -118,6 +122,7 @@ export async function PUT(request: NextRequest) {
     const finalRole = rawNewRole === 'admin' ? 'admin' : 'user';
 
     const db = getDb();
+    const nowIso = new Date().toISOString();
 
     // 1. Find profile of the teacher
     const profile = db.prepare(`
@@ -126,29 +131,42 @@ export async function PUT(request: NextRequest) {
       LIMIT 1
     `).get(trimmedOld, trimmedOld) as any;
 
-    // Rename teacher in teachers table
+    // Rename teacher in teachers and sessions tables (both teacher_name and user_name)
     if (trimmedNewName && trimmedNewName !== trimmedOld) {
-      db.prepare(`UPDATE teachers SET name = ? WHERE name = ?`).run(trimmedNewName, trimmedOld);
-      db.prepare(`INSERT OR IGNORE INTO teachers (name) VALUES (?)`).run(trimmedNewName);
-      // Update sessions teacher_name
-      db.prepare(`UPDATE sessions SET teacher_name = ? WHERE teacher_name = ?`).run(trimmedNewName, trimmedOld);
+      db.prepare(`UPDATE teachers SET name = ?, updated_at = ? WHERE name = ?`).run(trimmedNewName, nowIso, trimmedOld);
+      db.prepare(`INSERT OR IGNORE INTO teachers (name, updated_at) VALUES (?, ?)`).run(trimmedNewName, nowIso);
+      invalidateTableCache('teachers');
+
+      db.prepare(`
+        UPDATE sessions
+        SET teacher_name = CASE WHEN teacher_name = ? THEN ? ELSE teacher_name END,
+            user_name = CASE WHEN user_name = ? THEN ? ELSE user_name END,
+            updated_at = ?
+        WHERE teacher_name = ? OR user_name = ?
+      `).run(trimmedOld, trimmedNewName, trimmedOld, trimmedNewName, nowIso, trimmedOld, trimmedOld);
+      invalidateTableCache('sessions');
     }
 
     const profileId = profile?.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'teacher_' + Date.now());
 
     if (newPassword && newPassword.trim()) {
+      if (newPassword.trim().length < 6) {
+        return NextResponse.json({ error: 'Mật khẩu mới phải từ 6 ký tự trở lên' }, { status: 400 });
+      }
+      const hashedNewPassword = hashPassword(newPassword.trim());
       db.prepare(`
         UPDATE profiles 
-        SET username = ?, user_name = ?, teacher_name = ?, role = ?, password = ?
+        SET username = ?, user_name = ?, teacher_name = ?, role = ?, password = ?, updated_at = ?
         WHERE id = ?
-      `).run(trimmedNewUsername, trimmedNewName, trimmedNewName, finalRole, newPassword.trim(), profileId);
+      `).run(trimmedNewUsername, trimmedNewName, trimmedNewName, finalRole, hashedNewPassword, nowIso, profileId);
     } else {
       db.prepare(`
         UPDATE profiles 
-        SET username = ?, user_name = ?, teacher_name = ?, role = ?
+        SET username = ?, user_name = ?, teacher_name = ?, role = ?, updated_at = ?
         WHERE id = ?
-      `).run(trimmedNewUsername, trimmedNewName, trimmedNewName, finalRole, profileId);
+      `).run(trimmedNewUsername, trimmedNewName, trimmedNewName, finalRole, nowIso, profileId);
     }
+    invalidateTableCache('profiles');
 
     return NextResponse.json({
       status: 'success',
@@ -183,9 +201,13 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Không thể tự xóa tài khoản của chính mình!' }, { status: 403 });
     }
 
-    db.prepare(`DELETE FROM teachers WHERE name = ?`).run(trimmedName);
-    db.prepare(`DELETE FROM profiles WHERE teacher_name = ? OR user_name = ?`).run(trimmedName, trimmedName);
-    db.prepare(`DELETE FROM sessions WHERE teacher_name = ?`).run(trimmedName);
+    deleteTable('teachers', { eq: { name: trimmedName } });
+    if (profile?.id) {
+      deleteTable('profiles', { eq: { id: profile.id } });
+    } else {
+      deleteTable('profiles', { or: `teacher_name.eq.${trimmedName},user_name.eq.${trimmedName}` });
+    }
+    deleteTable('sessions', { or: `teacher_name.eq.${trimmedName},user_name.eq.${trimmedName}` });
 
     return NextResponse.json({
       status: 'success',

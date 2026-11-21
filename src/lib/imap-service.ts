@@ -1,6 +1,7 @@
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import { getSupabaseAdmin } from '@/lib/supabase-server';
+import { getDb } from '@/lib/db';
 
 export interface BankReceipt {
   id: string;
@@ -200,8 +201,8 @@ let imapClientInstance: ImapFlow | null = null;
 let isIdleListening = false;
 
 export function getImapConfig() {
-  const user = process.env.GMAIL_USER || 'buiduchung2004@gmail.com';
-  const pass = process.env.GMAIL_APP_PASSWORD || 'hkbs waqu qjtl nozt';
+  const user = process.env.GMAIL_USER || '';
+  const pass = process.env.GMAIL_APP_PASSWORD || '';
   const sender = process.env.GMAIL_ALLOWED_SENDER || 'VCBDigibank@info.vietcombank.com.vn';
 
   return { user, pass, sender };
@@ -268,25 +269,18 @@ export async function stopImapIdleListener() {
   }
 }
 
-let isSyncInProgress = false;
+let activeSyncPromise: Promise<BankReceipt[]> | null = null;
 
 export async function syncBankReceipts(clientKeywords?: Record<string, string>, userIdParam?: string, forceFull: boolean = false): Promise<BankReceipt[]> {
-  if (isSyncInProgress) {
-    console.log('[IMAP Service] Sync already in progress, skipping duplicate concurrent connection.');
-    const clientAdmin = getSupabaseAdmin();
-    try {
-      const { data: dbData } = await clientAdmin.from('bank_receipts').select('*').order('trans_date', { ascending: false });
-      if (dbData && dbData.length > 0) return dbData as BankReceipt[];
-    } catch (e) {}
-    return [];
+  if (activeSyncPromise) {
+    console.log('[IMAP Service] Sync already in progress, waiting for active connection result.');
+    return activeSyncPromise;
   }
 
-  isSyncInProgress = true;
-  try {
-    return await executeSyncBankReceipts(clientKeywords, userIdParam, forceFull);
-  } finally {
-    isSyncInProgress = false;
-  }
+  activeSyncPromise = executeSyncBankReceipts(clientKeywords, userIdParam, forceFull).finally(() => {
+    activeSyncPromise = null;
+  });
+  return activeSyncPromise;
 }
 
 async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, userIdParam?: string, forceFull: boolean = false): Promise<BankReceipt[]> {
@@ -424,25 +418,48 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
     try {
       const now = new Date();
 
-      // 1. Try targeted IMAP search for Vietcombank sender (covers all previous months)
+      // 1. Try targeted IMAP UID search for Vietcombank sender (covers all previous months cleanly)
       const targetSender = sender || 'VCBDigibank@info.vietcombank.com.vn';
-      let searchResult = await client.search({ from: targetSender });
+      let searchResult = await client.search({ from: targetSender }, { uid: true });
       if (!searchResult || searchResult.length === 0) {
         // Fallback to past 12 months if search by sender is unsupported
         const twelveMonthsAgo = new Date(now.getFullYear() - 1, 0, 1);
-        searchResult = await client.search({ since: twelveMonthsAgo });
+        searchResult = await client.search({ since: twelveMonthsAgo }, { uid: true });
       }
 
-      const allMsgIds = Array.isArray(searchResult) ? searchResult : [];
-      // When local DB already has historical receipts, only fetch recent messages for fast (~1s) sync unless forceFull is set
-      const msgIds = (!forceFull && existingMap.size >= 100 && allMsgIds.length > 60)
-        ? allMsgIds.slice(-60)
-        : allMsgIds;
-      let newlyParsedCount = 0;
+      const allMsgUids = Array.isArray(searchResult) ? searchResult : [];
+      const currentUidValidity = String((client.mailbox && (client.mailbox as any).uidValidity) || '');
+      let lastKnownUid = 0;
+      let lastKnownUidValidity = '';
+      try {
+        const sqlite = getDb();
+        const uidRow = sqlite.prepare("SELECT value FROM sync_meta WHERE key = 'last_vcb_imap_uid'").get() as { value?: string } | undefined;
+        const valRow = sqlite.prepare("SELECT value FROM sync_meta WHERE key = 'last_vcb_imap_uidvalidity'").get() as { value?: string } | undefined;
+        lastKnownUid = Number(uidRow?.value || 0);
+        lastKnownUidValidity = String(valRow?.value || '');
+      } catch {}
 
-      if (msgIds.length > 0) {
-        // Fast batch streaming IMAP fetch
-        for await (const message of client.fetch(msgIds, { source: true, envelope: true })) {
+      let msgUids: number[];
+      if (!forceFull && existingMap.size >= 100 && lastKnownUid > 0 && currentUidValidity && currentUidValidity === lastKnownUidValidity) {
+        msgUids = allMsgUids.filter(u => u > lastKnownUid);
+      } else {
+        msgUids = (!forceFull && existingMap.size >= 100 && allMsgUids.length > 60)
+          ? allMsgUids.slice(-60)
+          : allMsgUids;
+      }
+
+      let maxFetchedUid = lastKnownUid;
+      if (allMsgUids.length > 0 && (msgUids.length === 0 || forceFull)) {
+        const latestUid = allMsgUids[allMsgUids.length - 1];
+        if (latestUid > maxFetchedUid) maxFetchedUid = latestUid;
+      }
+
+      if (msgUids.length > 0) {
+        // Fast batch streaming IMAP fetch for unseen UIDs only
+        for await (const message of client.fetch(msgUids, { source: true, envelope: true, uid: true }, { uid: true })) {
+          if (message?.uid && message.uid > maxFetchedUid) {
+            maxFetchedUid = message.uid;
+          }
           if (!message || !message.source) continue;
 
           const parsed = await simpleParser(message.source);
@@ -590,7 +607,7 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
                 id: `tx-receipt-${receiptId}`,
                 user_id: targetUserId,
                 user_name: 'Admin',
-                desc_text: `[Biên lai Vietcombank] ${newReceipt.remitter_name || ''} ➔ ${newReceipt.beneficiary_name || ''}: ${newReceipt.details}`,
+                desc_text: `[Biên lai Vietcombank] ${newReceipt.remitter_name || ''} -> ${newReceipt.beneficiary_name || ''}: ${newReceipt.details}`,
                 amount: newReceipt.amount,
                 type: matchedType === 'saving' ? 'expense' : matchedType,
                 category: matchedCategory,
@@ -606,13 +623,28 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
           } catch (e) {}
         }
       }
+
+      if (maxFetchedUid > 0) {
+        try {
+          const sqlite = getDb();
+          sqlite.prepare("INSERT OR REPLACE INTO sync_meta (key, value, updated_at) VALUES ('last_vcb_imap_uid', ?, datetime('now'))").run(String(maxFetchedUid));
+          if (currentUidValidity) {
+            sqlite.prepare("INSERT OR REPLACE INTO sync_meta (key, value, updated_at) VALUES ('last_vcb_imap_uidvalidity', ?, datetime('now'))").run(currentUidValidity);
+          }
+        } catch {}
+      }
     } finally {
       lock.release();
     }
 
-    await client.logout();
+    try {
+      await client.logout();
+    } catch {
+      try { client.close(); } catch {}
+    }
   } catch (err) {
     console.error('IMAP fetch error:', err);
+    try { client.close(); } catch {}
   }
 
   // Combine DB receipts with in-memory map of newly parsed IMAP receipts

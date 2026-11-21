@@ -376,7 +376,7 @@ export default function ManageTeachersModal({
           </h2>
           <button 
             onClick={onClose}
-            className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400 hover:text-slate-650 dark:hover:text-slate-200 transition-colors"
+            className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
           >
             <X className="h-5 w-5" />
           </button>
@@ -384,19 +384,19 @@ export default function ManageTeachersModal({
 
         {/* Alerts and errors */}
         {error && (
-          <div className="mx-6 mt-4 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-xl text-red-650 dark:text-red-400 text-xs flex items-center gap-2">
+          <div className="mx-6 mt-4 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-xl text-red-600 dark:text-red-400 text-xs flex items-center gap-2">
             <AlertCircle className="h-4 w-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}
         {success && (
-          <div className="mx-6 mt-4 p-3 bg-emerald-55 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 rounded-xl text-emerald-650 dark:text-emerald-400 text-xs font-bold">
+          <div className="mx-6 mt-4 p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 rounded-xl text-emerald-600 dark:text-emerald-400 text-xs font-bold">
             {success}
           </div>
         )}
 
         {/* Modal Main Content Box */}
-        <div className="flex-grow overflow-y-auto flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-slate-150 dark:divide-slate-800">
+        <div className="flex-grow overflow-y-auto flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-slate-100 dark:divide-slate-800">
           
           {/* Left Column: Teachers List */}
           <div className="w-full md:w-1/3 p-4 flex flex-col gap-3 min-h-[220px] md:min-h-0 bg-slate-50/50 dark:bg-slate-950/20 shrink-0">
@@ -410,7 +410,7 @@ export default function ManageTeachersModal({
                   setError('');
                   setSuccess('');
                 }}
-                className="px-2.5 py-1 bg-indigo-650 hover:bg-indigo-500 text-white font-bold text-[10px] rounded-lg shadow-sm transition-all flex items-center gap-0.5 cursor-pointer uppercase tracking-wider"
+                className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[10px] rounded-lg shadow-sm transition-all flex items-center gap-0.5 cursor-pointer uppercase tracking-wider"
               >
                 <Plus className="h-3 w-3" />
                 Tạo Mới
@@ -454,21 +454,21 @@ export default function ManageTeachersModal({
               /* Sub-View: Add New Teacher Account Form */
               <form onSubmit={handleAddTeacher} className="space-y-4 animate-fade-in text-left">
                 <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-2">
-                  <h3 className="font-extrabold text-sm text-indigo-650 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <h3 className="font-extrabold text-sm text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
                     <User className="h-4 w-4" />
                     Tạo Tài Khoản Mới
                   </h3>
                   <button
                     type="button"
                     onClick={() => setShowAddForm(false)}
-                    className="text-xs text-slate-400 hover:text-slate-650 hover:font-bold cursor-pointer"
+                    className="text-xs text-slate-400 hover:text-slate-600 hover:font-bold cursor-pointer"
                   >
                     Hủy
                   </button>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label htmlFor="newNameInput" className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider">
+                  <label htmlFor="newNameInput" className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider">
                     Tên hiển thị (Họ & Tên) *
                   </label>
                   <input
@@ -483,7 +483,7 @@ export default function ManageTeachersModal({
                 </div>
 
                 <div className="space-y-1.5">
-                  <label htmlFor="newUsernameInput" className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider">
+                  <label htmlFor="newUsernameInput" className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider">
                     Tên Đăng Nhập / Email (Tùy chọn)
                   </label>
                   <input
@@ -500,7 +500,7 @@ export default function ManageTeachersModal({
                 </div>
 
                 <div className="space-y-1.5">
-                  <label htmlFor="newRoleSelect" className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider block">
+                  <label htmlFor="newRoleSelect" className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider block">
                     Phân Quyền / Role *
                   </label>
                   <CustomSelect
@@ -515,7 +515,7 @@ export default function ManageTeachersModal({
                 </div>
 
                 <div className="space-y-1.5">
-                  <label htmlFor="newPasswordInput" className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider">
+                  <label htmlFor="newPasswordInput" className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider">
                     Mật khẩu đăng nhập *
                   </label>
                   <div className="relative">
@@ -540,7 +540,7 @@ export default function ManageTeachersModal({
                 </div>
 
                 <div className="space-y-1.5">
-                  <label htmlFor="newConfirmPasswordInput" className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider">
+                  <label htmlFor="newConfirmPasswordInput" className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider">
                     Xác nhận mật khẩu *
                   </label>
                   <div className="relative">
@@ -585,7 +585,7 @@ export default function ManageTeachersModal({
 
                 {/* Edit Username (Login username) */}
                 <div className="space-y-1.5">
-                  <label htmlFor="editUsernameInput" className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider">
+                  <label htmlFor="editUsernameInput" className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider">
                     Tên Đăng Nhập / Email *
                   </label>
                   <input
@@ -599,7 +599,7 @@ export default function ManageTeachersModal({
                     className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:outline-none focus:border-indigo-500 disabled:opacity-75 disabled:cursor-not-allowed font-semibold text-slate-700 dark:text-slate-300"
                   />
                   {(selectedTeacher === 'Admin' || selectedTeacher === 'admin') && (
-                    <div className="flex items-center gap-1.5 text-[9px] text-amber-600 dark:text-amber-450 font-bold uppercase tracking-wider">
+                    <div className="flex items-center gap-1.5 text-[9px] text-amber-600 dark:text-amber-400 font-bold uppercase tracking-wider">
                       <ShieldAlert className="h-3 w-3" />
                       Không thể sửa tên đăng nhập chính của hệ thống.
                     </div>
@@ -608,7 +608,7 @@ export default function ManageTeachersModal({
 
                 {/* Edit Teacher Display Name */}
                 <div className="space-y-1.5">
-                  <label htmlFor="editNameInput" className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider">
+                  <label htmlFor="editNameInput" className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider">
                     Tên Hiển Thị (Họ & Tên) *
                   </label>
                   <input
@@ -623,7 +623,7 @@ export default function ManageTeachersModal({
 
                 {/* Edit Role Select */}
                 <div className="space-y-1.5">
-                  <label htmlFor="editRoleSelect" className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider block">
+                  <label htmlFor="editRoleSelect" className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider block">
                     Phân Quyền / Role *
                   </label>
                   <CustomSelect
@@ -645,7 +645,7 @@ export default function ManageTeachersModal({
                       <Unlock className="h-3.5 w-3.5" />
                       Cấp lại / Thay đổi mật khẩu
                     </h4>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-450 mt-0.5 leading-tight">
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">
                       Để trống nếu không muốn thay đổi mật khẩu của tài khoản này:
                     </p>
                   </div>
@@ -699,7 +699,7 @@ export default function ManageTeachersModal({
                     type="button"
                     onClick={handleDeleteTeacher}
                     disabled={loading || selectedTeacher === currentAdminTeacherName || selectedTeacher === 'Admin' || selectedTeacher === 'admin'}
-                    className="px-3.5 py-2.5 text-red-650 dark:text-red-400 border border-red-200 dark:border-red-950 bg-red-50/40 dark:bg-red-950/10 hover:bg-red-100 dark:hover:bg-red-950/25 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all disabled:opacity-40 shrink-0 cursor-pointer"
+                    className="px-3.5 py-2.5 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-950 bg-red-50/40 dark:bg-red-950/10 hover:bg-red-100 dark:hover:bg-red-950/25 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all disabled:opacity-40 shrink-0 cursor-pointer"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                     Xóa Tài Khoản
@@ -724,7 +724,7 @@ export default function ManageTeachersModal({
         <div className="px-6 py-4 bg-slate-50 dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800 flex justify-end shrink-0">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-slate-600 dark:text-slate-350 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-sm font-semibold transition-all cursor-pointer"
+            className="px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-sm font-semibold transition-all cursor-pointer"
           >
             Đóng
           </button>

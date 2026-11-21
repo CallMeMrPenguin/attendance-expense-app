@@ -33,7 +33,7 @@ interface AddSessionModalProps {
     teacherName: string;
   };
   preSelectedDate?: string | null;
-  onClearExclusion?: (jobName: string) => Promise<void>;
+  onClearExclusion?: (jobName: string, teacherOverride?: string) => Promise<void>;
   sessionStudentConfigs?: Record<string, any>;
   onSaveSessionStudentConfigs?: (teacherName: string, configs: Record<string, any>) => void;
   incomeCategories?: string[];
@@ -237,7 +237,8 @@ export default function AddSessionModal({
         }
         setIsSingleSession(true);
         setLoaiHinh('tam_thoi');
-        setAutoCheckIn(s.auto_check_in ?? s.auto_checkin ?? true);
+        const rawAuto = s.auto_check_in ?? s.auto_checkin ?? true;
+        setAutoCheckIn(rawAuto !== false && rawAuto !== 0);
         if (preSelectedDate) {
           setSingleDate(preSelectedDate);
         } else {
@@ -395,6 +396,7 @@ export default function AddSessionModal({
         throw new Error(insertError.message);
       }
 
+      const clearedName = studentName.trim();
       setStudentName('');
       setPrice('');
       setStatus('Chưa dạy');
@@ -415,9 +417,9 @@ export default function AddSessionModal({
         }, {} as Record<string, DayConfig>)
       );
 
-      if (onClearExclusion && studentName.trim()) {
+      if (onClearExclusion && clearedName) {
         try {
-          await onClearExclusion(studentName.trim());
+          await onClearExclusion(clearedName, assignedTeacherName);
         } catch (exErr) {
           console.error('Error in onClearExclusion:', exErr);
         }
@@ -929,7 +931,7 @@ export default function AddSessionModal({
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-1.5">
-                <label htmlFor="initialStatus" className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider block">
+                <label htmlFor="initialStatus" className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider block">
                   Trạng thái
                 </label>
                 <CustomSelect
@@ -941,7 +943,7 @@ export default function AddSessionModal({
               </div>
 
               <div className="space-y-1.5">
-                <label htmlFor="loaiHinh" className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider block">
+                <label htmlFor="loaiHinh" className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider block">
                   Loại hình lịch
                 </label>
                 <CustomSelect
@@ -1013,7 +1015,7 @@ export default function AddSessionModal({
               <div className="space-y-4 bg-slate-50/50 dark:bg-slate-950/30 border border-slate-200/60 dark:border-slate-850 p-4 rounded-xl">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="space-y-1.5">
-                    <label className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider block">
+                    <label className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider block">
                       Ngày học *
                     </label>
                     <CustomDatePicker
@@ -1023,7 +1025,7 @@ export default function AddSessionModal({
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider block">
+                    <label className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider block">
                       Giờ học *
                     </label>
                     <input
@@ -1036,7 +1038,7 @@ export default function AddSessionModal({
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-slate-700 dark:text-slate-350 text-xs font-bold uppercase tracking-wider block">
+                    <label className="text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider block">
                       Số giờ học *
                     </label>
                     <input
