@@ -17,6 +17,7 @@ import time
 import socket
 import shutil
 import signal
+import tempfile
 import threading
 import subprocess
 import webbrowser
@@ -26,6 +27,24 @@ PORT = int(os.environ.get("PORT", 9000))
 HOST = "127.0.0.1"
 APP_URL = f"http://localhost:{PORT}"
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+def resolve_npm_command() -> str:
+    """Tìm npm binary và đảm bảo thư mục chứa node/npm nằm trong PATH khi chạy ở Startup."""
+    if os.name == "nt":
+        found = shutil.which("npm.cmd") or shutil.which("npm")
+        if not found:
+            for candidate in (r"E:\npm.cmd", r"C:\Program Files\nodejs\npm.cmd"):
+                if os.path.exists(candidate):
+                    found = candidate
+                    break
+        if found:
+            bin_dir = os.path.dirname(found)
+            if bin_dir and bin_dir not in os.environ.get("PATH", ""):
+                os.environ["PATH"] = f"{bin_dir};{os.environ.get('PATH', '')}"
+            return found
+        return "npm.cmd"
+    return shutil.which("npm") or "npm"
 
 
 def is_port_in_use(port=PORT, host=HOST) -> bool:
@@ -116,6 +135,12 @@ def terminate_process(proc: subprocess.Popen):
 
 def main():
     os.chdir(SCRIPT_DIR)
+    no_browser = (
+        any(arg in sys.argv[1:] for arg in ("--background", "--silent", "--no-browser"))
+        or os.environ.get("NO_BROWSER", "").strip().lower() in ("1", "true", "yes")
+    )
+    hidden_flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if (os.name == "nt" and no_browser) else 0
+
     print("=" * 60)
     print("  KHOI DONG UNG DUNG CHAM CONG & QUAN LY CHI PHI")
     print("=" * 60)
@@ -125,14 +150,15 @@ def main():
     if is_port_in_use(PORT, HOST):
         if is_server_healthy():
             print(f"[INFO] May chu da dang hoat dong binh thuong tren cong {PORT}.")
-            print(f"[INFO] Dang mo ung dung tren trinh duyet: {APP_URL}")
-            try:
-                webbrowser.open(APP_URL)
-                print("[OK] Da mo trinh duyet thanh cong.")
-            except Exception as e:
-                print(f"[CANH BAO] Khong the mo trinh duyet tu dong: {e}")
-                print(f"[INFO] Vui long truy cap thu cong tai: {APP_URL}")
-            time.sleep(1.5)
+            if not no_browser:
+                print(f"[INFO] Dang mo ung dung tren trinh duyet: {APP_URL}")
+                try:
+                    webbrowser.open(APP_URL)
+                    print("[OK] Da mo trinh duyet thanh cong.")
+                except Exception as e:
+                    print(f"[CANH BAO] Khong the mo trinh duyet tu dong: {e}")
+                    print(f"[INFO] Vui long truy cap thu cong tai: {APP_URL}")
+                time.sleep(1.5)
             return
         else:
             print(f"[CANH BAO] Phat hien cong {PORT} bi chiem boi tien trinh cu khong phan hoi.")
@@ -140,17 +166,14 @@ def main():
 
 
     # 2. Tìm binary npm hoặc pnpm / yarn
-    npm_cmd = shutil.which("npm.cmd") if os.name == "nt" else shutil.which("npm")
-    if not npm_cmd:
-        # Fallback thử 'npm' trực tiếp
-        npm_cmd = "npm.cmd" if os.name == "nt" else "npm"
+    npm_cmd = resolve_npm_command()
 
     # Kiểm tra node_modules
     node_modules_path = os.path.join(SCRIPT_DIR, "node_modules")
     if not os.path.exists(node_modules_path):
         print("[INFO] Chua tim thay thu muc node_modules. Dang chay 'npm install'...")
         try:
-            subprocess.run([npm_cmd, "install"], cwd=SCRIPT_DIR, check=True)
+            subprocess.run([npm_cmd, "install"], cwd=SCRIPT_DIR, check=True, creationflags=hidden_flags)
             print("[OK] Cai dat thu vien thanh cong.")
         except Exception as e:
             print(f"[LOI] Cai dat that bai: {e}")
@@ -183,7 +206,7 @@ def main():
     if not is_dev and needs_build:
         print("[INFO] Dang tao build production toi uu (.next)...")
         try:
-            subprocess.run([npm_cmd, "run", "build"], cwd=SCRIPT_DIR, check=True)
+            subprocess.run([npm_cmd, "run", "build"], cwd=SCRIPT_DIR, check=True, creationflags=hidden_flags)
             print("[OK] Dong goi ung dung thanh cong.")
         except Exception as e:
             print(f"[CANH BAO] Build that bai, chuyen sang che do dev: {e}")
@@ -195,19 +218,33 @@ def main():
     print(f"[INFO] Dang khoi dong Next.js server [{mode_name}] tren cong {PORT}...")
     stop_event = threading.Event()
 
-    # Luồng ngầm theo dõi khi nào cổng mở để khởi động trình duyệt
-    watcher_thread = threading.Thread(
-        target=wait_for_server_and_open_browser,
-        args=(APP_URL, stop_event),
-        daemon=True,
-    )
-    watcher_thread.start()
+    # Chỉ mở trình duyệt khi chạy tương tác (bỏ qua khi chạy nền ở Windows Startup)
+    if not no_browser:
+        watcher_thread = threading.Thread(
+            target=wait_for_server_and_open_browser,
+            args=(APP_URL, stop_event),
+            daemon=True,
+        )
+        watcher_thread.start()
 
     proc = None
+    log_handle = None
     try:
+        popen_kwargs = {"cwd": SCRIPT_DIR}
+        if no_browser:
+            log_path = os.path.join(tempfile.gettempdir(), f"chamcong_server_{PORT}.log")
+            log_handle = open(log_path, "a", encoding="utf-8", errors="replace")
+            log_handle.write(f"\n=== Startup launch [{time.strftime('%Y-%m-%d %H:%M:%S')}] ===\n")
+            log_handle.flush()
+            popen_kwargs["stdin"] = subprocess.DEVNULL
+            popen_kwargs["stdout"] = log_handle
+            popen_kwargs["stderr"] = subprocess.STDOUT
+            if hidden_flags:
+                popen_kwargs["creationflags"] = hidden_flags
+
         proc = subprocess.Popen(
             start_cmd,
-            cwd=SCRIPT_DIR,
+            **popen_kwargs,
         )
 
         # Xử lý đóng an toàn khi nhận tín hiệu
@@ -234,6 +271,12 @@ def main():
         print(f"\n[LOI] Khong the chay may chu: {e}")
         terminate_process(proc)
         sys.exit(1)
+    finally:
+        if log_handle is not None:
+            try:
+                log_handle.close()
+            except Exception:
+                pass
 
 
 if __name__ == "__main__":

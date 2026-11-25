@@ -46,7 +46,7 @@ export function parseVietcombankEmail(html: string, text: string, emailHeaderDat
     for (const row of rowMatches) {
       let cells = (row.match(/<t[dh][^>]*>[\s\S]*?<\/t[dh]>/gi) || [])
         .map(c => c.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim());
-      
+
       // Filter out empty cells and standalone colons
       cells = cells.filter(c => c !== ':' && c !== '');
 
@@ -150,7 +150,7 @@ export function parseVietcombankEmail(html: string, text: string, emailHeaderDat
   const creditAccount = getFieldValue(['Tài khoản người hưởng', 'Credit Account', 'Tài khoản nhận', 'Tài khoản thụ hưởng', 'Đến tài khoản']);
   const beneficiaryName = getFieldValue(['Tên người hưởng', 'Beneficiary Name', 'Beneficiary name', 'Người nhận', 'Tên người thụ hưởng', 'Tên tài khoản nhận', 'Khách hàng', 'Tên khách hàng']);
   const beneficiaryBank = getFieldValue(['Tên ngân hàng hưởng', 'Beneficiary Bank Name', 'Beneficiary Bank', 'Ngân hàng nhận', 'Ngân hàng thụ hưởng']);
-  
+
   // 5. Details
   const details = getFieldValue(['Nội dung chuyển tiền', 'Details of Payment', 'Nội dung', 'Diễn giải', 'Nội dung thanh toán', 'Nội dung giao dịch', 'Tên sản phẩm', 'Mô tả', 'Dịch vụ', 'Loại dịch vụ', 'Tên hàng hóa']);
 
@@ -235,13 +235,13 @@ export function isDefaultTransferDetails(text: string): boolean {
   if (!clean) return true;
 
   const defaultPattern = /^(?:[a-z0-9]+\s+)*(?:chuyen\s*tien|chuyen\s*khoang|chuyen\s*tk|thanh\s*toan)(?:\s+[a-z0-9]+)*$/i;
-  
+
   if (defaultPattern.test(clean)) {
     const stripped = clean
       .replace(/\b(?:chuyen\s*tien|chuyen\s*khoang|chuyen\s*tk|thanh\s*toan|chuyen|tien|khoang|tk)\b/g, '')
       .replace(/\s+/g, ' ')
       .trim();
-    
+
     const nameWords = new Set([
       'bui', 'duc', 'hung', 'pham', 'thi', 'thu', 'trang', 'nguyen', 'van', 'a', 'b', 'c',
       'tran', 'le', 'hoang', 'vo', 'dang', 'do', 'ngo', 'duong', 'ly', 'vu', 'dinh', 'tuan'
@@ -249,12 +249,12 @@ export function isDefaultTransferDetails(text: string): boolean {
 
     const remainingWords = stripped.split(' ').filter(Boolean);
     const hasNonNameWord = remainingWords.some(w => !nameWords.has(w));
-    
+
     if (!hasNonNameWord) {
       return true;
     }
   }
-  
+
   return false;
 }
 
@@ -265,7 +265,7 @@ export async function stopImapIdleListener() {
       const client = imapClientInstance;
       imapClientInstance = null;
       await client.logout();
-    } catch (e) {}
+    } catch (e) { }
   }
 }
 
@@ -315,7 +315,7 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
       if ((profData as any)?.id) {
         targetUserId = (profData as any).id;
       }
-    } catch (e) {}
+    } catch (e) { }
   }
 
   // 1. Fetch existing receipts, rules, and category budgets from Supabase DB FIRST
@@ -355,13 +355,13 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
           try {
             const parsed = JSON.parse(kwVal);
             kwVal = parsed.kw || '';
-          } catch (e) {}
+          } catch (e) { }
         }
         if (!kwVal && b.note && typeof b.note === 'string' && b.note.startsWith('{')) {
           try {
             const parsed = JSON.parse(b.note);
             if (parsed.kw !== undefined && parsed.kw !== null) kwVal = parsed.kw;
-          } catch (e) {}
+          } catch (e) { }
         }
         return {
           category: b.category,
@@ -382,14 +382,14 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
           try {
             const parsed = JSON.parse(kwVal);
             kwVal = parsed.kw || '';
-          } catch (e) {}
+          } catch (e) { }
         }
         return {
           category: cat,
           keywords: kwVal || defaultKeywords[cat] || ''
         };
       });
-      
+
       clientBudgets.forEach(cb => {
         const existing = categoryBudgetsList.find(x => x.category === cb.category);
         if (existing) {
@@ -437,7 +437,7 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
         const valRow = sqlite.prepare("SELECT value FROM sync_meta WHERE key = 'last_vcb_imap_uidvalidity'").get() as { value?: string } | undefined;
         lastKnownUid = Number(uidRow?.value || 0);
         lastKnownUidValidity = String(valRow?.value || '');
-      } catch {}
+      } catch { }
 
       let msgUids: number[];
       if (!forceFull && existingMap.size >= 100 && lastKnownUid > 0 && currentUidValidity && currentUidValidity === lastKnownUidValidity) {
@@ -474,17 +474,17 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
           const cleanHtml = cleanString(htmlText);
 
           // Filter for sender Vietcombank/Bank or receipt/invoice topic
-          const isVcbSender = cleanFrom.includes('vcbdigibank@info.vietcombank.com.vn') || 
-                              cleanFrom.includes('vietcombank') || 
-                              cleanFrom.includes('vcb');
-          
-          const isReceiptSubject = cleanSubj.includes('bien lai') || 
-                                   cleanSubj.includes('hoa don') || 
-                                   cleanSubj.includes('thanh toan') || 
-                                   cleanSubj.includes('invoice') || 
-                                   cleanSubj.includes('receipt') ||
-                                   cleanSubj.includes('xac nhan') ||
-                                   cleanSubj.includes('thong bao');
+          const isVcbSender = cleanFrom.includes('vcbdigibank@info.vietcombank.com.vn') ||
+            cleanFrom.includes('vietcombank') ||
+            cleanFrom.includes('vcb');
+
+          const isReceiptSubject = cleanSubj.includes('bien lai') ||
+            cleanSubj.includes('hoa don') ||
+            cleanSubj.includes('thanh toan') ||
+            cleanSubj.includes('invoice') ||
+            cleanSubj.includes('receipt') ||
+            cleanSubj.includes('xac nhan') ||
+            cleanSubj.includes('thong bao');
 
           const isBankContent = cleanText.includes('vietcombank') || cleanHtml.includes('vietcombank') || cleanText.includes('hoa don') || cleanHtml.includes('hoa don') || cleanText.includes('bien lai') || cleanHtml.includes('bien lai');
 
@@ -620,7 +620,7 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
                 await clientAdmin.from('manual_transactions').upsert(fallbackTx as any, { onConflict: 'id' });
               }
             }
-          } catch (e) {}
+          } catch (e) { }
         }
       }
 
@@ -631,7 +631,7 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
           if (currentUidValidity) {
             sqlite.prepare("INSERT OR REPLACE INTO sync_meta (key, value, updated_at) VALUES ('last_vcb_imap_uidvalidity', ?, datetime('now'))").run(currentUidValidity);
           }
-        } catch {}
+        } catch { }
       }
     } finally {
       lock.release();
@@ -640,11 +640,11 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
     try {
       await client.logout();
     } catch {
-      try { client.close(); } catch {}
+      try { client.close(); } catch { }
     }
   } catch (err) {
     console.error('IMAP fetch error:', err);
-    try { client.close(); } catch {}
+    try { client.close(); } catch { }
   }
 
   // Combine DB receipts with in-memory map of newly parsed IMAP receipts
@@ -657,7 +657,7 @@ async function executeSyncBankReceipts(clientKeywords?: Record<string, string>, 
         }
       });
     }
-  } catch (e) {}
+  } catch (e) { }
 
   const finalReceiptsList = Array.from(existingMap.values()).sort((a, b) => b.trans_date.localeCompare(a.trans_date));
   return finalReceiptsList;
