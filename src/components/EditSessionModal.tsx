@@ -57,6 +57,8 @@ interface EditSessionModalProps {
   onClearExclusion?: (jobName: string, teacherOverride?: string) => Promise<void>;
   sessionStudentConfigs?: Record<string, any>;
   onSaveSessionStudentConfigs?: (teacherName: string, configs: Record<string, any>) => void;
+  scheduleTemplates?: Record<string, any>;
+  onSaveScheduleTemplates?: (teacherName: string, templates: Record<string, any>, userId?: string) => Promise<void>;
   incomeCategories?: string[];
   onOptimisticSave?: (newSessions: Session[], oldIdsToRemove: string[]) => void;
 }
@@ -114,6 +116,8 @@ export default function EditSessionModal({
   onClearExclusion,
   sessionStudentConfigs,
   onSaveSessionStudentConfigs,
+  scheduleTemplates,
+  onSaveScheduleTemplates,
   incomeCategories: propIncomeCategories,
   onOptimisticSave
 }: EditSessionModalProps) {
@@ -158,11 +162,27 @@ export default function EditSessionModal({
   const [siblingsCollapsed, setSiblingsCollapsed] = useState(true);
   const [recurringCollapsed, setRecurringCollapsed] = useState(true);
 
+  // When a fixed schedule change takes effect permanently:
+  // 'current_month': applies to the entire current month & all future months
+  // 'next_week': keeps earlier dates intact, applies from Monday of next week & all future months
+  // 'next_month': keeps current month intact, applies from the 1st of next month & all future months
+  const [applyTiming, setApplyTiming] = useState<'current_month' | 'next_week' | 'next_month'>('current_month');
+  const [customNextMondayDate, setCustomNextMondayDate] = useState<string>('');
+
   // Overlap / delete confirm modal states — must be declared here (before any conditional return)
   const [warningMsg, setWarningMsg] = useState('');
   const [showOverlapModal, setShowOverlapModal] = useState(false);
   const [pendingSiblingSessions, setPendingSiblingSessions] = useState<any[]>([]);
   const [pendingOldSiblingIds, setPendingOldSiblingIds] = useState<string[]>([]);
+  const pendingSaveMetaRef = React.useRef<{
+    oldName: string;
+    newName: string;
+    effectiveFromDate: string;
+    effectiveMonthStr: string;
+    effectiveColor: string;
+    updatedTemplates: Record<string, any> | null;
+    updatedStudentConfigs: Record<string, any> | null;
+  } | null>(null);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [deleteScope, setDeleteScope] = useState<'single' | 'month' | 'all'>('single');
 
@@ -179,6 +199,9 @@ export default function EditSessionModal({
 
     setAssignedTeacherName(session.user_name || session.teacher_name || '');
     setStudentName(session.job_name || session.student_name || '');
+    setApplyTiming('current_month');
+    setCustomNextMondayDate('');
+    setError('');
     setPrice(String(session.price || ''));
 
     const sCount = session.student_count ?? 1;
@@ -236,6 +259,10 @@ export default function EditSessionModal({
     setIncomeCategory(rawCat === 'Giáo dục' ? 'Gia Sư' : rawCat);
     const rawAuto = (session.auto_checkin ?? session.auto_check_in ?? true) as boolean | number;
     setAutoCheckin(rawAuto !== false && rawAuto !== 0);
+    setApplyTiming('current_month');
+    setCustomNextMondayDate('');
+    setError('');
+    setLoading(false);
     
     const studentColor = session.color || getStudentColor(session.student_name);
     setColor(studentColor);
@@ -335,15 +362,65 @@ export default function EditSessionModal({
     setRecurringCollapsed(true);
   }, [session, existingSessions]);
 
-  // Get colors used by other students in existingSessions
+  // Get colors used by other students in existingSessions (excluding both current typed name and original schedule name)
   const usedColors = React.useMemo(() => {
     const currentTypedName = (studentName || '').trim().toLowerCase();
-    const otherStudentsSessions = (existingSessions || []).filter(
-      (s) => (s?.student_name || s?.job_name || '').trim().toLowerCase() !== currentTypedName
-    );
+    const originalSessionName = (session?.student_name || session?.job_name || '').trim().toLowerCase();
+    const otherStudentsSessions = (existingSessions || []).filter((s) => {
+      const sName = (s?.student_name || s?.job_name || '').trim().toLowerCase();
+      return sName !== currentTypedName && sName !== originalSessionName;
+    });
     const colors = otherStudentsSessions.map((s) => (s?.color || '').toLowerCase()).filter(Boolean);
     return Array.from(new Set(colors));
-  }, [existingSessions, studentName]);
+  }, [existingSessions, studentName, session]);
+
+  // Helper to compute next Monday (YYYY-MM-DD) after a given date string
+  const getNextMondayAfter = React.useCallback((dateStr: string): string => {
+    const parts = (dateStr || '').split('-').map(Number);
+    const dt = parts.length === 3 && !parts.some(isNaN)
+      ? new Date(parts[0], parts[1] - 1, parts[2])
+      : new Date();
+    const dow = dt.getDay(); // 0 = Sun, 1 = Mon ... 6 = Sat
+    const daysUntilNextMon = dow === 0 ? 1 : (8 - dow);
+    const nextMon = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate() + daysUntilNextMon);
+    const y = nextMon.getFullYear();
+    const m = String(nextMon.getMonth() + 1).padStart(2, '0');
+    const d = String(nextMon.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }, []);
+
+  // Helper to compute next month (YYYY-MM) after a given month_year string
+  const getNextMonthYear = React.useCallback((monthYear: string): string => {
+    const [y, m] = (monthYear || '').split('-').map(Number);
+    if (!y || !m) {
+      const now = new Date();
+      return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    }
+    const nextM = m === 12 ? 1 : m + 1;
+    const nextY = m === 12 ? y + 1 : y;
+    return `${nextY}-${String(nextM).padStart(2, '0')}`;
+  }, []);
+
+  // Default next Monday date & selectable Mondays for 'next_week' mode
+  const { effectiveNextMondayDate, selectableMondays, nextMonthYearStr } = React.useMemo(() => {
+    const mYear = session?.month_year || '';
+    const nextMYear = getNextMonthYear(mYear);
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const refDate = (mYear && todayStr.startsWith(mYear)) ? todayStr : (session?.date || todayStr);
+    const defaultNextMon = getNextMondayAfter(refDate);
+
+    const monthMondays = mYear ? getDatesForWeekday(mYear, 'Thứ 2') : [];
+    const nextMonthMondays = nextMYear ? getDatesForWeekday(nextMYear, 'Thứ 2') : [];
+    const firstNextMonthMonday = nextMonthMondays[0] ? [nextMonthMondays[0]] : [];
+    const allOptions = Array.from(new Set([...monthMondays, defaultNextMon, ...firstNextMonthMonday])).sort();
+
+    return {
+      effectiveNextMondayDate: customNextMondayDate || defaultNextMon,
+      selectableMondays: allOptions,
+      nextMonthYearStr: nextMYear,
+    };
+  }, [session?.month_year, session?.date, customNextMondayDate, getNextMondayAfter, getNextMonthYear]);
 
   const availablePalette = PALETTE.filter((c) => !usedColors.includes(c.toLowerCase()));
 
@@ -471,18 +548,62 @@ export default function EditSessionModal({
     newTime: string,
     newDuration: number
   ) => {
+    const oldDay = dayOfWeek;
+    const cleanTime = formatCleanTimeString(newTime);
     setDayOfWeek(newDay);
-    setTime(formatCleanTimeString(newTime));
+    setTime(cleanTime);
     setDuration(newDuration);
 
     setRecurringConfigs((prev) => {
       const updated = { ...prev };
+      if (oldDay && oldDay !== newDay && updated[oldDay]) {
+        updated[oldDay] = { ...updated[oldDay], checked: false };
+      }
       updated[newDay] = {
         checked: true,
-        time: formatCleanTimeString(newTime),
+        time: cleanTime,
         duration: newDuration,
       };
       return updated;
+    });
+
+    setSiblings((prev) => {
+      let updated = [...prev];
+      if (oldDay !== newDay) {
+        updated = updated.map((s) =>
+          s.day_of_week === oldDay && s.id !== session?.id ? { ...s, checked: false } : s
+        );
+        if (session?.month_year) {
+          const dates = getDatesForWeekday(session.month_year, newDay);
+          dates.forEach((dStr) => {
+            const existingIdx = updated.findIndex((s) => s.date === dStr && s.day_of_week === newDay);
+            if (existingIdx >= 0) {
+              updated[existingIdx] = {
+                ...updated[existingIdx],
+                checked: true,
+                time: cleanTime,
+                duration: newDuration,
+              };
+            } else {
+              updated.push({
+                id: undefined,
+                date: dStr,
+                day_of_week: newDay,
+                checked: true,
+                time: cleanTime,
+                duration: newDuration,
+              });
+            }
+          });
+        }
+      } else {
+        updated = updated.map((s) =>
+          s.day_of_week === newDay || s.id === session?.id
+            ? { ...s, time: cleanTime, duration: newDuration }
+            : s
+        );
+      }
+      return updated.sort((a, b) => a.date.localeCompare(b.date) || (a.time || '').localeCompare(b.time || ''));
     });
   };
 
@@ -613,6 +734,15 @@ export default function EditSessionModal({
   const executeUpsertSessions = async (newSessions: any[], oldIds: string[]) => {
     setShowOverlapModal(false);
 
+    const meta = pendingSaveMetaRef.current;
+    pendingSaveMetaRef.current = null;
+    const cleanNewName = meta?.newName || studentName.trim();
+    const oldName = meta?.oldName || (session?.job_name || session?.student_name || '').trim();
+    const isRenamed = !!oldName && cleanNewName.toLowerCase() !== oldName.toLowerCase();
+    const effectiveFromDate = meta?.effectiveFromDate || (session?.month_year ? `${session.month_year}-01` : '');
+    const effectiveMonthStr = meta?.effectiveMonthStr || (session?.month_year || '');
+    const effectiveColor = meta?.effectiveColor || color;
+
     const keepIds = newSessions.map((s) => s.id).filter(Boolean) as string[];
     const deleteIds = oldIds.filter((id) => !keepIds.includes(id));
     const sanitizedSessions = newSessions.map(sanitizeSessionPayload);
@@ -621,6 +751,7 @@ export default function EditSessionModal({
     if (onOptimisticSave) {
       onOptimisticSave(sanitizedSessions, deleteIds);
     }
+    setLoading(false);
     onClose();
 
     // Background sync to database
@@ -638,63 +769,204 @@ export default function EditSessionModal({
           .upsert(sanitizedSessions);
       }
 
-      // Clear any stale schedule exclusion if saving a recurring (co_dinh) schedule
-      if (loaiHinh === 'co_dinh' && onClearExclusion && studentName.trim()) {
-        onClearExclusion(studentName.trim(), assignedTeacherName).catch(() => {});
+      // Persist updated student configs (migrating renamed keys)
+      if (meta?.updatedStudentConfigs && onSaveSessionStudentConfigs) {
+        onSaveSessionStudentConfigs(assignedTeacherName, meta.updatedStudentConfigs);
       }
 
-      // If editing a recurring (co_dinh) schedule, also reconcile future months (> session.month_year) so removed weekdays never reappear when switching months
-      if (loaiHinh === 'co_dinh' && session?.month_year && studentName.trim()) {
+      // Persist permanent recurring template in Supabase (honored by all future months)
+      if (meta?.updatedTemplates && onSaveScheduleTemplates) {
+        await onSaveScheduleTemplates(assignedTeacherName, meta.updatedTemplates, currentUser?.id);
+      }
+
+      // Clear any stale schedule exclusions for both old and new schedule names
+      if (loaiHinh === 'co_dinh' && onClearExclusion && cleanNewName) {
+        onClearExclusion(cleanNewName, assignedTeacherName).catch(() => {});
+        if (isRenamed) {
+          onClearExclusion(oldName, assignedTeacherName).catch(() => {});
+        }
+      }
+
+      // Reconcile future months (> session.month_year) permanently for recurring schedules or renames
+      if (session?.month_year && cleanNewName) {
         try {
           const checkedDayConfigs = new Map<string, RecurringDayConfig>();
           Object.entries(recurringConfigs).forEach(([day, cfg]) => {
             if (cfg.checked) checkedDayConfigs.set(day, cfg);
           });
 
-          const { data: futureRows } = await supabase
+          const { data: futureNew } = await supabase
             .from('sessions')
             .select('*')
-            .ilike('job_name', studentName.trim())
+            .ilike('job_name', cleanNewName)
             .gt('month_year', session.month_year);
 
-          if (futureRows && Array.isArray(futureRows) && futureRows.length > 0) {
+          let combinedFutureRows: any[] = Array.isArray(futureNew) ? [...futureNew] : [];
+          if (isRenamed && oldName) {
+            const { data: futureOld } = await supabase
+              .from('sessions')
+              .select('*')
+              .ilike('job_name', oldName)
+              .gt('month_year', session.month_year);
+            if (Array.isArray(futureOld)) {
+              const seenIds = new Set(combinedFutureRows.map((r) => r.id));
+              futureOld.forEach((r) => {
+                if (!seenIds.has(r.id)) combinedFutureRows.push(r);
+              });
+            }
+          }
+
+          if (combinedFutureRows.length > 0 || (loaiHinh === 'co_dinh' && effectiveMonthStr > session.month_year)) {
             const futureDeleteIds: string[] = [];
             const futureUpserts: any[] = [];
             const seenDateDay = new Set<string>();
+            const existingDatesByFutureMonth = new Map<string, Set<string>>();
+            const touchedFutureMonths = new Set<string>();
 
-            futureRows.forEach((fRow: any) => {
+            const currentPPerStudent = Number(pricePerStudent) || (studentCount > 0 ? Math.round(Number(price) / studentCount) : Number(price));
+            const futurePrice = Number(price);
+
+            combinedFutureRows.forEach((fRow: any) => {
               const fTeacher = (fRow.user_name || fRow.teacher_name || '').trim().toLowerCase();
               if (assignedTeacherName && fTeacher && fTeacher !== assignedTeacherName.trim().toLowerCase()) return;
-              if ((fRow.loai_hinh || fRow.loai_hinh_lich) === 'tam_thoi') return;
+
+              const fMonth = fRow.month_year || (fRow.date ? String(fRow.date).substring(0, 7) : '');
+              if (fMonth) touchedFutureMonths.add(fMonth);
+
+              // Dates strictly BEFORE effectiveFromDate (e.g. first week of next month before 'next_week' Monday): preserve schedule/times, only update renamed job_name/color
+              if (effectiveFromDate && fRow.date < effectiveFromDate) {
+                if (isRenamed) {
+                  futureUpserts.push(sanitizeSessionPayload({
+                    ...fRow,
+                    job_name: cleanNewName,
+                    student_name: cleanNewName,
+                    color: effectiveColor,
+                  }));
+                }
+                if (fMonth) {
+                  if (!existingDatesByFutureMonth.has(fMonth)) existingDatesByFutureMonth.set(fMonth, new Set());
+                  existingDatesByFutureMonth.get(fMonth)!.add(fRow.date);
+                }
+                return;
+              }
+
+              // If switched to 'tam_thoi', remove auto-generated or pending fixed sessions in future months
+              if (loaiHinh === 'tam_thoi') {
+                if ((fRow.loai_hinh || fRow.loai_hinh_lich) !== 'tam_thoi' && (fRow.status === 'Chưa làm' || fRow.status === 'Chưa dạy' || String(fRow.id || '').startsWith('fix_'))) {
+                  futureDeleteIds.push(fRow.id);
+                } else if (isRenamed) {
+                  futureUpserts.push(sanitizeSessionPayload({
+                    ...fRow,
+                    job_name: cleanNewName,
+                    student_name: cleanNewName,
+                    color: effectiveColor,
+                  }));
+                }
+                return;
+              }
+
+              if ((fRow.loai_hinh || fRow.loai_hinh_lich) === 'tam_thoi') {
+                if (isRenamed) {
+                  futureUpserts.push(sanitizeSessionPayload({
+                    ...fRow,
+                    job_name: cleanNewName,
+                    student_name: cleanNewName,
+                    color: effectiveColor,
+                  }));
+                }
+                return;
+              }
 
               const dayCfg = checkedDayConfigs.get(fRow.day_of_week);
               const dateKey = `${fRow.date}_${fRow.day_of_week}`;
               if (!dayCfg || seenDateDay.has(dateKey)) {
-                futureDeleteIds.push(fRow.id);
+                if (fRow.status === 'Chưa làm' || fRow.status === 'Chưa dạy' || String(fRow.id || '').startsWith('fix_')) {
+                  futureDeleteIds.push(fRow.id);
+                }
               } else {
                 seenDateDay.add(dateKey);
+                if (fMonth) {
+                  if (!existingDatesByFutureMonth.has(fMonth)) existingDatesByFutureMonth.set(fMonth, new Set());
+                  existingDatesByFutureMonth.get(fMonth)!.add(fRow.date);
+                }
                 if (fRow.status === 'Chưa làm' || fRow.status === 'Chưa dạy') {
                   futureUpserts.push(sanitizeSessionPayload({
                     ...fRow,
-                    job_name: studentName.trim(),
-                    student_name: studentName.trim(),
+                    job_name: cleanNewName,
+                    student_name: cleanNewName,
                     time: formatCleanTimeString(dayCfg.time),
                     duration: Number(dayCfg.duration),
-                    price: Number(price),
-                    color: color,
+                    price: futurePrice,
+                    price_per_student: currentPPerStudent,
+                    color: effectiveColor,
                     income_category: incomeCategory,
+                    category: incomeCategory,
                     auto_check_in: autoCheckin,
                     auto_checkin: autoCheckin,
+                  }));
+                } else if (isRenamed) {
+                  futureUpserts.push(sanitizeSessionPayload({
+                    ...fRow,
+                    job_name: cleanNewName,
+                    student_name: cleanNewName,
+                    color: effectiveColor,
                   }));
                 }
               }
             });
 
+            // Fill missing weekdays in touched future months (or effectiveMonthStr if it is a future month)
+            if (loaiHinh === 'co_dinh') {
+              if (effectiveMonthStr > session.month_year) {
+                touchedFutureMonths.add(effectiveMonthStr);
+              }
+              const cleanTch = cleanString(assignedTeacherName || '').replace(/[^a-z0-9]/g, '');
+              const cleanJob = cleanString(cleanNewName).replace(/[^a-z0-9]/g, '');
+              touchedFutureMonths.forEach((fMonth) => {
+                if (fMonth < effectiveMonthStr) return;
+                const existingDates = existingDatesByFutureMonth.get(fMonth) || new Set<string>();
+                checkedDayConfigs.forEach((dayCfg, day) => {
+                  const dates = getDatesForWeekday(fMonth, day);
+                  const cleanT = formatCleanTimeString(dayCfg.time);
+                  const cleanDigits = cleanT.replace(/[^0-9]/g, '');
+                  dates.forEach((dStr) => {
+                    if (effectiveFromDate && dStr < effectiveFromDate) return;
+                    if (existingDates.has(dStr)) return;
+                    existingDates.add(dStr);
+                    futureUpserts.push(sanitizeSessionPayload({
+                      id: `fix_${cleanTch}_${cleanJob}_${dStr.replace(/-/g, '')}_${cleanDigits}`,
+                      user_name: assignedTeacherName,
+                      teacher_name: assignedTeacherName,
+                      job_name: cleanNewName,
+                      student_name: cleanNewName,
+                      day_of_week: day,
+                      time: cleanT,
+                      duration: Number(dayCfg.duration),
+                      price: futurePrice,
+                      price_per_student: currentPPerStudent,
+                      original_student_count: originalStudentCount,
+                      student_count: originalStudentCount,
+                      status: 'Chưa làm',
+                      month_year: fMonth,
+                      color: effectiveColor,
+                      date: dStr,
+                      auto_check_in: autoCheckin,
+                      auto_checkin: autoCheckin,
+                      loai_hinh_lich: 'co_dinh',
+                      loai_hinh: 'co_dinh',
+                      income_category: incomeCategory,
+                      category: incomeCategory,
+                    }));
+                  });
+                });
+              });
+            }
+
             if (futureDeleteIds.length > 0) {
               await supabase.from('sessions').delete().in('id', futureDeleteIds);
             }
             if (futureUpserts.length > 0) {
-              await supabase.from('sessions').upsert(futureUpserts);
+              await supabase.from('sessions').upsert(futureUpserts, { onConflict: 'id' });
             }
           }
         } catch (fErr) {
@@ -710,17 +982,28 @@ export default function EditSessionModal({
 
   const handleSave = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!studentName.trim()) {
-      setError('Vui lòng nhập tên học sinh.');
+    const cleanNewName = studentName.trim();
+    if (!cleanNewName) {
+      setError('Vui lòng nhập tên lịch trình / học sinh.');
       return;
     }
-    if (!price || Number(price) < 0) {
+    if (price === '' || Number(price) < 0) {
       setError('Vui lòng nhập giá học phí.');
       return;
     }
+
+    let effectiveColor = color;
     if (usedColors.includes(color.toLowerCase())) {
-      setError('Màu sắc này đã được sử dụng cho học sinh khác. Vui lòng chọn màu khác.');
-      return;
+      if (!isColorCustomized) {
+        const available = PALETTE.find((c) => !usedColors.includes(c.toLowerCase()));
+        if (available) {
+          effectiveColor = available;
+          setColor(available);
+        }
+      } else {
+        setError('Màu sắc này đã được sử dụng cho học sinh khác. Vui lòng chọn màu khác.');
+        return;
+      }
     }
 
     setLoading(true);
@@ -735,7 +1018,9 @@ export default function EditSessionModal({
         throw new Error('Vui lòng chọn ít nhất 1 thứ trong lịch định kỳ!');
       }
 
-      const curJob = (session.job_name || session.student_name || '').trim().toLowerCase();
+      const oldName = (session.job_name || session.student_name || '').trim();
+      const curJob = oldName.toLowerCase();
+      const isRenamed = !!oldName && cleanNewName.toLowerCase() !== curJob;
       const curTeacher = (session.user_name || session.teacher_name || '').trim().toLowerCase();
       const oldSiblings = existingSessions.filter((s) => {
         const sJob = (s.job_name || s.student_name || '').trim().toLowerCase();
@@ -748,88 +1033,275 @@ export default function EditSessionModal({
       const oldSiblingIds = oldSiblings.map((s) => s.id);
       const existingOtherSessions = existingSessions.filter((s) => !oldSiblingIds.includes(s.id));
 
+      const currentPPerStudent = Number(pricePerStudent) || (studentCount > 0 ? Math.round(Number(price) / studentCount) : Number(price));
+      const fullSchedulePrice = originalStudentCount * currentPPerStudent;
+      const currentPrice = studentCount * currentPPerStudent;
+      const cleanStudentNames = studentNames.length > 0 ? studentNames : Array.from({ length: originalStudentCount }, (_, i) => `Học sinh ${i + 1}`);
+
+      const effectiveMode = loaiHinh === 'co_dinh' ? applyTiming : 'current_month';
+      const effectiveFromDate =
+        effectiveMode === 'next_week'
+          ? effectiveNextMondayDate
+          : effectiveMode === 'next_month'
+          ? `${nextMonthYearStr}-01`
+          : `${session.month_year}-01`;
+      const effectiveMonthStr =
+        effectiveMode === 'next_week'
+          ? effectiveNextMondayDate.substring(0, 7)
+          : effectiveMode === 'next_month'
+          ? nextMonthYearStr
+          : session.month_year;
+
       const newSiblingSessions: any[] = [];
-      const sessionColor = color;
 
-      siblings.forEach((sib) => {
-        if (!sib.checked) return;
+      if (effectiveMode === 'next_month') {
+        // Keep ALL current-month sessions intact (schedule/time/price), only applying schedule rename, color, or direct attendance edits to this session
+        oldSiblings.forEach((oldSib) => {
+          const isCurrent = oldSib.id === session.id;
+          if (isCurrent) {
+            newSiblingSessions.push({
+              ...oldSib,
+              user_name: assignedTeacherName,
+              teacher_name: assignedTeacherName,
+              job_name: cleanNewName,
+              student_name: cleanNewName,
+              color: effectiveColor,
+              income_category: incomeCategory,
+              category: incomeCategory,
+              status: status,
+              student_count: studentCount,
+              present_students: presentStudents,
+              absent_students: absentStudents,
+              student_names: cleanStudentNames,
+              original_student_count: originalStudentCount,
+            });
+          } else {
+            newSiblingSessions.push({
+              ...oldSib,
+              user_name: assignedTeacherName,
+              teacher_name: assignedTeacherName,
+              job_name: cleanNewName,
+              student_name: cleanNewName,
+              color: effectiveColor,
+            });
+          }
+        });
+      } else if (effectiveMode === 'next_week') {
+        // Part 1: Keep all existing sessions strictly BEFORE effectiveNextMondayDate intact (only updating rename/color/direct click attendance)
+        const preservedBeforeDates = new Set<string>();
+        oldSiblings.forEach((oldSib) => {
+          if (oldSib.date < effectiveFromDate) {
+            preservedBeforeDates.add(oldSib.date);
+            const isCurrent = oldSib.id === session.id;
+            newSiblingSessions.push({
+              ...oldSib,
+              user_name: assignedTeacherName,
+              teacher_name: assignedTeacherName,
+              job_name: cleanNewName,
+              student_name: cleanNewName,
+              color: effectiveColor,
+              ...(isCurrent
+                ? {
+                    status: status,
+                    student_count: studentCount,
+                    present_students: presentStudents,
+                    absent_students: absentStudents,
+                    student_names: cleanStudentNames,
+                    original_student_count: originalStudentCount,
+                  }
+                : {}),
+            });
+          }
+        });
 
-        const isCurrent = sib.id === session.id;
-        const matchOld = oldSiblings.find((s) => s.id === sib.id || (sib.id === undefined && s.date === sib.date));
-        // Extra makeup sessions on weekdays not checked in recurringConfigs should be saved as 'tam_thoi' so they don't pollute next month's fixed schedule
-        const isRecurringDay = !!recurringConfigs[sib.day_of_week]?.checked;
-        const effectiveLoaiHinh = (loaiHinh === 'co_dinh' && isRecurringDay) ? 'co_dinh' : 'tam_thoi';
+        // Part 2: From effectiveNextMondayDate onward in current month, apply the new recurring schedule
+        const afterDatesAdded = new Set<string>();
+        siblings.forEach((sib) => {
+          if (!sib.checked || sib.date < effectiveFromDate) return;
+          const isCurrent = sib.id === session.id;
+          const matchOld = oldSiblings.find((s) => s.id === sib.id || (sib.id === undefined && s.date === sib.date));
+          const dayCfg = recurringConfigs[sib.day_of_week];
+          const isRecurringDay = !!dayCfg?.checked;
+          const effectiveLoaiHinh = isRecurringDay ? 'co_dinh' : 'tam_thoi';
+          const slotTime = isRecurringDay ? formatCleanTimeString(dayCfg.time) : formatCleanTimeString(sib.time);
+          const slotDuration = isRecurringDay ? Number(dayCfg.duration) : Number(sib.duration);
+          afterDatesAdded.add(`${sib.date}_${sib.day_of_week}`);
 
-        const baseItem: any = {
-          user_name: assignedTeacherName,
-          job_name: studentName.trim(),
-          teacher_name: assignedTeacherName,
-          student_name: studentName.trim(),
-          day_of_week: sib.day_of_week,
-          time: formatCleanTimeString(sib.time),
-          duration: Number(sib.duration),
-          price: Number(price),
-          color: sessionColor,
-          loai_hinh: effectiveLoaiHinh,
-          loai_hinh_lich: effectiveLoaiHinh,
-          income_category: incomeCategory,
-          category: incomeCategory,
-          auto_checkin: autoCheckin,
-          auto_check_in: autoCheckin,
-          date: sib.date,
-          month_year: session.month_year,
-        };
-
-        const currentPPerStudent = Number(pricePerStudent) || (studentCount > 0 ? Math.round(Number(price) / studentCount) : Number(price));
-        const currentPrice = studentCount * currentPPerStudent;
-
-        const cleanStudentNames = studentNames.length > 0 ? studentNames : Array.from({ length: originalStudentCount }, (_, i) => `Học sinh ${i + 1}`);
-
-        if (isCurrent) {
-          newSiblingSessions.push({
-            ...session,
-            ...(matchOld || {}),
-            ...baseItem,
-            price: currentPrice,
-            student_count: studentCount,
-            price_per_student: currentPPerStudent,
-            original_student_count: originalStudentCount,
-            student_names: cleanStudentNames,
-            present_students: presentStudents,
-            absent_students: absentStudents,
-            status: status,
-          });
-        } else {
-          const sibStudentCount = matchOld?.student_count ?? originalStudentCount;
-          const sibPrice = sibStudentCount * currentPPerStudent;
-          const sibPresent = matchOld?.present_students || (sibStudentCount < originalStudentCount ? cleanStudentNames.slice(0, sibStudentCount) : cleanStudentNames);
-          const sibAbsent = matchOld?.absent_students || (sibStudentCount < originalStudentCount ? cleanStudentNames.slice(sibStudentCount) : []);
-          const item: any = {
-            ...(matchOld || {}),
-            ...baseItem,
-            price: sibPrice,
-            student_count: sibStudentCount,
-            price_per_student: currentPPerStudent,
-            original_student_count: originalStudentCount,
-            student_names: cleanStudentNames,
-            present_students: sibPresent,
-            absent_students: sibAbsent,
-            status: matchOld ? matchOld.status : 'Chưa làm',
-            id: sib.id || generateUUID(),
+          const baseItem: any = {
+            user_name: assignedTeacherName,
+            job_name: cleanNewName,
+            teacher_name: assignedTeacherName,
+            student_name: cleanNewName,
+            day_of_week: sib.day_of_week,
+            time: slotTime,
+            duration: slotDuration,
+            price: fullSchedulePrice,
+            color: effectiveColor,
+            loai_hinh: effectiveLoaiHinh,
+            loai_hinh_lich: effectiveLoaiHinh,
+            income_category: incomeCategory,
+            category: incomeCategory,
+            auto_checkin: autoCheckin,
+            auto_check_in: autoCheckin,
+            date: sib.date,
+            month_year: session.month_year,
           };
-          newSiblingSessions.push(item);
-        }
-      });
 
-      // Save updated student configurations to Supabase
-      if (onSaveSessionStudentConfigs && studentName.trim() && session?.id) {
-        const classKey = `class_${cleanString(studentName.trim())}`;
+          if (isCurrent) {
+            newSiblingSessions.push({
+              ...session,
+              ...(matchOld || {}),
+              ...baseItem,
+              price: currentPrice,
+              student_count: studentCount,
+              price_per_student: currentPPerStudent,
+              original_student_count: originalStudentCount,
+              student_names: cleanStudentNames,
+              present_students: presentStudents,
+              absent_students: absentStudents,
+              status: status,
+            });
+          } else {
+            const sibStudentCount = matchOld?.student_count ?? originalStudentCount;
+            const sibPrice = sibStudentCount * currentPPerStudent;
+            const sibPresent = matchOld?.present_students || (sibStudentCount < originalStudentCount ? cleanStudentNames.slice(0, sibStudentCount) : cleanStudentNames);
+            const sibAbsent = matchOld?.absent_students || (sibStudentCount < originalStudentCount ? cleanStudentNames.slice(sibStudentCount) : []);
+            newSiblingSessions.push({
+              ...(matchOld || {}),
+              ...baseItem,
+              price: sibPrice,
+              student_count: sibStudentCount,
+              price_per_student: currentPPerStudent,
+              original_student_count: originalStudentCount,
+              student_names: cleanStudentNames,
+              present_students: sibPresent,
+              absent_students: sibAbsent,
+              status: matchOld ? matchOld.status : 'Chưa làm',
+              id: sib.id || generateUUID(),
+            });
+          }
+        });
+
+        // Also ensure any checked weekday dates in session.month_year >= effectiveFromDate not yet present in siblings get generated
+        selectedDays.forEach(({ day, time: dTime, duration: dDur }) => {
+          const dates = getDatesForWeekday(session.month_year, day);
+          dates.forEach((dStr) => {
+            if (dStr < effectiveFromDate) return;
+            const key = `${dStr}_${day}`;
+            const wasExplicitlyUnchecked = siblings.some((s) => s.date === dStr && s.day_of_week === day && !s.checked);
+            if (afterDatesAdded.has(key) || preservedBeforeDates.has(dStr) || wasExplicitlyUnchecked) return;
+            afterDatesAdded.add(key);
+            const matchOld = oldSiblings.find((s) => s.date === dStr && s.day_of_week === day);
+            newSiblingSessions.push({
+              ...(matchOld || {}),
+              id: matchOld?.id || generateUUID(),
+              user_name: assignedTeacherName,
+              teacher_name: assignedTeacherName,
+              job_name: cleanNewName,
+              student_name: cleanNewName,
+              day_of_week: day,
+              time: dTime,
+              duration: Number(dDur),
+              price: fullSchedulePrice,
+              color: effectiveColor,
+              loai_hinh: 'co_dinh',
+              loai_hinh_lich: 'co_dinh',
+              income_category: incomeCategory,
+              category: incomeCategory,
+              auto_checkin: autoCheckin,
+              auto_check_in: autoCheckin,
+              date: dStr,
+              month_year: session.month_year,
+              student_count: originalStudentCount,
+              price_per_student: currentPPerStudent,
+              original_student_count: originalStudentCount,
+              student_names: cleanStudentNames,
+              present_students: cleanStudentNames,
+              absent_students: [],
+              status: matchOld ? matchOld.status : 'Chưa làm',
+            });
+          });
+        });
+      } else {
+        // Default: 'current_month' (applies to all checked sessions in this month & future months)
+        siblings.forEach((sib) => {
+          if (!sib.checked) return;
+
+          const isCurrent = sib.id === session.id;
+          const matchOld = oldSiblings.find((s) => s.id === sib.id || (sib.id === undefined && s.date === sib.date));
+          const isRecurringDay = !!recurringConfigs[sib.day_of_week]?.checked;
+          const effectiveLoaiHinh = (loaiHinh === 'co_dinh' && isRecurringDay) ? 'co_dinh' : 'tam_thoi';
+
+          const baseItem: any = {
+            user_name: assignedTeacherName,
+            job_name: cleanNewName,
+            teacher_name: assignedTeacherName,
+            student_name: cleanNewName,
+            day_of_week: sib.day_of_week,
+            time: formatCleanTimeString(sib.time),
+            duration: Number(sib.duration),
+            price: Number(price),
+            color: effectiveColor,
+            loai_hinh: effectiveLoaiHinh,
+            loai_hinh_lich: effectiveLoaiHinh,
+            income_category: incomeCategory,
+            category: incomeCategory,
+            auto_checkin: autoCheckin,
+            auto_check_in: autoCheckin,
+            date: sib.date,
+            month_year: session.month_year,
+          };
+
+          if (isCurrent) {
+            newSiblingSessions.push({
+              ...session,
+              ...(matchOld || {}),
+              ...baseItem,
+              price: currentPrice,
+              student_count: studentCount,
+              price_per_student: currentPPerStudent,
+              original_student_count: originalStudentCount,
+              student_names: cleanStudentNames,
+              present_students: presentStudents,
+              absent_students: absentStudents,
+              status: status,
+            });
+          } else {
+            const sibStudentCount = matchOld?.student_count ?? originalStudentCount;
+            const sibPrice = sibStudentCount * currentPPerStudent;
+            const sibPresent = matchOld?.present_students || (sibStudentCount < originalStudentCount ? cleanStudentNames.slice(0, sibStudentCount) : cleanStudentNames);
+            const sibAbsent = matchOld?.absent_students || (sibStudentCount < originalStudentCount ? cleanStudentNames.slice(sibStudentCount) : []);
+            const item: any = {
+              ...(matchOld || {}),
+              ...baseItem,
+              price: sibPrice,
+              student_count: sibStudentCount,
+              price_per_student: currentPPerStudent,
+              original_student_count: originalStudentCount,
+              student_names: cleanStudentNames,
+              present_students: sibPresent,
+              absent_students: sibAbsent,
+              status: matchOld ? matchOld.status : 'Chưa làm',
+              id: sib.id || generateUUID(),
+            };
+            newSiblingSessions.push(item);
+          }
+        });
+      }
+
+      // Prepare updated student configurations (cleaning old name key if renamed)
+      let updatedStudentConfigs: Record<string, any> | null = null;
+      if (onSaveSessionStudentConfigs && cleanNewName && session?.id) {
+        const newClassKey = `class_${cleanString(cleanNewName)}`;
+        const oldClassKey = `class_${cleanString(oldName)}`;
         const sessKey = `sess_${session.id}`;
-        const currentPPerStudent = Number(pricePerStudent) || (studentCount > 0 ? Math.round(Number(price) / studentCount) : Number(price));
-        const cleanStudentNames = studentNames.length > 0 ? studentNames : Array.from({ length: originalStudentCount }, (_, i) => `Học sinh ${i + 1}`);
-        const updatedConfigs = {
-          ...(sessionStudentConfigs || {}),
-          [classKey]: {
+        const copy: Record<string, any> = { ...(sessionStudentConfigs || {}) };
+        if (isRenamed && oldClassKey !== newClassKey) {
+          delete copy[oldClassKey];
+        }
+        updatedStudentConfigs = {
+          ...copy,
+          [newClassKey]: {
             student_count: originalStudentCount,
             price_per_student: currentPPerStudent,
             original_student_count: originalStudentCount,
@@ -842,10 +1314,57 @@ export default function EditSessionModal({
             student_names: cleanStudentNames,
             present_students: presentStudents,
             absent_students: absentStudents,
-          }
+          },
         };
-        onSaveSessionStudentConfigs(assignedTeacherName, updatedConfigs);
       }
+
+      // Prepare permanent recurring template (stored in Supabase table_settings)
+      let updatedTemplates: Record<string, any> | null = null;
+      if (onSaveScheduleTemplates && cleanNewName) {
+        const tplCopy: Record<string, any> = { ...(scheduleTemplates || {}) };
+        const oldTplKey = `tpl_${cleanString(oldName)}`;
+        const oldRawKey = cleanString(oldName);
+        const newTplKey = `tpl_${cleanString(cleanNewName)}`;
+        const existingTpl = tplCopy[newTplKey] || tplCopy[oldTplKey] || tplCopy[oldRawKey] || {};
+        const prevNamesSet = new Set<string>(Array.isArray(existingTpl.previous_names) ? existingTpl.previous_names : []);
+        if (isRenamed && oldName) prevNamesSet.add(oldName);
+        if (isRenamed) {
+          delete tplCopy[oldTplKey];
+          delete tplCopy[oldRawKey];
+        }
+        const tplDays: Record<string, { time: string; duration: number }> = {};
+        selectedDays.forEach((d) => {
+          tplDays[d.day] = { time: d.time, duration: Number(d.duration || 2) };
+        });
+        tplCopy[newTplKey] = {
+          job_name: cleanNewName,
+          loai_hinh: loaiHinh,
+          effective_month: effectiveMonthStr,
+          effective_from: effectiveFromDate,
+          previous_names: Array.from(prevNamesSet),
+          days: tplDays,
+          price: fullSchedulePrice,
+          color: effectiveColor,
+          income_category: incomeCategory,
+          auto_checkin: autoCheckin,
+          student_count: originalStudentCount,
+          price_per_student: currentPPerStudent,
+          original_student_count: originalStudentCount,
+          student_names: cleanStudentNames,
+          updated_at: new Date().toISOString(),
+        };
+        updatedTemplates = tplCopy;
+      }
+
+      pendingSaveMetaRef.current = {
+        oldName,
+        newName: cleanNewName,
+        effectiveFromDate,
+        effectiveMonthStr,
+        effectiveColor,
+        updatedTemplates,
+        updatedStudentConfigs,
+      };
 
       const overlaps = checkOverlaps(newSiblingSessions, existingOtherSessions);
       if (overlaps.length > 0) {
@@ -1011,23 +1530,151 @@ export default function EditSessionModal({
 
             <div className="border-l border-slate-200 dark:border-slate-800 h-6 mx-1"></div>
 
-            <button 
+            <button
+              type="button"
               onClick={onClose}
-              disabled={loading}
-              className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-850 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+              className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-850 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
+              title="Đóng"
             >
               <X className="h-5 w-5" />
             </button>
           </div>
         </div>
 
-        {/* Scrollable Content Body */}
-        <div className="flex-grow overflow-y-auto p-6 space-y-5">
-          {error && (
-            <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-xl text-red-600 dark:text-red-400 text-xs">
-              {error}
+        {/* Form wraps body + footer so Enter submits and bottom Save/Cancel bar is always accessible */}
+        <form onSubmit={handleSave} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+          {/* Scrollable Content Body */}
+          <div className="flex-grow overflow-y-auto p-6 space-y-5">
+            {error && (
+              <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-xl text-red-600 dark:text-red-400 text-xs font-semibold">
+                {error}
+              </div>
+            )}
+
+            {/* Top Priority Field: Schedule / Student Name */}
+            <div className="space-y-1.5 pb-3 border-b border-slate-100 dark:border-slate-800">
+              <label htmlFor="editStudentName" className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider flex items-center justify-between">
+                <span>Tên lịch trình / Học sinh *</span>
+                {studentName.trim().toLowerCase() !== (session.job_name || session.student_name || '').trim().toLowerCase() && studentName.trim() !== '' && (
+                  <span className="text-[10px] font-bold normal-case text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-full">
+                    Đổi tên từ: {session.job_name || session.student_name}
+                  </span>
+                )}
+              </label>
+              <input
+                id="editStudentName"
+                type="text"
+                required
+                value={studentName}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setStudentName(val);
+                  if (error) setError('');
+                  if (!isColorCustomized) {
+                    const defColor = getStudentColor(val.trim());
+                    const currentTypedName = (val || '').trim().toLowerCase();
+                    const origName = (session?.job_name || session?.student_name || '').trim().toLowerCase();
+                    const otherStudentsSessions = (existingSessions || []).filter((s) => {
+                      const sName = (s?.student_name || s?.job_name || '').trim().toLowerCase();
+                      return sName !== currentTypedName && sName !== origName;
+                    });
+                    const otherColors = new Set(otherStudentsSessions.map((s) => (s?.color || '').toLowerCase()).filter(Boolean));
+                    if (otherColors.has((defColor || '').toLowerCase())) {
+                      const available = PALETTE.find((c) => !otherColors.has((c || '').toLowerCase()));
+                      if (available) setColor(available);
+                    } else {
+                      setColor(defColor);
+                    }
+                  }
+                }}
+                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-bold focus:outline-none focus:border-indigo-500"
+                placeholder="Nhập tên lịch trình hoặc học sinh..."
+              />
             </div>
-          )}
+
+            {/* Effective Timing Selector (only for Fixed / co_dinh schedules) */}
+            {loaiHinh === 'co_dinh' && (
+              <div className="space-y-2 pb-3 border-b border-slate-100 dark:border-slate-800">
+                <label className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider block">
+                  Thời điểm áp dụng thay đổi (Vĩnh viễn về sau)
+                </label>
+                <div className="relative flex bg-[#0d1018] p-1 rounded-xl border border-white/10 text-xs shrink-0 font-bold select-none">
+                  <div
+                    className="absolute top-1 bottom-1 rounded-lg bg-[#5c36f5] shadow-[0_0_14px_rgba(92,54,245,0.5)] transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] pointer-events-none"
+                    style={{
+                      left:
+                        applyTiming === 'current_month'
+                          ? '4px'
+                          : applyTiming === 'next_week'
+                          ? 'calc((100% / 3) * 1 + 1px)'
+                          : 'calc((100% / 3) * 2 + 1px)',
+                      width: 'calc((100% / 3) - 4px)',
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setApplyTiming('current_month')}
+                    className={`flex-1 relative z-10 py-1.5 text-center transition-colors cursor-pointer ${
+                      applyTiming === 'current_month' ? 'text-white font-black' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Tháng Này & Về Sau
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setApplyTiming('next_week')}
+                    className={`flex-1 relative z-10 py-1.5 text-center transition-colors cursor-pointer ${
+                      applyTiming === 'next_week' ? 'text-white font-black' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Từ Đầu Tuần Sau
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setApplyTiming('next_month')}
+                    className={`flex-1 relative z-10 py-1.5 text-center transition-colors cursor-pointer ${
+                      applyTiming === 'next_month' ? 'text-white font-black' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Từ Đầu Tháng Sau
+                  </button>
+                </div>
+
+                {applyTiming === 'next_week' && (
+                  <div className="p-3 bg-indigo-950/30 border border-indigo-500/30 rounded-xl space-y-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <span className="text-[11px] font-bold text-indigo-300">
+                        Bắt đầu từ Thứ 2: {formatDateVN(effectiveNextMondayDate)}
+                      </span>
+                      {selectableMondays.length > 1 && (
+                        <div className="w-full sm:w-48">
+                          <CustomSelect
+                            value={effectiveNextMondayDate}
+                            onChange={(val) => setCustomNextMondayDate(val)}
+                            options={selectableMondays.map((d) => ({
+                              value: d,
+                              label: `Thứ 2 (${formatDateVN(d)})`,
+                            }))}
+                            placeholder="Chọn ngày Thứ 2"
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                      Các buổi trước {formatDateVN(effectiveNextMondayDate)} được giữ nguyên lịch cũ. Lịch mới áp dụng từ {formatDateVN(effectiveNextMondayDate)} và giữ cố định vĩnh viễn các tuần/tháng tiếp theo.
+                    </p>
+                  </div>
+                )}
+
+                {applyTiming === 'next_month' && (
+                  <div className="p-3 bg-indigo-950/30 border border-indigo-500/30 rounded-xl">
+                    <p className="text-[11px] text-indigo-200 leading-relaxed">
+                      Giữ nguyên toàn bộ lịch hiện tại của tháng {session.month_year}. Lịch mới bắt đầu áp dụng từ ngày 01/{nextMonthYearStr.split('-')[1]}/{nextMonthYearStr.split('-')[0]} trở đi và giữ cố định vĩnh viễn.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
 
           {/* Admin Mode Teacher Selector */}
           {currentUser?.role === 'admin' && teachers.length > 0 && (
@@ -1270,39 +1917,8 @@ export default function EditSessionModal({
             onAddSiblingSession={handleAddSiblingSession}
           />
 
-          {/* Block 1: Basic Information */}
+          {/* Block 1: Basic Information (Day, Time, Duration & Roster) */}
           <div className="space-y-4 pt-2 border-t border-slate-100 dark:border-slate-800">
-            <div className="space-y-1.5">
-              <label htmlFor="editStudentName" className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
-                Tên học sinh *
-              </label>
-              <input
-                id="editStudentName"
-                type="text"
-                required
-                value={studentName}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setStudentName(val);
-                  if (!isColorCustomized) {
-                    const defColor = getStudentColor(val.trim());
-                    const currentTypedName = (val || '').trim().toLowerCase();
-                    const otherStudentsSessions = (existingSessions || []).filter(
-                      (s) => (s?.student_name || s?.job_name || '').trim().toLowerCase() !== currentTypedName
-                    );
-                    const otherColors = new Set(otherStudentsSessions.map((s) => (s?.color || '').toLowerCase()).filter(Boolean));
-                    if (otherColors.has((defColor || '').toLowerCase())) {
-                      const available = PALETTE.find((c) => !otherColors.has((c || '').toLowerCase()));
-                      setColor(available || '#7c3aed');
-                    } else {
-                      setColor(defColor);
-                    }
-                  }
-                }}
-                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500"
-              />
-            </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label htmlFor="editDay" className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
@@ -1367,6 +1983,36 @@ export default function EditSessionModal({
           </div>
         </div>
 
+          {/* Sticky Bottom Footer */}
+          <div className="px-6 py-3.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 shrink-0 flex flex-col gap-2">
+            {error && (
+              <div className="p-2.5 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 rounded-xl text-red-600 dark:text-red-400 text-xs font-semibold">
+                {error}
+              </div>
+            )}
+            <div className="flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+              >
+                Hủy / Đóng
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white font-black text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-md cursor-pointer disabled:opacity-50"
+              >
+                {loading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Save className="h-3.5 w-3.5" />
+                )}
+                <span>Lưu Thay Đổi</span>
+              </button>
+            </div>
+          </div>
+        </form>
       </div>
     </div>
   );

@@ -40,6 +40,8 @@ interface AppModalsProps {
   onClearScheduleExclusion: (jobName: string, month: string, teacherOverride?: string) => Promise<void>;
   sessionStudentConfigs: Record<string, any>;
   onSaveSessionStudentConfigs: (teacherName: string, configs: Record<string, any>, userId?: string) => Promise<void>;
+  scheduleTemplates?: Record<string, any>;
+  onSaveScheduleTemplates?: (teacherName: string, templates: Record<string, any>, userId?: string) => Promise<void>;
   availableIncomeCats: string[];
   initialScheduleData?: any;
   onClearInitialScheduleData?: () => void;
@@ -103,6 +105,8 @@ export const AppModals: React.FC<AppModalsProps> = ({
   onClearScheduleExclusion,
   sessionStudentConfigs,
   onSaveSessionStudentConfigs,
+  scheduleTemplates,
+  onSaveScheduleTemplates,
   availableIncomeCats,
   initialScheduleData,
   onClearInitialScheduleData,
@@ -195,6 +199,8 @@ export const AppModals: React.FC<AppModalsProps> = ({
           onClearExclusion={(jobName, teacherOverride) => onClearScheduleExclusion(jobName, selectedMonth, teacherOverride)}
           sessionStudentConfigs={sessionStudentConfigs}
           onSaveSessionStudentConfigs={onSaveSessionStudentConfigs}
+          scheduleTemplates={scheduleTemplates}
+          onSaveScheduleTemplates={onSaveScheduleTemplates}
           incomeCategories={availableIncomeCats}
           initialScheduleData={initialScheduleData}
         />
@@ -218,6 +224,8 @@ export const AppModals: React.FC<AppModalsProps> = ({
           onClearExclusion={(jobName, teacherOverride) => onClearScheduleExclusion(jobName, selectedSession?.month_year || selectedMonth, teacherOverride)}
           sessionStudentConfigs={sessionStudentConfigs}
           onSaveSessionStudentConfigs={onSaveSessionStudentConfigs}
+          scheduleTemplates={scheduleTemplates}
+          onSaveScheduleTemplates={onSaveScheduleTemplates}
           incomeCategories={availableIncomeCats}
           onOptimisticSave={optimisticUpsertSessions}
         />

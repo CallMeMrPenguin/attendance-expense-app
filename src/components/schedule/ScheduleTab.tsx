@@ -48,6 +48,7 @@ export interface ScheduleTabProps {
   onAddSessionOnDate?: (dateStr: string) => void;
   onDeleteSchedule?: (jobName: string, scope: 'month' | 'all') => Promise<void>;
   onDeleteSingleSession?: (sessionId: string) => Promise<void>;
+  onRenameSchedule?: (oldName: string, newName: string) => Promise<void>;
   onAddTemporarySession?: (schedule: ScheduleWorkSummary) => void;
   trashCount?: number;
   onOpenTrash?: () => void;
@@ -74,6 +75,7 @@ export default function ScheduleTab({
   onAddSessionOnDate,
   onDeleteSchedule,
   onDeleteSingleSession,
+  onRenameSchedule,
   onAddTemporarySession,
   trashCount,
   onOpenTrash
@@ -253,6 +255,39 @@ export default function ScheduleTab({
 
     return results.sort((a, b) => b.totalShifts - a.totalShifts || a.name.localeCompare(b.name));
   }, [sessions]);
+
+  // Keep detail modal live-synced with schedulesSummary even when a schedule is renamed or sessions change
+  const activeDetailSchedule = useMemo<ScheduleWorkSummary | null>(() => {
+    if (!selectedDetailSchedule) return null;
+    const byName = schedulesSummary.find(
+      (s) => s.name.trim().toLowerCase() === selectedDetailSchedule.name.trim().toLowerCase()
+    );
+    if (byName) return byName;
+
+    const oldIds = new Set(selectedDetailSchedule.sessions.map((s) => s.id).filter(Boolean));
+    if (oldIds.size > 0) {
+      const bySessionOverlap = schedulesSummary.find((s) =>
+        s.sessions.some((sess) => sess.id && oldIds.has(sess.id))
+      );
+      if (bySessionOverlap) return bySessionOverlap;
+    }
+    return null;
+  }, [selectedDetailSchedule, schedulesSummary]);
+
+  const handleConfirmDeleteScheduleLive = async () => {
+    const targetSched = activeDetailSchedule || selectedDetailSchedule;
+    if (!targetSched || !onDeleteSchedule) return;
+    setIsDeletingSchedule(true);
+    try {
+      await onDeleteSchedule(targetSched.name, deleteScheduleScope);
+      setShowDeleteScheduleModal(false);
+      setSelectedDetailSchedule(null);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsDeletingSchedule(false);
+    }
+  };
 
   return (
     <div className="space-y-6 animate-mac-dropdown">
@@ -493,7 +528,7 @@ export default function ScheduleTab({
 
       {/* DETAIL MODAL: Work Schedule Session Breakdown */}
       <ScheduleDetailModal
-        schedule={selectedDetailSchedule}
+        schedule={activeDetailSchedule}
         selectedMonth={selectedMonth}
         onClose={() => setSelectedDetailSchedule(null)}
         onSelectSession={(s) => {
@@ -506,6 +541,7 @@ export default function ScheduleTab({
           setShowDeleteScheduleModal(true);
         }}
         onAddTemporarySession={onAddTemporarySession}
+        onRenameSchedule={onRenameSchedule}
         copiedId={copiedId}
         handleCopyText={handleCopyText}
       />
@@ -513,13 +549,13 @@ export default function ScheduleTab({
       {/* DELETE CONFIRMATION MODAL */}
       <DeleteScheduleModal
         isOpen={showDeleteScheduleModal}
-        schedule={selectedDetailSchedule}
+        schedule={activeDetailSchedule}
         selectedMonth={selectedMonth}
         scope={deleteScheduleScope}
         setScope={setDeleteScheduleScope}
         isDeleting={isDeletingSchedule}
         onClose={() => setShowDeleteScheduleModal(false)}
-        onConfirm={handleConfirmDeleteSchedule}
+        onConfirm={handleConfirmDeleteScheduleLive}
       />
     </div>
   );

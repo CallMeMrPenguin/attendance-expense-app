@@ -25,6 +25,12 @@ export function useScheduleData({
     sessionStudentConfigsRef.current = sessionStudentConfigs;
   }, [sessionStudentConfigs]);
 
+  const [scheduleTemplates, setScheduleTemplates] = useState<Record<string, any>>({});
+  const scheduleTemplatesRef = useRef<Record<string, any>>({});
+  useEffect(() => {
+    scheduleTemplatesRef.current = scheduleTemplates;
+  }, [scheduleTemplates]);
+
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -325,13 +331,102 @@ export function useScheduleData({
     }
   }, []);
 
+  const getScheduleTemplatesKey = (teacherName: string) => `schedule_templates_${cleanString(teacherName)}`;
+
+  const fetchScheduleTemplates = useCallback(async (teacherName: string): Promise<Record<string, any>> => {
+    if (!teacherName) return {};
+    try {
+      const key = getScheduleTemplatesKey(teacherName);
+      const { data: tsData } = await supabase
+        .from('table_settings')
+        .select('setting_value')
+        .eq('id', key)
+        .maybeSingle();
+      if (tsData?.setting_value) {
+        const parsed = JSON.parse(tsData.setting_value);
+        if (parsed && typeof parsed === 'object') return parsed;
+      }
+
+      const { data } = await supabase
+        .from('category_budgets')
+        .select('note')
+        .eq('id', key)
+        .maybeSingle();
+      if (data?.note) {
+        const parsed = JSON.parse(data.note);
+        if (parsed && typeof parsed === 'object') return parsed;
+      }
+    } catch (err) {
+      console.error('Error reading schedule templates:', err);
+    }
+    return {};
+  }, []);
+
+  const saveScheduleTemplates = useCallback(async (teacherName: string, templates: Record<string, any>, userId?: string) => {
+    if (!teacherName) return;
+    try {
+      scheduleTemplatesRef.current = templates;
+      setScheduleTemplates(templates);
+      const key = getScheduleTemplatesKey(teacherName);
+      const uId = userId || '2d3a11e1-4d71-474c-b8df-abb85394e9c8';
+      const jsonStr = JSON.stringify(templates);
+      const nowStr = new Date().toISOString();
+
+      await (supabase.from('table_settings') as any).upsert({
+        id: key,
+        table_id: 'schedule_templates',
+        user_id: uId,
+        setting_key: key,
+        setting_value: jsonStr,
+        updated_at: nowStr
+      }, { onConflict: 'id' });
+
+      await (supabase.from('category_budgets') as any).upsert({
+        id: key,
+        user_id: uId,
+        user_name: teacherName,
+        category: '__SCHEDULE_TEMPLATES__',
+        amount: 0,
+        type: 'settings',
+        icon: 'Calendar',
+        note: jsonStr,
+        updated_at: nowStr
+      }, { onConflict: 'id' });
+    } catch (err) {
+      console.error('Error saving schedule templates:', err);
+    }
+  }, []);
+
   const syncFixedSchedulesForMonth = useCallback(async (targetMonth: string, currentMonthData: any[], teacherName: string) => {
     if (!targetMonth || !teacherName) return currentMonthData;
     try {
-      const exclusions = await fetchScheduleExclusions(teacherName);
+      const [exclusions, savedTemplates] = await Promise.all([
+        fetchScheduleExclusions(teacherName),
+        fetchScheduleTemplates(teacherName)
+      ]);
+      scheduleTemplatesRef.current = savedTemplates || {};
+      setScheduleTemplates(savedTemplates || {});
+
       const monthExclusions = (exclusions[targetMonth] || []).map(x => x.toLowerCase().trim());
       const allExclusions = (exclusions['all'] || []).map(x => x.toLowerCase().trim());
       const prevMonth = getPrevMonthStr(targetMonth);
+
+      // Map any old renamed schedule names to their latest canonical schedule name
+      const renamedOldToNew = new Map<string, string>();
+      const canonicalDisplayNames = new Map<string, string>();
+      Object.values(savedTemplates || {}).forEach((tpl: any) => {
+        if (!tpl || !tpl.job_name) return;
+        const canonicalKey = String(tpl.job_name).trim().toLowerCase();
+        canonicalDisplayNames.set(canonicalKey, String(tpl.job_name).trim());
+        if (Array.isArray(tpl.previous_names)) {
+          tpl.previous_names.forEach((oldN: string) => {
+            const oldKey = String(oldN || '').trim().toLowerCase();
+            if (oldKey && oldKey !== canonicalKey) {
+              renamedOldToNew.set(oldKey, canonicalKey);
+            }
+          });
+        }
+      });
 
       const { data: priorSessions, error: priorErr } = await supabase
         .from('sessions')
@@ -339,21 +434,18 @@ export function useScheduleData({
         .ilike('user_name', teacherName)
         .lt('month_year', targetMonth);
 
-      if (priorErr || !priorSessions || priorSessions.length === 0) {
-        return currentMonthData;
-      }
-
-      const coDinhItems = priorSessions.filter((s: any) => 
+      const coDinhItems = (!priorErr && priorSessions ? priorSessions : []).filter((s: any) => 
         (s.loai_hinh || s.loai_hinh_lich) !== 'tam_thoi'
       );
-      if (coDinhItems.length === 0) return currentMonthData;
 
       // Group prior co_dinh sessions by student and find each student's most recent prior month
       const studentPriorByMonth = new Map<string, Map<string, any[]>>();
       for (const s of coDinhItems) {
-        const sName = (s.student_name || s.job_name || '').trim();
-        if (!sName) continue;
-        const key = sName.toLowerCase();
+        const rawName = (s.student_name || s.job_name || '').trim();
+        if (!rawName) continue;
+        const rawKey = rawName.toLowerCase();
+        const key = renamedOldToNew.get(rawKey) || rawKey;
+        const canonicalName = canonicalDisplayNames.get(key) || rawName;
         if (monthExclusions.includes(key)) continue;
 
         if (!studentPriorByMonth.has(key)) {
@@ -363,7 +455,11 @@ export function useScheduleData({
         if (!monthMap.has(s.month_year)) {
           monthMap.set(s.month_year, []);
         }
-        monthMap.get(s.month_year)!.push(s);
+        monthMap.get(s.month_year)!.push({
+          ...s,
+          job_name: canonicalName,
+          student_name: canonicalName
+        });
       }
 
       // Heal stale global ('all') exclusions when a student actively has co_dinh sessions in the immediately preceding month
@@ -442,20 +538,94 @@ export function useScheduleData({
         }
       });
 
-      // Clean up any stale auto-generated (fix_...) sessions in currentMonthData that no longer match prior month's recurring days/times
+      // Overlay explicit saved permanent recurring templates (from "Từ tuần sau" / "Từ tháng sau" / "Tháng này" saves)
+      const explicitTemplateStudents = new Set<string>();
+      const partialTransitionTemplates = new Map<string, { effectiveFrom: string; days: Map<string, any> }>();
+      Object.values(savedTemplates || {}).forEach((tpl: any) => {
+        if (!tpl || !tpl.job_name) return;
+        const studentKey = String(tpl.job_name).trim().toLowerCase();
+        if (!studentKey || monthExclusions.includes(studentKey)) return;
+        if (allExclusions.includes(studentKey) && !staleAllExclusions.includes(studentKey)) return;
+
+        if (tpl.loai_hinh === 'tam_thoi') {
+          studentValidTemplates.delete(studentKey);
+          return;
+        }
+
+        const effMonth = String(tpl.effective_month || '0000-00');
+        const effFrom = String(tpl.effective_from || '0000-00-00');
+        if (targetMonth >= effMonth && tpl.days && typeof tpl.days === 'object') {
+          const dayEntries = Object.entries(tpl.days);
+          if (dayEntries.length > 0) {
+            const dayTemplateMap = new Map<string, any>();
+            dayEntries.forEach(([day, dCfg]: [string, any]) => {
+              if (!day || !dCfg) return;
+              dayTemplateMap.set(day, {
+                user_name: teacherName,
+                teacher_name: teacherName,
+                job_name: String(tpl.job_name).trim(),
+                student_name: String(tpl.job_name).trim(),
+                day_of_week: day,
+                time: formatCleanTimeString(dCfg.time || '18:00'),
+                duration: Number(dCfg.duration || 2),
+                price: Number(tpl.price || 0),
+                color: tpl.color || '#7c3aed',
+                auto_check_in: tpl.auto_checkin ?? true,
+                auto_checkin: tpl.auto_checkin ?? true,
+                loai_hinh_lich: 'co_dinh',
+                loai_hinh: 'co_dinh',
+                income_category: tpl.income_category || 'Gia Sư',
+                effective_from: effFrom
+              });
+            });
+            if (dayTemplateMap.size > 0) {
+              if (targetMonth > effMonth || effFrom <= `${targetMonth}-01`) {
+                studentValidTemplates.set(studentKey, dayTemplateMap);
+                explicitTemplateStudents.add(studentKey);
+              } else {
+                // Mid-month transition inside effMonth (e.g. "Từ Đầu Tuần Sau" falling mid-month):
+                // keep prior template before effFrom, and enforce new template from effFrom onward
+                partialTransitionTemplates.set(studentKey, { effectiveFrom: effFrom, days: dayTemplateMap });
+                explicitTemplateStudents.add(studentKey);
+              }
+            }
+          }
+        }
+      });
+
+      if (studentValidTemplates.size === 0 && partialTransitionTemplates.size === 0) return currentMonthData;
+
+      // Clean up any stale auto-generated (fix_...) sessions in currentMonthData that no longer match prior month's recurring days/times or were renamed
       const staleAutoIdsToDelete: string[] = [];
+      const studentsWithDeletedStaleAuto = new Set<string>();
       let cleanedCurrentMonthData = currentMonthData;
 
       currentMonthData.forEach((s: any) => {
         const sId = String(s.id || '');
         if (!sId.startsWith('fix_')) return;
-        const sName = (s.student_name || s.job_name || '').trim().toLowerCase();
-        const validDaysMap = studentValidTemplates.get(sName);
+        const rawSName = (s.student_name || s.job_name || '').trim().toLowerCase();
+        if (renamedOldToNew.has(rawSName)) {
+          staleAutoIdsToDelete.push(sId);
+          studentsWithDeletedStaleAuto.add(renamedOldToNew.get(rawSName)!);
+          return;
+        }
+        const partial = partialTransitionTemplates.get(rawSName);
+        if (partial && s.date >= partial.effectiveFrom) {
+          const partialMatch = partial.days.get(s.day_of_week);
+          if (!partialMatch || formatCleanTimeString(partialMatch.time) !== formatCleanTimeString(s.time)) {
+            staleAutoIdsToDelete.push(sId);
+            studentsWithDeletedStaleAuto.add(rawSName);
+          }
+          return;
+        }
+        const validDaysMap = studentValidTemplates.get(rawSName);
         if (!validDaysMap) return;
 
         const matchingTemplate = validDaysMap.get(s.day_of_week);
-        if (!matchingTemplate || formatCleanTimeString(matchingTemplate.time) !== formatCleanTimeString(s.time)) {
+        const effFrom = matchingTemplate?.effective_from || '0000-00-00';
+        if (s.date >= effFrom && (!matchingTemplate || formatCleanTimeString(matchingTemplate.time) !== formatCleanTimeString(s.time))) {
           staleAutoIdsToDelete.push(sId);
+          studentsWithDeletedStaleAuto.add(rawSName);
         }
       });
 
@@ -473,15 +643,35 @@ export function useScheduleData({
           .map((s: any) => (s.student_name || s.job_name || '').trim().toLowerCase())
       );
 
+      const existingCoDinhWeekdaysByStudent = new Map<string, Set<string>>();
+      const existingDatesByStudent = new Map<string, Set<string>>();
+      cleanedCurrentMonthData.forEach((s: any) => {
+        const sKey = (s.student_name || s.job_name || '').trim().toLowerCase();
+        if (!existingDatesByStudent.has(sKey)) existingDatesByStudent.set(sKey, new Set());
+        existingDatesByStudent.get(sKey)!.add(s.date);
+        if ((s.loai_hinh || s.loai_hinh_lich) !== 'tam_thoi') {
+          if (!existingCoDinhWeekdaysByStudent.has(sKey)) existingCoDinhWeekdaysByStudent.set(sKey, new Set());
+          existingCoDinhWeekdaysByStudent.get(sKey)!.add(s.day_of_week);
+        }
+      });
+
       const existingSlotKeys = new Set(
         cleanedCurrentMonthData.map((s: any) => `${(s.student_name || s.job_name || '').trim().toLowerCase()}_${s.date}_${formatCleanTimeString(s.time)}`)
       );
 
       const newCandidates: any[] = [];
-      studentValidTemplates.forEach((dayTemplateMap, studentKey) => {
-        if (existingCoDinhStudentNames.has(studentKey)) return;
+      const pushTemplateCandidates = (studentKey: string, dayTemplateMap: Map<string, any>, minDateInclusive?: string, maxDateExclusive?: string) => {
+        const hasExistingCoDinh = existingCoDinhStudentNames.has(studentKey);
+        const canFillMissingWeekdays = studentsWithDeletedStaleAuto.has(studentKey) || explicitTemplateStudents.has(studentKey);
+        if (hasExistingCoDinh && !canFillMissingWeekdays && !minDateInclusive) return;
 
-        dayTemplateMap.forEach((templateSession) => {
+        const existingWeekdays = existingCoDinhWeekdaysByStudent.get(studentKey) || new Set<string>();
+        const existingDates = existingDatesByStudent.get(studentKey) || new Set<string>();
+
+        dayTemplateMap.forEach((templateSession, day) => {
+          if (!minDateInclusive && hasExistingCoDinh && existingWeekdays.has(day)) return;
+
+          const effFrom = minDateInclusive || templateSession.effective_from || '0000-00-00';
           const dates = getDatesForWeekday(targetMonth, templateSession.day_of_week);
           const sJob = templateSession.job_name || templateSession.student_name;
           const cleanTeacher = cleanString(teacherName).replace(/[^a-z0-9]/g, '');
@@ -490,6 +680,9 @@ export function useScheduleData({
           const cleanTime = tTime.replace(/[^0-9]/g, '');
 
           dates.forEach((dStr) => {
+            if (dStr < effFrom) return;
+            if (maxDateExclusive && dStr >= maxDateExclusive) return;
+            if (existingDates.has(dStr)) return;
             const slotKey = `${studentKey}_${dStr}_${tTime}`;
             if (existingSlotKeys.has(slotKey)) return;
             existingSlotKeys.add(slotKey);
@@ -519,6 +712,14 @@ export function useScheduleData({
             });
           });
         });
+      };
+
+      studentValidTemplates.forEach((dayTemplateMap, studentKey) => {
+        const partial = partialTransitionTemplates.get(studentKey);
+        pushTemplateCandidates(studentKey, dayTemplateMap, undefined, partial?.effectiveFrom);
+      });
+      partialTransitionTemplates.forEach((partial, studentKey) => {
+        pushTemplateCandidates(studentKey, partial.days, partial.effectiveFrom, undefined);
       });
 
       if (newCandidates.length === 0) return cleanedCurrentMonthData;
@@ -543,7 +744,7 @@ export function useScheduleData({
       console.error('Error syncing fixed schedules:', err);
     }
     return currentMonthData;
-  }, [fetchScheduleExclusions, saveScheduleExclusions]);
+  }, [fetchScheduleExclusions, saveScheduleExclusions, fetchScheduleTemplates]);
 
   const calculateStats = useCallback((items: Session[]) => {
     let total = items.length;
@@ -886,6 +1087,92 @@ export function useScheduleData({
     return () => clearInterval(interval);
   }, [processAutoCheckIn, calculateStats]);
 
+  const handleRenameSchedule = useCallback(async (oldName: string, newName: string) => {
+    const cleanOld = (oldName || '').trim();
+    const cleanNew = (newName || '').trim();
+    if (!cleanOld || !cleanNew || !activeTeacherName) return;
+    if (cleanOld === cleanNew) return;
+    const oldLower = cleanOld.toLowerCase();
+
+    // 1. Optimistic UI update (0ms)
+    setSessions(prev => {
+      const next = prev.map(s => {
+        const jName = (s.job_name || s.student_name || '').trim().toLowerCase();
+        if (jName === oldLower) {
+          return { ...s, job_name: cleanNew, student_name: cleanNew };
+        }
+        return s;
+      });
+      calculateStats(next);
+      return next;
+    });
+
+    setAllSessions(prev => prev.map(s => {
+      const jName = (s.job_name || s.student_name || '').trim().toLowerCase();
+      const tName = (s.user_name || s.teacher_name || '').trim().toLowerCase();
+      if (jName === oldLower && (!tName || tName === activeTeacherName.trim().toLowerCase())) {
+        return { ...s, job_name: cleanNew, student_name: cleanNew };
+      }
+      return s;
+    }));
+
+    try {
+      // 2. Update database sessions for this teacher
+      await supabase
+        .from('sessions')
+        .update({ job_name: cleanNew, student_name: cleanNew })
+        .or(`user_name.eq.${activeTeacherName},teacher_name.eq.${activeTeacherName}`)
+        .ilike('job_name', cleanOld);
+
+      // 3. Migrate sessionStudentConfigs key
+      const oldClassKey = `class_${cleanString(cleanOld)}`;
+      const newClassKey = `class_${cleanString(cleanNew)}`;
+      const curConfigs = { ...(sessionStudentConfigsRef.current || {}) };
+      if (curConfigs[oldClassKey]) {
+        curConfigs[newClassKey] = curConfigs[oldClassKey];
+        if (oldClassKey !== newClassKey) delete curConfigs[oldClassKey];
+        await saveSessionStudentConfigs(activeTeacherName, curConfigs, currentUser?.id);
+      }
+
+      // 4. Update scheduleTemplates so prior months never re-spawn the old name
+      const curTemplates = { ...(scheduleTemplatesRef.current || (await fetchScheduleTemplates(activeTeacherName))) };
+      const oldTplKey = cleanString(cleanOld);
+      const newTplKey = cleanString(cleanNew);
+      const existingTpl = curTemplates[oldTplKey] || curTemplates[newTplKey] || {};
+      const prevNames = Array.from(new Set([...(existingTpl.previous_names || []), oldLower])).filter(n => n !== cleanNew.toLowerCase());
+      curTemplates[newTplKey] = {
+        ...existingTpl,
+        job_name: cleanNew,
+        teacher_name: activeTeacherName,
+        previous_names: prevNames,
+        updated_at: new Date().toISOString()
+      };
+      if (oldTplKey !== newTplKey) {
+        delete curTemplates[oldTplKey];
+      }
+      await saveScheduleTemplates(activeTeacherName, curTemplates, currentUser?.id);
+
+      // 5. Clear any exclusion on the new name
+      await handleClearScheduleExclusion(cleanNew, selectedMonth, activeTeacherName);
+      showToast(`Đã đổi tên lịch "${cleanOld}" thành "${cleanNew}"!`, 'success');
+      fetchSessions(true);
+    } catch (err: any) {
+      console.error('Error in handleRenameSchedule:', err);
+      showToast(err.message || 'Lỗi khi đổi tên lịch trình.', 'error');
+    }
+  }, [
+    activeTeacherName,
+    selectedMonth,
+    currentUser?.id,
+    calculateStats,
+    saveSessionStudentConfigs,
+    fetchScheduleTemplates,
+    saveScheduleTemplates,
+    handleClearScheduleExclusion,
+    fetchSessions,
+    showToast
+  ]);
+
   const handleTeacherUpdated = useCallback((updatedActiveName?: string) => {
     fetchTeachers();
     if (updatedActiveName) {
@@ -901,6 +1188,7 @@ export function useScheduleData({
     sessions,
     allSessions,
     sessionStudentConfigs,
+    scheduleTemplates,
     selectedMonth,
     setSelectedMonth,
     currentView,
@@ -916,7 +1204,9 @@ export function useScheduleData({
     handleDeleteSchedule,
     handleDeleteSingleSession,
     handleClearScheduleExclusion,
+    handleRenameSchedule,
     saveSessionStudentConfigs,
+    saveScheduleTemplates,
     optimisticUpsertSessions,
     setSessions
   };

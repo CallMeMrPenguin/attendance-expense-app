@@ -17,6 +17,7 @@ interface ScheduleDetailModalProps {
   onOpenEditModal: () => void;
   onOpenDeleteScheduleModal?: () => void;
   onAddTemporarySession?: (schedule: ScheduleWorkSummary) => void;
+  onRenameSchedule?: (oldName: string, newName: string) => Promise<void>;
   copiedId: string | null;
   handleCopyText: (text: string, id: string) => void;
 }
@@ -29,10 +30,53 @@ export const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({
   onOpenEditModal,
   onOpenDeleteScheduleModal,
   onAddTemporarySession,
+  onRenameSchedule,
   copiedId,
   handleCopyText,
 }) => {
+  const [isEditingName, setIsEditingName] = React.useState(false);
+  const [draftName, setDraftName] = React.useState('');
+  const [isSavingName, setIsSavingName] = React.useState(false);
+
+  React.useEffect(() => {
+    if (schedule) {
+      setDraftName(schedule.name);
+      setIsEditingName(false);
+    }
+  }, [schedule?.name]);
+
   if (!schedule) return null;
+
+  const handleSaveInlineRename = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const trimmed = draftName.trim();
+    if (!trimmed || trimmed === schedule.name) {
+      setIsEditingName(false);
+      setDraftName(schedule.name);
+      return;
+    }
+    if (!onRenameSchedule) {
+      setIsEditingName(false);
+      return;
+    }
+    setIsSavingName(true);
+    try {
+      await onRenameSchedule(schedule.name, trimmed);
+      setIsEditingName(false);
+    } finally {
+      setIsSavingName(false);
+    }
+  };
+
+  const handleOpenPrimaryScheduleEditor = () => {
+    const targetSess =
+      schedule.sessions.find((s) => (s.loai_hinh || s.loai_hinh_lich) !== 'tam_thoi') ||
+      schedule.sessions[0];
+    if (targetSess) {
+      onSelectSession(targetSess);
+      onOpenEditModal();
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -42,16 +86,68 @@ export const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({
       />
       <div className="relative w-full max-w-2xl bg-[#0d1018] border border-white/10 rounded-2xl p-6 shadow-2xl z-10 max-h-[90vh] flex flex-col text-left animate-mac-dropdown">
         {/* Modal Header */}
-        <div className="flex items-start justify-between pb-4 border-b border-white/10 shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-start justify-between pb-4 border-b border-white/10 shrink-0 gap-3">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
             <span
               className="h-4 w-4 rounded-full shrink-0 shadow-[0_0_10px_currentColor]"
               style={{ backgroundColor: schedule.color, color: schedule.color }}
             />
-            <div className="min-w-0">
-              <h3 className="text-base sm:text-lg font-black text-white truncate">
-                {schedule.name}
-              </h3>
+            <div className="min-w-0 flex-1">
+              {isEditingName ? (
+                <form onSubmit={handleSaveInlineRename} className="flex items-center gap-2 flex-wrap">
+                  <input
+                    type="text"
+                    autoFocus
+                    value={draftName}
+                    onChange={(e) => setDraftName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') {
+                        setIsEditingName(false);
+                        setDraftName(schedule.name);
+                      }
+                    }}
+                    placeholder="Nhập tên lịch mới..."
+                    className="px-3 py-1 bg-[#141824] border border-indigo-500 rounded-xl text-sm font-black text-white focus:outline-none min-w-[180px]"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isSavingName || !draftName.trim()}
+                    className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-black rounded-xl cursor-pointer transition-colors"
+                  >
+                    {isSavingName ? 'Đang lưu...' : 'Lưu Tên'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsEditingName(false);
+                      setDraftName(schedule.name);
+                    }}
+                    className="px-2.5 py-1 bg-white/10 hover:bg-white/15 text-slate-300 text-xs font-bold rounded-xl cursor-pointer transition-colors"
+                  >
+                    Hủy
+                  </button>
+                </form>
+              ) : (
+                <div className="flex items-center gap-2 min-w-0">
+                  <h3 className="text-base sm:text-lg font-black text-white truncate">
+                    {schedule.name}
+                  </h3>
+                  {onRenameSchedule && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDraftName(schedule.name);
+                        setIsEditingName(true);
+                      }}
+                      className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white/5 hover:bg-indigo-500/20 border border-white/10 hover:border-indigo-500/40 text-slate-300 hover:text-indigo-300 text-[10px] font-bold transition-all cursor-pointer shrink-0"
+                      title="Đổi tên lịch trình"
+                    >
+                      <Edit3 className="h-3 w-3" />
+                      <span>Đổi tên</span>
+                    </button>
+                  )}
+                </div>
+              )}
               <div className="flex items-center gap-2 mt-1">
                 <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded border ${
                   schedule.loai_hinh === 'tam_thoi'
@@ -71,6 +167,18 @@ export const ScheduleDetailModal: React.FC<ScheduleDetailModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            {schedule.sessions.length > 0 && (
+              <button
+                type="button"
+                onClick={handleOpenPrimaryScheduleEditor}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 hover:text-white text-xs font-black rounded-xl cursor-pointer transition-all active:scale-95 border border-indigo-500/40 select-none"
+                title="Chỉnh sửa lịch định kỳ, giờ học, học phí hoặc đổi lịch từ tuần sau / tháng sau"
+              >
+                <Edit3 className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Sửa Lịch Định Kỳ</span>
+                <span className="sm:hidden">Sửa Lịch</span>
+              </button>
+            )}
             {onAddTemporarySession && (
               <button
                 type="button"

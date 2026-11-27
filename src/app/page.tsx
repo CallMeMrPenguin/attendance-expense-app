@@ -95,6 +95,7 @@ export default function Dashboard() {
     sessions,
     allSessions,
     sessionStudentConfigs,
+    scheduleTemplates,
     selectedMonth,
     setSelectedMonth,
     currentView,
@@ -109,7 +110,9 @@ export default function Dashboard() {
     handleDeleteSchedule,
     handleDeleteSingleSession,
     handleClearScheduleExclusion,
+    handleRenameSchedule,
     saveSessionStudentConfigs,
+    saveScheduleTemplates,
     optimisticUpsertSessions
   } = useScheduleData({
     currentUser,
@@ -341,6 +344,7 @@ export default function Dashboard() {
                 }}
                 onDeleteSchedule={handleDeleteSchedule}
                 onDeleteSingleSession={handleDeleteSingleSession}
+                onRenameSchedule={handleRenameSchedule}
                 onAddTemporarySession={handleAddTemporarySession}
                 trashCount={trash.trashCount}
                 onOpenTrash={() => setTrashModalOpen(true)}
@@ -411,6 +415,8 @@ export default function Dashboard() {
         onClearScheduleExclusion={handleClearScheduleExclusion}
         sessionStudentConfigs={sessionStudentConfigs}
         onSaveSessionStudentConfigs={saveSessionStudentConfigs}
+        scheduleTemplates={scheduleTemplates}
+        onSaveScheduleTemplates={saveScheduleTemplates}
         availableIncomeCats={finance.availableIncomeCats}
         initialScheduleData={preFillScheduleData}
         onClearInitialScheduleData={() => setPreFillScheduleData(null)}

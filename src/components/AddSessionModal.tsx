@@ -36,6 +36,8 @@ interface AddSessionModalProps {
   onClearExclusion?: (jobName: string, teacherOverride?: string) => Promise<void>;
   sessionStudentConfigs?: Record<string, any>;
   onSaveSessionStudentConfigs?: (teacherName: string, configs: Record<string, any>) => void;
+  scheduleTemplates?: Record<string, any>;
+  onSaveScheduleTemplates?: (teacherName: string, templates: Record<string, any>, userId?: string) => Promise<void>;
   incomeCategories?: string[];
   initialScheduleData?: any;
 }
@@ -72,6 +74,8 @@ export default function AddSessionModal({
   onClearExclusion,
   sessionStudentConfigs,
   onSaveSessionStudentConfigs,
+  scheduleTemplates,
+  onSaveScheduleTemplates,
   incomeCategories: propIncomeCategories,
   initialScheduleData
 }: AddSessionModalProps) {
@@ -553,6 +557,42 @@ export default function AddSessionModal({
           },
         };
         onSaveSessionStudentConfigs(assignedTeacherName, updatedConfigs);
+      }
+
+      // Persist permanent recurring template when creating a fixed (co_dinh) schedule
+      if (!isSingleSession && loaiHinh === 'co_dinh' && onSaveScheduleTemplates && studentName.trim()) {
+        const tplDays: Record<string, { time: string; duration: number }> = {};
+        Object.entries(dayConfigs).forEach(([day, cfg]) => {
+          if (cfg.checked) {
+            tplDays[day] = {
+              time: formatCleanTimeString(cfg.time),
+              duration: Number(cfg.duration || 2),
+            };
+          }
+        });
+        if (Object.keys(tplDays).length > 0) {
+          const tplKey = `tpl_${cleanString(studentName.trim())}`;
+          const updatedTemplates = {
+            ...(scheduleTemplates || {}),
+            [tplKey]: {
+              job_name: studentName.trim(),
+              loai_hinh: 'co_dinh',
+              effective_month: selectedMonth,
+              effective_from: `${selectedMonth}-01`,
+              days: tplDays,
+              price: Number(price),
+              color: sessionColor,
+              income_category: incomeCategory,
+              auto_checkin: autoCheckIn,
+              student_count: studentCount,
+              price_per_student: pPerStudent,
+              original_student_count: studentCount,
+              student_names: cleanStudentNames,
+              updated_at: new Date().toISOString(),
+            },
+          };
+          onSaveScheduleTemplates(assignedTeacherName, updatedTemplates, currentUser?.id);
+        }
       }
 
       const overlaps = checkOverlaps(candidates, existingSessions);
