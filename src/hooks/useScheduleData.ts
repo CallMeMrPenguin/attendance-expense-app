@@ -1136,20 +1136,22 @@ export function useScheduleData({
 
       // 4. Update scheduleTemplates so prior months never re-spawn the old name
       const curTemplates = { ...(scheduleTemplatesRef.current || (await fetchScheduleTemplates(activeTeacherName))) };
-      const oldTplKey = cleanString(cleanOld);
-      const newTplKey = cleanString(cleanNew);
-      const existingTpl = curTemplates[oldTplKey] || curTemplates[newTplKey] || {};
+      const oldRawKey = cleanString(cleanOld);
+      const oldPrefixedKey = `tpl_${oldRawKey}`;
+      const newPrefixedKey = `tpl_${cleanString(cleanNew)}`;
+      const newRawKey = cleanString(cleanNew);
+      const existingTpl = curTemplates[oldPrefixedKey] || curTemplates[oldRawKey] || curTemplates[newPrefixedKey] || curTemplates[newRawKey] || {};
       const prevNames = Array.from(new Set([...(existingTpl.previous_names || []), oldLower])).filter(n => n !== cleanNew.toLowerCase());
-      curTemplates[newTplKey] = {
+      curTemplates[newPrefixedKey] = {
         ...existingTpl,
         job_name: cleanNew,
         teacher_name: activeTeacherName,
         previous_names: prevNames,
         updated_at: new Date().toISOString()
       };
-      if (oldTplKey !== newTplKey) {
-        delete curTemplates[oldTplKey];
-      }
+      if (oldPrefixedKey !== newPrefixedKey) delete curTemplates[oldPrefixedKey];
+      if (oldRawKey !== newPrefixedKey) delete curTemplates[oldRawKey];
+      if (newRawKey !== newPrefixedKey) delete curTemplates[newRawKey];
       await saveScheduleTemplates(activeTeacherName, curTemplates, currentUser?.id);
 
       // 5. Clear any exclusion on the new name

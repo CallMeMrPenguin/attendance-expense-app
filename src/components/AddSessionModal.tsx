@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { X, Calendar, Plus, Clock, Loader2, AlertTriangle, Users, Sparkles, CheckCircle2, RotateCcw } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { 
-  DAYS, 
-  getDatesForWeekday, 
-  checkOverlaps, 
-  getStudentColor, 
-  formatCleanTimeString, 
-  getEndTime, 
-  formatDateVN, 
+import {
+  DAYS,
+  getDatesForWeekday,
+  checkOverlaps,
+  getStudentColor,
+  formatCleanTimeString,
+  getEndTime,
+  formatDateVN,
   formatVND,
   Session,
   formatNumberDots,
@@ -409,7 +409,7 @@ export default function AddSessionModal({
       setLoaiHinh('co_dinh');
       setAutoCheckIn(true);
       setShowWarningModal(false);
-      
+
       setDayConfigs(
         DAYS.reduce((acc, day) => {
           acc[day] = {
@@ -630,7 +630,7 @@ export default function AddSessionModal({
   };
 
   return (
-    <div 
+    <div
       className="fixed inset-0 bg-[#070911]/90 z-[100] flex items-center justify-center p-4 overflow-hidden pointer-events-auto select-none animate-mac-backdrop"
       onClick={(e) => e.stopPropagation()}
     >
@@ -663,18 +663,18 @@ export default function AddSessionModal({
         </div>
       )}
 
-      <div 
+      <div
         className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col max-h-[90vh] pointer-events-auto animate-mac-modal"
         onClick={(e) => e.stopPropagation()}
       >
-        
+
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950 shrink-0">
           <h2 className="text-lg font-bold flex items-center gap-2 text-slate-900 dark:text-white">
             <Calendar className="h-5 w-5 text-indigo-500" />
             Thêm Ca Dạy Mới
           </h2>
-          <button 
+          <button
             onClick={onClose}
             className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-850 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
           >
@@ -739,20 +739,18 @@ export default function AddSessionModal({
                         key={sched.name}
                         type="button"
                         onClick={() => handleSelectExistingSchedule(sched)}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer select-none ${
-                          isSelected
-                            ? 'bg-[#5c36f5] text-white border-indigo-400 shadow-[0_0_12px_rgba(92,54,245,0.6)] scale-[1.02]'
-                            : 'bg-[#141824] text-slate-300 border-white/10 hover:border-indigo-500/40 hover:bg-[#1c2236]'
-                        }`}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer select-none ${isSelected
+                          ? 'bg-[#5c36f5] text-white border-indigo-400 shadow-[0_0_12px_rgba(92,54,245,0.6)] scale-[1.02]'
+                          : 'bg-[#141824] text-slate-300 border-white/10 hover:border-indigo-500/40 hover:bg-[#1c2236]'
+                          }`}
                       >
                         <span
                           className="h-2.5 w-2.5 rounded-full shrink-0 shadow-[0_0_6px_currentColor]"
                           style={{ backgroundColor: sched.color, color: sched.color }}
                         />
                         <span className="truncate max-w-[150px]">{sched.name}</span>
-                        <span className={`text-[10px] px-1.5 py-0.2 rounded font-extrabold ${
-                          isSelected ? 'bg-black/30 text-white' : 'bg-white/5 text-slate-400'
-                        }`}>
+                        <span className={`text-[10px] px-1.5 py-0.2 rounded font-extrabold ${isSelected ? 'bg-black/30 text-white' : 'bg-white/5 text-slate-400'
+                          }`}>
                           {sched.student_count > 1 ? `${sched.student_count} HS` : formatVND(sched.price)}
                         </span>
                       </button>
@@ -928,31 +926,29 @@ export default function AddSessionModal({
                         setIsColorCustomized(true);
                       }}
                       style={{ backgroundColor: c }}
-                      className={`w-7 h-7 rounded-full transition-all cursor-pointer ${
-                        isActive 
-                          ? 'ring-2 ring-indigo-500 ring-offset-2 dark:ring-offset-slate-900 scale-110 shadow-lg' 
-                          : 'hover:scale-105 opacity-80 hover:opacity-100'
-                      }`}
+                      className={`w-7 h-7 rounded-full transition-all cursor-pointer ${isActive
+                        ? 'ring-2 ring-indigo-500 ring-offset-2 dark:ring-offset-slate-900 scale-110 shadow-lg'
+                        : 'hover:scale-105 opacity-80 hover:opacity-100'
+                        }`}
                       title={`Chọn màu ${c}`}
                     />
                   );
                 })}
-                
+
                 {/* Custom Color Button */}
                 <button
                   type="button"
                   onClick={() => colorInputRef.current?.click()}
                   style={{
                     backgroundColor: PALETTE.includes(color.toLowerCase()) ? '#1e293b' : color,
-                    backgroundImage: PALETTE.includes(color.toLowerCase()) 
-                      ? 'linear-gradient(135deg, #f43f5e 0%, #3b82f6 50%, #10b981 100%)' 
+                    backgroundImage: PALETTE.includes(color.toLowerCase())
+                      ? 'linear-gradient(135deg, #f43f5e 0%, #3b82f6 50%, #10b981 100%)'
                       : 'none'
                   }}
-                  className={`w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer border border-slate-700/50 ${
-                    !PALETTE.includes(color.toLowerCase())
-                      ? 'ring-2 ring-indigo-500 ring-offset-2 dark:ring-offset-slate-900 scale-110 shadow-lg'
-                      : 'hover:scale-105'
-                  }`}
+                  className={`w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer border border-slate-700/50 ${!PALETTE.includes(color.toLowerCase())
+                    ? 'ring-2 ring-indigo-500 ring-offset-2 dark:ring-offset-slate-900 scale-110 shadow-lg'
+                    : 'hover:scale-105'
+                    }`}
                   title="Màu tùy chỉnh"
                 >
                   <span className="text-[10px] font-black text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
@@ -1005,11 +1001,10 @@ export default function AddSessionModal({
                 <button
                   type="button"
                   onClick={() => setAutoCheckIn(prev => !prev)}
-                  className={`w-full h-10 flex items-center justify-between px-3.5 rounded-xl border transition-all text-xs font-bold cursor-pointer select-none ${
-                    autoCheckIn
-                      ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400'
-                      : 'bg-[#0d1018] border-white/10 text-slate-400'
-                  }`}
+                  className={`w-full h-10 flex items-center justify-between px-3.5 rounded-xl border transition-all text-xs font-bold cursor-pointer select-none ${autoCheckIn
+                    ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400'
+                    : 'bg-[#0d1018] border-white/10 text-slate-400'
+                    }`}
                 >
                   <span className="text-[11px] font-bold uppercase tracking-wider">{autoCheckIn ? 'Tự động điểm danh: Bật' : 'Tự động điểm danh: Tắt'}</span>
                   <div className={`w-8 h-4.5 rounded-full transition-colors relative ${autoCheckIn ? 'bg-emerald-500' : 'bg-slate-700'}`}>
@@ -1027,11 +1022,10 @@ export default function AddSessionModal({
                   setIsSingleSession(false);
                   setLoaiHinh('co_dinh');
                 }}
-                className={`flex-1 py-2.5 text-xs font-bold rounded-xl border transition-all ${
-                  !isSingleSession
-                    ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/40 shadow-sm'
-                    : 'bg-[#0d1018] text-slate-400 border-white/10 hover:border-slate-700 hover:text-white cursor-pointer'
-                }`}
+                className={`flex-1 py-2.5 text-xs font-bold rounded-xl border transition-all ${!isSingleSession
+                  ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/40 shadow-sm'
+                  : 'bg-[#0d1018] text-slate-400 border-white/10 hover:border-slate-700 hover:text-white cursor-pointer'
+                  }`}
               >
                 Lịch Định Kỳ Cả Tháng
               </button>
@@ -1041,11 +1035,10 @@ export default function AddSessionModal({
                   setIsSingleSession(true);
                   setLoaiHinh('tam_thoi');
                 }}
-                className={`flex-1 py-2.5 text-xs font-bold rounded-xl border transition-all ${
-                  isSingleSession
-                    ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/40 shadow-sm'
-                    : 'bg-[#0d1018] text-slate-400 border-white/10 hover:border-slate-700 hover:text-white cursor-pointer'
-                }`}
+                className={`flex-1 py-2.5 text-xs font-bold rounded-xl border transition-all ${isSingleSession
+                  ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/40 shadow-sm'
+                  : 'bg-[#0d1018] text-slate-400 border-white/10 hover:border-slate-700 hover:text-white cursor-pointer'
+                  }`}
               >
                 Lịch Một Buổi Duy Nhất
               </button>
@@ -1111,11 +1104,10 @@ export default function AddSessionModal({
                     return (
                       <div
                         key={day}
-                        className={`flex flex-wrap items-center gap-3 p-3 rounded-xl border transition-all ${
-                          config.checked
-                            ? 'bg-indigo-50/50 dark:bg-indigo-950/20 border-indigo-200 dark:border-indigo-900/50'
-                            : 'bg-slate-50/50 dark:bg-slate-950/30 border-slate-200/60 dark:border-slate-850'
-                        }`}
+                        className={`flex flex-wrap items-center gap-3 p-3 rounded-xl border transition-all ${config.checked
+                          ? 'bg-indigo-50/50 dark:bg-indigo-950/20 border-indigo-200 dark:border-indigo-900/50'
+                          : 'bg-slate-50/50 dark:bg-slate-950/30 border-slate-200/60 dark:border-slate-850'
+                          }`}
                       >
                         <label className="flex items-center gap-2 cursor-pointer select-none font-bold text-sm min-w-[100px]">
                           <input
